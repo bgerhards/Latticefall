@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import sys
 from pathlib import Path
 
@@ -133,6 +134,40 @@ def check_anchor(doc: dict, towers: dict, enemies: dict, rep: Report) -> None:
 
     if len(doc["slots"]) < 3:
         rep.warn(where, f"{len(doc['slots'])} build slots is very few")
+
+    # A slot further from the path than any weapon's range is dead: nothing built there
+    # can ever fire. This is invisible in the data and expensive to find by grading —
+    # anchor-06 was authored with two dead slots and several marginal ones, and read as
+    # a wave-balance problem through several sweeps before the layout was measured.
+    ranged = [t for t in avail if t.get("damage", 0) > 0]
+    if ranged:
+        best_range = max(t["range"] for t in ranged)
+        short_range = min(t["range"] for t in ranged)
+        pts = [(float(a[0]), float(a[1])) for a in doc["path"]]
+
+        def dist_to_path(sx: float, sy: float) -> float:
+            best = float("inf")
+            for (ax, ay), (bx, by) in zip(pts, pts[1:]):
+                dx, dy = bx - ax, by - ay
+                span = dx * dx + dy * dy
+                t = 0.0 if span == 0 else max(0.0, min(1.0,
+                        ((sx - ax) * dx + (sy - ay) * dy) / span))
+                best = min(best, math.hypot(sx - (ax + t * dx), sy - (ay + t * dy)))
+            return best
+
+        dead, marginal = [], []
+        for s in doc["slots"]:
+            d = dist_to_path(float(s[0]), float(s[1]))
+            if d > best_range:
+                dead.append((list(s), round(d, 1)))
+            elif d > short_range:
+                marginal.append((list(s), round(d, 1)))
+        if dead:
+            rep.err(where, f"{len(dead)} slot(s) are further from the path than any "
+                           f"weapon can reach (max range {best_range}): {dead}")
+        if marginal:
+            rep.warn(where, f"{len(marginal)} slot(s) are out of range of the "
+                            f"shortest-ranged weapon ({short_range}): {marginal}")
 
 
 def check_dialog(doc: dict, anchors: dict, rep: Report) -> None:

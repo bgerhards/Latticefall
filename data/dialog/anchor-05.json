@@ -1,0 +1,51 @@
+{
+  "schema": "dialog",
+  "anchor": "anchor-05",
+  "lines": [
+    { "trigger": "brief", "speaker": "control",
+      "text": "Anchor twenty-two. A hundred megawatts. Nothing on survey but the usual." },
+    { "trigger": "brief", "speaker": "vasquez",
+      "text": "Copy. Okonkwo, you slept?" },
+    { "trigger": "brief", "speaker": "okonkwo",
+      "text": "Four hours. I've been reading the maintenance logs. Somebody here was replacing the same coupling every eleven days for two hundred years." },
+    { "trigger": "brief", "speaker": "vasquez",
+      "text": "That's not a person. That's a machine with a work order." },
+    { "trigger": "brief", "speaker": "okonkwo",
+      "text": "It logged the part number wrong twice and corrected itself. Machines don't do that.",
+      "beat": "the act's quiet one — the wardens become almost sympathetic here" },
+
+    { "trigger": "wave-start:1", "speaker": "control",
+      "text": "Contact. Routine." },
+
+    { "trigger": "wave-clear:2", "speaker": "vasquez", "critical": false,
+      "text": "My sister keeps asking what the sky looks like out here." },
+    { "trigger": "wave-clear:2", "speaker": "okonkwo", "critical": false,
+      "text": "What do you tell her?" },
+    { "trigger": "wave-clear:2", "speaker": "vasquez", "critical": false,
+      "text": "That it's fine. There isn't one, but it's fine." },
+
+    { "trigger": "wave-clear:4", "speaker": "okonkwo", "critical": false,
+      "text": "Two hundred years of eleven-day intervals, Vasquez. Whoever wrote that rota is long dead and the rota is still running." },
+    { "trigger": "wave-clear:4", "speaker": "vasquez", "critical": false,
+      "text": "So are we, eventually. Doesn't mean we stop." },
+
+    { "trigger": "brownout", "speaker": "okonkwo", "critical": false,
+      "text": "Over budget. Not badly — but it's costing you across the board." },
+
+    { "trigger": "first-leak", "speaker": "control", "critical": false,
+      "text": "One through. Noted." },
+
+    { "trigger": "low-lives", "speaker": "vasquez", "critical": false,
+      "text": "Tighten up. This one was supposed to be easy." },
+
+    { "trigger": "debrief", "speaker": "vasquez",
+      "text": "Quiet one." },
+    { "trigger": "debrief", "speaker": "okonkwo",
+      "text": "I logged the coupling. Eleven days from now it'll want doing again and there'll be nobody on this anchor to do it." },
+    { "trigger": "debrief", "speaker": "vasquez",
+      "text": "You want to leave a note?" },
+    { "trigger": "debrief", "speaker": "okonkwo",
+      "text": "I did. Part number and the interval. It'll be wrong in a year and it took me thirty seconds.",
+      "beat": "the sympathy lands here — he does the dead crew's paperwork and does not explain why" }
+  ]
+}

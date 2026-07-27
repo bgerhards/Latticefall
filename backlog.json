@@ -1,5 +1,5 @@
 {
-  "next_id": 33,
+  "next_id": 35,
   "items": [
     {
       "id": "LF-001",
@@ -384,6 +384,30 @@
       "opened": "2026-07-27",
       "closed": "2026-07-27",
       "note": "closed at 5f13193"
+    },
+    {
+      "id": "LF-033",
+      "title": "Ion lance is strictly dominated: worse damage per megawatt than the pulse turret even against armour",
+      "kind": "bug",
+      "area": "design",
+      "pri": "high",
+      "status": "open",
+      "why": "Measured: vs plate-4 the lance does 18.3 dps on 34 MW (0.54 per MW), the pulse turret 6.7 dps on 12 MW (0.56 per MW). The designated anti-armour unlock is worse at armour than the starter gun, while costing 3x the funds and draw so it buys fewer emplacements covering less path. Same class as LF-032. Raising damage to 66 fixes brutal but hard still grades single-solution",
+      "opened": "2026-07-27",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-034",
+      "title": "anchor-06 Hard Currency is authored but does not grade clean \u2014 parked",
+      "kind": "chore",
+      "area": "data",
+      "pri": "high",
+      "status": "open",
+      "why": "Layout is good (path 34 tiles, all 10 slots within 2.0 of the path; WIP JSON kept out of data/ deliberately). Blocked on LF-033: with the lance dominated, cheap-mass is the only build that clears hard, so the level grades single-solution at every weight swept. Fix the lance first, then re-sweep",
+      "opened": "2026-07-27",
+      "closed": null,
+      "note": ""
     }
   ]
 }
