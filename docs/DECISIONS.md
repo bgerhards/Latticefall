@@ -535,3 +535,30 @@ lets it use the thing it is expensive for.
 
 Related: decision 023, where a different harness artefact produced a different wrong
 conclusion about the shield wall. Both times the level, not the tower, was the variable.
+
+---
+
+## 025 — The albedo pass renders with emission off, making decision 007 true
+
+**Decided.** `render_pair()` zeroes every material's Emission Strength for the albedo
+render and restores it for the glow render.
+
+**Context.** Decision 007 says glow is never baked into a sprite. It was, and nobody had
+checked. Principled emission contributes to the beauty render regardless of compositing,
+so the albedo PNG carried a saturated emissive core *and* the glow PNG carried the same
+light again, and `glow_layer.gd` sums them additively in game. Neither PNG clipped on its
+own — measured 0% white pixels in all twelve glow sprites — but the sum did, and every
+strong emitter resolved to a featureless white ball on the board. Four arc nodes on
+anchor-08 were four white orbs with no hue at all (LF-031).
+
+**Consequence.** The albedo is now pure surface, the glow layer supplies all the emissive
+light, and the arc node reads as the cyan-green it was authored as. This also restores the
+actual point of decision 007: a brownout dims emissive elements because the glow layer is
+modulated, and that only works if the glow layer is carrying the light rather than half of
+it. Verified end to end — clipped-white pixels in the summed result fell from a solid core
+to 50 px at the very centre of the brightest emitter, which is what a light source should
+look like.
+
+**The lesson.** "Compositing off" is not the same as "emission off". A rule recorded in
+this log is not self-enforcing; this one had been false since the sprite pipeline was
+written and every render since had baked in the thing the decision forbids.

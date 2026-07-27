@@ -367,11 +367,11 @@
       "kind": "polish",
       "area": "art",
       "pri": "med",
-      "status": "open",
+      "status": "done",
       "why": "Emission colour is correct in the sprite (cyan-green) but the additive glow pass stacks over the albedo core and clips. Same class as LF-020/022 but in the engine blend, not the render",
       "opened": "2026-07-27",
-      "closed": null,
-      "note": ""
+      "closed": "2026-07-27",
+      "note": "closed at ccf0e4e"
     },
     {
       "id": "LF-032",

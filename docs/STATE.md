@@ -8,21 +8,23 @@ conversation that produced it. The facts below the AUTO marker are regenerated b
 
 ## Where the project is
 
-**Anchors 01-04 are playable with rendered art. Anchors 05-24 do not exist.**
+**Act I is complete: anchors 01-08 are playable, graded and committed. Anchors 09-24 do not exist.**
 
-Act I's first half is authored, graded and committed. Every subsystem it needs — content
+All eight Act I anchors grade clean — winnable at all three difficulties by more than one
+build, with peak load above the pressure floor. Every subsystem it needs — content
 data, rules, simulation, audio, sprites, and now an editor you can actually see the board
 in — is built and gated. What remains is volume: 20 more anchors and their dialog.
 
-Do not describe this as "nearly done". Four levels of twenty-four.
+Do not describe this as "nearly done". Eight levels of twenty-four, and Act II needs a
+new antagonist, biome and mechanic rather than more of the same.
 
 ## What works
 
 | | |
 |---|---|
-| **Game** | `anchor-01` … `anchor-04` playable end to end. Run: `/Applications/Godot.app/Contents/MacOS/Godot --path .` |
+| **Game** | `anchor-01` … `anchor-08` playable end to end. Run: `/Applications/Godot.app/Contents/MacOS/Godot --path .` |
 | **Editor** | `scenes/main.tscn` authors its node tree, and `anchor_view.gd` is a `@tool` script that draws the board while editing, with path arrows, IN/OUT markers and numbered slots. `anchor_id` is a dropdown of the levels that exist. |
-| **Rules** | Written twice — `sim/engine.py` and `scripts/anchor_sim.gd` — and diffed on every commit. 84 runs identical. |
+| **Rules** | Written twice — `sim/engine.py` and `scripts/anchor_sim.gd` — and diffed on every commit. 168 runs identical. |
 | **Simulation** | Headless, fixed timestep, no RNG in the core loop. Grades an anchor across 7 policies x 3 difficulties. |
 | **Art** | 12 sprites. All five emplacements have art. Palette is authored in sRGB and linearised; the pivot is measured, not assumed. |
 | **Audio** | Complete. 14 music tracks, 35 of ~60 SFX. |
@@ -37,14 +39,20 @@ Do not describe this as "nearly done". Four levels of twenty-four.
 
 ## Next task
 
-**Anchors 05-08**, finishing Act I, using the `new-anchor` skill. 05 "Housekeeping" is a
-quiet one; 06 "Hard Currency" unlocks the ion lance; 07 "Someone Else's Boots"; 08
-"Eleven Years of Nothing" is the act finale.
+**Act II, anchors 09-16.** New antagonist (Sable Reach), new biome, power tier 110-180 MW,
+and the act's mechanic: `drains_mw` units steal bus capacity while alive, so power stops
+being a budget the player controls alone. `reach-breacher` already exists in
+`data/enemies.json` and is unused. No Sable Reach emplacement or sprite exists yet.
 
-Method that worked for 02-04, and is worth repeating: write the level, then **sweep**
-capacity x funds x wave-weight against `sim/run.py` rather than guessing. Every one of
-02, 03 and 04 was unwinnable or single-solution on the first cut. Act I's power tier is
-60-110 MW and anchors 01-04 use 60/80/92/96, so 05-08 have roughly 100-110 to work with.
+**Method that works — do not skip it.** Write the level, then *sweep* capacity x funds x
+wave weight against `sim/run.py`. Every one of 02-08 was unwinnable or single-solution on
+the first cut; none were fixable by intuition. Two further rules learned the hard way:
+
+- **Check the layout before the numbers.** anchor-06 refused to grade at any weight because
+  its slots were out of weapon range and its path too long. The validator now errors on
+  unreachable slots, but path *shape* still has to be judged — a long thin path rewards
+  cheap mass and makes every premium emplacement bad regardless of stats (decision 024).
+- **Act I power tiers are 60/80/92/96/100/104/106/110.** Act II starts at 110.
 
 ## Settled this session — do not reopen
 
@@ -95,27 +103,27 @@ Full detail in `CLAUDE.md`. Recorded so they are not rediscovered.
 ### Gate
 
 ```
-[  ok  ] python syntax            92ms  22 files
+[  ok  ] python syntax            90ms  22 files
 [  ok  ] json parses              52ms  
-[  ok  ] game data                94ms  no warnings
-[  ok  ] banned terms            207ms  69 files clean
-[  ok  ] sfx determinism         125ms  ui_confirm byte-identical
+[  ok  ] game data                96ms  3 warning(s)
+[  ok  ] banned terms            204ms  77 files clean
+[  ok  ] sfx determinism          94ms  ui_confirm byte-identical
 [  ok  ] music manifest            0ms  14 tracks
-[  ok  ] backlog rendered          0ms  15 open
-[  ok  ] sim determinism        1933ms  deterministic
-[  ok  ] godot boots            1130ms  main scene loads clean
-[  ok  ] game renders           2157ms  coverage 0.39, 80 tones
-[  ok  ] rules parity          25943ms  84 runs identical (gdscript vs python)
+[  ok  ] backlog rendered          0ms  14 open
+[  ok  ] sim determinism        1931ms  deterministic
+[  ok  ] godot boots            1060ms  main scene loads clean
+[  ok  ] game renders           2183ms  coverage 0.39, 71 tones
+[  ok  ] rules parity          88255ms  168 runs identical (gdscript vs python)
 
-11 passed · 0 failed · 0 skipped · 31734ms
+11 passed · 0 failed · 0 skipped · 93965ms
 ```
 
 ### Inventory
 
 | | count |
 |---|---|
-| anchors authored | 4 of 24 |
-| dialog files | 4 |
+| anchors authored | 8 of 24 |
+| dialog files | 8 |
 | sfx | 35 of ~60 |
 | music tracks | 14 of 14 |
 | sprite renders | 110 |
@@ -130,12 +138,16 @@ Full detail in `CLAUDE.md`. Recorded so they are not rediscovered.
 | anchor-02 | 1 | 80 MW | 7 | 3/4 | 3/4 | 2/4 | ok |
 | anchor-03 | 1 | 92 MW | 7 | 3/5 | 3/5 | 3/4 | ok |
 | anchor-04 | 1 | 96 MW | 8 | 3/6 | 3/6 | 2/6 | ok |
+| anchor-05 | 1 | 100 MW | 7 | 3/6 | 4/6 | 3/6 | ok |
+| anchor-06 | 1 | 104 MW | 7 | 4/7 | 4/7 | 3/7 | ok |
+| anchor-07 | 1 | 106 MW | 8 | 3/7 | 3/7 | 2/7 | ok |
+| anchor-08 | 1 | 110 MW | 9 | 3/7 | 2/7 | 2/7 | ok |
 
 *Cells are distinct winning builds / distinct builds tried.*
 
 ### Backlog
 
-15 open · 17 closed
+14 open · 20 closed
 
 - `high` LF-004 No sprite atlas packer
 - `high` LF-006 Write dialog for all 24 anchors
@@ -149,21 +161,20 @@ Full detail in `CLAUDE.md`. Recorded so they are not rediscovered.
 - `med` LF-021 Anchor ring, heavy and mote need silhouette pass at 100% zoom
 - `med` LF-025 Editor preview shows flat-colour tiles until the project is reloaded, because the Sprites autoload is only instantiated in-editor at startup
 - `med` LF-026 HUD and dialog build their Control widgets in code rather than being authored in the scene
-- `med` LF-031 Arc node and anchor ring emissives saturate to white in the additive glow layer
 - `low` LF-010 Gamepad support deferred until content-complete
 - `low` LF-018 Unfocused Godot window is throttled — verification must use --fixed-fps
 
 ### Recent commits
 
 ```
+ccf0e4e feat(content): anchors 07-08 — Act I is complete and grades clean
+7d4ac2b feat(content): anchor-06 "Hard Currency" — ion lance unlock, compact serpentine
+6c78fc1 feat(content): anchor-05 "Housekeeping"; validator catches dead build slots
+7129d64 docs: rewrite STATE for a fresh context
 6f33bf2 docs: decision 023 — correct the shield-wall measurement in 021
 8abcbf6 fix(balance): the shield wall is worth building — 26 MW, range 3.6, 0.28 slow
 5f13193 feat(rules): price brownout by overdraw size, superseding the flat penalty
 8cbe408 feat(content): anchor-04 "The Fourth Door"; LF-014 measured and refused
-1379c12 feat(art): sprites for the scan relay, shield wall and ion lance
-8a9ec0a feat(content): anchor-03 "Nothing Answers" — armoured heavies, arc node unlock
-252d974 feat(content): anchor-02 "Line of Sight" + the harness changes it needed
-9d9ff55 chore(tooling): report sim state on every shot; record the reimport trap
 ```
 
 <!-- END AUTO -->

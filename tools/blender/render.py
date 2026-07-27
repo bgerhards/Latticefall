@@ -400,13 +400,43 @@ def place_camera(sc, yaw_deg, height_bias=HEIGHT_BIAS):
     return cam
 
 
+def _emission_strengths(value=None):
+    """Read or overwrite every material's Emission Strength. Returns the old values.
+
+    Decision 007 says glow is never baked into a sprite. That was not actually true:
+    Principled emission contributes to the beauty render, so the albedo pass carried a
+    saturated emissive core *and* the glow pass carried it again, and the engine's
+    additive layer summed the two. Every strong emitter — the arc node worst of all —
+    resolved to a featureless white ball in game even though neither PNG clipped on its
+    own. Zeroing emission for the albedo pass makes the albedo pure surface and leaves
+    the glow layer supplying all of the emissive light, which is what lets a brownout
+    dim it (LF-031).
+    """
+    old = {}
+    for m in bpy.data.materials:
+        if not m.use_nodes:
+            continue
+        b = m.node_tree.nodes.get("Principled BSDF")
+        if b is None:
+            continue
+        s = b.inputs["Emission Strength"]
+        old[m.name] = s.default_value
+        if value is not None:
+            s.default_value = value
+    return old
+
+
 def render_pair(sc, ng, name, yaw, out_dir):
     cam = place_camera(sc, yaw)
     paths = {}
     sc.render.use_compositing = False
+    saved = _emission_strengths(0.0)          # albedo is surface only
     sc.render.filepath = os.path.join(out_dir, "%s_y%03d_albedo.png" % (name, yaw))
     bpy.ops.render.render(write_still=True)
     paths["albedo"] = sc.render.filepath
+    for mname, v in saved.items():            # emission back on for the glow pass
+        bpy.data.materials[mname].node_tree.nodes["Principled BSDF"] \
+            .inputs["Emission Strength"].default_value = v
     sc.render.use_compositing = True
     sc.render.filepath = os.path.join(out_dir, "%s_y%03d_glow.png" % (name, yaw))
     bpy.ops.render.render(write_still=True)
