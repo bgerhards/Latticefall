@@ -172,6 +172,23 @@ def check_sim() -> Result:
     return Result(OK, "deterministic")
 
 
+def check_rules_parity() -> Result:
+    """The rules exist twice, in Python and GDScript. Prove they agree.
+
+    Without this the game could silently stop playing the level that was balanced,
+    and nothing would announce it.
+    """
+    script = ROOT / "tools" / "test_parity.py"
+    if not script.exists():
+        return Result(SKIP, "parity harness missing")
+    if not Path("/Applications/Godot.app/Contents/MacOS/Godot").exists():
+        return Result(SKIP, "godot not installed")
+    r = run(PY, str(script))
+    if r.returncode != 0:
+        return Result(FAIL, (r.stderr + r.stdout).strip()[-1200:])
+    return Result(OK, r.stdout.strip().replace("parity ok — ", ""))
+
+
 CHECKS = [
     ("python syntax",     check_python_syntax),
     ("json parses",       check_json_parses),
@@ -181,6 +198,7 @@ CHECKS = [
     ("music manifest",    check_music_manifest),
     ("backlog rendered",  check_backlog_rendered),
     ("sim determinism",   check_sim),
+    ("rules parity",      check_rules_parity),
 ]
 
 
