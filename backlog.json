@@ -1,5 +1,5 @@
 {
-  "next_id": 14,
+  "next_id": 16,
   "items": [
     {
       "id": "LF-001",
@@ -19,11 +19,11 @@
       "kind": "feature",
       "area": "engine",
       "pri": "blocker",
-      "status": "open",
+      "status": "done",
       "why": "Decision 003 depends on grading anchors without rendering.",
       "opened": "2026-07-26",
-      "closed": null,
-      "note": ""
+      "closed": "2026-07-26",
+      "note": "sim/ written; check.py sim determinism now passes"
     },
     {
       "id": "LF-003",
@@ -156,6 +156,30 @@
       "opened": "2026-07-26",
       "closed": "2026-07-26",
       "note": "installed; masters later removed from git per decision 012"
+    },
+    {
+      "id": "LF-014",
+      "title": "Brownout is never a rational choice with homogeneous towers",
+      "kind": "question",
+      "area": "design",
+      "pri": "high",
+      "status": "open",
+      "why": "N towers at 60% fire rate = 0.6N effective; with a slot-limited board that is always worse than running capacity/draw at full rate. Brownout only becomes a tradeoff with heterogeneous draws (e.g. briefly raising a 40MW shield wall). Verify this holds once anchor-04 unlocks shield-wall.",
+      "opened": "2026-07-26",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-015",
+      "title": "Rebalance anchors 02-24 as they are authored",
+      "kind": "chore",
+      "area": "design",
+      "pri": "med",
+      "status": "open",
+      "why": "Only anchor-01 has been graded. brutal=1.55 was tuned against one level.",
+      "opened": "2026-07-26",
+      "closed": null,
+      "note": ""
     }
   ]
 }

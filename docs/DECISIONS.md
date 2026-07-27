@@ -166,3 +166,43 @@ committed. History was rewritten to remove them.
 
 **Consequence.** A fresh clone is ~65 MB rather than ~430 MB. Re-encoding at a different
 quality requires restoring masters from backup first.
+
+---
+
+## 013 — Anchors are graded by distinct build, not by policy
+
+**Decided.** The headless grader counts **distinct winning builds**, deduplicated by the
+set of placed emplacements — not the number of winning policies. An anchor passes only if
+more than one distinct build clears it, peak load reaches at least 75% of capacity, and
+harder tiers actually eliminate some builds.
+
+**Context.** The first version reported "6/6 policies clear" for anchor-01. All six had
+converged on the same board, because only one emplacement is unlocked there. The number
+was true and meaningless.
+
+**Consequence.** An anchor with one emplacement unlocked has one build by construction.
+Rather than special-casing act 1 in the grader, the anchor declares `"tutorial": true` in
+data, which relaxes the multiple-build and difficulty-separation checks. The exemption is
+visible in the level file instead of hidden in the tool.
+
+---
+
+## 014 — Brutal difficulty is 1.55x enemy HP
+
+**Decided.** `standard` 1.00, `hard` 1.35, `brutal` 1.55 HP multiplier.
+
+**Context.** Brutal was 1.80 and made anchor-01 unwinnable by any build. Swept against the
+simulator rather than guessed: 1.55 is the point where brutal kills the overdraw build and
+leaves the disciplined one alive — which is exactly the behaviour the −40% brownout penalty
+is supposed to produce.
+
+**Consequence.** Tuned against one anchor. It must be re-checked as anchors 02–24 are
+authored (LF-015).
+
+**Also found, unresolved.** With homogeneous emplacements, overdrawing is *never*
+rational: N towers at 60% fire rate is 0.6N effective, which on a slot-limited board is
+always worse than running `capacity/draw` at full rate. Brownout is currently a punishment
+rather than a tradeoff. It only becomes a real choice once draws are heterogeneous — for
+instance briefly raising a 40 MW shield wall. Filed as LF-014; it needs verifying once
+anchor-04 unlocks the shield wall, and if it does not hold, the hook is weaker than
+decision 003 assumes.

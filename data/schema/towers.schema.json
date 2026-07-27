@@ -2,29 +2,103 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Emplacement definitions",
   "type": "object",
-  "required": ["schema", "towers"],
+  "required": [
+    "schema",
+    "towers"
+  ],
   "properties": {
-    "schema": {"const": "towers"},
+    "schema": {
+      "const": "towers"
+    },
     "towers": {
-      "type": "array", "minItems": 1,
+      "type": "array",
+      "minItems": 1,
       "items": {
         "type": "object",
-        "required": ["id", "name", "cost", "draw_mw", "damage", "range", "fire_interval", "targets"],
+        "required": [
+          "id",
+          "name",
+          "cost",
+          "draw_mw",
+          "damage",
+          "range",
+          "fire_interval",
+          "targets"
+        ],
         "additionalProperties": false,
         "properties": {
-          "id": {"type": "string", "pattern": "^[a-z][a-z0-9-]*$"},
-          "name": {"type": "string"},
-          "cost": {"type": "integer", "minimum": 0},
-          "draw_mw": {"type": "number", "minimum": 0,
-                      "description": "continuous MW while online. the number that matters."},
-          "damage": {"type": "number", "minimum": 0},
-          "range": {"type": "number", "exclusiveMinimum": 0, "description": "in tiles"},
-          "fire_interval": {"type": "number", "exclusiveMinimum": 0, "description": "seconds"},
-          "targets": {"type": "array", "minItems": 1,
-                      "items": {"enum": ["ground", "air", "shielded"]}},
-          "splash": {"type": "number", "minimum": 0},
-          "unlocked_at": {"type": "string", "pattern": "^anchor-\\d{2}$"},
-          "note": {"type": "string"}
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]*$"
+          },
+          "name": {
+            "type": "string"
+          },
+          "cost": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "draw_mw": {
+            "type": "number",
+            "minimum": 0,
+            "description": "continuous MW while online. the number that matters."
+          },
+          "damage": {
+            "type": "number",
+            "minimum": 0
+          },
+          "range": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "description": "in tiles"
+          },
+          "fire_interval": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "description": "seconds"
+          },
+          "targets": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "enum": [
+                "ground",
+                "air",
+                "shielded"
+              ]
+            }
+          },
+          "splash": {
+            "type": "number",
+            "minimum": 0
+          },
+          "unlocked_at": {
+            "type": "string",
+            "pattern": "^anchor-\\d{2}$"
+          },
+          "note": {
+            "type": "string"
+          },
+          "effect": {
+            "type": "object",
+            "required": [
+              "type"
+            ],
+            "additionalProperties": false,
+            "description": "non-damage role. 'slow' scales enemy speed in range; 'reveal' makes air units targetable.",
+            "properties": {
+              "type": {
+                "enum": [
+                  "slow",
+                  "reveal"
+                ]
+              },
+              "value": {
+                "type": "number",
+                "exclusiveMinimum": 0
+              }
+            }
+          }
         }
       }
     }

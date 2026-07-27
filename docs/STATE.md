@@ -1,7 +1,7 @@
 # State
 
 *Rewritten at the end of each session. Describes now, for someone with no memory of the
-conversation that produced it. Last updated: 2026-07-26.*
+conversation that produced it. Last updated: 2026-07-26 (sim landed).*
 
 ---
 
@@ -23,33 +23,43 @@ Be honest about this when reporting progress: three subsystems exist and zero of
 | **Audio — SFX** | 35 of ~60 effects, synthesized from code and byte-reproducible. The remaining ~12 organic ones need CC0 sourcing (LF-005). |
 | **Art pipeline** | Proven, not productionized. Iso camera, two-pass albedo + glow, Blender 5.2 API traps all mapped. Output so far is blockouts, not art (LF-003). |
 | **Content data** | `anchor-01` complete: layout, 5 waves, 12 dialog lines. 5 emplacements, 4 enemies. Schema-validated. |
-| **Tooling** | `tools/check.py` gate — 7 checks passing, 1 skipped. Backlog with stable IDs. 5 agents, 5 skills. |
+| **Simulation** | `sim/` — headless, fixed-timestep, **no RNG in the core loop**, so determinism is structural. Grades an anchor across 6 build policies x 3 difficulties in ~0.9 s. |
+| **Tooling** | `tools/check.py` gate — **8 checks passing, 0 skipped**. Backlog with stable IDs. 5 agents, 5 skills. |
 
 ## What does not exist
 
-- Any Godot scene, script, or running game. `LF-001`.
-- The headless combat simulator. `LF-002`. Until it exists, no balance claim is verifiable
-  and `check.py` skips its determinism check.
+- Any Godot scene, script, or running game. `LF-001`. **This is the whole game.**
 - Anchors 02–24, and their dialog.
 - Sprite atlas packing, and any real (non-blockout) art.
 
 ## Next task
 
-**`LF-002` — write the headless combat simulator**, before `LF-001`.
+**`LF-001` — the Godot gameplay layer.** Everything it needs now exists: validated content
+data, a graded anchor, an audio bank, and a reference implementation of the rules in `sim/`.
 
-Reason: decision 003 makes power a scalar over time specifically so an anchor can be graded
-without rendering. Building the Godot layer first means balancing by hand and by eye, which
-is the failure mode the whole data-driven design exists to avoid. The sim also gives
-`check.py` its determinism check, which is currently the only skipped one.
+Build anchor-01 playable end to end: iso grid, path, build slots, the reactor bus readout,
+brownout, waves, and the dialog triggers. The simulation rules already live in `sim/engine.py`
+— **do not reimplement them from scratch in GDScript and let the two drift.** Where a rule
+must exist in both, the sim is the reference and any divergence is a bug.
 
-It should read `data/`, run fixed-timestep with a seeded RNG, and report per-wave outcome,
-peak and mean bus load, and how many distinct builds clear the anchor.
+Use the `godot-engineer` agent; it holds the Compatibility-renderer constraints.
 
 ## Open with the user
 
 - **CC0-by-default** for the 12 organic SFX — stated, not explicitly confirmed. Proceeding
   unless told otherwise.
 - Nothing else is blocked on a decision.
+
+## Live design concern
+
+`LF-014`. With homogeneous emplacements, overdrawing the bus is **never** rational: N towers
+at 60% fire rate is 0.6N effective, which on a slot-limited board is always worse than
+running `capacity/draw` at full rate. Brownout is currently a punishment, not a tradeoff.
+
+It should become a real choice once draws are heterogeneous — briefly raising a 40 MW shield
+wall on a 60 MW bus, for instance. That is unverified. If it does not hold once anchor-04
+unlocks the shield wall, the core hook is weaker than decision 003 assumes and the emplacement
+draw table needs rethinking. Check this early, not at anchor 20.
 
 ## Traps that have already cost time
 
