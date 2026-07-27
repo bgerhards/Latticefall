@@ -933,3 +933,46 @@ EMPLACEMENT after a placement while the bar stays armed for the next one. That i
 "last thing pointed at" rule. `--pick <tower-id>` arms a button from the CLI so that
 `--select N --pick X` screenshots this interaction; without it the fix is unverifiable at
 `--fixed-fps`, exactly as with `--paused` in 034 and `--select` in 035.
+
+---
+
+## 037 — The threat panel: what is coming, when, and what it will cost the bus
+
+**Decided.** A panel on the right edge, opposite the instrument column, showing the current
+wave: its number, a **countdown in seconds** during prep, and every unit type in it with
+count, HP, speed and the traits that change a build — `AIR`, `SHIELD`, `ARM n`, `DRAIN n`.
+Under a rule it totals the units and, when any of them steal capacity, **how many MW the
+wave takes off the bus while it is alive**. When the wave contains air and no reveal
+emplacement is online it says so in alert red.
+
+**Why.** Decision 035 fixed the player not knowing what their own emplacements do. The
+mirror of that gap was still open: nothing on screen said what was about to arrive. The
+wave composition was in the anchor JSON and reached the player as a number, `wave 1 / 9`.
+Every decision the game asks for depends on what is in the wave — whether air is coming
+decides if a scan relay is worth 8 MW, whether the wave is shielded decides between a lance
+and an arc node, and from Act II the wave's own drain *is* the power decision. Asking the
+player to price a trade while hiding both sides of it is not difficulty, it is a missing
+readout.
+
+The prep countdown is the same defect in miniature. `_lead_left` was already running and
+only the sim could see it, so "do I have time to save for a mortar" was unanswerable.
+
+**Why the air line is stated outright.** `revealed = kind != "air" or _covered_by("reveal")`
+in both rule sets: a pulse turret is *rated* for air and still cannot touch it with no relay
+online. That is an invisible rule that silently costs the anchor. The alert fires only when
+no reveal emplacement is online at all — the strictly-true case — rather than trying to
+second-guess whether a particular relay's radius will cover a particular spawn.
+
+**Rejected.**
+- *Showing the next wave during combat instead of the current one.* The player is watching
+  the current one; a preview of the next while the present one is on the board is a second
+  thing to track. The panel switches to a live count of what is still up.
+- *A full enemy datasheet like the emplacement inspector.* The unit list is a briefing read
+  in fifteen seconds of prep, not a reference. Count, HP, speed and the four traits that
+  change a build; the authored notes stay in the data.
+
+**Consequence.** The panel is sized at bind time from the busiest wave the anchor ever
+fields, so anchor-01's single unit type does not sit in a box built for anchor-13's six.
+Line height is read from the font — a Label stacks its `line_spacing` constant on the face
+height, so 11 px mono is about 19, and the guessed 15 drew the footer through the last two
+rows of the list. Measured, not assumed, same as the sprite pivot.

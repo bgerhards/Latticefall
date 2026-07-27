@@ -26,6 +26,7 @@ and three internal-quality chores.
 | **Flow** | Title → level select → anchor → debrief → next anchor. Pause overlay with volume. |
 | **Inspector** | Click a built emplacement to select it; the left panel is its datasheet and carries sell, upgrade and power. Reach is drawn on the board. Decision 035. |
 | **Instrument column** | Everything the player operates is in one 330 px column: bus, build grid, inspector. The build grid is two across and the inspector sits against its measured height, so it fits 1 emplacement or 9. |
+| **Threat panel** | Right edge. Current wave, a prep countdown, every unit type with count/hp/speed and `AIR`/`SHIELD`/`ARM`/`DRAIN`, the wave's total bus theft, and an alert when air is coming with no relay online. Decision 037. |
 | **Content** | 24 anchors, 24 dialog files, 9 emplacements, 11 enemies across 4 factions. |
 | **Progress** | `user://progress.json` — cleared map, difficulty, volumes. Anchors unlock in order. |
 | **Rules** | `sim/engine.py` and `scripts/anchor_sim.gd`, diffed every commit: 864 runs identical. |
@@ -90,6 +91,8 @@ blocks playing the game.
   itself. Decision 035.
 - **The inspector describes whatever was last pointed at**, board or build bar; arming a
   build clears the board selection. Decision 036.
+- **Both sides of the trade are on screen** — the emplacement datasheet on the left, the
+  wave's composition and bus theft on the right. Decision 037.
 
 ## Traps that have already cost time
 
@@ -112,6 +115,9 @@ Full detail in `CLAUDE.md`.
   only a screenshot showed. `--select N` exists so the inspector can be one of them.
 - **A button that acts on the hover acts on the wrong thing.** Reaching it drags the cursor
   across the board. Decision 035.
+- **A Label's line height is not its font size.** It stacks the `line_spacing` theme
+  constant (3) on the face height, so 11 px mono is ~19 px. A guessed 15 drew the threat
+  footer through the unit list. Read it from the font, as with the sprite pivot.
 - **A re-render is invisible until `--import`.** render → `mask_glow` → `--import` → shoot.
 - **`--fixed-fps` disables real-time sync**; `main.gd` pauses before capturing, and
   `--paused` sets `PROCESS_MODE_ALWAYS` or the shot never fires.

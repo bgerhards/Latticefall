@@ -651,5 +651,12 @@ func wave_number() -> int:
 	return _wave_index + 1
 
 
+func lead_left() -> float:
+	## Seconds of prep remaining before the current wave spawns. The clock was already
+	## running and only the sim could see it, so a player in prep had no idea whether they
+	## had twenty seconds to spend a bounty or two.
+	return maxf(_lead_left, 0.0)
+
+
 func sim_time() -> float:
 	return _sim_t

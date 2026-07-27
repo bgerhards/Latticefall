@@ -31,6 +31,12 @@ var _title: Label
 var _sub: Label
 var _body: Label
 var _note: Label
+var _threat_kicker: Label
+var _threat_title: Label
+var _threat_sub: Label
+var _threat_body: Label
+var _threat_footer: Label
+var _threat_alert: Label
 var _outcome_actions: HBoxContainer
 var _next_button: Button
 
@@ -41,6 +47,11 @@ const MENU_SCENE := "res://scenes/menu.tscn"
 const BAR_TOP := 184.0
 const BUTTON_H := 44.0
 const PANEL_H := 420.0
+## The threat panel mirrors the instrument column on the right edge. The board is centred
+## and at anchor-24 is (18+15)*64 = 2112 px wide, so it runs off both sides of a 1920 px
+## viewport regardless — a panel here covers far tiles, exactly as the left column does.
+const THREAT_X := 1524.0
+const THREAT_BODY_SIZE := 11
 
 var _buttons: Array[Button] = []
 
@@ -128,6 +139,7 @@ func bind(v: Node2D) -> void:
 	var rows: int = int(ceil(float(unlocked.size()) / 2.0))
 	var bar_h: float = float(rows) * BUTTON_H + maxf(float(rows - 1), 0.0) * 6.0
 	_build_inspector(root, BAR_TOP + bar_h + 16.0)
+	_build_threat(root)
 
 	# End-of-anchor banner. Centred, large, and the only place the game tells the player
 	# how to get back out of a level — without it the only exit from a finished anchor is
@@ -246,11 +258,76 @@ func _build_inspector(root: Control, top: float) -> void:
 	root.add_child(_power_button)
 
 
-func _rule(y: float) -> ColorRect:
+func _build_threat(root: Control) -> void:
+	## What is coming, and when. A tower defense played without this is a guessing game:
+	## whether the wave carries air decides if a scan relay is worth 8 MW, whether it
+	## carries shielded units decides between a lance and an arc node, and the wave's total
+	## drain is the Act II and III power decision outright. All of it was in the anchor JSON
+	## and none of it was on screen — the player could see a wave number and nothing else.
+	##
+	## Opposite the instrument column on purpose: the left column is what you own, this is
+	## what is coming for it.
+	## Sized against the busiest wave this anchor ever fields, not against a constant.
+	## Anchor-01 runs one unit type and anchor-13 runs six; a fixed height leaves the first
+	## as a mostly empty box with a rule floating in it.
+	var groups := 1
+	for w in view.sim.anchor["waves"]:
+		groups = maxi(groups, Array(w.get("spawns", [])).size())
+	var body_h := float(groups) * 2.0 * _mono_line_h(THREAT_BODY_SIZE)
+	var rule_y := 104.0 + body_h + 10.0
+	var footer_y := rule_y + 8.0
+	var alert_y := footer_y + 40.0
+
+	var panel := ColorRect.new()
+	panel.color = C_PANEL
+	panel.position = Vector2(THREAT_X, 16)
+	panel.size = Vector2(380, alert_y + 32.0 - 16.0)
+	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(panel)
+
+	_threat_kicker = _make_label(11, C_MUTED)
+	_threat_kicker.position = Vector2(THREAT_X + 12, 28)
+	root.add_child(_threat_kicker)
+
+	_threat_title = _make_label(20, C_BONE, false, true)
+	_threat_title.position = Vector2(THREAT_X + 12, 44)
+	root.add_child(_threat_title)
+
+	_threat_sub = _make_label(14, C_AMBER, true, true)
+	_threat_sub.position = Vector2(THREAT_X + 12, 72)
+	root.add_child(_threat_sub)
+
+	root.add_child(_rule(96, THREAT_X + 12, 356))
+
+	_threat_body = _make_label(11, C_BONE, true)
+	_threat_body.position = Vector2(THREAT_X + 12, 104)
+	root.add_child(_threat_body)
+
+	root.add_child(_rule(rule_y, THREAT_X + 12, 356))
+
+	_threat_footer = _make_label(12, C_MUTED, true)
+	_threat_footer.position = Vector2(THREAT_X + 12, footer_y)
+	root.add_child(_threat_footer)
+
+	_threat_alert = _make_label(12, C_ALERT, false, true)
+	_threat_alert.position = Vector2(THREAT_X + 12, alert_y)
+	_threat_alert.size = Vector2(356, 28)
+	_threat_alert.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	root.add_child(_threat_alert)
+
+
+func _mono_line_h(size: int) -> float:
+	## Measured from the font, not assumed. A Label stacks its `line_spacing` theme constant
+	## (3 by default) on top of the face's own height, so an 11 px mono line is about 19 px,
+	## not 15 — and a guessed 15 drew the footer on top of the last two rows of the unit list.
+	return Ui.MONO.get_height(size) + 3.0
+
+
+func _rule(y: float, x: float = 28.0, w: float = 306.0) -> ColorRect:
 	var r := ColorRect.new()
 	r.color = Color(C_MUTED, 0.28)
-	r.position = Vector2(28, y)
-	r.size = Vector2(306, 1)
+	r.position = Vector2(x, y)
+	r.size = Vector2(w, 1)
 	r.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return r
 
@@ -296,6 +373,7 @@ func refresh() -> void:
 		_buttons[i].add_theme_font_override("font", Ui.SANS_BOLD if armed else Ui.SANS)
 
 	_refresh_inspector()
+	_refresh_threat()
 
 	var phase: String = view.phase()
 	_outcome.visible = phase in ["done", "lost"]
@@ -312,6 +390,93 @@ func refresh() -> void:
 		_next_button.visible = held and nxt != ""
 		if _next_button.visible:
 			_next_button.text = "NEXT: ANCHOR %s" % nxt.substr(7)
+
+
+# ───────────────────────────────────────────────────────────── threat ──
+
+func _refresh_threat() -> void:
+	var sim = view.sim
+	var waves: Array = sim.anchor["waves"]
+	var idx: int = view.wave_number() - 1
+	if idx < 0 or idx >= waves.size():
+		return
+	var phase: String = view.phase()
+	var spawns: Array = waves[idx].get("spawns", [])
+
+	_threat_kicker.text = "INCOMING"
+	_threat_title.text = "WAVE %d OF %d" % [idx + 1, waves.size()]
+
+	# The prep clock was already running and only the sim could see it. Twenty seconds is
+	# a bounty spent or not spent, so it is the number the player is actually working to.
+	match phase:
+		"prep":
+			_threat_sub.text = "SPAWNS IN %d s" % ceili(view.lead_left())
+			_threat_sub.add_theme_color_override("font_color", C_AMBER)
+		"combat":
+			_threat_sub.text = "IN PROGRESS · %d STILL UP" % _alive_count()
+			_threat_sub.add_theme_color_override("font_color", C_ALERT)
+		_:
+			_threat_sub.text = "ANCHOR HELD" if phase == "done" else "ANCHOR LOST"
+			_threat_sub.add_theme_color_override("font_color",
+					C_VERD if phase == "done" else C_ALERT)
+
+	var lines: Array[String] = []
+	var total_units := 0
+	var total_drain := 0.0
+	var has_air := false
+	for spawn in spawns:
+		var e: Dictionary = Content.enemy(String(spawn.get("enemy", "")))
+		if e.is_empty():
+			continue
+		var count: int = int(spawn.get("count", 1))
+		total_units += count
+		total_drain += float(e.get("drains_mw", 0.0)) * float(count)
+		if String(e.get("kind", "ground")) == "air":
+			has_air = true
+		lines.append("%2d x  %s" % [count, String(e["name"])])
+		lines.append("      %s" % _enemy_traits(e))
+	_threat_body.text = "\n".join(lines)
+
+	var footer: Array[String] = ["%d units" % total_units]
+	if total_drain > 0.0:
+		# The one number that decides an Act II or III build: every unit alive is capacity
+		# stolen, so this is how far the bus is about to be pushed over on its own.
+		footer.append("up to %d MW stolen while alive" % roundi(total_drain))
+	_threat_footer.text = "\n".join(footer)
+
+	# A pulse turret is rated for air and still cannot touch it unless a scan relay is
+	# revealing it. That rule is invisible, costs the anchor, and is worth stating outright.
+	_threat_alert.text = ("AIR IN THIS WAVE — NOTHING CAN ENGAGE IT WITHOUT A SCAN RELAY ONLINE"
+			if has_air and not _has_reveal() else "")
+
+
+func _enemy_traits(e: Dictionary) -> String:
+	## The row under a unit's name: what it takes to kill and what it does to the bus.
+	var parts: Array[String] = ["%d hp" % int(e.get("hp", 0)), "%.2f spd" % float(e.get("speed", 1.0))]
+	if String(e.get("kind", "ground")) == "air":
+		parts.append("AIR")
+	if bool(e.get("shielded", false)):
+		parts.append("SHIELD")
+	if float(e.get("armour", 0.0)) > 0.0:
+		parts.append("ARM %d" % int(e["armour"]))
+	if float(e.get("drains_mw", 0.0)) > 0.0:
+		parts.append("DRAIN %d" % int(e["drains_mw"]))
+	return " · ".join(parts)
+
+
+func _alive_count() -> int:
+	var n := 0
+	for u in view.sim.units:
+		if u["alive"]:
+			n += 1
+	return n
+
+
+func _has_reveal() -> bool:
+	for p in view.sim.placed:
+		if p["online"] and String(Dictionary(p["tower"].get("effect", {})).get("type", "")) == "reveal":
+			return true
+	return false
 
 
 # ────────────────────────────────────────────────────────── inspector ──
