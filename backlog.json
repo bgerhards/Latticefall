@@ -1,5 +1,5 @@
 {
-  "next_id": 30,
+  "next_id": 32,
   "items": [
     {
       "id": "LF-001",
@@ -348,6 +348,30 @@
       "opened": "2026-07-27",
       "closed": "2026-07-27",
       "note": "closed at 9d9ff55"
+    },
+    {
+      "id": "LF-030",
+      "title": "No sprites for scan-relay, shield-wall or ion-lance \u2014 they draw as placeholder polygons",
+      "kind": "bug",
+      "area": "art",
+      "pri": "high",
+      "status": "open",
+      "why": "scan-relay is visible from anchor-02, shield-wall from 04, ion-lance from 06. The sprite manifest has 9 assets and none of them are these three, so three of the five emplacements render as grey diamonds",
+      "opened": "2026-07-27",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-031",
+      "title": "Arc node and anchor ring emissives saturate to white in the additive glow layer",
+      "kind": "polish",
+      "area": "art",
+      "pri": "med",
+      "status": "open",
+      "why": "Emission colour is correct in the sprite (cyan-green) but the additive glow pass stacks over the albedo core and clips. Same class as LF-020/022 but in the engine blend, not the render",
+      "opened": "2026-07-27",
+      "closed": null,
+      "note": ""
     }
   ]
 }
