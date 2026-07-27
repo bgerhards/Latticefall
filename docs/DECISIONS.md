@@ -469,3 +469,33 @@ rather than a cliff.
 This does **not** rescue the Shield Wall, and that was never the same problem: 40 MW on a
 96 MW bus is a 42% overdraw and now prices at 62.5%. The wall is simply overpriced in draw
 for a 0.45x slow across two tiles of a forty-tile path. Filed separately.
+
+---
+
+## 023 — Correcting decision 021's shield-wall measurement
+
+**Correction, not a new decision.** Decision 021's shield-wall figures were measured with
+a confound and should not be cited as a clean reading of the wall's cost.
+
+Both experiments behind 021 pinned the wall into the slot **nearest the path**. That is the
+slot `_slot_priority()` hands out first, so the wall took the best position on the board
+and every gun was pushed one place further from the path. The resulting damage loss was
+attributed to the wall's power draw when a large part of it was simply the displaced guns.
+Re-run with the wall in the third slot, even the original 40 MW / 0.45 slow beats the
+no-wall baseline.
+
+**What still stands from 021:** the headline. Under the flat brownout penalty, overdrawing
+never paid on any board at any difficulty — that comparison was between boards that did and
+did not overdraw, and the slot ordering was identical on both sides, so it is unaffected.
+Decision 022 rests on that and is unchanged.
+
+**What does not stand:** the specific claim that the wall is unbuildable, and the size of
+the gap in 021's table. Read those as an upper bound on the wall's cost. The wall was
+re-costed to 26 MW / range 3.6 / 0.28 slow against the corrected harness — see LF-032 and
+`tools/analysis_shield_wall.py`.
+
+**The lesson worth keeping.** A fixed-board harness silently encodes a placement policy.
+`pin()` assigns slots in path-proximity order, so the *order of the spec list* is a
+confounding variable in every experiment that uses it. Any future analysis built on it has
+to hold slot assignment constant across the boards being compared, or say plainly which
+positions each board got.
