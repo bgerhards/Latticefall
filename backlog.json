@@ -355,11 +355,11 @@
       "kind": "bug",
       "area": "art",
       "pri": "high",
-      "status": "open",
+      "status": "done",
       "why": "scan-relay is visible from anchor-02, shield-wall from 04, ion-lance from 06. The sprite manifest has 9 assets and none of them are these three, so three of the five emplacements render as grey diamonds",
       "opened": "2026-07-27",
-      "closed": null,
-      "note": ""
+      "closed": "2026-07-27",
+      "note": "closed at 8a9ec0a"
     },
     {
       "id": "LF-031",

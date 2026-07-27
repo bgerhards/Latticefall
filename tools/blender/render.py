@@ -132,6 +132,13 @@ def cyl(verts, radius, depth, loc, rot=(0, 0, 0), material=None):
     return put(o, material) if material else o
 
 
+def cone(verts, radius1, radius2, depth, loc, rot=(0, 0, 0), material=None):
+    bpy.ops.mesh.primitive_cone_add(vertices=verts, radius1=radius1, radius2=radius2,
+                                    depth=depth, location=loc, rotation=rot)
+    o = bpy.context.active_object
+    return put(o, material) if material else o
+
+
 def sphere(radius, loc, segments=20, rings=12, material=None):
     bpy.ops.mesh.primitive_uv_sphere_add(radius=radius, location=loc,
                                          segments=segments, ring_count=rings)
@@ -216,6 +223,57 @@ def a_arc_node():
                                             emit=(0.35, 0.95, 0.80), emit_strength=1.5))
 
 
+def a_scan_relay():
+    # Instrumentation, not a weapon: no barrel anywhere on it, and the only lit element
+    # is the dish face. Tall and thin so it cannot be read as a turret at 100% zoom —
+    # the player has to know at a glance which of their emplacements is the one that
+    # sees rather than shoots, because that is the whole decision on anchor-02.
+    cyl(6, 0.44, 0.16, (0, 0, 0.08), material=mat("rb", STEEL, 0.45, 0.55))
+    cyl(8, 0.07, 1.00, (0, 0, 0.60), material=mat("rm", STEEL_LT, 0.80, 0.30))
+    for s in (-1, 1):                                   # guy struts, so it reads braced
+        cube(0.05, (s * 0.22, 0, 0.34), scale=(1.0, 1.0, 5.2), rot_z=math.radians(28),
+             material=mat("rs%d" % s, STEEL, 0.6, 0.5))
+    cone(20, 0.34, 0.05, 0.22, (0, 0.10, 1.10), rot=(math.radians(58), 0, 0),
+         material=mat("rd", STEEL_LT, 0.7, 0.35))
+    cone(20, 0.29, 0.04, 0.04, (0, 0.155, 1.13), rot=(math.radians(58), 0, 0),
+         material=mat("rf", VERD_LIT, 0.0, 0.35,
+                      emit=(0.22, 0.66, 0.54), emit_strength=1.1))
+
+
+def a_shield_wall():
+    # Broad and low — the opposite silhouette to the relay's mast. It is the biggest
+    # draw in Act I, so it should look like plant: two pylons and a screen, no optics.
+    cube(1.0, (0, 0, 0.07), scale=(0.86, 0.34, 0.14), material=mat("wb", STONE, 0.2, 0.8))
+    for s in (-1, 1):
+        cube(0.26, (s * 0.36, 0, 0.40), scale=(1.0, 1.0, 2.6),
+             material=mat("wp%d" % s, STEEL, 0.55, 0.45))
+        cyl(6, 0.10, 0.14, (s * 0.36, 0, 0.75), material=mat("wc%d" % s, STEEL_LT, 0.8, 0.3))
+    # the screen itself: thin, upright, and the only emissive surface
+    cube(1.0, (0, 0, 0.46), scale=(0.62, 0.03, 0.52),
+         material=mat("ws", VERD_LIT, 0.1, 0.25,
+                      emit=(0.16, 0.52, 0.44), emit_strength=1.0))
+    for s in (-1, 1):
+        cube(0.07, (s * 0.36, 0, 0.14), scale=(1.0, 2.4, 1.0),
+             material=mat("wf%d" % s, STEEL_LT, 0.7, 0.4))
+
+
+def a_ion_lance():
+    # One long barrel on a heavy carriage. The silhouette is the barrel — it is the
+    # only emplacement in the game whose outline is mostly diagonal.
+    cyl(8, 0.58, 0.20, (0, 0, 0.10), material=mat("lb", STEEL, 0.5, 0.5))
+    cube(0.52, (0, -0.06, 0.34), scale=(1.0, 0.9, 0.8), material=mat("lh", STONE, 0.35, 0.6))
+    cyl(14, 0.115, 1.34, (0.0, 0.34, 0.72), rot=(math.radians(68), 0, 0),
+        material=mat("lr", STEEL_LT, 0.9, 0.22))
+    cyl(14, 0.16, 0.20, (0.0, 0.06, 0.44), rot=(math.radians(68), 0, 0),
+        material=mat("lc", STEEL, 0.85, 0.3))
+    for s in (-1, 1):                                   # recoil rails along the barrel
+        cube(0.06, (s * 0.17, 0.24, 0.60), scale=(1.0, 1.0, 7.0),
+             rot_z=0.0, material=mat("lg%d" % s, STEEL, 0.7, 0.35))
+    sphere(0.115, (0.0, 0.80, 1.02), segments=16, rings=10,
+           material=mat("lm", VERD_LIT, 0.0, 0.25,
+                        emit=(0.30, 0.86, 0.78), emit_strength=1.4))
+
+
 def a_warden_drone():
     sphere(0.26, (0, 0, 0.42), material=mat("dc", STEEL_LT, 0.55, 0.4))
     for i in range(3):
@@ -258,6 +316,9 @@ ASSETS = {
     "anchor_ring": a_anchor_ring,
     "pulse_turret": a_pulse_turret,
     "arc_node": a_arc_node,
+    "scan_relay": a_scan_relay,
+    "shield_wall": a_shield_wall,
+    "ion_lance": a_ion_lance,
     "warden_drone": a_warden_drone,
     "warden_heavy": a_warden_heavy,
     "warden_mote": a_warden_mote,

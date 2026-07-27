@@ -43,6 +43,24 @@
         "glow": "assets/renders/arc_node_y315_glow.png"
       }
     },
+    "ion_lance": {
+      "y045": {
+        "albedo": "assets/renders/ion_lance_y045_albedo.png",
+        "glow": "assets/renders/ion_lance_y045_glow.png"
+      },
+      "y135": {
+        "albedo": "assets/renders/ion_lance_y135_albedo.png",
+        "glow": "assets/renders/ion_lance_y135_glow.png"
+      },
+      "y225": {
+        "albedo": "assets/renders/ion_lance_y225_albedo.png",
+        "glow": "assets/renders/ion_lance_y225_glow.png"
+      },
+      "y315": {
+        "albedo": "assets/renders/ion_lance_y315_albedo.png",
+        "glow": "assets/renders/ion_lance_y315_glow.png"
+      }
+    },
     "pulse_turret": {
       "y045": {
         "albedo": "assets/renders/pulse_turret_y045_albedo.png",
@@ -59,6 +77,42 @@
       "y315": {
         "albedo": "assets/renders/pulse_turret_y315_albedo.png",
         "glow": "assets/renders/pulse_turret_y315_glow.png"
+      }
+    },
+    "scan_relay": {
+      "y045": {
+        "albedo": "assets/renders/scan_relay_y045_albedo.png",
+        "glow": "assets/renders/scan_relay_y045_glow.png"
+      },
+      "y135": {
+        "albedo": "assets/renders/scan_relay_y135_albedo.png",
+        "glow": "assets/renders/scan_relay_y135_glow.png"
+      },
+      "y225": {
+        "albedo": "assets/renders/scan_relay_y225_albedo.png",
+        "glow": "assets/renders/scan_relay_y225_glow.png"
+      },
+      "y315": {
+        "albedo": "assets/renders/scan_relay_y315_albedo.png",
+        "glow": "assets/renders/scan_relay_y315_glow.png"
+      }
+    },
+    "shield_wall": {
+      "y045": {
+        "albedo": "assets/renders/shield_wall_y045_albedo.png",
+        "glow": "assets/renders/shield_wall_y045_glow.png"
+      },
+      "y135": {
+        "albedo": "assets/renders/shield_wall_y135_albedo.png",
+        "glow": "assets/renders/shield_wall_y135_glow.png"
+      },
+      "y225": {
+        "albedo": "assets/renders/shield_wall_y225_albedo.png",
+        "glow": "assets/renders/shield_wall_y225_glow.png"
+      },
+      "y315": {
+        "albedo": "assets/renders/shield_wall_y315_albedo.png",
+        "glow": "assets/renders/shield_wall_y315_glow.png"
       }
     },
     "tile_ground": {
