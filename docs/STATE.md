@@ -8,89 +8,83 @@ conversation that produced it. The facts below the AUTO marker are regenerated b
 
 ## Where the project is
 
-**Anchor-01 is playable with rendered art. Anchors 02–24 do not exist.**
+**Anchors 01-04 are playable with rendered art. Anchors 05-24 do not exist.**
 
-The vertical slice is real: you can open the game, place emplacements against a live
-reactor budget, watch six waves, brown the bus out, hear it, read dialog, win or lose.
-Every subsystem it needs — content data, rules, simulation, audio, sprites — is built and
-gated. What remains is *volume*: 23 more anchors, their dialog, and the art to dress them.
+Act I's first half is authored, graded and committed. Every subsystem it needs — content
+data, rules, simulation, audio, sprites, and now an editor you can actually see the board
+in — is built and gated. What remains is volume: 20 more anchors and their dialog.
 
-Do not describe this as "nearly done". One level of twenty-four is complete.
+Do not describe this as "nearly done". Four levels of twenty-four.
 
 ## What works
 
 | | |
 |---|---|
-| **Game** | `anchor-01` playable end to end. Iso board, build/toggle input, reactor bus with brownout, six waves, typewriter dialog, audio. Run: `/Applications/Godot.app/Contents/MacOS/Godot --path .` |
-| **Rules** | Written twice — `sim/engine.py` (reference) and `scripts/anchor_sim.gd` — and diffed on every commit by `tools/test_parity.py`. 18 runs identical. |
-| **Simulation** | Headless, fixed timestep, **no RNG in the core loop**, so determinism is structural. Grades an anchor across 6 policies x 3 difficulties in ~0.9 s. |
-| **Art** | `tools/blender/render.py` — 9 assets x 4 yaws x 2 passes in 24 s. Self-calibrating: measures a 1x1 tile every run and refuses to render unless it is exactly 128x64. |
-| **Audio** | Complete. 14 music tracks (loops baked, auditioned by ear, approved), 35 of ~60 SFX synthesized from code and byte-reproducible. |
-| **Content** | `anchor-01` graded and clean at all three difficulties. 5 emplacements, 4 enemies, 12 dialog lines. |
-| **Gate** | `tools/check.py` — 10 checks, 0 skipped. Schema, cross-refs, banned terms, sfx determinism, music manifest, sim determinism, Godot boot, rules parity. |
+| **Game** | `anchor-01` … `anchor-04` playable end to end. Run: `/Applications/Godot.app/Contents/MacOS/Godot --path .` |
+| **Editor** | `scenes/main.tscn` authors its node tree, and `anchor_view.gd` is a `@tool` script that draws the board while editing, with path arrows, IN/OUT markers and numbered slots. `anchor_id` is a dropdown of the levels that exist. |
+| **Rules** | Written twice — `sim/engine.py` and `scripts/anchor_sim.gd` — and diffed on every commit. 84 runs identical. |
+| **Simulation** | Headless, fixed timestep, no RNG in the core loop. Grades an anchor across 7 policies x 3 difficulties. |
+| **Art** | 12 sprites. All five emplacements have art. Palette is authored in sRGB and linearised; the pivot is measured, not assumed. |
+| **Audio** | Complete. 14 music tracks, 35 of ~60 SFX. |
+| **Gate** | `tools/check.py` — 11 checks, 0 skipped. Now includes **game renders**, which asserts the frame is not blank. |
 
 ## What does not exist
 
-- **Anchors 02–24 and all their dialog.** This is the bulk of the remaining work.
-- Main menu, level select, any between-anchor flow. `LF-017`.
-- Sprite atlas packing — sprites load as individual textures. `LF-004`.
-- Save system, meta-progression, gamepad support.
-- Emplacement sell/upgrade.
+- **Anchors 05-24 and all their dialog.** The bulk of the remaining work.
+- Main menu, level select, between-anchor flow. `LF-017`.
+- Sprite atlas packing. `LF-004`. Save system, meta-progression, gamepad.
+- Emplacement sell/upgrade. `LF-019`.
 
 ## Next task
 
-**Anchors 02–08, with dialog**, working the Act I beats in `docs/STORY.md`.
+**Anchors 05-08**, finishing Act I, using the `new-anchor` skill. 05 "Housekeeping" is a
+quiet one; 06 "Hard Currency" unlocks the ion lance; 07 "Someone Else's Boots"; 08
+"Eleven Years of Nothing" is the act finale.
 
-Use the `new-anchor` skill; it has the ordering and the acceptance bar. Per anchor: pick
-the power tier first (it is the primary difficulty lever, ahead of wave counts), lay path
-and slots, write waves, grade with `sim/run.py`, then write dialog last once the level's
-real shape is known.
+Method that worked for 02-04, and is worth repeating: write the level, then **sweep**
+capacity x funds x wave-weight against `sim/run.py` rather than guessing. Every one of
+02, 03 and 04 was unwinnable or single-solution on the first cut. Act I's power tier is
+60-110 MW and anchors 01-04 use 60/80/92/96, so 05-08 have roughly 100-110 to work with.
 
-Anchor-02 is "Line of Sight" — it introduces air units and the scan relay, which is the
-first genuine power decision (8 MW for the relay, or another turret). Anchor-03 introduces
-armoured heavies, which were pulled out of anchor-01 for being unteachable there.
+## Settled this session — do not reopen
 
-Two art jobs can run in parallel and are independent of level authoring: the emissive and
-grounding polish (`LF-020`, `LF-021`, `LF-022`, `LF-023`, `LF-024`) and the atlas packer (`LF-004`).
+- **Brownout is priced by overdraw size**, `min(0.70, (load/cap - 1) * 1.5)`, not a flat
+  40%. Decision 022, superseding 003. `LF-014` is closed: overdrawing is now rational at
+  the margin and ruinous beyond it. Verify with `tools/analysis_overdraw.py`.
+- **The pulse turret engages air**; the scan relay gates sight, not firepower. Decision 019.
+- **Grading policies carry per-emplacement caps.** Without them a policy that leads with a
+  support emplacement builds only that and grades the level unwinnable. Decision 020.
+
+## Traps that have already cost time
+
+Full detail in `CLAUDE.md`. Recorded so they are not rediscovered.
+
+- **Godot's game mode never reimports changed assets.** A re-render is invisible until
+  `Godot --headless --path . --import` runs. This produced a full round of "the art fix
+  did nothing" this session. Order is always render → `mask_glow` → `--import` → shoot.
+- **A self-screenshot is at 0.75 scale** — a 1920x1080 logical viewport in a 1440x810
+  window. Comparing screenshot pixels to tile maths needs the *logical* size.
+- **`--fixed-fps` disables real-time sync**, so the loop spins unthrottled. A shot
+  coroutine awaiting `frame_post_draw` resumed 133,000 frames late and captured a game
+  that had already been lost. `main.gd` now pauses before capturing.
+- **A fixed-board harness encodes a placement policy.** `pin()` assigns slots by path
+  proximity, so the order of a spec list is a confounding variable — it invalidated the
+  first shield-wall measurement. Decision 023.
+- The iso camera elevation is 30 degrees, not `atan(1/2)`. Decision 017.
+- The colour palette is authored in **sRGB** and linearised by `mat()`. Blender's inputs
+  are scene-linear; writing display values there renders everything ~3x too light.
+- The sprite pivot is **measured** by `calibrate()`, not assumed to be the canvas centre —
+  the camera's `HEIGHT_BIAS` puts world origin ~43px below it.
+- Blender 5.x removed `scene.node_tree`; Glare settings are input sockets.
+- The compositor writes an opaque frame, so glow renders must be luminance-masked.
+- A GDScript parse error does not change Godot's exit code. Assert on output.
+- ffmpeg here has no libvorbis; libsndfile segfaults on large single Vorbis writes.
+- **Do not tune the music loop splicer against a seam metric.** Decision 011.
 
 ## Open with the user
 
 - **CC0-by-default** for the 12 organic SFX — stated, never explicitly confirmed.
-  Proceeding unless told otherwise.
 - Nothing is blocked on a decision.
-
-## Live design concern
-
-`LF-014`. With homogeneous emplacements, overdrawing the bus is **never** rational: N
-towers at 60% fire rate is 0.6N effective, which on a slot-limited board is always worse
-than running `capacity/draw` at full rate. The simulator confirms it — on anchor-01 the
-`greedy-overdraw` policy loses at brutal while every disciplined policy clears.
-
-So brownout is currently a *punishment*, not a *tradeoff*. It should become a real choice
-once draws are heterogeneous — briefly raising a 40 MW shield wall on a 60 MW bus, for
-instance. **That is unverified.** Check it as soon as anchor-04 unlocks the shield wall,
-not at anchor 20. If it does not hold, the core hook is weaker than decision 003 assumes
-and the emplacement draw table needs rethinking.
-
-## Traps that have already cost time
-
-Recorded so they are not rediscovered. Full detail in `CLAUDE.md`.
-
-- **The iso camera angle was wrong for six sessions** because it was written down from
-  memory in session one and every later reference trusted it. It is 30°, not `atan(1/2)`.
-  Decision 017. The render pipeline now measures rather than trusting a constant.
-- Blender 5.x removed `scene.node_tree`; Glare settings are input sockets now.
-- Forgetting Blender's scene wipe leaves the default startup light in, silently washing
-  out every render. This produced a wrong diagnosis once already.
-- The compositor writes an **opaque** frame, so glow renders must be luminance-masked
-  (`tools/blender/mask_glow.py`) or additive blending lifts the whole cell.
-- A GDScript parse error does **not** change Godot's exit code — it logs and carries on
-  with the scene absent. Assert on output, not status.
-- Anything unfocused gets throttled: `requestAnimationFrame` in a background browser tab,
-  and Godot's window on macOS. Verification uses `--fixed-fps`.
-- ffmpeg here has no libvorbis; libsndfile segfaults on large single Vorbis writes.
-- **Do not tune the music loop splicer against a seam metric.** Tried, measurably worse,
-  reverted. Judge by ear. Decision 011.
 
 ---
 
@@ -101,47 +95,50 @@ Recorded so they are not rediscovered. Full detail in `CLAUDE.md`.
 ### Gate
 
 ```
-[  ok  ] python syntax           121ms  19 files
-[  ok  ] json parses              45ms  
-[  ok  ] game data                89ms  no warnings
-[  ok  ] banned terms            172ms  59 files clean
-[  ok  ] sfx determinism         127ms  ui_confirm byte-identical
-[  ok  ] music manifest            1ms  14 tracks
-[  ok  ] backlog rendered          0ms  17 open
-[  ok  ] sim determinism        1770ms  deterministic
-[  ok  ] godot boots            1379ms  main scene loads clean
-[  ok  ] rules parity           3011ms  18 runs identical (gdscript vs python)
+[  ok  ] python syntax            92ms  22 files
+[  ok  ] json parses              52ms  
+[  ok  ] game data                94ms  no warnings
+[  ok  ] banned terms            207ms  69 files clean
+[  ok  ] sfx determinism         125ms  ui_confirm byte-identical
+[  ok  ] music manifest            0ms  14 tracks
+[  ok  ] backlog rendered          0ms  15 open
+[  ok  ] sim determinism        1933ms  deterministic
+[  ok  ] godot boots            1130ms  main scene loads clean
+[  ok  ] game renders           2157ms  coverage 0.39, 80 tones
+[  ok  ] rules parity          25943ms  84 runs identical (gdscript vs python)
 
-10 passed · 0 failed · 0 skipped · 6714ms
+11 passed · 0 failed · 0 skipped · 31734ms
 ```
 
 ### Inventory
 
 | | count |
 |---|---|
-| anchors authored | 1 of 24 |
-| dialog files | 1 |
+| anchors authored | 4 of 24 |
+| dialog files | 4 |
 | sfx | 35 of ~60 |
 | music tracks | 14 of 14 |
-| sprite renders | 86 |
-| godot scripts | 11 |
+| sprite renders | 110 |
+| godot scripts | 12 |
 | godot scenes | 1 |
 
 ### Anchor grades
 
 | anchor | act | cap | waves | standard | hard | brutal | verdict |
 |---|---|---|---|---|---|---|---|
-| anchor-01 | 1 | 60 MW | 6 | 2/2 | 2/2 | 1/2 | ok |
+| anchor-01 | 1 | 60 MW | 6 | 1/2 | 1/2 | 1/2 | ok |
+| anchor-02 | 1 | 80 MW | 7 | 3/4 | 3/4 | 2/4 | ok |
+| anchor-03 | 1 | 92 MW | 7 | 3/5 | 3/5 | 3/4 | ok |
+| anchor-04 | 1 | 96 MW | 8 | 3/6 | 3/6 | 2/6 | ok |
 
 *Cells are distinct winning builds / distinct builds tried.*
 
 ### Backlog
 
-17 open · 7 closed
+15 open · 17 closed
 
 - `high` LF-004 No sprite atlas packer
 - `high` LF-006 Write dialog for all 24 anchors
-- `high` LF-014 Brownout is never a rational choice with homogeneous towers
 - `high` LF-017 No main menu, level select, or between-anchor flow
 - `med` LF-005 Source the 12 organic CC0 SFX
 - `med` LF-007 Godot .import settings for music loop flags not generated
@@ -149,25 +146,24 @@ Recorded so they are not rediscovered. Full detail in `CLAUDE.md`.
 - `med` LF-009 No save system or meta-progression
 - `med` LF-015 Rebalance anchors 02-24 as they are authored
 - `med` LF-019 Emplacements cannot be sold or upgraded
-- `med` LF-020 Sprite emissives still over-driven; drone eye reads white not red
 - `med` LF-021 Anchor ring, heavy and mote need silhouette pass at 100% zoom
-- `med` LF-022 Turret muzzle emissive clips to white
-- `med` LF-023 Board tiles read light grey against the dark UI
-- `med` LF-024 No contact shadow under units or emplacements
+- `med` LF-025 Editor preview shows flat-colour tiles until the project is reloaded, because the Sprites autoload is only instantiated in-editor at startup
+- `med` LF-026 HUD and dialog build their Control widgets in code rather than being authored in the scene
+- `med` LF-031 Arc node and anchor ring emissives saturate to white in the additive glow layer
 - `low` LF-010 Gamepad support deferred until content-complete
 - `low` LF-018 Unfocused Godot window is throttled — verification must use --fixed-fps
 
 ### Recent commits
 
 ```
-366e2a3 feat(art): rendered sprites replace placeholder polygons
-c858604 fix: iso camera elevation is 30deg, not atan(1/2); add sprite pipeline
-94f8ad4 feat(engine): anchor-01 playable end to end
-45241ef feat(engine): GDScript rules core + Python/GDScript parity gate
-1b2684e docs: correct wave count in STATE
-3f60b26 feat(sim): headless combat simulator + anchor grading
-c210a6c feat: project foundation — CLAUDE.md, agents, skills, gate, backlog, content schemas
-e7e775d feat(audio): loop audition page + local server
+6f33bf2 docs: decision 023 — correct the shield-wall measurement in 021
+8abcbf6 fix(balance): the shield wall is worth building — 26 MW, range 3.6, 0.28 slow
+5f13193 feat(rules): price brownout by overdraw size, superseding the flat penalty
+8cbe408 feat(content): anchor-04 "The Fourth Door"; LF-014 measured and refused
+1379c12 feat(art): sprites for the scan relay, shield wall and ion lance
+8a9ec0a feat(content): anchor-03 "Nothing Answers" — armoured heavies, arc node unlock
+252d974 feat(content): anchor-02 "Line of Sight" + the harness changes it needed
+9d9ff55 chore(tooling): report sim state on every shot; record the reimport trap
 ```
 
 <!-- END AUTO -->
