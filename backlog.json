@@ -1,5 +1,5 @@
 {
-  "next_id": 35,
+  "next_id": 38,
   "items": [
     {
       "id": "LF-001",
@@ -67,10 +67,10 @@
       "kind": "feature",
       "area": "story",
       "pri": "high",
-      "status": "open",
+      "status": "dropped",
       "why": "Nomenclature bible now exists, so writing is unblocked.",
       "opened": "2026-07-26",
-      "closed": null,
+      "closed": "2026-07-27",
       "note": ""
     },
     {
@@ -408,6 +408,42 @@
       "opened": "2026-07-27",
       "closed": "2026-07-27",
       "note": "closed at 6c78fc1"
+    },
+    {
+      "id": "LF-035",
+      "title": "Write dialog for anchors 09-24",
+      "kind": "feature",
+      "area": "story",
+      "pri": "high",
+      "status": "open",
+      "why": "Act I (01-08) is written and validated. Acts II and III are 16 anchors with no dialog. Beats are in docs/STORY.md; writing rules and the trigger vocabulary are enforced by data/schema/dialog.schema.json",
+      "opened": "2026-07-27",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-036",
+      "title": "No Sable Reach emplacement or sprite exists for Act II",
+      "kind": "feature",
+      "area": "art",
+      "pri": "high",
+      "status": "open",
+      "why": "Act II's antagonist is human and its mechanic is drains_mw capacity theft. reach-breacher exists in data/enemies.json and has never been used or rendered; there is no Sable Reach emplacement at all. Act II cannot be authored without both",
+      "opened": "2026-07-27",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-037",
+      "title": "Four build slots sit just outside the shortest weapon's range on anchors 03/04/05",
+      "kind": "polish",
+      "area": "data",
+      "pri": "low",
+      "status": "open",
+      "why": "The new validator flags them: anchor-03 [3,10] at 3.0, anchor-04 [15,7] at 3.0, anchor-05 [2,5] at 2.8 and [1,11] at 3.0, against the arc node's 2.6. All three anchors grade clean so these are warnings not errors \u2014 a scan relay or longer-ranged gun still reaches. Moving them one tile would need a re-sweep, so it is deliberately not done at wrap",
+      "opened": "2026-07-27",
+      "closed": null,
+      "note": ""
     }
   ]
 }

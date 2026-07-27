@@ -32,7 +32,9 @@ new antagonist, biome and mechanic rather than more of the same.
 
 ## What does not exist
 
-- **Anchors 05-24 and all their dialog.** The bulk of the remaining work.
+- **Anchors 09-24 and all their dialog.** The bulk of the remaining work. `LF-035`.
+- **Any Sable Reach content.** `reach-breacher` sits unused in `data/enemies.json`; there
+  is no Sable Reach emplacement and no sprite for either. Act II is blocked on it. `LF-036`.
 - Main menu, level select, between-anchor flow. `LF-017`.
 - Sprite atlas packing. `LF-004`. Save system, meta-progression, gamepad.
 - Emplacement sell/upgrade. `LF-019`.
@@ -62,6 +64,27 @@ the first cut; none were fixable by intuition. Two further rules learned the har
 - **The pulse turret engages air**; the scan relay gates sight, not firepower. Decision 019.
 - **Grading policies carry per-emplacement caps.** Without them a policy that leads with a
   support emplacement builds only that and grades the level unwinnable. Decision 020.
+- **Anchors are balanced by sweeping the simulator, never by intuition.** Every one of
+  02-08 failed its first cut, often by direction rather than magnitude. Decision 026 has
+  the order: layout, then sweep, then dialog.
+- **An emplacement's worth is reach x output, not damage per megawatt.** Decision 024. The
+  ion lance was nearly re-costed over this; the level was the variable, not the tower.
+- **The albedo pass renders with emission off.** Decision 025 — decision 007 had been
+  false since the pipeline was written.
+
+## Things I concluded and then had to correct
+
+Kept because the pattern matters more than the individual errors: **four times a confident
+conclusion was overturned by measurement, and twice the real variable was the level or the
+harness rather than the thing being measured.**
+
+- "Frame pacing does not reproduce" — it reproduced immediately at a later shot frame.
+- "The shield wall is unbuildable" — the harness had given it the best slot. Decision 023.
+- "The ion lance is strictly dominated" — right arithmetic, wrong metric. Decision 024.
+- "Glow is never baked into a sprite" — it had been, for the life of the pipeline.
+  Decision 025.
+
+Before concluding a tower or a rule is wrong, check the level and the harness first.
 
 ## Traps that have already cost time
 
@@ -78,11 +101,21 @@ Full detail in `CLAUDE.md`. Recorded so they are not rediscovered.
 - **A fixed-board harness encodes a placement policy.** `pin()` assigns slots by path
   proximity, so the order of a spec list is a confounding variable — it invalidated the
   first shield-wall measurement. Decision 023.
+- **Background jobs spawned inside a shell command outlive it, and `jobs -p` does not
+  reliably capture them.** A CPU-contention test spawned four `while :; do :; done` loops
+  to load the machine; the trailing `kill $LOADPIDS` matched nothing and all four ran at
+  100% CPU for over two hours, taking the load average to 6.3. It made the gate's
+  `game renders` check read 276803ms against a true 2324ms, which nearly went into this
+  file as a fact. If a test needs background load, record the PIDs with `$!` per job and
+  kill them by number, then verify with `ps` that they are gone.
 - The iso camera elevation is 30 degrees, not `atan(1/2)`. Decision 017.
 - The colour palette is authored in **sRGB** and linearised by `mat()`. Blender's inputs
   are scene-linear; writing display values there renders everything ~3x too light.
 - The sprite pivot is **measured** by `calibrate()`, not assumed to be the canvas centre —
   the camera's `HEIGHT_BIAS` puts world origin ~43px below it.
+- **"Compositing off" is not "emission off".** Principled emission lands in the beauty
+  render regardless, so the albedo pass carried the glow as well and the engine summed
+  both. `render_pair()` now zeroes emission for the albedo render. Decision 025.
 - Blender 5.x removed `scene.node_tree`; Glare settings are input sockets.
 - The compositor writes an opaque frame, so glow renders must be luminance-masked.
 - A GDScript parse error does not change Godot's exit code. Assert on output.
@@ -103,19 +136,19 @@ Full detail in `CLAUDE.md`. Recorded so they are not rediscovered.
 ### Gate
 
 ```
-[  ok  ] python syntax            90ms  22 files
-[  ok  ] json parses              52ms  
-[  ok  ] game data                96ms  3 warning(s)
-[  ok  ] banned terms            204ms  77 files clean
-[  ok  ] sfx determinism          94ms  ui_confirm byte-identical
+[  ok  ] python syntax           152ms  22 files
+[  ok  ] json parses              56ms  
+[  ok  ] game data                99ms  3 warning(s)
+[  ok  ] banned terms            213ms  77 files clean
+[  ok  ] sfx determinism         117ms  ui_confirm byte-identical
 [  ok  ] music manifest            0ms  14 tracks
-[  ok  ] backlog rendered          0ms  14 open
-[  ok  ] sim determinism        1931ms  deterministic
-[  ok  ] godot boots            1060ms  main scene loads clean
-[  ok  ] game renders           2183ms  coverage 0.39, 71 tones
-[  ok  ] rules parity          88255ms  168 runs identical (gdscript vs python)
+[  ok  ] backlog rendered          0ms  16 open
+[  ok  ] sim determinism        1875ms  deterministic
+[  ok  ] godot boots            1395ms  main scene loads clean
+[  ok  ] game renders           2324ms  coverage 0.39, 71 tones
+[  ok  ] rules parity          85693ms  168 runs identical (gdscript vs python)
 
-11 passed · 0 failed · 0 skipped · 93965ms
+11 passed · 0 failed · 0 skipped · 91924ms
 ```
 
 ### Inventory
@@ -147,11 +180,12 @@ Full detail in `CLAUDE.md`. Recorded so they are not rediscovered.
 
 ### Backlog
 
-14 open · 20 closed
+16 open · 21 closed
 
 - `high` LF-004 No sprite atlas packer
-- `high` LF-006 Write dialog for all 24 anchors
 - `high` LF-017 No main menu, level select, or between-anchor flow
+- `high` LF-035 Write dialog for anchors 09-24
+- `high` LF-036 No Sable Reach emplacement or sprite exists for Act II
 - `med` LF-005 Source the 12 organic CC0 SFX
 - `med` LF-007 Godot .import settings for music loop flags not generated
 - `med` LF-008 IBM Plex Mono/Sans Condensed not vendored
@@ -163,10 +197,12 @@ Full detail in `CLAUDE.md`. Recorded so they are not rediscovered.
 - `med` LF-026 HUD and dialog build their Control widgets in code rather than being authored in the scene
 - `low` LF-010 Gamepad support deferred until content-complete
 - `low` LF-018 Unfocused Godot window is throttled — verification must use --fixed-fps
+- `low` LF-037 Four build slots sit just outside the shortest weapon's range on anchors 03/04/05
 
 ### Recent commits
 
 ```
+b29d2be fix(art): render albedo with emission off — decision 007 was not actually true
 ccf0e4e feat(content): anchors 07-08 — Act I is complete and grades clean
 7d4ac2b feat(content): anchor-06 "Hard Currency" — ion lance unlock, compact serpentine
 6c78fc1 feat(content): anchor-05 "Housekeeping"; validator catches dead build slots
@@ -174,7 +210,6 @@ ccf0e4e feat(content): anchors 07-08 — Act I is complete and grades clean
 6f33bf2 docs: decision 023 — correct the shield-wall measurement in 021
 8abcbf6 fix(balance): the shield wall is worth building — 26 MW, range 3.6, 0.28 slow
 5f13193 feat(rules): price brownout by overdraw size, superseding the flat penalty
-8cbe408 feat(content): anchor-04 "The Fourth Door"; LF-014 measured and refused
 ```
 
 <!-- END AUTO -->

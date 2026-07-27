@@ -562,3 +562,42 @@ look like.
 **The lesson.** "Compositing off" is not the same as "emission off". A rule recorded in
 this log is not self-enforcing; this one had been false since the sprite pipeline was
 written and every render since had baked in the thing the decision forbids.
+
+---
+
+## 026 — Anchors are balanced by sweeping the simulator, never by intuition
+
+**Decided.** An anchor is authored, then **swept** — capacity x starting funds x wave
+weight — against `sim/run.py` until a configuration grades clean. Hand-tuning is not an
+acceptable substitute, and a level is not finished because it looks reasonable.
+
+**Context.** All eight Act I anchors were built this way, and **every one of them failed
+its first cut.** Not narrowly:
+
+| anchor | first cut | why it failed |
+|---|---|---|
+| 02 | unwinnable at every difficulty | air units were unkillable; no policy could express the intended board |
+| 03 | unwinnable on brutal at 88-100 MW | 7404 HP of waves; 5436 was the ceiling |
+| 04 | single-solution | the shield wall ate 80 of 96 MW and left one gun |
+| 06 | unwinnable at *every* setting swept | layout, not weight — see decision 024 |
+| 08 | clean only at 116 MW | would have broken the act's stated 60-110 tier |
+
+Intuition was wrong about the direction as often as the magnitude. On anchor-06 three
+rounds of wave-weight sweeping were spent on a level whose actual defect was geometry.
+
+**Rejected.** *Tune by feel and check once at the end.* That is how anchor-06 consumed most
+of an afternoon, and it is how anchor-08 would have quietly broken the power tier the story
+depends on.
+
+**Consequence — the order that works:**
+1. **Layout first.** Slots within ~2 tiles of the path; `validate_data.py` now errors on
+   slots no weapon can reach and warns on ones the shortest-ranged weapon cannot.
+   Path *shape* still needs judgement: a long thin path rewards cheap mass and makes every
+   premium emplacement bad regardless of its stats (decision 024).
+2. **Then sweep**, and take the *hardest* configuration that still grades clean — except
+   where the beat says otherwise. anchor-05 is the act's quiet one and deliberately took a
+   generous setting instead.
+3. **Then dialog**, once the level's real shape is known.
+
+A sweep is cheap — a few minutes of simulator — and it is the only reason all eight
+anchors are winnable at three difficulties by more than one build.
