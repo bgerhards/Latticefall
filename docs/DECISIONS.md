@@ -601,3 +601,57 @@ depends on.
 
 A sweep is cheap — a few minutes of simulator — and it is the only reason all eight
 anchors are winnable at three difficulties by more than one build.
+
+---
+
+## 027 — The anchor damper suppresses drain in an arc, and is the Act II counterplay
+
+**Decided.** Act II's `drains_mw` units are answered by the **anchor damper**: a support
+emplacement with `effect: {type: damp, value: 0.6}` that removes 60% of the bus drain of
+any unit inside its radius. Drain is therefore a *contested* quantity rather than a flat
+tax, and the damper is a fixed 18 MW spent to deny a variable theft.
+
+**Why a suppressor and not a bigger reactor.** Simply raising Act II capacity to absorb
+the drain converts the act's mechanic into a number the player never interacts with. With
+the damper the question is live every wave: this wave carries three sappers at 8 MW each,
+the damper costs 18 MW and covers one lane — build it or shoot faster? Under three
+drainers in the damper's arc it is a losing trade, which is the shape a good decision has.
+
+**Rejected.**
+- *Drain as a flat per-wave penalty.* Nothing to play against; identical to lowering
+  capacity, which decision 022 already showed makes the currency a wall.
+- *A one-shot "purge" ability.* Meridian has no ability bar and adding one to serve a
+  single act is a bigger change than the act is worth.
+
+**Consequence.** `effect.type` gains `damp` in the schema, `Sim.bus_load()` and
+`AnchorSim.bus_load()` both scale each unit's drain by its damper coverage, and the parity
+gate covers it. Measured on anchor-10: two dampers on the ingress lane hold about two
+thirds of the tap.
+
+---
+
+## 028 — Grading policies carry a power reserve, because from Act II the bus is contested
+
+**Decided.** `Policy` gains `reserve`, a fraction of capacity it refuses to build into.
+`suppression` reserves 20%, `flak-screen` 15%, `reserved-mass` 30%. Act I policies keep a
+reserve of 0 and their grades are unchanged.
+
+**Context.** The first Act II sweep graded **every** cell unwinnable — 36 of 36 on
+anchor-09, at capacities up to 190 MW, which is above the act's whole power tier. The
+cause was not the level. Every policy spends the bus to the last megawatt, which is
+correct in Act I where nothing else draws on it; from Act II an enemy does, so the board
+was in brownout from the first sapper, killed nothing, accumulated drainers, and browned
+out harder. A death spiral, produced entirely by the harness playing in a way no player
+would.
+
+**This is the third time the harness was the variable** — see decision 023 (a fixed board
+encoding a placement policy) and decision 024 (the level, not the tower). Before
+concluding that Act II content is too hard, check that the grader can express the play the
+act is built around.
+
+**Rejected.** *Give every policy a reserve.* It would silently re-grade all eight Act I
+anchors to make a point about Act II. New behaviour goes in new policies.
+
+**Consequence.** Three policies model leaving headroom. anchor-09 went from 0 winning
+builds at any swept capacity to 7/6/3 at 118 MW — inside the act's tier, with no change to
+the level's numbers.

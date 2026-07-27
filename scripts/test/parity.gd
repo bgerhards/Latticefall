@@ -62,7 +62,8 @@ func _init() -> void:
 
 func _policies(ids: Array) -> Array:
 	## Mirrors standard_policies() in sim/engine.py, including order.
-	var mk := func(name: String, first: Array, overdraw: bool, caps: Dictionary) -> Dictionary:
+	var mk := func(name: String, first: Array, overdraw: bool, caps: Dictionary,
+			reserve: float = 0.0) -> Dictionary:
 		var pref: Array = []
 		for i in first:
 			if ids.has(i):
@@ -70,7 +71,8 @@ func _policies(ids: Array) -> Array:
 		for i in ids:
 			if not pref.has(i):
 				pref.append(i)
-		return {"name": name, "pref": pref, "overdraw": overdraw, "caps": caps}
+		return {"name": name, "pref": pref, "overdraw": overdraw, "caps": caps,
+			"reserve": reserve}
 	return [
 		mk.call("cheap-mass", ["pulse-turret"], false, {}),
 		mk.call("burst", ["ion-lance", "pulse-turret"], false, {}),
@@ -82,6 +84,12 @@ func _policies(ids: Array) -> Array:
 		mk.call("screened", ["scan-relay", "pulse-turret"], false,
 			{"scan-relay": 2, "shield-wall": 1}),
 		mk.call("greedy-overdraw", ["ion-lance", "arc-node"], true, {}),
+		mk.call("suppression", ["anchor-damper", "pulse-turret"], false,
+			{"anchor-damper": 2, "scan-relay": 1, "shield-wall": 1}, 0.20),
+		mk.call("flak-screen", ["flak-array", "scan-relay"], false,
+			{"scan-relay": 1, "anchor-damper": 1}, 0.15),
+		mk.call("reserved-mass", ["pulse-turret", "scan-relay"], false,
+			{"scan-relay": 1, "shield-wall": 1, "anchor-damper": 1}, 0.30),
 	]
 
 
@@ -98,7 +106,12 @@ func _run(anchor: Dictionary, towers: Dictionary, enemies: Dictionary,
 	s.setup(anchor, towers, enemies, diff)
 
 	var buildable: Array = policy["pref"].duplicate()
-	buildable.sort_custom(func(a, b): return _rank(policy, a) < _rank(policy, b))
+	# (rank, id) — id breaks the tie between everything the policy does not rank, which
+	# sort_custom would otherwise resolve arbitrarily. Mirrors Sim.buildable.
+	buildable.sort_custom(func(a, b):
+		var ra := _rank(policy, a)
+		var rb := _rank(policy, b)
+		return ra < rb if ra != rb else a < b)
 
 	var waves_cleared := 0
 	var died_on: int = -1
@@ -189,7 +202,9 @@ func _try_build(s, policy: Dictionary, buildable: Array) -> void:
 				if built >= int(policy["caps"][tid]):
 					continue
 			var projected: float = s.online_draw() + float(tw["draw_mw"])
-			if not policy["overdraw"] and projected > s.capacity():
+			# Mirrors Policy.reserve in sim/engine.py: headroom left for enemy drain.
+			var budget: float = s.capacity() * (1.0 - float(policy.get("reserve", 0.0)))
+			if not policy["overdraw"] and projected > budget:
 				continue
 			s.build_at(tid, order[0])
 			placed_one = true

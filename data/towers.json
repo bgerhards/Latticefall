@@ -80,6 +80,56 @@
       "effect": {
         "type": "reveal"
       }
+    },
+    {
+      "id": "flak-array",
+      "name": "Flak Array",
+      "cost": 230,
+      "draw_mw": 22,
+      "damage": 8,
+      "range": 3.8,
+      "fire_interval": 0.55,
+      "splash": 0.9,
+      "targets": [
+        "air",
+        "ground"
+      ],
+      "unlocked_at": "anchor-09",
+      "note": "Act II. Bursts over a lane rather than hitting one unit, so it answers the skiff-and-drone packs Sable Reach leads with. Still needs a relay to see air — splash does not find what the board cannot see."
+    },
+    {
+      "id": "anchor-damper",
+      "name": "Anchor Damper",
+      "cost": 270,
+      "draw_mw": 18,
+      "damage": 0,
+      "range": 4.5,
+      "fire_interval": 1.0,
+      "targets": [
+        "ground"
+      ],
+      "unlocked_at": "anchor-10",
+      "note": "Act II. Suppresses most of the bus drain of anything in range — a fixed 18 MW spent to deny a variable theft. Worth building exactly when the wave carries more drain than the damper costs, which is the decision Act II is made of.",
+      "effect": {
+        "type": "damp",
+        "value": 0.6
+      }
+    },
+    {
+      "id": "mortar-emplacement",
+      "name": "Mortar Emplacement",
+      "cost": 340,
+      "draw_mw": 30,
+      "damage": 26,
+      "range": 6.5,
+      "fire_interval": 2.0,
+      "splash": 1.5,
+      "targets": [
+        "ground",
+        "shielded"
+      ],
+      "unlocked_at": "anchor-13",
+      "note": "Act II. Long reach and a wide burst, but slow and blind to air. Reaches across a board the lance cannot cover twice."
     }
   ]
 }

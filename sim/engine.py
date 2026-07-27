@@ -118,10 +118,16 @@ class Policy:
     """
 
     def __init__(self, name: str, preference: list[str], allow_overdraw: bool = False,
-                 caps: dict[str, int] | None = None):
+                 caps: dict[str, int] | None = None, reserve: float = 0.0):
         self.name = name
         self.preference = preference
         self.allow_overdraw = allow_overdraw
+        # Fraction of capacity left unbuilt. Act I policies spend the bus to the last
+        # megawatt because nothing else draws on it; from Act II an enemy does, so a
+        # policy with no reserve is browned out from the first sapper and every anchor
+        # in the act grades unwinnable for a reason that is the harness, not the level.
+        # A player leaves headroom; the grader has to be able to express that.
+        self.reserve = reserve
         # Per-emplacement build limit. Without it a policy that leads with a support
         # emplacement fills every slot with it — "intel-first" built four scan relays
         # and no guns, and no policy could express the one sensible board for
@@ -145,9 +151,14 @@ class Sim:
         self.difficulty = difficulty
         self.hp_mult, self.bounty_mult = DIFFICULTIES[difficulty]
 
+        # Tie-broken by id, not by insertion order. Emplacements the policy does not
+        # rank all share rank 99, and Python's stable sort would then hand back
+        # towers.json's file order while the GDScript port hands back alphabetical —
+        # a parity failure that stayed hidden until Act II added three towers whose
+        # file order and alphabetical order finally disagreed.
         self.buildable = sorted(
             (t for t in towers.values() if t.unlocked_at <= anchor.id),
-            key=lambda t: policy.rank(t.id),
+            key=lambda t: (policy.rank(t.id), t.id),
         )
         self.funds = anchor.starting_funds
         self.spend = 0
@@ -166,7 +177,15 @@ class Sim:
 
     def bus_load(self) -> float:
         load = sum(p.tower.draw_mw for p in self.placed if p.online)
-        load += sum(u.kind.drains_mw for u in self.units if u.alive)
+        # A drain is suppressed where a damper covers the unit doing it. The damper
+        # spends a fixed draw to deny a variable one, so it pays only on waves that
+        # actually carry drain — which is the whole Act II decision (decision 027).
+        for u in self.units:
+            if not u.alive or u.kind.drains_mw <= 0.0:
+                continue
+            x, y = self.a.point_at(u.dist)
+            damp = min(1.0, self._covered_by("damp", x, y))
+            load += u.kind.drains_mw * (1.0 - damp)
         return load
 
     def _online_draw(self) -> float:
@@ -197,7 +216,8 @@ class Sim:
                                            if p.tower.id == tower.id) >= cap:
                     continue
                 projected = self._online_draw() + tower.draw_mw
-                if not self.policy.allow_overdraw and projected > self.a.capacity_mw:
+                budget = self.a.capacity_mw * (1.0 - self.policy.reserve)
+                if not self.policy.allow_overdraw and projected > budget:
                     continue
                 slot = slot_order[0]
                 self.placed.append(Placed(tower=tower, slot=slot))
@@ -388,5 +408,15 @@ def standard_policies(tower_ids: list[str]) -> list[Policy]:
         Policy("screened",     rest(has("scan-relay") + has("pulse-turret")),
                caps={"scan-relay": 2, "shield-wall": 1}),
         Policy("greedy-overdraw", rest(has("ion-lance") + has("arc-node")), allow_overdraw=True),
+        # Act II. The damper is support, so it needs a cap for the same reason the relay
+        # does — uncapped it fills the board with emplacements that shoot nothing.
+        Policy("suppression", rest(has("anchor-damper") + has("pulse-turret")),
+               caps={"anchor-damper": 2, "scan-relay": 1, "shield-wall": 1},
+               reserve=0.20),
+        Policy("flak-screen", rest(has("flak-array") + has("scan-relay")),
+               caps={"scan-relay": 1, "anchor-damper": 1}, reserve=0.15),
+        Policy("reserved-mass", rest(has("pulse-turret") + has("scan-relay")),
+               caps={"scan-relay": 1, "shield-wall": 1, "anchor-damper": 1},
+               reserve=0.30),
     ]
     return out

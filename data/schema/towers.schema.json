@@ -85,12 +85,13 @@
               "type"
             ],
             "additionalProperties": false,
-            "description": "non-damage role. 'slow' scales enemy speed in range; 'reveal' makes air units targetable.",
+            "description": "non-damage role. 'slow' scales enemy speed in range; 'reveal' makes air units targetable; 'damp' suppresses that fraction of a covered unit's bus drain.",
             "properties": {
               "type": {
                 "enum": [
                   "slow",
-                  "reveal"
+                  "reveal",
+                  "damp"
                 ]
               },
               "value": {

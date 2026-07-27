@@ -1,0 +1,62 @@
+{
+  "schema": "dialog",
+  "anchor": "anchor-09",
+  "lines": [
+    { "trigger": "brief", "speaker": "control",
+      "text": "Anchor nineteen. A hundred and eighteen megawatts. Be advised the deck's been worked — scaffolding, lighting, someone's generator bolted to Ordinal stone." },
+    { "trigger": "brief", "speaker": "vasquez",
+      "text": "Someone's still here?" },
+    { "trigger": "brief", "speaker": "control",
+      "text": "Someone's on the channel. He asked for you by name." },
+    { "trigger": "brief", "speaker": "ferrar",
+      "text": "Captain Vasquez. Marco Ferrar, Sable Reach. I want to open by saying nobody has to shoot anybody today.",
+      "beat": "Ferrar's first line in the game. Warm, first-name, entirely reasonable." },
+    { "trigger": "brief", "speaker": "vasquez",
+      "text": "You're standing in my anchor." },
+    { "trigger": "brief", "speaker": "ferrar",
+      "text": "I'm standing in an anchor. Ownership is what we're negotiating. Take a moment with it — I'm not in a hurry." },
+    { "trigger": "brief", "speaker": "okonkwo",
+      "text": "Flak array's cleared for the board. Twenty-two megawatts and it bursts over a lane instead of picking one target — but it still cannot see air on its own." },
+
+    { "trigger": "wave-start:1", "speaker": "ferrar",
+      "text": "That's not me, Captain. That's the local wildlife. I'd deal with it." },
+
+    { "trigger": "wave-clear:2", "speaker": "okonkwo", "critical": false,
+      "text": "Vasquez, the bus. Something out there is pulling off it while it's alive." },
+    { "trigger": "wave-clear:2", "speaker": "vasquez", "critical": false,
+      "text": "Pulling how much?" },
+    { "trigger": "wave-clear:2", "speaker": "okonkwo", "critical": false,
+      "text": "Eight megawatts a man. They walk in, they cost you, and they don't have to reach the ring to do it." },
+
+    { "trigger": "wave-clear:4", "speaker": "ferrar", "critical": false,
+      "text": "You've noticed. Good — I'd have been disappointed. The crews carry a tap, that's all. Cheaper than a rifle and it works on everyone." },
+    { "trigger": "wave-clear:4", "speaker": "vasquez", "critical": false,
+      "text": "You said nobody has to shoot anybody." },
+    { "trigger": "wave-clear:4", "speaker": "ferrar", "critical": false,
+      "text": "And nobody has. Look at your board, Captain — you're losing to arithmetic." },
+
+    { "trigger": "wave-clear:6", "speaker": "vasquez", "critical": false,
+      "text": "Okonkwo. Can we buy back the headroom?" },
+    { "trigger": "wave-clear:6", "speaker": "okonkwo", "critical": false,
+      "text": "Not on this anchor. Today you leave room on the bus and you kill them fast." },
+
+    { "trigger": "brownout", "speaker": "okonkwo", "critical": false,
+      "text": "That's not our load. They're taking it off us while they walk." },
+
+    { "trigger": "first-leak", "speaker": "control", "critical": false,
+      "text": "One through the ring. Bus reads clear on that one." },
+
+    { "trigger": "low-lives", "speaker": "vasquez", "critical": false,
+      "text": "Hold the ring. He's counting." },
+
+    { "trigger": "debrief", "speaker": "ferrar",
+      "text": "That was well done. I mean that. Same offer stands — you're not funded for the next twelve anchors and I am." },
+    { "trigger": "debrief", "speaker": "vasquez",
+      "text": "Control, log that offer verbatim." },
+    { "trigger": "debrief", "speaker": "control",
+      "text": "Logged. Meridian Actual has no guidance at this time.",
+      "beat": "command declines to instruct her — the second time the chain of command goes quiet" },
+    { "trigger": "debrief", "speaker": "okonkwo",
+      "text": "He knew our capacity before we did. Somebody gave him the survey." }
+  ]
+}

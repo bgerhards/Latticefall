@@ -124,9 +124,16 @@ func online_draw() -> float:
 
 func bus_load() -> float:
 	var v := online_draw()
+	# Mirrors Sim.bus_load() in sim/engine.py: a damper suppresses that fraction of the
+	# drain of any unit inside its radius. Decision 027.
 	for u in units:
-		if u["alive"]:
-			v += float(u["kind"].get("drains_mw", 0.0))
+		if not u["alive"]:
+			continue
+		var drain := float(u["kind"].get("drains_mw", 0.0))
+		if drain <= 0.0:
+			continue
+		var damp: float = minf(1.0, _covered_by("damp", point_at(u["dist"])))
+		v += drain * (1.0 - damp)
 	return v
 
 

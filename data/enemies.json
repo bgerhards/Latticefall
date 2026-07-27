@@ -16,6 +16,21 @@
     { "id": "reach-breacher", "name": "Reach Breacher", "faction": "sable-reach",
       "hp": 160, "speed": 1.0, "bounty": 35, "kind": "ground", "shielded": true,
       "drains_mw": 6,
-      "note": "Act II. Drains the bus while alive — the enemy attacks your economy directly." }
+      "note": "Act II. Drains the bus while alive — the enemy attacks your economy directly." },
+
+    { "id": "reach-sapper", "name": "Reach Sapper", "faction": "sable-reach",
+      "hp": 70, "speed": 1.45, "bounty": 20, "kind": "ground",
+      "drains_mw": 8,
+      "note": "Act II. Fragile, fast, and the largest single drain in the act. Kill it early or the whole board fires slower while it walks." },
+
+    { "id": "reach-skiff", "name": "Reach Skiff", "faction": "sable-reach",
+      "hp": 95, "speed": 1.5, "bounty": 24, "kind": "air",
+      "drains_mw": 5,
+      "note": "Act II air. Drains while it flies, so an unrevealed skiff costs power as well as ground." },
+
+    { "id": "reach-bulwark", "name": "Reach Bulwark", "faction": "sable-reach",
+      "hp": 430, "speed": 0.5, "bounty": 75, "kind": "ground", "armour": 8,
+      "shielded": true, "drains_mw": 9,
+      "note": "Act II heavy. Armour plus shielding means only the lance reaches it, and it drains the bus for the whole time it takes to chew through." }
   ]
 }

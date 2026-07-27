@@ -1,0 +1,65 @@
+{
+  "schema": "dialog",
+  "anchor": "anchor-10",
+  "lines": [
+    { "trigger": "brief", "speaker": "control",
+      "text": "Anchor twenty-two. A hundred and thirty-four megawatts — that's a second core trucked through for you, so spend it like it cost something." },
+    { "trigger": "brief", "speaker": "okonkwo",
+      "text": "Anchor damper's cleared. Eighteen megawatts fixed, and inside its arc it kills most of what they're pulling off the bus. You are spending power to stop losing power." },
+    { "trigger": "brief", "speaker": "vasquez",
+      "text": "So it pays for itself when they bring enough men." },
+    { "trigger": "brief", "speaker": "okonkwo",
+      "text": "It pays for itself when they bring three. Under that you'd rather have the gun." },
+    { "trigger": "brief", "speaker": "ferrar",
+      "text": "Captain. You brought a bigger core. I'd have brought a bigger core." },
+    { "trigger": "brief", "speaker": "vasquez",
+      "text": "This channel is for my people." },
+    { "trigger": "brief", "speaker": "ferrar",
+      "text": "It was ours first. We're only lending it back.",
+      "beat": "he is on Meridian's channel and does not pretend otherwise" },
+
+    { "trigger": "wave-start:1", "speaker": "control",
+      "text": "Contact on the north lane. Mixed — wardens and men." },
+
+    { "trigger": "wave-clear:1", "speaker": "vasquez", "critical": false,
+      "text": "They're walking in with the wardens." },
+    { "trigger": "wave-clear:1", "speaker": "okonkwo", "critical": false,
+      "text": "They're walking in *behind* the wardens. It's not an alliance, it's a queue." },
+
+    { "trigger": "wave-clear:3", "speaker": "okonkwo", "critical": false,
+      "text": "Damper's holding about two thirds of the tap inside its arc. Outside the arc you're paying full price." },
+
+    { "trigger": "wave-clear:5", "speaker": "ferrar", "critical": false,
+      "text": "You're doing the sums now. Good. Every megawatt you spend keeping us off your bus is a gun you didn't build." },
+    { "trigger": "wave-clear:5", "speaker": "vasquez", "critical": false,
+      "text": "You've done this before." },
+    { "trigger": "wave-clear:5", "speaker": "ferrar", "critical": false,
+      "text": "Nineteen times. You're the first one who's still talking at wave five." },
+
+    { "trigger": "wave-clear:6", "speaker": "control", "critical": false,
+      "text": "Meridian Actual to field lead. Advise on whether Sable Reach is to be treated as hostile." },
+    { "trigger": "wave-clear:6", "speaker": "vasquez", "critical": false,
+      "text": "They're shooting at me, Control." },
+    { "trigger": "wave-clear:6", "speaker": "control", "critical": false,
+      "text": "Understood. Advise if that changes.",
+      "beat": "command still will not say the word hostile" },
+
+    { "trigger": "brownout", "speaker": "okonkwo", "critical": false,
+      "text": "Bus is over. Half of that is theirs, not ours — put a damper on the lane they're walking." },
+
+    { "trigger": "first-leak", "speaker": "vasquez", "critical": false,
+      "text": "One past. Close it up." },
+
+    { "trigger": "low-lives", "speaker": "okonkwo", "critical": false,
+      "text": "Vasquez, the ring's taking hits. Whatever we're saving, it isn't the ring." },
+
+    { "trigger": "debrief", "speaker": "ferrar",
+      "text": "Pull back. All crews, off the deck. — Captain, that's twice you've made me pay for a survey I already owned." },
+    { "trigger": "debrief", "speaker": "okonkwo",
+      "text": "He said owned." },
+    { "trigger": "debrief", "speaker": "vasquez",
+      "text": "I heard it." },
+    { "trigger": "debrief", "speaker": "control",
+      "text": "Anchor is held. Rotate your people, Captain. That's an order you'll like." }
+  ]
+}

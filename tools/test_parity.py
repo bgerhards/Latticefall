@@ -53,7 +53,7 @@ def run_python(anchor_ids: list[str]) -> list[dict]:
     out = []
     for aid in anchor_ids:
         anchor = load_anchor(aid)
-        available = [t.id for t in towers.values() if t.unlocked_at <= aid]
+        available = sorted(t.id for t in towers.values() if t.unlocked_at <= aid)
         for policy in standard_policies(available):
             for diff in DIFFICULTIES:
                 o = Sim(anchor, towers, enemies, policy, diff).run()

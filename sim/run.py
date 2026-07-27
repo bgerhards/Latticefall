@@ -30,10 +30,17 @@ PRESSURE_FLOOR = 0.75
 
 
 def grade(anchor_id: str, difficulties: list[str]) -> dict:
-    towers = load_towers()
-    enemies = load_enemies()
-    anchor = load_anchor(anchor_id)
-    available = [t.id for t in towers.values() if t.unlocked_at <= anchor.id]
+    return grade_anchor(load_anchor(anchor_id), difficulties)
+
+
+def grade_anchor(anchor, difficulties: list[str], towers=None, enemies=None) -> dict:
+    """Grade an Anchor object. Split out from grade() so a sweep can grade an anchor
+    that only exists in memory — tools/sweep.py varies capacity, funds and wave weight
+    without writing sixteen candidate files to disk."""
+    towers = towers if towers is not None else load_towers()
+    enemies = enemies if enemies is not None else load_enemies()
+    # sorted, so the preference tail matches the GDScript port's sorted id list
+    available = sorted(t.id for t in towers.values() if t.unlocked_at <= anchor.id)
     policies = standard_policies(available)
 
     runs, by_diff = [], {}

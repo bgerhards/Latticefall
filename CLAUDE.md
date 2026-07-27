@@ -142,6 +142,17 @@ element in the game. A baked glow cannot dim, and bleeds past the alpha silhouet
 
 ## Working agreement
 
+**One recommendation, never a menu.** Do not present options and ask which. Pick the best
+course, say what it is in a line, and do it. If a choice turns out wrong, correct it and
+keep going. Only stop for something genuinely needed from the user.
+
+**Keep working.** Do not stop after a task to check in. Finish it, pick the next thing,
+and start. Stop only when out of work or explicitly told to.
+
+**Be concise.** Sacrifice grammar for concision. Fragments are fine. No preamble, no
+recap of what was just read, no summary of what is about to be done. The user asks if
+they need more.
+
 **Backlog before work.** Anything discovered mid-task that isn't part of the current task
 goes in the backlog, not into the current change. `tools/backlog.py add`.
 
