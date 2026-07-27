@@ -242,3 +242,37 @@ debugging cycle on the loop page.
 depends on capturing someone's desktop. `check.py` also boots the main scene headlessly and
 asserts on *output*, because a GDScript parse error does not change the exit code — Godot
 logs it and carries on with the scene missing.
+
+
+---
+
+## 017 — Isometric camera elevation is 30°, superseding 002
+
+**Decided.** The orthographic camera sits at **30.0° elevation** (`arcsin(0.5)`), yaw
+45/135/225/315. Orthographic scale for a render `W` px wide is `W * sqrt(2) / 128`, which
+lands a 1x1 world tile on exactly 128x64 px.
+
+**Supersedes decision 002**, which specified `atan(1/2)` = 26.5651°. That was wrong.
+
+**Context.** Measured, not reasoned about. A 1x1 plane rendered at 512 px with no
+antialiasing, alpha silhouette measured directly:
+
+| elevation | tile px | ratio |
+|---|---|---|
+| `atan(1/2)` = 26.5651° | 240 x 108 | 2.222 |
+| **30.0°** | **240 x 120** | **2.000** |
+| `atan(1/sqrt(2))` = 35.264° | 240 x 138 | 1.739 |
+
+The projected height of a tile is `sqrt(2) * sin(elevation)` and its width is `sqrt(2)`,
+so the ratio is `1 / sin(elevation)`. A 2:1 ratio therefore needs `sin(elevation) = 0.5`,
+i.e. 30°. `atan(1/2)` is a different construction and does not produce 2:1.
+
+**Cost.** None. It was caught before any production art existed; every render to date was a
+labelled blockout. Had it been found after the sprite library was built it would have meant
+re-rendering everything.
+
+**Consequence.** The wrong figure had propagated into CLAUDE.md, the sprite-smith agent, the
+pitch page and this log, because it was written down once from memory and then trusted. The
+render pipeline now asserts the 128x64 tile measurement on every run rather than trusting a
+constant — see `tools/blender/render.py`. This is why the project rule is to verify against
+the installed tool, and it is the rule I broke.

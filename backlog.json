@@ -1,5 +1,5 @@
 {
-  "next_id": 20,
+  "next_id": 22,
   "items": [
     {
       "id": "LF-001",
@@ -31,11 +31,11 @@
       "kind": "feature",
       "area": "art",
       "pri": "high",
-      "status": "open",
+      "status": "done",
       "why": "render_props.py is a proof, not a pipeline. Needs 4 yaws, albedo+glow, manifest.",
       "opened": "2026-07-26",
-      "closed": null,
-      "note": ""
+      "closed": "2026-07-27",
+      "note": "tools/blender/render.py: 9 assets, 4 yaws, albedo+glow, self-calibrating"
     },
     {
       "id": "LF-004",
@@ -226,6 +226,30 @@
       "status": "open",
       "why": "",
       "opened": "2026-07-26",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-020",
+      "title": "Sprite emissives still over-driven; drone eye reads white not red",
+      "kind": "polish",
+      "area": "art",
+      "pri": "med",
+      "status": "open",
+      "why": "",
+      "opened": "2026-07-27",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-021",
+      "title": "Anchor ring, heavy and mote need silhouette pass at 100% zoom",
+      "kind": "polish",
+      "area": "art",
+      "pri": "med",
+      "status": "open",
+      "why": "They read at contact-sheet size; not verified at in-game size on both light and dark tiles.",
+      "opened": "2026-07-27",
       "closed": null,
       "note": ""
     }

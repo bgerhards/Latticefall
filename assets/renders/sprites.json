@@ -1,0 +1,183 @@
+{
+  "cell": 256,
+  "elevation_deg": 30.0,
+  "ortho_scale": 2.784232950922031,
+  "pivot": [
+    128,
+    128
+  ],
+  "sprites": {
+    "anchor_ring": {
+      "y045": {
+        "albedo": "assets/renders/anchor_ring_y045_albedo.png",
+        "glow": "assets/renders/anchor_ring_y045_glow.png"
+      },
+      "y135": {
+        "albedo": "assets/renders/anchor_ring_y135_albedo.png",
+        "glow": "assets/renders/anchor_ring_y135_glow.png"
+      },
+      "y225": {
+        "albedo": "assets/renders/anchor_ring_y225_albedo.png",
+        "glow": "assets/renders/anchor_ring_y225_glow.png"
+      },
+      "y315": {
+        "albedo": "assets/renders/anchor_ring_y315_albedo.png",
+        "glow": "assets/renders/anchor_ring_y315_glow.png"
+      }
+    },
+    "arc_node": {
+      "y045": {
+        "albedo": "assets/renders/arc_node_y045_albedo.png",
+        "glow": "assets/renders/arc_node_y045_glow.png"
+      },
+      "y135": {
+        "albedo": "assets/renders/arc_node_y135_albedo.png",
+        "glow": "assets/renders/arc_node_y135_glow.png"
+      },
+      "y225": {
+        "albedo": "assets/renders/arc_node_y225_albedo.png",
+        "glow": "assets/renders/arc_node_y225_glow.png"
+      },
+      "y315": {
+        "albedo": "assets/renders/arc_node_y315_albedo.png",
+        "glow": "assets/renders/arc_node_y315_glow.png"
+      }
+    },
+    "pulse_turret": {
+      "y045": {
+        "albedo": "assets/renders/pulse_turret_y045_albedo.png",
+        "glow": "assets/renders/pulse_turret_y045_glow.png"
+      },
+      "y135": {
+        "albedo": "assets/renders/pulse_turret_y135_albedo.png",
+        "glow": "assets/renders/pulse_turret_y135_glow.png"
+      },
+      "y225": {
+        "albedo": "assets/renders/pulse_turret_y225_albedo.png",
+        "glow": "assets/renders/pulse_turret_y225_glow.png"
+      },
+      "y315": {
+        "albedo": "assets/renders/pulse_turret_y315_albedo.png",
+        "glow": "assets/renders/pulse_turret_y315_glow.png"
+      }
+    },
+    "tile_ground": {
+      "y045": {
+        "albedo": "assets/renders/tile_ground_y045_albedo.png",
+        "glow": "assets/renders/tile_ground_y045_glow.png"
+      },
+      "y135": {
+        "albedo": "assets/renders/tile_ground_y135_albedo.png",
+        "glow": "assets/renders/tile_ground_y135_glow.png"
+      },
+      "y225": {
+        "albedo": "assets/renders/tile_ground_y225_albedo.png",
+        "glow": "assets/renders/tile_ground_y225_glow.png"
+      },
+      "y315": {
+        "albedo": "assets/renders/tile_ground_y315_albedo.png",
+        "glow": "assets/renders/tile_ground_y315_glow.png"
+      }
+    },
+    "tile_path": {
+      "y045": {
+        "albedo": "assets/renders/tile_path_y045_albedo.png",
+        "glow": "assets/renders/tile_path_y045_glow.png"
+      },
+      "y135": {
+        "albedo": "assets/renders/tile_path_y135_albedo.png",
+        "glow": "assets/renders/tile_path_y135_glow.png"
+      },
+      "y225": {
+        "albedo": "assets/renders/tile_path_y225_albedo.png",
+        "glow": "assets/renders/tile_path_y225_glow.png"
+      },
+      "y315": {
+        "albedo": "assets/renders/tile_path_y315_albedo.png",
+        "glow": "assets/renders/tile_path_y315_glow.png"
+      }
+    },
+    "tile_slot": {
+      "y045": {
+        "albedo": "assets/renders/tile_slot_y045_albedo.png",
+        "glow": "assets/renders/tile_slot_y045_glow.png"
+      },
+      "y135": {
+        "albedo": "assets/renders/tile_slot_y135_albedo.png",
+        "glow": "assets/renders/tile_slot_y135_glow.png"
+      },
+      "y225": {
+        "albedo": "assets/renders/tile_slot_y225_albedo.png",
+        "glow": "assets/renders/tile_slot_y225_glow.png"
+      },
+      "y315": {
+        "albedo": "assets/renders/tile_slot_y315_albedo.png",
+        "glow": "assets/renders/tile_slot_y315_glow.png"
+      }
+    },
+    "warden_drone": {
+      "y045": {
+        "albedo": "assets/renders/warden_drone_y045_albedo.png",
+        "glow": "assets/renders/warden_drone_y045_glow.png"
+      },
+      "y135": {
+        "albedo": "assets/renders/warden_drone_y135_albedo.png",
+        "glow": "assets/renders/warden_drone_y135_glow.png"
+      },
+      "y225": {
+        "albedo": "assets/renders/warden_drone_y225_albedo.png",
+        "glow": "assets/renders/warden_drone_y225_glow.png"
+      },
+      "y315": {
+        "albedo": "assets/renders/warden_drone_y315_albedo.png",
+        "glow": "assets/renders/warden_drone_y315_glow.png"
+      }
+    },
+    "warden_heavy": {
+      "y045": {
+        "albedo": "assets/renders/warden_heavy_y045_albedo.png",
+        "glow": "assets/renders/warden_heavy_y045_glow.png"
+      },
+      "y135": {
+        "albedo": "assets/renders/warden_heavy_y135_albedo.png",
+        "glow": "assets/renders/warden_heavy_y135_glow.png"
+      },
+      "y225": {
+        "albedo": "assets/renders/warden_heavy_y225_albedo.png",
+        "glow": "assets/renders/warden_heavy_y225_glow.png"
+      },
+      "y315": {
+        "albedo": "assets/renders/warden_heavy_y315_albedo.png",
+        "glow": "assets/renders/warden_heavy_y315_glow.png"
+      }
+    },
+    "warden_mote": {
+      "y045": {
+        "albedo": "assets/renders/warden_mote_y045_albedo.png",
+        "glow": "assets/renders/warden_mote_y045_glow.png"
+      },
+      "y135": {
+        "albedo": "assets/renders/warden_mote_y135_albedo.png",
+        "glow": "assets/renders/warden_mote_y135_glow.png"
+      },
+      "y225": {
+        "albedo": "assets/renders/warden_mote_y225_albedo.png",
+        "glow": "assets/renders/warden_mote_y225_glow.png"
+      },
+      "y315": {
+        "albedo": "assets/renders/warden_mote_y315_albedo.png",
+        "glow": "assets/renders/warden_mote_y315_glow.png"
+      }
+    }
+  },
+  "tile_px": [
+    128,
+    64
+  ],
+  "yaws": [
+    45,
+    135,
+    225,
+    315
+  ]
+}

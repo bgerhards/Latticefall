@@ -23,7 +23,7 @@ how to work; that file says where we are.
 |---|---|
 | Never use terminology from the influencing series | Legal. See `docs/NOMENCLATURE.md` — it has a **banned list**. Check it before naming anything. |
 | Game content is data, not code | A level, wave, tower, or dialog line is a JSON file validated against a schema. Lets balance run headless and lets one anchor be edited without loading the codebase. |
-| Verify against the installed tool, never from memory | Blender 5.2 removed `scene.node_tree` and turned Glare's settings into sockets. Assumed API costs a full re-render of every asset. Probe first. |
+| Verify against the installed tool, never from memory | Blender 5.2 removed `scene.node_tree` and turned Glare's settings into sockets. And the iso camera angle in this file was wrong for six sessions because it was derived from memory rather than measured (decision 017). Probe first, every time. |
 | Every asset is reproducible from a script | `.blend` files and render scripts are the source. Rendered PNGs are build output that happens to be committed. |
 | Loudness-match audio, never peak-normalize | Peak normalization is why programmer audio sounds flat. |
 
@@ -70,8 +70,11 @@ determinism, asset manifest integrity, Python syntax. **If it fails, do not comm
 
 ## Art pipeline facts (verified on this machine — do not re-derive)
 
-- **True 2:1 isometric.** Camera elevation is `atan(1/2)` = **26.5651°**, orthographic.
+- **True 2:1 isometric.** Camera elevation is **30.0°** (`arcsin(0.5)`), orthographic.
   Every asset renders at yaw 45 / 135 / 225 / 315.
+  **Not** `atan(1/2)` = 26.5651° — that yields a 2.222:1 tile and was wrong in this file
+  until it was measured. See decision 017. Orthographic scale for a render `W` px wide is
+  `W * sqrt(2) / 128`, which puts a 1x1 world tile on exactly 128x64 px.
 - Blender 5.2 registers **only `BLENDER_EEVEE`**. Cycles is not enabled and is not wanted.
 - `scene.node_tree` **does not exist**. The compositor is `scene.compositing_node_group`,
   a `CompositorNodeTree`, terminated by `NodeGroupOutput` — `CompositorNodeComposite` is gone.

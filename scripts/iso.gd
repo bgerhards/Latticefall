@@ -2,9 +2,9 @@ class_name Iso
 extends RefCounted
 ## True 2:1 isometric projection. Decision 002.
 ##
-## Tile width is exactly twice tile height, which is what makes the camera
-## elevation atan(1/2) = 26.5651 deg — the same angle every sprite is rendered at.
-## Changing these constants invalidates the entire sprite library.
+## Tile width is exactly twice tile height, which requires a camera elevation of
+## 30 deg (arcsin 0.5) — the same angle every sprite is rendered at. These constants
+## and that angle are one decision; changing either invalidates the sprite library.
 
 const TILE_W: float = 128.0
 const TILE_H: float = 64.0

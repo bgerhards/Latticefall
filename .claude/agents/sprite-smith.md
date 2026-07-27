@@ -11,7 +11,9 @@ hand-paint. Consistency comes from the pipeline, not from discipline.
 These were verified against the installed Blender 5.2.0 LTS. Assuming otherwise produces
 code that fails at render time or, worse, renders subtly wrong assets.
 
-- Camera: orthographic, elevation `atan(1/2)` = **26.5651°**, yaws 45/135/225/315.
+- Camera: orthographic, elevation **30.0°** (`arcsin(0.5)`), yaws 45/135/225/315.
+  A 1x1 tile must measure exactly 128x64 px. Measure it; do not trust the number.
+  `ortho_scale = render_width_px * sqrt(2) / 128`.
 - Only `BLENDER_EEVEE` is registered. Do not reach for Cycles.
 - `scene.node_tree` **does not exist**. Use `scene.compositing_node_group` (a
   `CompositorNodeTree`) terminated by `NodeGroupOutput`. `CompositorNodeComposite` is gone.
