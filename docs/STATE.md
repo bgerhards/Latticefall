@@ -17,7 +17,7 @@ without touching a command line. Anchors unlock in order; progress persists in a
 
 **What is left is polish and one performance item**, not content. See "What does not
 exist" — the honest gaps are a sprite atlas, gamepad support, twelve sourced organic SFX,
-and four internal-quality chores.
+and three internal-quality chores.
 
 ## What works
 
@@ -25,6 +25,7 @@ and four internal-quality chores.
 |---|---|
 | **Flow** | Title → level select → anchor → debrief → next anchor. Pause overlay with volume. |
 | **Inspector** | Click a built emplacement to select it; the left panel is its datasheet and carries sell, upgrade and power. Reach is drawn on the board. Decision 035. |
+| **Instrument column** | Everything the player operates is in one 330 px column: bus, build grid, inspector. The build grid is two across and the inspector sits against its measured height, so it fits 1 emplacement or 9. |
 | **Content** | 24 anchors, 24 dialog files, 9 emplacements, 11 enemies across 4 factions. |
 | **Progress** | `user://progress.json` — cleared map, difficulty, volumes. Anchors unlock in order. |
 | **Rules** | `sim/engine.py` and `scripts/anchor_sim.gd`, diffed every commit: 864 runs identical. |
@@ -50,10 +51,9 @@ and four internal-quality chores.
   explicitly confirmed with the user.
 - Gamepad `LF-010`. Editor preview tile textures `LF-025`. HUD/dialog authored in the
   scene rather than built in code `LF-026`.
-- **The build bar outgrows its column** `LF-040`: nine unlocked emplacements is 1182 px of
-  buttons, so from Act II it lies across the board and covers slots.
-- **`user://progress.json` opens under a case-mismatched path** `LF-041` — harmless on this
-  machine, will not open on a case-sensitive export target.
+- **The app is still called `Defend-Claude`** `LF-042`: `project.godot` carries the repo
+  name, so that is the window title and would be the exported binary's name. Renaming it
+  relocates `user://`, so it is a decision, not a rename.
 - **Act II wave density** `LF-038`: shielded heavies and drain eat the difficulty budget,
   so Act II and III sweeps land at wave weight 0.45–0.7 with high life counts. The levels
   grade clean; the shape is a design smell, not a defect.
@@ -133,20 +133,20 @@ Full detail in `CLAUDE.md`.
 ### Gate
 
 ```
-[  ok  ] python syntax           186ms  24 files
-[  ok  ] json parses              74ms  
-[  ok  ] game data               131ms  no warnings
-[  ok  ] banned terms            257ms  115 files clean
-[  ok  ] sfx determinism         128ms  ui_confirm byte-identical
+[  ok  ] python syntax           169ms  24 files
+[  ok  ] json parses              68ms  
+[  ok  ] game data               128ms  no warnings
+[  ok  ] banned terms            229ms  115 files clean
+[  ok  ] sfx determinism         118ms  ui_confirm byte-identical
 [  ok  ] music manifest            0ms  14 tracks
-[  ok  ] backlog rendered          0ms  9 open
-[  ok  ] sim determinism        3162ms  deterministic
-[  ok  ] godot boots            1147ms  main scene loads clean
-[  ok  ] game renders           2131ms  coverage 0.45, 78 tones
-[  ok  ] menu renders           1050ms  coverage 0.037, 8 anchors listed
-[  ok  ] rules parity         520637ms  864 runs identical (gdscript vs python)
+[  ok  ] backlog rendered          0ms  8 open
+[  ok  ] sim determinism        3047ms  deterministic
+[  ok  ] godot boots            1092ms  main scene loads clean
+[  ok  ] game renders           1906ms  coverage 0.45, 80 tones
+[  ok  ] menu renders           1178ms  coverage 0.037, 8 anchors listed
+[  ok  ] rules parity         510598ms  864 runs identical (gdscript vs python)
 
-12 passed · 0 failed · 0 skipped · 528905ms
+12 passed · 0 failed · 0 skipped · 518535ms
 ```
 
 ### Inventory
@@ -194,21 +194,21 @@ Full detail in `CLAUDE.md`.
 
 ### Backlog
 
-9 open · 32 closed
+8 open · 34 closed
 
 - `high` LF-004 No sprite atlas packer
 - `med` LF-005 Source the 12 organic CC0 SFX
 - `med` LF-025 Editor preview shows flat-colour tiles until the project is reloaded, because the Sprites autoload is only instantiated in-editor at startup
 - `med` LF-026 HUD and dialog build their Control widgets in code rather than being authored in the scene
 - `med` LF-038 Act II waves are thin (2-5 units per type) and lives run high (16-24) because shielded heavies and drain eat the whole difficulty budget — consider a mid-cost anti-armour emplacement or a lance/mortar draw cut so volume can come back
-- `med` LF-040 Build bar overflows the left column and covers board slots from Act II on — 9 unlocked emplacements is 1182px of buttons across a 1920px viewport
-- `med` LF-041 Godot warns on every boot that user://progress.json is opened as Defend-Claude but stored as defend-claude — a case mismatch that will not open on a case-sensitive export target
+- `med` LF-042 Window title and export name are "Defend-Claude" (the repo name), not LATTICEFALL — project.godot config/name reaches the player
 - `low` LF-010 Gamepad support deferred until content-complete
 - `low` LF-018 Unfocused Godot window is throttled — verification must use --fixed-fps
 
 ### Recent commits
 
 ```
+ce81773 feat(engine): board selection and an emplacement inspector
 5475dfa feat(engine): pause menu, volume, per-wave autoplay, and slots in range
 c048141 feat(engine): menu, level select, save, sell/upgrade, and vendored fonts
 8c05a5c chore(backlog): close LF-036 — Act II art exists
@@ -216,7 +216,6 @@ c048141 feat(engine): menu, level select, save, sell/upgrade, and vendored fonts
 915d5da feat(content): Act II is complete — anchors 11-16, shielding reworked, parity in float64
 7378dee feat(content): Act II opens — Sable Reach roster, damper, anchors 09-10
 0f622b2 docs: session wrap — Act I complete, decision 026, STATE for a fresh context
-b29d2be fix(art): render albedo with emission off — decision 007 was not actually true
 ```
 
 <!-- END AUTO -->

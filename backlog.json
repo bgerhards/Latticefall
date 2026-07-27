@@ -1,5 +1,5 @@
 {
-  "next_id": 42,
+  "next_id": 43,
   "items": [
     {
       "id": "LF-001",
@@ -475,15 +475,27 @@
       "kind": "polish",
       "area": "engine",
       "pri": "med",
-      "status": "open",
+      "status": "done",
       "why": "",
       "opened": "2026-07-27",
-      "closed": null,
-      "note": ""
+      "closed": "2026-07-27",
+      "note": "Build bar is a two-column grid inside the 330px instrument column; the inspector is placed against the bar's measured height, so it tracks 1 row on anchor-01 and 5 on anchor-24. Verified by screenshot at both extremes."
     },
     {
       "id": "LF-041",
       "title": "Godot warns on every boot that user://progress.json is opened as Defend-Claude but stored as defend-claude \u2014 a case mismatch that will not open on a case-sensitive export target",
+      "kind": "bug",
+      "area": "engine",
+      "pri": "med",
+      "status": "dropped",
+      "why": "",
+      "opened": "2026-07-27",
+      "closed": "2026-07-27",
+      "note": "Not a repo defect. project.godot is config/name=\"Defend-Claude\"; the on-disk user dir is lowercase because it was created under an earlier name, and macOS resolves it case-insensitively. A fresh machine or a case-sensitive export creates Defend-Claude and never mismatches. Local artifact only."
+    },
+    {
+      "id": "LF-042",
+      "title": "Window title and export name are \"Defend-Claude\" (the repo name), not LATTICEFALL \u2014 project.godot config/name reaches the player",
       "kind": "bug",
       "area": "engine",
       "pri": "med",

@@ -35,6 +35,13 @@ var _outcome_actions: HBoxContainer
 var _next_button: Button
 
 const MENU_SCENE := "res://scenes/menu.tscn"
+
+## The instrument column is 330 px wide and everything in it is laid out against these,
+## because the build bar's height is not known until an anchor says what it unlocks.
+const BAR_TOP := 184.0
+const BUTTON_H := 44.0
+const PANEL_H := 420.0
+
 var _buttons: Array[Button] = []
 
 
@@ -94,22 +101,33 @@ func bind(v: Node2D) -> void:
 	_wave.position = Vector2(28, 154)
 	root.add_child(_wave)
 
-	var bar := HBoxContainer.new()
-	bar.position = Vector2(28, 184)
-	bar.add_theme_constant_override("separation", 6)
+	# Two across, inside the instrument column, rather than one long row. Nine unlocked
+	# emplacements at 126 px each is 1182 px of buttons on a 1920 px viewport — from Act II
+	# the bar lay across the middle of the board and covered the slots it was for. LF-040.
+	var unlocked: Array = Content.unlocked_at(view.anchor_id)
+	var bar := GridContainer.new()
+	bar.columns = 2
+	bar.position = Vector2(28, BAR_TOP)
+	bar.add_theme_constant_override("h_separation", 6)
+	bar.add_theme_constant_override("v_separation", 6)
 	root.add_child(bar)
 
-	for tid in Content.unlocked_at(view.anchor_id):
+	for tid in unlocked:
 		var t: Dictionary = Content.tower(tid)
 		var b := Button.new()
 		b.text = "%s\n$%d · %d MW" % [t["name"], int(t["cost"]), int(t["draw_mw"])]
-		b.custom_minimum_size = Vector2(126, 46)
+		b.custom_minimum_size = Vector2(150, BUTTON_H)
 		Ui.style(b, 11)
 		b.pressed.connect(_on_pick.bind(String(tid)))
 		bar.add_child(b)
 		_buttons.append(b)
 
-	_build_inspector(root)
+	# The bar grows a row every time an act unlocks two more emplacements, so the panel
+	# under it is placed against the bar's real height rather than a number that was true
+	# on anchor-01.
+	var rows: int = int(ceil(float(unlocked.size()) / 2.0))
+	var bar_h: float = float(rows) * BUTTON_H + maxf(float(rows - 1), 0.0) * 6.0
+	_build_inspector(root, BAR_TOP + bar_h + 16.0)
 
 	# End-of-anchor banner. Centred, large, and the only place the game tells the player
 	# how to get back out of a level — without it the only exit from a finished anchor is
@@ -161,48 +179,50 @@ func bind(v: Node2D) -> void:
 	refresh()
 
 
-func _build_inspector(root: Control) -> void:
+func _build_inspector(root: Control, top: float) -> void:
 	## One panel that describes whichever emplacement the player is thinking about — the
 	## one selected on the board, or failing that the one about to be built — and carries
 	## the three verbs that act on it. The verbs act on `view.selected_slot`, never on the
 	## hover: reaching a button means dragging the cursor across the board, and a
 	## hover-targeted SELL sells whatever tile the cursor last crossed on its way over.
+	##
+	## Everything is placed relative to `top`, which is wherever the build bar ended.
 	var panel := ColorRect.new()
 	panel.color = C_PANEL
-	panel.position = Vector2(16, 246)
-	panel.size = Vector2(330, 420)
+	panel.position = Vector2(16, top)
+	panel.size = Vector2(330, PANEL_H)
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(panel)
 
 	_kicker = _make_label(11, C_MUTED)
-	_kicker.position = Vector2(28, 258)
+	_kicker.position = Vector2(28, top + 12)
 	root.add_child(_kicker)
 
 	_title = _make_label(20, C_BONE, false, true)
-	_title.position = Vector2(28, 274)
+	_title.position = Vector2(28, top + 28)
 	root.add_child(_title)
 
 	_sub = _make_label(12, C_AMBER, true)
-	_sub.position = Vector2(28, 302)
+	_sub.position = Vector2(28, top + 56)
 	root.add_child(_sub)
 
-	root.add_child(_rule(324))
+	root.add_child(_rule(top + 78))
 
 	_body = _make_label(13, C_BONE, true)
-	_body.position = Vector2(28, 332)
+	_body.position = Vector2(28, top + 86)
 	root.add_child(_body)
 
-	root.add_child(_rule(474))
+	root.add_child(_rule(top + 228))
 
 	_note = _make_label(12, C_MUTED)
-	_note.position = Vector2(28, 482)
+	_note.position = Vector2(28, top + 236)
 	_note.size = Vector2(306, 92)
 	_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_note.clip_text = true
 	root.add_child(_note)
 
 	var verbs := HBoxContainer.new()
-	verbs.position = Vector2(28, 582)
+	verbs.position = Vector2(28, top + 336)
 	verbs.add_theme_constant_override("separation", 6)
 	root.add_child(verbs)
 
@@ -220,7 +240,7 @@ func _build_inspector(root: Control) -> void:
 
 	_power_button = Button.new()
 	_power_button.custom_minimum_size = Vector2(306, 30)
-	_power_button.position = Vector2(28, 620)
+	_power_button.position = Vector2(28, top + 374)
 	Ui.style(_power_button, 12)
 	_power_button.pressed.connect(func(): view.toggle_at(view.selected_slot))
 	root.add_child(_power_button)
