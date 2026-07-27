@@ -15,3 +15,8 @@
 
 # Render scratch (intermediates; final atlases are committed)
 /assets/renders/_scratch/
+
+# Python virtualenv
+.venv/
+__pycache__/
+*.pyc
