@@ -375,3 +375,44 @@ sight from investing correctly — on anchor-02 brutal it loses, which is the in
 shape. This also unblocks `LF-014`: the question of whether overdrawing the bus is ever
 rational cannot be asked until builds can contain a high-draw support emplacement, which
 is exactly what the Shield Wall is at anchor-04.
+
+---
+
+## 021 — Brownout is still not a trade at anchor-04. LF-014 measured, hypothesis refused
+
+**Not a decision — a measurement, recorded so the open question stops being open.**
+`docs/STATE.md` said to test `LF-014` as soon as the Shield Wall unlocked, and to treat a
+negative result as evidence that decision 003's hook is weaker than assumed. It is
+negative. Reproduce with `.venv/bin/python tools/analysis_lf014.py`.
+
+anchor-04, 96 MW bus, Shield Wall drawing 40 MW (42% of the bus), wall on the slot
+nearest the path, played to the end at every difficulty:
+
+| difficulty | no wall (7 guns + relay) | wall always on | wall toggled, raised ~33% of ticks |
+|---|---|---|---|
+| standard | **won, 10 lives** | won, 6 | won, 10 |
+| hard | **won, 9 lives** | won, 2 | won, 7 |
+| brutal | **won, 6 lives** | lost on wave 8 | won, 5 |
+
+Not building the wall is the best line at every difficulty. Raising it only when
+something is in its radius — the optimal version of the play STATE.md hypothesised — is
+never better than not owning it, though it is much better than leaving it running. So the
+toggle mechanic works; the economics behind it do not.
+
+**Why it fails.** Brownout is a flat −40% fire rate across the entire board. The wall's
+benefit is a 0.45x slow inside radius 2.0 — a couple of tiles of a 41-tile path. Trading
+40% of every gun's output for a local slow is structurally bad no matter how it is timed.
+The deeper mismatch is that **the wall's benefit is sustained-value while brownout's cost
+structure only pays for burst-value.** A cost you take in a spike is worth it for an effect
+that resolves a moment; it is never worth it for an effect that merely accrues.
+
+**Not fixed here.** Three routes exist and choosing between them is a change to the core
+hook (decision 003), which is the user's call, not this session's:
+1. Make the brownout penalty scale with the size of the overdraw instead of a flat cliff,
+   so a small brief overdraw is cheap and a large sustained one is ruinous.
+2. Give the high-draw emplacement a burst effect worth a spike — a wall that stops leaks
+   outright for a few seconds, rather than a slow field.
+3. Leave brownout as a punishment and stop describing it as a trade, which would mean
+   editing decision 003 rather than the draw table.
+
+`LF-014` stays open and now carries the numbers instead of a suspicion.
