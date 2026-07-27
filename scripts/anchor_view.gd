@@ -39,9 +39,16 @@ func _validate_property(property: Dictionary) -> void:
 		property.hint = PROPERTY_HINT_ENUM
 		property.hint_string = ",".join(AnchorDataScript.anchor_ids())
 
+const NO_SLOT := Vector2i(-999, -999)
+
 var sim
 var selected_tower: String = ""
-var hovered_slot: Vector2i = Vector2i(-999, -999)
+var hovered_slot: Vector2i = NO_SLOT
+## The emplacement the inspector is pointed at. Distinct from `hovered_slot` on purpose:
+## sell, upgrade and the power toggle used to act on whatever the cursor was over, and
+## reaching those buttons means dragging the cursor off the board and across every tile
+## in between — which silently retargeted them. Decision 035.
+var selected_slot: Vector2i = NO_SLOT
 
 var _accum: float = 0.0
 var _wave_index: int = -1
@@ -272,7 +279,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		if event.button_index == MOUSE_BUTTON_LEFT:
 			_click(hovered_slot)
 		elif event.button_index == MOUSE_BUTTON_RIGHT:
-			_toggle(hovered_slot)
+			toggle_at(hovered_slot)
 
 
 func placed_index_at(slot: Vector2i) -> int:
@@ -288,6 +295,8 @@ func sell_at(slot: Vector2i) -> void:
 		Audio.sfx("ui_deny")
 		return
 	sim.sell(i)
+	if selected_slot == slot:
+		selected_slot = NO_SLOT      # the inspector was pointed at something that is gone
 	Audio.sfx("ui_sell")
 	state_changed.emit()
 	queue_redraw()
@@ -305,19 +314,35 @@ func upgrade_at(slot: Vector2i) -> void:
 
 
 func _click(slot: Vector2i) -> void:
-	if selected_tower == "" or not sim.free_slots.has(slot):
-		Audio.sfx("ui_deny")
+	## One click, three outcomes, in this order: point the inspector at an emplacement that
+	## is already there, build on a free slot, or put the inspector down. Selecting is
+	## checked first because a built slot is never a free slot, so the two can never race.
+	if placed_index_at(slot) >= 0:
+		selected_slot = slot
+		Audio.sfx("ui_click")
+		state_changed.emit()
+		queue_redraw()
 		return
-	if not sim.can_afford(selected_tower):
+	if not sim.free_slots.has(slot):
+		# Bare ground. Deselecting is a deliberate act, not a failed one — no deny cue.
+		selected_slot = NO_SLOT
+		state_changed.emit()
+		queue_redraw()
+		return
+	if selected_tower == "" or not sim.can_afford(selected_tower):
 		Audio.sfx("ui_deny")
 		return
 	if sim.build_at(selected_tower, slot):
+		selected_slot = slot         # inspect and upgrade what was just built, without a hunt
 		Audio.sfx("place_emplacement")
 		Audio.sfx("power_online")
 		state_changed.emit()
+		queue_redraw()
 
 
-func _toggle(slot: Vector2i) -> void:
+func toggle_at(slot: Vector2i) -> void:
+	## Shed an emplacement's load without losing it. Right-click does this where the cursor
+	## is; the inspector does it to the selection.
 	for i in range(sim.placed.size()):
 		if sim.placed[i]["slot"] == slot:
 			var now: bool = not sim.placed[i]["online"]
@@ -343,6 +368,7 @@ const C_VERD := Color(0.37, 0.66, 0.58)
 const C_AMBER := Color(0.91, 0.64, 0.24)
 const C_ALERT := Color(0.82, 0.33, 0.25)
 const C_SHADOW := Color(0.0, 0.0, 0.0, 0.34)
+const C_BONE := Color(0.86, 0.89, 0.88)
 
 
 func drawables() -> Array:
@@ -384,8 +410,10 @@ func _draw() -> void:
 	if sim == null:
 		_draw_editor_overlay(anchor)     # no sim means we are previewing, not playing
 		return
+	_draw_reach()
 	_draw_hover()
 	_draw_entities()
+	_draw_selection()
 
 
 func _draw_board(anchor: Dictionary) -> void:
@@ -435,6 +463,50 @@ func _draw_hover() -> void:
 	var hc := IsoScript.tile_to_screen(float(hovered_slot.x), float(hovered_slot.y)) + _origin
 	var ring := IsoScript.diamond(hc, 0.92)
 	draw_polyline(ring + PackedVector2Array([ring[0]]), C_AMBER, 2.0)
+
+
+func _draw_reach() -> void:
+	## Range, drawn on the ground, because "3.2 tiles" in the inspector does not answer the
+	## only question that matters: does this gun cover that corner. Bone is what the selected
+	## emplacement covers now — red if it is offline and covering nothing. Amber is what the
+	## armed emplacement in the build bar *would* cover if it were built on the hovered slot.
+	var i := placed_index_at(selected_slot)
+	if i >= 0:
+		var p: Dictionary = sim.placed[i]
+		_draw_range(Vector2(selected_slot), float(p["tower"]["range"]),
+				Color(C_BONE if p["online"] else C_ALERT, 0.5))
+	if selected_tower != "" and sim.free_slots.has(hovered_slot) and hovered_slot != selected_slot:
+		var tw: Dictionary = Content.tower(selected_tower)
+		if not tw.is_empty():
+			_draw_range(Vector2(hovered_slot), float(tw["range"]), Color(C_AMBER, 0.4))
+
+
+func _draw_selection() -> void:
+	## Drawn after the sprites, unlike the hover ring: the emplacement stands on its own
+	## tile and covers most of it, so a ring drawn on the ground under a 256px sprite is
+	## four white specks around its base and reads as nothing at all.
+	if placed_index_at(selected_slot) < 0:
+		return
+	var c := IsoScript.tile_to_screen(float(selected_slot.x), float(selected_slot.y)) + _origin
+	var ring := IsoScript.diamond(c, 1.0)
+	draw_polyline(ring + PackedVector2Array([ring[0]]), Color(C_BONE, 0.85), 2.0)
+	# Corner ticks, so the selection is legible against a bright tile as well as a dark one.
+	for corner in ring:
+		draw_circle(corner, 3.0, C_BONE)
+
+
+func _draw_range(centre: Vector2, r: float, col: Color) -> void:
+	## The rules compare distance in *tile* space (decision 030), so reach is a circle there
+	## and a 2:1 ellipse once projected — the same ratio as the tile, for the same reason.
+	## Sampling the tile-space circle and projecting each point draws exactly the set the
+	## weapon can reach, and stays correct if the projection ever changes.
+	const SEGMENTS := 48
+	var pts := PackedVector2Array()
+	for i in range(SEGMENTS):
+		var a := TAU * float(i) / float(SEGMENTS)
+		pts.append(IsoScript.tile_to_screen(centre.x + cos(a) * r, centre.y + sin(a) * r) + _origin)
+	pts.append(pts[0])
+	draw_polyline(pts, col, 2.0)
 
 
 func _draw_contact_shadow(at: Vector2, radius: float) -> void:

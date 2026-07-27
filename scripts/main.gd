@@ -31,6 +31,7 @@ var _shot_taken: bool = false
 var _autoplay: bool = false
 var _recorded: bool = false
 var _open_pause: bool = false
+var _select_nth: int = 0
 
 const MENU_SCENE := "res://scenes/menu.tscn"
 
@@ -53,6 +54,8 @@ func _ready() -> void:
     if _autoplay:
         view.autobuild()
     view.start()
+    if _select_nth > 0 and view.sim != null and view.sim.placed.size() >= _select_nth:
+        view.selected_slot = view.sim.placed[_select_nth - 1]["slot"]
     if _open_pause:
         # The shot counter lives in this node's _process, and show_menu() pauses the
         # tree — so without this the screenshot never happens and the run hangs.
@@ -79,6 +82,13 @@ func _setup_cli() -> void:
                 # overlay is the one screen that cannot be reached by playing at
                 # --fixed-fps, because reaching it requires a key press.
                 _open_pause = true
+            "--select":
+                # Point the inspector at the Nth built emplacement. The inspector's
+                # populated state is unreachable at --fixed-fps for the same reason the
+                # pause overlay is: getting there needs a click, and a UI panel that is
+                # never screenshotted is a UI panel nobody has looked at.
+                if i + 1 < argv.size() and argv[i + 1].is_valid_int():
+                    _select_nth = int(argv[i + 1])
             "--difficulty":
                 if i + 1 < argv.size():
                     difficulty = argv[i + 1]

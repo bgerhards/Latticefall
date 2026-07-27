@@ -1,5 +1,5 @@
 {
-  "next_id": 40,
+  "next_id": 42,
   "items": [
     {
       "id": "LF-001",
@@ -468,6 +468,30 @@
       "opened": "2026-07-27",
       "closed": "2026-07-27",
       "note": "closed at c048141"
+    },
+    {
+      "id": "LF-040",
+      "title": "Build bar overflows the left column and covers board slots from Act II on \u2014 9 unlocked emplacements is 1182px of buttons across a 1920px viewport",
+      "kind": "polish",
+      "area": "engine",
+      "pri": "med",
+      "status": "open",
+      "why": "",
+      "opened": "2026-07-27",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-041",
+      "title": "Godot warns on every boot that user://progress.json is opened as Defend-Claude but stored as defend-claude \u2014 a case mismatch that will not open on a case-sensitive export target",
+      "kind": "bug",
+      "area": "engine",
+      "pri": "med",
+      "status": "open",
+      "why": "",
+      "opened": "2026-07-27",
+      "closed": null,
+      "note": ""
     }
   ]
 }

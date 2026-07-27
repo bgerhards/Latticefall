@@ -17,13 +17,14 @@ without touching a command line. Anchors unlock in order; progress persists in a
 
 **What is left is polish and one performance item**, not content. See "What does not
 exist" — the honest gaps are a sprite atlas, gamepad support, twelve sourced organic SFX,
-and two internal-quality chores.
+and four internal-quality chores.
 
 ## What works
 
 | | |
 |---|---|
 | **Flow** | Title → level select → anchor → debrief → next anchor. Pause overlay with volume. |
+| **Inspector** | Click a built emplacement to select it; the left panel is its datasheet and carries sell, upgrade and power. Reach is drawn on the board. Decision 035. |
 | **Content** | 24 anchors, 24 dialog files, 9 emplacements, 11 enemies across 4 factions. |
 | **Progress** | `user://progress.json` — cleared map, difficulty, volumes. Anchors unlock in order. |
 | **Rules** | `sim/engine.py` and `scripts/anchor_sim.gd`, diffed every commit: 864 runs identical. |
@@ -49,6 +50,10 @@ and two internal-quality chores.
   explicitly confirmed with the user.
 - Gamepad `LF-010`. Editor preview tile textures `LF-025`. HUD/dialog authored in the
   scene rather than built in code `LF-026`.
+- **The build bar outgrows its column** `LF-040`: nine unlocked emplacements is 1182 px of
+  buttons, so from Act II it lies across the board and covers slots.
+- **`user://progress.json` opens under a case-mismatched path** `LF-041` — harmless on this
+  machine, will not open on a case-sensitive export target.
 - **Act II wave density** `LF-038`: shielded heavies and drain eat the difficulty budget,
   so Act II and III sweeps land at wave weight 0.45–0.7 with high life counts. The levels
   grade clean; the shape is a design smell, not a defect.
@@ -80,6 +85,9 @@ blocks playing the game.
 - **Sell and upgrade exist for the player, not for the grader** — a grade describes a
   plan-once player and is therefore a floor. Decision 033.
 - **Esc pauses rather than exits.** Decision 034.
+- **The board has a selection, and it is what sell/upgrade/power act on** — not the hover.
+  The inspector panel is generated from the tower record, so a new emplacement documents
+  itself. Decision 035.
 
 ## Traps that have already cost time
 
@@ -97,8 +105,11 @@ Full detail in `CLAUDE.md`.
   lost anchor-01 while the graded build cleared it with all ten lives. It now rebuilds at
   the start of every wave. A smoke test that plays a different game than the one that was
   balanced is not evidence of anything.
-- **Look at UI and art in the engine, not in the source.** Six sprites and the pause
-  panel's own height were wrong in ways only a screenshot showed.
+- **Look at UI and art in the engine, not in the source.** Six sprites, the pause panel's
+  own height, and a selection ring hidden under its own 256px sprite were all wrong in ways
+  only a screenshot showed. `--select N` exists so the inspector can be one of them.
+- **A button that acts on the hover acts on the wrong thing.** Reaching it drags the cursor
+  across the board. Decision 035.
 - **A re-render is invisible until `--import`.** render → `mask_glow` → `--import` → shoot.
 - **`--fixed-fps` disables real-time sync**; `main.gd` pauses before capturing, and
   `--paused` sets `PROCESS_MODE_ALWAYS` or the shot never fires.
@@ -122,20 +133,20 @@ Full detail in `CLAUDE.md`.
 ### Gate
 
 ```
-[  ok  ] python syntax           168ms  24 files
-[  ok  ] json parses              68ms  
-[  ok  ] game data               123ms  no warnings
-[  ok  ] banned terms            232ms  115 files clean
-[  ok  ] sfx determinism         116ms  ui_confirm byte-identical
+[  ok  ] python syntax           186ms  24 files
+[  ok  ] json parses              74ms  
+[  ok  ] game data               131ms  no warnings
+[  ok  ] banned terms            257ms  115 files clean
+[  ok  ] sfx determinism         128ms  ui_confirm byte-identical
 [  ok  ] music manifest            0ms  14 tracks
-[  ok  ] backlog rendered          0ms  7 open
-[  ok  ] sim determinism        3094ms  deterministic
-[  ok  ] godot boots            1494ms  main scene loads clean
-[  ok  ] game renders           2514ms  coverage 0.39, 70 tones
-[  ok  ] menu renders           1348ms  coverage 0.037, 8 anchors listed
-[  ok  ] rules parity         518203ms  864 runs identical (gdscript vs python)
+[  ok  ] backlog rendered          0ms  9 open
+[  ok  ] sim determinism        3162ms  deterministic
+[  ok  ] godot boots            1147ms  main scene loads clean
+[  ok  ] game renders           2131ms  coverage 0.45, 78 tones
+[  ok  ] menu renders           1050ms  coverage 0.037, 8 anchors listed
+[  ok  ] rules parity         520637ms  864 runs identical (gdscript vs python)
 
-12 passed · 0 failed · 0 skipped · 527361ms
+12 passed · 0 failed · 0 skipped · 528905ms
 ```
 
 ### Inventory
@@ -183,19 +194,22 @@ Full detail in `CLAUDE.md`.
 
 ### Backlog
 
-7 open · 32 closed
+9 open · 32 closed
 
 - `high` LF-004 No sprite atlas packer
 - `med` LF-005 Source the 12 organic CC0 SFX
 - `med` LF-025 Editor preview shows flat-colour tiles until the project is reloaded, because the Sprites autoload is only instantiated in-editor at startup
 - `med` LF-026 HUD and dialog build their Control widgets in code rather than being authored in the scene
 - `med` LF-038 Act II waves are thin (2-5 units per type) and lives run high (16-24) because shielded heavies and drain eat the whole difficulty budget — consider a mid-cost anti-armour emplacement or a lance/mortar draw cut so volume can come back
+- `med` LF-040 Build bar overflows the left column and covers board slots from Act II on — 9 unlocked emplacements is 1182px of buttons across a 1920px viewport
+- `med` LF-041 Godot warns on every boot that user://progress.json is opened as Defend-Claude but stored as defend-claude — a case mismatch that will not open on a case-sensitive export target
 - `low` LF-010 Gamepad support deferred until content-complete
 - `low` LF-018 Unfocused Godot window is throttled — verification must use --fixed-fps
 
 ### Recent commits
 
 ```
+5475dfa feat(engine): pause menu, volume, per-wave autoplay, and slots in range
 c048141 feat(engine): menu, level select, save, sell/upgrade, and vendored fonts
 8c05a5c chore(backlog): close LF-036 — Act II art exists
 3d01481 feat(art): Act II sprite set — three emplacements and four Sable Reach units
@@ -203,7 +217,6 @@ c048141 feat(engine): menu, level select, save, sell/upgrade, and vendored fonts
 7378dee feat(content): Act II opens — Sable Reach roster, damper, anchors 09-10
 0f622b2 docs: session wrap — Act I complete, decision 026, STATE for a fresh context
 b29d2be fix(art): render albedo with emission off — decision 007 was not actually true
-ccf0e4e feat(content): anchors 07-08 — Act I is complete and grades clean
 ```
 
 <!-- END AUTO -->

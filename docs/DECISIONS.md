@@ -849,3 +849,56 @@ That screenshot immediately showed the QUIT button hanging out of the bottom of 
 
 Esc no longer leaves the anchor. A `--shot` run still exits on Esc, because it has nobody
 to pause for.
+
+---
+
+## 035 — The board has a selection, and the interface explains what an emplacement does
+
+**Decided.** Left-clicking a built emplacement selects it. `AnchorView.selected_slot` holds
+that selection, and **sell, upgrade and the power toggle all act on it** rather than on
+`hovered_slot`. A left-click on a free slot builds and selects what it just built; a
+left-click on bare ground puts the selection down. Right-click still toggles power where
+the cursor is, because that acts where it is aimed and never travels.
+
+The HUD's left column gains an **inspector panel** that describes whichever emplacement the
+player is thinking about — the selected one, or failing that the one armed in the build bar
+— with damage, fire interval, derived DPS, range, draw, what it is rated to hit, splash and
+support effect, plus the authored note. Where a second tier exists its values are shown as
+a `9 → 14` delta on each row, so "is this upgrade worth $160" is answerable without buying
+it. The board draws the selection's reach as a ring, and previews the armed emplacement's
+reach on the hovered free slot.
+
+**Why this supersedes the hover-targeted version.** `hud.gd` previously carried the note
+that a selection model "would need a second concept of selected alongside the build cursor,
+and the board already highlights the hovered slot". That reasoning is wrong for a reason
+that is only visible in a running build: pressing the SELL button requires moving the
+cursor from the emplacement to the button, and the panel sits at the left edge while the
+board is centred — so the cursor crosses other slots on the way and the button retargets or
+disables itself under the hand that is reaching for it. The feature existed and was
+documented in decision 033 and was, in practice, unusable.
+
+**Why the datasheet is not optional.** Range, fire interval, air/shielded rating and the
+support effects were readable only in `data/towers.json`. Nothing on screen distinguished a
+Scan Relay from an Anchor Damper, and the game's whole hook is a power trade the player
+cannot price without knowing what the megawatts buy. The panel is generated from the tower
+record, so a new emplacement documents itself and decision 008 still holds — no content
+in code.
+
+**Numbers are computed, never authored twice.** DPS is `damage / fire_interval`, the sell
+figure is `SELL_REFUND` applied to everything paid, and the power button names the exact MW
+it frees. A hand-written stat block in the data would be a second source of truth that
+drifts from the one the sim reads.
+
+**Rejected.**
+- *Tooltips on hover.* Same defect as hover-targeted buttons — the information vanishes at
+  the moment the player moves toward acting on it, and it cannot show a delta against what
+  is already built.
+- *A modal detail screen.* Reading the datasheet is something a player does while deciding,
+  which is mid-prep with the wave timer running. It must not stop the clock or hide the board.
+- *Leaving power on right-click only.* An undiscoverable verb is not a mechanic. It is now
+  a named button that says what it frees.
+
+**Consequence.** `--select N` points the inspector at the Nth built emplacement so a
+`--shot` run can capture the populated panel; like `--paused` in decision 034, the state is
+otherwise unreachable at `--fixed-fps` because reaching it needs a click. Both screenshots
+were taken and both defects it fixed were found by looking at them.
