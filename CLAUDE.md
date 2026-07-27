@@ -63,7 +63,17 @@ docs/            STATE, BACKLOG, DECISIONS, NOMENCLATURE, STORY
 /Applications/Blender.app/Contents/MacOS/Blender -b \
   --python tools/blender/render.py -- --only pulse_turret   # render one asset
 .venv/bin/python tools/blender/mask_glow.py        # ALWAYS run after rendering
+/Applications/Godot.app/Contents/MacOS/Godot --headless --path . --import
+                                                   # ALWAYS run after mask_glow
+/Applications/Godot.app/Contents/MacOS/Godot --path . --fixed-fps 60 \
+  -- --autoplay --shot /tmp/shot.png 1800          # the build screenshots itself
 ```
+
+**A re-render is invisible to the game until you re-import.** Godot's *game* mode never
+reimports changed assets — it loads the cached `.ctex` in `.godot/imported/`. Only the
+editor imports. Skipping this makes a correct art fix look like it did nothing, which has
+already cost a full round of misdiagnosis. The order is always: render → `mask_glow` →
+`--import` → screenshot.
 
 `tools/check.py` is the single gate: schema validation, data cross-references, sim
 determinism, asset manifest integrity, Python syntax. **If it fails, do not commit.**
@@ -91,6 +101,21 @@ determinism, asset manifest integrity, Python syntax. **If it fails, do not comm
 whole frame, so an unmasked glow drawn additively lifts the entire 256px cell and the
 board fills with bright rectangles. `tools/blender/mask_glow.py` rewrites alpha from
 luminance; it is idempotent and must run after every render.
+
+**Colours are authored in sRGB and linearised by `mat()`.** Blender's colour inputs are
+scene-linear and `view_transform='Standard'` encodes back to sRGB on write — probed here,
+an emission of 0.5 is stored as 188/255. Writing a palette as though it were a display
+value renders it roughly three times too light, which is what made the board a light grey
+slab and turned every emitter pale (LF-023/020/022). Never put linear values in the palette.
+
+**The sprite pivot is measured, not assumed.** The render camera is raised by
+`HEIGHT_BIAS` so tall assets clear the top of the cell, which puts world (0,0,0) ~43px
+below the canvas centre. `calibrate()` measures where it actually lands and writes that to
+the manifest. A hardcoded `CELL//2` made every sprite draw above its own tile (LF-027).
+
+**A self-screenshot is at 0.75 scale.** The project renders a 1920x1080 logical viewport
+into a 1440x810 window with `stretch/mode="canvas_items"`. Comparing screenshot pixels
+against tile maths needs the *logical* viewport size, not the image size.
 
 **Glow is never baked into a sprite.** Each asset renders twice: albedo with compositing
 *off*, glow with compositing *on* through Glare on the Emission pass. Godot draws the glow

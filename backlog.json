@@ -1,5 +1,5 @@
 {
-  "next_id": 29,
+  "next_id": 30,
   "items": [
     {
       "id": "LF-001",
@@ -331,8 +331,20 @@
       "kind": "bug",
       "area": "tooling",
       "pri": "high",
-      "status": "open",
+      "status": "dropped",
       "why": "Two identical --autoplay runs reached different sim states at frame 1800 (coverage 0.306 vs 0.394, wave 6 vs wave 1). Makes screenshot-based art review unreliable; suspect the minf(delta,0.25) clamp absorbing a long first frame",
+      "opened": "2026-07-27",
+      "closed": "2026-07-27",
+      "note": ""
+    },
+    {
+      "id": "LF-029",
+      "title": "Sim state diverged twice at a fixed frame while the sprite import cache was stale",
+      "kind": "risk",
+      "area": "tooling",
+      "pri": "low",
+      "status": "open",
+      "why": "Observed twice (wave 6 vs wave 1 at frame 1800) in runs made after re-rendering but before 'Godot --headless --path . --import'. NOT reproducible since: 12/12 runs now identical, including under CPU load. main.gd now prints STATE frame/sim_t/wave/phase on every --shot, so a recurrence is self-evident rather than inferred from pixels. Reopen only with a STATE line showing sim_t != frame/60",
       "opened": "2026-07-27",
       "closed": null,
       "note": ""

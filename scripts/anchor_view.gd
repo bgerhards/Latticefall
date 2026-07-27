@@ -52,6 +52,7 @@ var _lead_left: float = 0.0
 var _phase: String = "idle"      # idle | prep | combat | done | lost
 var _fired_triggers: Dictionary = {}
 var _origin: Vector2 = Vector2.ZERO
+var _sim_t: float = 0.0          # total simulated seconds, for reproducibility checks
 var glow_layer: Node2D
 
 
@@ -176,6 +177,7 @@ func _process(delta: float) -> void:
 	_accum += minf(delta, 0.25)      # clamp so a stall cannot fast-forward the level
 	while _accum >= AnchorSimScript.DT:
 		_accum -= AnchorSimScript.DT
+		_sim_t += AnchorSimScript.DT
 		_advance()
 	queue_redraw()
 
@@ -521,3 +523,7 @@ func phase() -> String:
 
 func wave_number() -> int:
 	return _wave_index + 1
+
+
+func sim_time() -> float:
+	return _sim_t

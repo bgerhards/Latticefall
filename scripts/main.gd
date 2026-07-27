@@ -84,6 +84,11 @@ func _process(_delta: float) -> void:
         print("SHOT %s err=%d %dx%d" % [_shot_path, err, img.get_width(), img.get_height()])
         var stats := _frame_stats(img)
         print("FRAME coverage=%.4f distinct=%d" % [stats["coverage"], stats["distinct"]])
+        # What the sim actually reached by this frame. A screenshot is only evidence
+        # if the state it captured is known and repeatable — see LF-028.
+        print("STATE frame=%d sim_t=%.3f wave=%d phase=%s lives=%d leaks=%d"
+            % [_frame, view.sim_time(), view.wave_number(), view.phase(),
+               view.sim.lives, view.sim.leaks])
         print("AUDIO %s" % Audio.report())
         get_tree().quit()
 
