@@ -1,0 +1,361 @@
+<title>LATTICEFALL — Score Bible &amp; Open Items</title>
+
+<style>
+:root {
+  --ground:#0E1417; --ground-2:#121B1F; --panel:#162126; --line:#24343A; --line-soft:#1C282D;
+  --bone:#DCE4E1; --muted:#7E9091; --verd:#5FA894; --verd-dim:#2E5A50;
+  --amber:#E8A33D; --amber-dim:#6B4A18; --alert:#D2543F;
+  --shadow:0 1px 0 rgba(255,255,255,.03), 0 18px 40px -24px rgba(0,0,0,.9);
+  --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  --serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
+  --sans: system-ui, "Avenir Next", "Segoe UI", Roboto, sans-serif;
+  --s1:.35rem; --s2:.7rem; --s3:1.1rem; --s4:1.8rem; --s5:2.8rem; --s6:4.4rem; --s7:7rem;
+  --col:68ch;
+}
+@media (prefers-color-scheme: light) {
+  :root { --ground:#E3E8E5; --ground-2:#DADFDC; --panel:#F5F8F6; --line:#BAC6C2; --line-soft:#CCD6D2;
+    --bone:#111C1A; --muted:#5A6B69; --verd:#2A6E5D; --verd-dim:#A8C9BF; --amber:#9A6410;
+    --amber-dim:#E4CFA4; --alert:#A93520; --shadow:0 1px 0 rgba(255,255,255,.7), 0 14px 30px -22px rgba(20,40,36,.5); }
+}
+:root[data-theme="light"] { --ground:#E3E8E5; --ground-2:#DADFDC; --panel:#F5F8F6; --line:#BAC6C2;
+  --line-soft:#CCD6D2; --bone:#111C1A; --muted:#5A6B69; --verd:#2A6E5D; --verd-dim:#A8C9BF;
+  --amber:#9A6410; --amber-dim:#E4CFA4; --alert:#A93520; --shadow:0 1px 0 rgba(255,255,255,.7), 0 14px 30px -22px rgba(20,40,36,.5); }
+:root[data-theme="dark"] { --ground:#0E1417; --ground-2:#121B1F; --panel:#162126; --line:#24343A;
+  --line-soft:#1C282D; --bone:#DCE4E1; --muted:#7E9091; --verd:#5FA894; --verd-dim:#2E5A50;
+  --amber:#E8A33D; --amber-dim:#6B4A18; --alert:#D2543F; --shadow:0 1px 0 rgba(255,255,255,.03), 0 18px 40px -24px rgba(0,0,0,.9); }
+
+body { background:var(--ground); color:var(--bone); font-family:var(--sans); font-size:16px; line-height:1.65; -webkit-font-smoothing:antialiased; }
+.doc { max-width:1080px; margin:0 auto; padding:var(--s5) var(--s3) var(--s7); display:flex; flex-direction:column; gap:var(--s6); }
+h1,h2,h3 { text-wrap:balance; margin:0; }
+p { margin:0; }
+code { font-family:var(--mono); font-size:.88em; color:var(--amber); }
+:focus-visible { outline:2px solid var(--amber); outline-offset:3px; }
+.tag { font-family:var(--mono); font-size:.69rem; letter-spacing:.16em; text-transform:uppercase; color:var(--muted); }
+
+.mast { display:grid; grid-template-columns:auto 1fr; gap:var(--s3) var(--s4); align-items:center; border-bottom:1px solid var(--line); padding-bottom:var(--s4); }
+.emblem { width:76px; height:76px; display:block; }
+.wordmark { font-family:var(--mono); font-weight:700; font-size:clamp(1.7rem,5.5vw,3rem); letter-spacing:.12em; line-height:1; color:var(--bone); }
+.wordmark span { color:var(--verd); }
+.mast-sub { font-family:var(--mono); font-size:.72rem; letter-spacing:.2em; text-transform:uppercase; color:var(--muted); margin-top:var(--s2); }
+
+.sec { display:grid; grid-template-columns:8.5rem 1fr; gap:var(--s4); align-items:start; }
+.sec > .rail { position:sticky; top:var(--s3); font-family:var(--mono); font-size:.68rem; letter-spacing:.16em; text-transform:uppercase; color:var(--muted); border-top:2px solid var(--verd); padding-top:var(--s2); display:flex; flex-direction:column; gap:var(--s1); }
+.rail b { color:var(--verd); font-weight:600; }
+.body-col { display:flex; flex-direction:column; gap:var(--s3); min-width:0; }
+.sec h2 { font-family:var(--mono); font-size:1.42rem; letter-spacing:.06em; font-weight:600; text-transform:uppercase; }
+.lede { font-size:1.1rem; max-width:var(--col); }
+.body-col > p { max-width:var(--col); color:var(--muted); }
+.body-col > p strong { color:var(--bone); font-weight:600; }
+@media (max-width:720px){ .sec{grid-template-columns:1fr;gap:var(--s3)} .sec>.rail{position:static;flex-direction:row;gap:var(--s3)} }
+
+/* spine card */
+.spine { background:var(--panel); border:1px solid var(--line); border-left:3px solid var(--amber); padding:var(--s3); display:flex; flex-direction:column; gap:var(--s2); box-shadow:var(--shadow); }
+.spine dl { display:grid; grid-template-columns:9rem 1fr; gap:var(--s1) var(--s3); margin:0; font-size:.9rem; }
+.spine dt { font-family:var(--mono); font-size:.68rem; letter-spacing:.13em; text-transform:uppercase; color:var(--verd); padding-top:.25rem; }
+.spine dd { margin:0; color:var(--muted); }
+@media (max-width:620px){ .spine dl{grid-template-columns:1fr;gap:0 0} .spine dd{margin-bottom:.6rem} }
+
+/* track */
+.tracks { display:flex; flex-direction:column; gap:var(--s3); }
+.grp-head { font-family:var(--mono); font-size:.72rem; letter-spacing:.18em; text-transform:uppercase; color:var(--muted); border-bottom:1px solid var(--line); padding-bottom:var(--s1); display:flex; justify-content:space-between; gap:var(--s2); margin-top:var(--s2); }
+.grp-head b { color:var(--verd); font-weight:600; }
+.trk { background:var(--panel); border:1px solid var(--line); display:flex; flex-direction:column; }
+.trk-top { display:grid; grid-template-columns:auto 1fr auto; gap:var(--s2) var(--s3); align-items:baseline; padding:var(--s3) var(--s3) var(--s2); border-bottom:1px solid var(--line-soft); }
+.trk-id { font-family:var(--mono); font-size:.7rem; letter-spacing:.13em; color:var(--amber); border:1px solid var(--amber-dim); padding:.1rem .45rem; white-space:nowrap; }
+.trk-name { font-family:var(--serif); font-size:1.22rem; font-style:italic; color:var(--bone); }
+.trk-meta { font-family:var(--mono); font-size:.68rem; letter-spacing:.1em; color:var(--muted); text-transform:uppercase; white-space:nowrap; }
+.trk-use { padding:0 var(--s3) var(--s2); font-size:.9rem; color:var(--muted); }
+.trk-use b { color:var(--bone); font-weight:600; }
+.pw { position:relative; margin:0 var(--s3) var(--s3); }
+.pw pre { font-family:var(--mono); font-size:.78rem; line-height:1.65; color:var(--bone); background:var(--ground-2); border:1px solid var(--line); padding:var(--s2) 3.4rem var(--s2) var(--s2); margin:0; white-space:pre-wrap; word-break:break-word; }
+.pw .lbl { font-family:var(--mono); font-size:.62rem; letter-spacing:.16em; text-transform:uppercase; color:var(--muted); display:block; margin-bottom:.3rem; }
+.cp { position:absolute; top:1.55rem; right:.4rem; font-family:var(--mono); font-size:.62rem; letter-spacing:.12em; text-transform:uppercase; background:var(--panel); color:var(--verd); border:1px solid var(--verd-dim); padding:.25rem .5rem; cursor:pointer; }
+.cp:hover { background:var(--verd-dim); color:var(--bone); }
+.cp.done { color:var(--amber); border-color:var(--amber); }
+
+.note { font-family:var(--mono); font-size:.73rem; line-height:1.6; letter-spacing:.03em; color:var(--muted); border-left:2px solid var(--amber); padding:var(--s1) 0 var(--s1) var(--s2); max-width:var(--col); }
+.note b { color:var(--amber); letter-spacing:.1em; }
+.note.bad { border-left-color:var(--alert); }
+.note.bad b { color:var(--alert); }
+
+.tw { overflow-x:auto; border:1px solid var(--line); }
+table { border-collapse:collapse; width:100%; font-size:.86rem; min-width:520px; }
+th,td { text-align:left; padding:.6rem .8rem; border-bottom:1px solid var(--line-soft); vertical-align:top; }
+th { font-family:var(--mono); font-size:.66rem; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); background:var(--ground-2); font-weight:600; }
+td { color:var(--muted); }
+td:first-child { font-family:var(--mono); color:var(--bone); font-size:.8rem; white-space:nowrap; }
+tr:last-child td { border-bottom:0; }
+.pill { font-family:var(--mono); font-size:.63rem; letter-spacing:.12em; padding:.12rem .45rem; border:1px solid currentColor; white-space:nowrap; }
+.pill.you { color:var(--alert); }
+.pill.me { color:var(--verd); }
+
+.asks { display:flex; flex-direction:column; gap:var(--s2); }
+.ask { background:var(--panel); border:1px solid var(--line); border-left:3px solid var(--alert); padding:var(--s3); display:flex; flex-direction:column; gap:var(--s1); }
+.ask.mine { border-left-color:var(--verd); }
+.ask h3 { font-family:var(--mono); font-size:.86rem; letter-spacing:.1em; text-transform:uppercase; font-weight:600; }
+.ask p { font-size:.92rem; color:var(--muted); max-width:62ch; }
+.ask .rec { font-size:.92rem; color:var(--bone); }
+.ask .rec b { color:var(--verd); font-family:var(--mono); font-size:.7rem; letter-spacing:.14em; text-transform:uppercase; }
+
+.cmd { font-family:var(--mono); font-size:.8rem; background:var(--ground-2); border:1px solid var(--line); padding:var(--s2); overflow-x:auto; color:var(--bone); }
+.cmd b { color:var(--verd); }
+
+.foot { border-top:1px solid var(--line); padding-top:var(--s3); display:flex; flex-wrap:wrap; justify-content:space-between; gap:var(--s2); font-family:var(--mono); font-size:.68rem; letter-spacing:.12em; text-transform:uppercase; color:var(--muted); }
+</style>
+
+<div class="doc">
+
+  <header class="mast">
+    <svg class="emblem" viewBox="0 0 100 100" role="img" aria-label="Lattice anchor emblem">
+      <g fill="none" stroke="currentColor" stroke-width="1.5" style="color:var(--verd)">
+        <path d="M50 6 L88 28 L88 72 L50 94 L12 72 L12 28 Z" opacity=".45"/>
+        <circle cx="50" cy="50" r="26"/><circle cx="50" cy="50" r="17" opacity=".5"/>
+      </g>
+      <g fill="var(--amber)">
+        <path d="M50 18 l4.5 7 h-9 Z"/><path d="M50 82 l4.5 -7 h-9 Z"/>
+        <path d="M18 50 l7 -4.5 v9 Z"/><path d="M82 50 l-7 -4.5 v9 Z"/>
+      </g>
+      <circle cx="50" cy="50" r="4.5" fill="var(--verd)"/>
+    </svg>
+    <div>
+      <h1 class="wordmark">SCORE BIBLE <span>+ OPEN ITEMS</span></h1>
+      <div class="mast-sub">Latticefall · 14 tracks · Suno-ready · Rev A</div>
+    </div>
+  </header>
+
+  <!-- ══════ HOW ══════ -->
+  <section class="sec">
+    <div class="rail"><b>00</b><span>Method</span></div>
+    <div class="body-col">
+      <h2>Before you generate anything</h2>
+      <p class="lede">Fourteen tracks, one sonic spine. The spine matters more than any single prompt — it's what stops the soundtrack sounding like fourteen unrelated pieces from fourteen different games.</p>
+      <p>Paste the <strong>Style</strong> block into Suno's style field and the <strong>Exclude</strong> block into its exclude-styles field. Every prompt already carries the spine, so you can generate them in any order, across sessions, and they'll still cohere. Turn <strong>Instrumental</strong> on for all fourteen — there are no vocals anywhere in this score.</p>
+
+      <div class="spine">
+        <div class="tag">Global sonic spine — present in every prompt below</div>
+        <dl>
+          <dt>Core palette</dt><dd>Detuned analog synth pads, low brass clusters, bowed metal and cymbal, prepared piano, sub-bass pulse, tape saturation and hiss.</dd>
+          <dt>Percussion</dt><dd>Absent in build phases. Combat uses dry military snare, low taiko, and metallic industrial hits — never electronic drum kits.</dd>
+          <dt>Harmony</dt><dd>Modal and static. Minor seconds and tritones for the Ordinal; open fifths for Meridian. Avoid functional chord progressions that resolve.</dd>
+          <dt>Tempo</dt><dd>Build 54–66 bpm. Combat 92–116 bpm. Nothing faster — this is a game of decisions, not reflexes.</dd>
+          <dt>Never</dt><dd>Epic orchestral trailer hits, choirs, dubstep, supersaw EDM leads, uplifting major-key resolutions.</dd>
+        </dl>
+      </div>
+
+      <div class="note bad">
+        <b>Read this before spending credits →</b> Suno writes linear tracks with intros and endings. Games need seamless loops. Ask for static, non-developmental pieces (every prompt below does), then I'll cut sample-accurate loop points with ffmpeg and export Ogg Vorbis for Godot. Budget roughly <b>3–4 generations per track</b> to get one that loops cleanly. Also confirm your Suno plan grants commercial use before this ships — the free tier does not.
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════ TRACKS ══════ -->
+  <section class="sec">
+    <div class="rail"><b>01</b><span>Tracks</span></div>
+    <div class="body-col" id="tracks">
+      <h2>The fourteen</h2>
+      <p>Naming convention is <code>ACT-ROLE</code> so files sort into playback order on disk. Build-phase and combat tracks within an act share tempo and key so the engine can crossfade between them at a wave boundary without a jarring transition.</p>
+      <div class="tracks" id="tracklist"></div>
+    </div>
+  </section>
+
+  <!-- ══════ DELIVERY ══════ -->
+  <section class="sec">
+    <div class="rail"><b>02</b><span>Delivery</span></div>
+    <div class="body-col">
+      <h2>What to send me</h2>
+      <p>Download the best generation per track as <strong>WAV</strong>, not MP3 — I'll do the lossy encode once, at the end, rather than stacking two generations of compression artifacts. Name them by track ID and drop them in a folder.</p>
+      <div class="cmd">audio/source/<b>TTL-01</b>_latticefall_main.wav<br>audio/source/<b>A1-BLD</b>_carrier_signal.wav<br>audio/source/<b>A1-CMB</b>_warden_protocol.wav<br>…</div>
+      <p>From there the pipeline is deterministic and scripted: loudness-normalize to −16 LUFS, detect and trim to a seamless loop point, encode to Ogg Vorbis q6, emit a <code>.tres</code> resource per track with <code>loop_offset</code> already set. You never touch Godot for any of it.</p>
+      <div class="note">
+        <b>Not blocking →</b> the whole audio layer sits behind a stub bus. The game builds, runs, and is fully verifiable with zero audio files present. Send tracks whenever; nothing waits on them.
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════ OPEN ITEMS ══════ -->
+  <section class="sec">
+    <div class="rail"><b>03</b><span>Open items</span></div>
+    <div class="body-col">
+      <h2>What I'm waiting on</h2>
+      <p>Three need you. The rest I've decided and am proceeding with — they're listed so you can veto, not so you have to choose.</p>
+
+      <div class="asks">
+        <div class="ask">
+          <h3>① Push access</h3>
+          <p>The repo is initialized locally with LFS configured and <code>origin</code> pointed at <code>git@github.com:bgerhards/Latticefall.git</code>. My shell has no SSH key, so I can't push. Run this yourself:</p>
+          <div class="cmd">cd ~/dev/defend-claude &amp;&amp; git add -A &amp;&amp; git commit -m "chore: scaffold" &amp;&amp; git push -u origin main</div>
+          <p class="rec"><b>Note</b> — if you'd rather I push directly on an ongoing basis, switch the remote to HTTPS with a token, or confirm <code>gh</code> is authenticated and I'll use that instead.</p>
+        </div>
+
+        <div class="ask">
+          <h3>② Suno commercial tier</h3>
+          <p>Confirm your plan allows commercial use of generated audio. If it doesn't, that's fine and non-blocking — but I need to know now so the score bible is labeled correctly and we don't build a trailer around a track we can't ship.</p>
+          <p class="rec"><b>Recommend</b> — confirm before generating, not after.</p>
+        </div>
+
+        <div class="ask">
+          <h3>③ Sound effects are not music</h3>
+          <p>The score is fourteen tracks. Combat needs roughly <b>sixty</b> discrete effects — turret fire per tower type, impacts, deaths, the reactor hum, brownout alarm, UI clicks, gate ambience. Suno is the wrong tool for those.</p>
+          <p class="rec"><b>Recommend</b> — a curated CC0 bank from Freesound plus synthesized UI tones I generate with scripted DSP, so UI audio is reproducible and tuneable rather than a pile of downloads. Needs your yes before I build the bank.</p>
+        </div>
+
+        <div class="ask mine">
+          <h3>Decided — display typeface</h3>
+          <p class="rec"><b>Proceeding</b> — IBM Plex Mono and IBM Plex Sans Condensed, both SIL OFL, redistributable with the game. Technical without being a cyberpunk cliché, and the mono has the instrument-readout quality the UI wants.</p>
+        </div>
+        <div class="ask mine">
+          <h3>Decided — target and platform</h3>
+          <p class="rec"><b>Proceeding</b> — 1920×1080 design resolution, desktop first, mouse and keyboard. Gamepad support is architected for but not implemented until the campaign is content-complete.</p>
+        </div>
+        <div class="ask mine">
+          <h3>Decided — difficulty</h3>
+          <p class="rec"><b>Proceeding</b> — three modes driven entirely by data multipliers over the same wave tables, so the headless simulator can grade all three in one pass.</p>
+        </div>
+        <div class="ask mine">
+          <h3>Decided — dialog presentation</h3>
+          <p class="rec"><b>Proceeding</b> — animated portraits with typewriter text, no voice acting. Mid-wave lines never block input and are always skippable.</p>
+        </div>
+      </div>
+
+      <h2 style="margin-top:var(--s3)">Ownership</h2>
+      <div class="tw">
+        <table>
+          <thead><tr><th>Item</th><th>Owner</th><th>Blocking?</th></tr></thead>
+          <tbody>
+            <tr><td>First push</td><td><span class="pill you">YOU</span></td><td>Yes — nothing is backed up until this happens</td></tr>
+            <tr><td>Suno commercial tier</td><td><span class="pill you">YOU</span></td><td>No — but answer before generating</td></tr>
+            <tr><td>SFX approach sign-off</td><td><span class="pill you">YOU</span></td><td>No</td></tr>
+            <tr><td>Music generation</td><td><span class="pill you">YOU</span></td><td>No — stubbed audio bus</td></tr>
+            <tr><td>Emissive / bloom pipeline</td><td><span class="pill me">ME</span></td><td>Resolved — see brief</td></tr>
+            <tr><td>Agents, skills, scripts, CLAUDE.md</td><td><span class="pill me">ME</span></td><td>Next up</td></tr>
+            <tr><td>Backlog + decision log pattern</td><td><span class="pill me">ME</span></td><td>Next up</td></tr>
+            <tr><td>Nomenclature bible</td><td><span class="pill me">ME</span></td><td>Next up — must precede dialog</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <footer class="foot">
+    <span>Latticefall · Score bible Rev A</span>
+    <span>14 tracks · instrumental</span>
+    <span>Audio is non-blocking</span>
+  </footer>
+</div>
+
+<script>
+(function () {
+  var EXCLUDE = "epic orchestral, trailer music, choir, dubstep, EDM, supersaw, pop, vocals, uplifting, major key resolution, drum kit, guitar solo";
+
+  var GROUPS = [
+    { title: "Title", sub: "Menu and main theme", tracks: [
+      { id:"TTL-01", name:"Latticefall", len:"2:30", tempo:"58 bpm",
+        use:"Main menu and title card. First thing anyone hears — it has to promise <b>scale and dread</b>, not action.",
+        style:"cold cinematic ambient, slow detuned analog synth pad in minor second dissonance, distant low brass cluster swelling every 8 bars, bowed metal shimmer, prepared piano single notes with long decay, deep sub-bass pulse, heavy tape saturation and hiss, no percussion, 58 bpm, static and non-developmental, feels vast abandoned and still powered, instrumental" } ] },
+
+    { title: "Act I — Dead Air", sub: "Cold · automated · empty", tracks: [
+      { id:"A1-BLD", name:"Carrier Signal", len:"3:00", tempo:"54 bpm",
+        use:"Build phase, anchors 01–08. Plays while the player places emplacements and balances the bus. Must be <b>ignorable</b>.",
+        style:"sparse cold ambient drone, detuned analog synth pad, faint repeating radio carrier tone every 4 bars, bowed cymbal, tape hiss, distant sub-bass pulse, no percussion, no melody, 54 bpm, static loopable texture, minor second dissonance, sounds like an empty facility with the lights still on, instrumental" },
+      { id:"A1-CMB", name:"Warden Protocol", len:"2:40", tempo:"96 bpm",
+        use:"Wave combat, Act I. Enemy is <b>automated and indifferent</b> — the music should feel mechanical, not malicious.",
+        style:"mechanical industrial minimalism, dry military snare on a rigid ostinato, low taiko accents, detuned analog synth pad underneath, metallic hits, low brass cluster stabs, tape saturation, 96 bpm, modal and static with no chord resolution, relentless and unfeeling, instrumental" },
+      { id:"A1-FIN", name:"Eleven Years of Nothing", len:"2:50", tempo:"64 bpm",
+        use:"Anchor 08 finale. The reveal that the wardens were <b>containing</b> something, not defending it.",
+        style:"slow dread build, low brass cluster crescendo, bowed metal rising, prepared piano tritone figure repeating, analog synth pad detuning further over time, deep sub drop, sparse taiko, tape hiss, 64 bpm, unresolved ending, ominous realization, no triumphant release, instrumental" } ] },
+
+    { title: "Act II — Salvage Rights", sub: "Human · tense · dirty", tracks: [
+      { id:"A2-BLD", name:"Contract Terms", len:"3:00", tempo:"60 bpm",
+        use:"Build phase, anchors 09–16. Human opposition — the tension is <b>political</b>, not supernatural.",
+        style:"tense sparse ambient, muted low brass swells, detuned analog synth pad, brushed metal percussion at the edge of audibility, prepared piano minor intervals, tape hiss and vinyl crackle, no drums, 60 bpm, static loopable, wary and watchful, instrumental" },
+      { id:"A2-CMB", name:"Hostile Recovery", len:"2:40", tempo:"108 bpm",
+        use:"Wave combat, Act II. Opposition <b>adapts</b> to the player. Music should feel like a fight between equals.",
+        style:"gritty industrial combat groove, dry military snare with syncopation, low taiko, distorted bass pulse, low brass cluster stabs, metallic scrapes, detuned analog synth, heavy tape saturation, 108 bpm, driving but not heroic, modal and static, instrumental" },
+      { id:"A2-FIN", name:"Sable Reach", len:"2:50", tempo:"104 bpm",
+        use:"Anchor 16 finale. The rival outfit's last stand — and the moment the player realizes <b>they were right to be afraid</b>.",
+        style:"desperate industrial climax, military snare accelerating, low taiko hits, low brass cluster in tritone, bowed metal screech, distorted sub-bass, prepared piano hammering one note, tape saturation and dropout, 104 bpm, collapsing into silence at the end, no resolution, instrumental" } ] },
+
+    { title: "Act III — The Hollow", sub: "Dread · wrong · vast", tracks: [
+      { id:"A3-BLD", name:"Circulatory", len:"3:00", tempo:"52 bpm",
+        use:"Build phase, anchors 17–24. Something is <b>using</b> the network. The build phase should stop feeling safe.",
+        style:"unsettling ambient dread, very slow detuned analog synth pad, breathing swells that feel organic, subharmonic drone, bowed metal, prepared piano struck rarely and irregularly, granular texture like distant movement, tape hiss, no percussion, 52 bpm, static and wrong, instrumental" },
+      { id:"A3-CMB", name:"The Door Was Held Open", len:"2:40", tempo:"116 bpm",
+        use:"Wave combat, Act III. The player is <b>losing ground</b>. Combat music that carries panic without becoming noise.",
+        style:"frantic industrial dread, military snare in irregular meter, heavy low taiko, subharmonic bass swells, low brass cluster in dissonant stacks, bowed metal screech, granular noise bursts, tape saturation, 116 bpm, oppressive and destabilizing, no groove resolution, instrumental" },
+      { id:"A3-FIN", name:"Close It From This Side", len:"3:10", tempo:"58 bpm",
+        use:"Anchor 24. The last track in the game. Ends the story on <b>cost, not victory</b>.",
+        style:"devastating slow climax, low brass cluster held long, subharmonic drone, bowed metal, prepared piano single repeated note with enormous decay, sparse taiko like a heartbeat slowing, analog pad collapsing into pure tape hiss, 58 bpm, resolves to near silence, grief not triumph, instrumental" } ] },
+
+    { title: "System", sub: "Mechanic-linked and short-form", tracks: [
+      { id:"SYS-BRN", name:"Brownout", len:"1:30", tempo:"54 bpm",
+        use:"Layered bed that fades in when the reactor bus is overdrawn. The <b>core mechanic made audible</b> — the player should hear power failing before they read the gauge.",
+        style:"failing electrical ambience, sagging detuned synth drone that wavers in pitch, 50hz mains hum, tape wow and flutter, distant alarm tone muffled, low sub pulse slowing down, no percussion, no melody, 54 bpm, sounds like a system browning out, static and loopable, instrumental" },
+      { id:"SYS-DBF", name:"Debrief", len:"2:00", tempo:"56 bpm",
+        use:"Underscore for between-mission story scenes. Sits <b>under dialog</b> — must never compete with text or draw focus.",
+        style:"quiet restrained underscore, sustained analog pad very low in the mix, single prepared piano notes with long gaps, faint bowed metal, tape hiss, open fifths, no percussion, no melodic hook, 56 bpm, static and unobtrusive, designed to sit under speech, instrumental" },
+      { id:"SYS-WIN", name:"Anchor Held", len:"0:15", tempo:"—",
+        use:"Victory stinger. Relief, <b>not celebration</b> — Meridian never wins, it survives.",
+        style:"short restrained resolution sting, low brass cluster releasing tension into an open fifth, single bowed metal shimmer, sub-bass settling, tape hiss, 15 seconds, quiet relief not triumph, no fanfare, no percussion, instrumental" },
+      { id:"SYS-LOS", name:"Anchor Lost", len:"0:15", tempo:"—",
+        use:"Defeat stinger. Should read as <b>a system going dark</b>, not as a game-over jingle.",
+        style:"short bleak failure sting, subharmonic drop, analog synth pad detuning and dying, prepared piano dissonant cluster, tape dropout into silence, 15 seconds, cold and final, no drums, no fanfare, instrumental" } ] }
+  ];
+
+  function esc(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+  var host = document.getElementById('tracklist');
+
+  GROUPS.forEach(function (g) {
+    var h = document.createElement('div');
+    h.className = 'grp-head';
+    h.innerHTML = '<b>' + esc(g.title) + '</b><span>' + esc(g.sub) + '</span>';
+    host.appendChild(h);
+
+    g.tracks.forEach(function (t) {
+      var el = document.createElement('article');
+      el.className = 'trk';
+      el.innerHTML =
+        '<div class="trk-top">' +
+          '<span class="trk-id">' + t.id + '</span>' +
+          '<span class="trk-name">' + esc(t.name) + '</span>' +
+          '<span class="trk-meta">' + t.len + (t.tempo !== '—' ? ' · ' + t.tempo : '') + '</span>' +
+        '</div>' +
+        '<div class="trk-use">' + t.use + '</div>' +
+        '<div class="pw">' +
+          '<span class="lbl">Suno style prompt</span>' +
+          '<pre>' + esc(t.style) + '</pre>' +
+          '<button class="cp" type="button">Copy</button>' +
+        '</div>';
+      var btn = el.querySelector('.cp');
+      btn.addEventListener('click', function () {
+        navigator.clipboard.writeText(t.style).then(function () {
+          btn.textContent = 'Copied';
+          btn.classList.add('done');
+          setTimeout(function () { btn.textContent = 'Copy'; btn.classList.remove('done'); }, 1600);
+        });
+      });
+      host.appendChild(el);
+    });
+  });
+
+  // exclude-styles block appended once at the end
+  var ex = document.createElement('div');
+  ex.className = 'trk';
+  ex.innerHTML =
+    '<div class="trk-top">' +
+      '<span class="trk-id">ALL</span>' +
+      '<span class="trk-name">Exclude styles</span>' +
+      '<span class="trk-meta">paste into every generation</span>' +
+    '</div>' +
+    '<div class="trk-use">Suno drifts toward trailer-epic and EDM unless told not to. This block is what keeps fourteen tracks in the same world.</div>' +
+    '<div class="pw"><span class="lbl">Exclude field</span><pre>' + esc(EXCLUDE) + '</pre><button class="cp" type="button">Copy</button></div>';
+  var eb = ex.querySelector('.cp');
+  eb.addEventListener('click', function () {
+    navigator.clipboard.writeText(EXCLUDE).then(function () {
+      eb.textContent = 'Copied'; eb.classList.add('done');
+      setTimeout(function(){ eb.textContent='Copy'; eb.classList.remove('done'); }, 1600);
+    });
+  });
+  host.appendChild(ex);
+})();
+</script>

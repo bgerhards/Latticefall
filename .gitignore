@@ -1,0 +1,17 @@
+# Godot 4+ specific ignores
+.godot/
+/android/
+
+# macOS
+.DS_Store
+
+# Blender
+*.blend1
+*.blend2
+
+# Build / export output
+/build/
+/export/
+
+# Render scratch (intermediates; final atlases are committed)
+/assets/renders/_scratch/
