@@ -169,6 +169,12 @@ def best_splice(a: np.ndarray, sr: int) -> int:
     head = m[xf_d: xf_d * 2]
     head_n = head / (np.linalg.norm(head) + 1e-9)
 
+    # Scored on normalized correlation only. An energy-match penalty was tried
+    # and reverted: it optimizes against a metric that does not describe loop
+    # quality here. Because the crossfade joins samples that are adjacent in the
+    # original, the seam is continuous by construction — the only real question
+    # is whether the 3 s blend is *musically* coherent, which is what shape
+    # correlation measures. Judge it by ear with tools/audio/make_loop_checks.py.
     best_i, best_score = len(m), -2.0
     for end_d in range(len(m) - search_d, len(m) - xf_d):
         tail = m[end_d - xf_d: end_d]
@@ -269,6 +275,11 @@ def main() -> int:
 
     ids = args.ids or [t for t in TRACKS if t in found]
     OUT.mkdir(parents=True, exist_ok=True)
+
+    # Merge, never clobber: processing one track must not drop the other 13.
+    prior = {}
+    if MANIFEST.exists():
+        prior = {e["id"]: e for e in json.loads(MANIFEST.read_text()).get("tracks", [])}
     manifest = []
 
     print(f"\nprocessing {len(ids)} track(s)")
@@ -312,11 +323,14 @@ def main() -> int:
             "source_sha256": sha256(src),
         })
 
+    for e in manifest:
+        prior[e["id"]] = e
+    merged = [prior[t] for t in TRACKS if t in prior]
     MANIFEST.write_text(json.dumps({"crossfade_seconds": CROSSFADE,
-                                    "tracks": manifest}, indent=2) + "\n")
-    total = sum(t["duration"] for t in manifest)
-    print(f"\n{len(manifest)} tracks · {total/60:.1f} min · "
-          f"{sum((OUT / Path(t['file']).name).stat().st_size for t in manifest)/1e6:.1f} MB")
+                                    "tracks": merged}, indent=2) + "\n")
+    total = sum(t["duration"] for t in merged)
+    print(f"\n{len(manifest)} processed · {len(merged)} in manifest · {total/60:.1f} min · "
+          f"{sum((OUT / Path(t['file']).name).stat().st_size for t in merged)/1e6:.1f} MB")
     print(f"manifest -> {MANIFEST.relative_to(ROOT)}")
     return 0
 

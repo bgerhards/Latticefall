@@ -72,12 +72,12 @@
       "file": "music/A2-CMB_hostile_recovery.ogg",
       "loop": true,
       "loop_offset": 0.0,
-      "duration": 156.201,
+      "duration": 233.394,
       "target_lufs": -18.0,
-      "measured_input_lufs": -14.37,
-      "seam_error": 0.055023,
+      "measured_input_lufs": -13.68,
+      "seam_error": 0.007492,
       "source": "A2-CMB_hostile_recovery.wav",
-      "source_sha256": "4e0b2ab37b488eb03d0d2cbc8e8aa127cbc5fb7224bdf1356cbae0fa8f01ae57"
+      "source_sha256": "6fa73dccc25aa25bcdabf14083f9ec581c5e389b7b173a87333210ad2c780749"
     },
     {
       "id": "A2-FIN",
