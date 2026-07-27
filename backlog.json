@@ -235,11 +235,11 @@
       "kind": "polish",
       "area": "art",
       "pri": "med",
-      "status": "open",
+      "status": "done",
       "why": "",
       "opened": "2026-07-27",
-      "closed": null,
-      "note": ""
+      "closed": "2026-07-27",
+      "note": "closed at 7ced6e6"
     },
     {
       "id": "LF-021",
@@ -259,11 +259,11 @@
       "kind": "polish",
       "area": "art",
       "pri": "med",
-      "status": "open",
+      "status": "done",
       "why": "Amber (1.0,0.62,0.15) at any strength >1 clips the red channel. Needs a desaturated emissive colour, not a lower strength.",
       "opened": "2026-07-27",
-      "closed": null,
-      "note": ""
+      "closed": "2026-07-27",
+      "note": "closed at 7ced6e6"
     },
     {
       "id": "LF-023",
@@ -271,11 +271,11 @@
       "kind": "polish",
       "area": "art",
       "pri": "med",
-      "status": "open",
+      "status": "done",
       "why": "",
       "opened": "2026-07-27",
-      "closed": null,
-      "note": ""
+      "closed": "2026-07-27",
+      "note": "closed at 7ced6e6"
     },
     {
       "id": "LF-024",
@@ -283,11 +283,11 @@
       "kind": "polish",
       "area": "art",
       "pri": "med",
-      "status": "open",
+      "status": "done",
       "why": "Nothing is grounded; units look like they float over the board.",
       "opened": "2026-07-27",
-      "closed": null,
-      "note": ""
+      "closed": "2026-07-27",
+      "note": "closed at 7ced6e6"
     },
     {
       "id": "LF-025",
@@ -319,11 +319,11 @@
       "kind": "bug",
       "area": "art",
       "pri": "high",
-      "status": "open",
+      "status": "done",
       "why": "Hover highlight and turrets sit off their slot rings. Manifest pivot is (128,128); measured tile silhouette centre is (127.5,176.5). render_pair uses height_bias=0.55 but _measure_tile calibrates at 0.0, so the bias never reaches the pivot",
       "opened": "2026-07-27",
-      "closed": null,
-      "note": ""
+      "closed": "2026-07-27",
+      "note": "closed at 7ced6e6"
     },
     {
       "id": "LF-028",

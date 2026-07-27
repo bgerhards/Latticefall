@@ -46,6 +46,14 @@ ORTHO_SCALE_NOMINAL = CELL * math.sqrt(2.0) / TILE_W
 ORTHO_SCALE = ORTHO_SCALE_NOMINAL
 SAMPLES = 64
 
+# The camera sits this far above the tile plane so tall assets — the anchor ring, a
+# turret barrel — do not clip the top of the cell. It moves world (0,0,0) *down* in the
+# frame, which is why the pivot has to be measured rather than assumed to be the middle
+# of the canvas. See _measure_tile.
+HEIGHT_BIAS = 0.55
+# Solved by calibrate(): the pixel that world (0,0,0) projects to, top-left origin.
+PIVOT = (CELL // 2, CELL // 2)
+
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 OUT_DIR = os.path.join(ROOT, "assets", "renders")
 MANIFEST = os.path.join(OUT_DIR, "sprites.json")
@@ -314,7 +322,7 @@ def setup_compositor(sc):
     return ng
 
 
-def place_camera(sc, yaw_deg, height_bias=0.55):
+def place_camera(sc, yaw_deg, height_bias=HEIGHT_BIAS):
     cd = bpy.data.cameras.new("Cam")
     cd.type = "ORTHO"
     cd.ortho_scale = ORTHO_SCALE
@@ -347,7 +355,19 @@ def render_pair(sc, ng, name, yaw, out_dir):
 
 
 def _measure_tile(sc):
-    """Render a bare 1x1 plane and return its silhouette size in pixels."""
+    """Render a bare 1x1 plane and measure it.
+
+    Returns (width_px, height_px, pivot_x, pivot_y). The pivot is where world (0,0,0)
+    lands, in Godot's top-left-origin pixel coordinates.
+
+    The pivot used to be hardcoded to the middle of the canvas. It is not: the
+    production camera is raised by HEIGHT_BIAS so tall assets clear the top of the
+    cell, which pushes world origin ~48px *below* the canvas centre. Every sprite
+    therefore drew that far above its own tile — the build highlight sat off the slot
+    it pointed at, and turrets floated over their slot rings (LF-027). This renders
+    with the production camera and measures, so changing HEIGHT_BIAS re-derives the
+    pivot instead of silently misaligning the entire library.
+    """
     for o in [o for o in bpy.data.objects if o.type == "MESH"]:
         bpy.data.objects.remove(o, do_unlink=True)
     bpy.ops.mesh.primitive_plane_add(size=1.0, location=(0, 0, 0))
@@ -360,7 +380,7 @@ def _measure_tile(sc):
     # measurement is of the projection and not of the filter.
     sc.render.filter_size = 0.0
     sc.render.use_compositing = False
-    cam = place_camera(sc, 45, height_bias=0.0)
+    cam = place_camera(sc, 45)          # production framing, bias included
     path = os.path.join(OUT_DIR, "_calibration.png")
     sc.render.filepath = path
     bpy.ops.render.render(write_still=True)
@@ -383,8 +403,18 @@ def _measure_tile(sc):
     for o in [o for o in bpy.data.objects if o.type == "MESH"]:
         bpy.data.objects.remove(o, do_unlink=True)
     if not xs:
-        return (0, 0)
-    return (max(xs) - min(xs) + 1, max(ys) - min(ys) + 1)
+        return (0, 0, 0, 0)
+    if min(xs) == 0 or max(xs) == w - 1 or min(ys) == 0 or max(ys) == h - 1:
+        # The silhouette is clipped, so its centre is not the projection of world
+        # origin and the pivot would be wrong. Fail loudly rather than measure a crop.
+        print("CALIBRATION FAIL: tile silhouette touches the frame edge "
+              "— HEIGHT_BIAS %.3f is too large for a %dpx cell" % (HEIGHT_BIAS, CELL))
+        return (0, 0, 0, 0)
+    # Blender's pixel buffer is bottom-up; Godot places sprites from the top-left.
+    cx = (min(xs) + max(xs)) / 2.0
+    cy_from_bottom = (min(ys) + max(ys)) / 2.0
+    cy = (h - 1) - cy_from_bottom
+    return (max(xs) - min(xs) + 1, max(ys) - min(ys) + 1, cx, cy)
 
 
 def calibrate(sc):
@@ -397,18 +427,21 @@ def calibrate(sc):
     the projection is off. One extra 256px render costs nothing next to re-rendering
     the entire sprite library.
     """
-    global ORTHO_SCALE
+    global ORTHO_SCALE, PIVOT
     for _ in range(6):
-        w, h = _measure_tile(sc)
+        w, h, cx, cy = _measure_tile(sc)
         if w == 0:
             print("CALIBRATION FAIL: nothing rendered")
             return False
         if w == TILE_W and h == TILE_W // 2:
+            PIVOT = (cx, cy)
             print("CALIBRATION ok tile=%dx%d ratio=%.4f elev=%.4f ortho=%.6f (nominal %.6f)"
                   % (w, h, w / h, ELEVATION_DEG, ORTHO_SCALE, ORTHO_SCALE_NOMINAL))
+            print("CALIBRATION pivot=(%.1f,%.1f) canvas centre=(%d,%d) bias=%.2f"
+                  % (cx, cy, CELL // 2, CELL // 2, HEIGHT_BIAS))
             return True
         ORTHO_SCALE = ORTHO_SCALE * (float(w) / float(TILE_W))
-    w, h = _measure_tile(sc)
+    w, h, _cx, _cy = _measure_tile(sc)
     print("CALIBRATION FAIL tile=%dx%d expected=%dx%d ortho=%.6f"
           % (w, h, TILE_W, TILE_W // 2, ORTHO_SCALE))
     return False
@@ -443,9 +476,11 @@ def main() -> int:
         "cell": CELL,
         "tile_px": [TILE_W, TILE_W // 2],
         "ortho_scale": ORTHO_SCALE,
-        # The tile centre is world origin, and the camera targets it, so every sprite
-        # shares one pivot: the middle of the canvas. Godot places by this point.
-        "pivot": [CELL // 2, CELL // 2],
+        # Every asset is built around world origin and rendered with one camera, so
+        # they share one pivot: wherever world (0,0,0) lands. Godot places by this
+        # point. Measured by calibrate(), not assumed to be the canvas centre — the
+        # camera's HEIGHT_BIAS puts it well below that. See _measure_tile / LF-027.
+        "pivot": [PIVOT[0], PIVOT[1]],
         "sprites": {},
     }
     for name in names:

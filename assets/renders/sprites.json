@@ -3,8 +3,8 @@
   "elevation_deg": 30.0,
   "ortho_scale": 2.784232950922031,
   "pivot": [
-    128,
-    128
+    127.5,
+    171.5
   ],
   "sprites": {
     "anchor_ring": {
