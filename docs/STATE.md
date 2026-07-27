@@ -83,17 +83,18 @@ Recorded so they are not rediscovered. Full detail in `CLAUDE.md`.
 ### Gate
 
 ```
-[  ok  ] python syntax            51ms  17 files
-[  ok  ] json parses              26ms  
-[  ok  ] game data                70ms  no warnings
-[  ok  ] banned terms            107ms  49 files clean
-[  ok  ] sfx determinism          86ms  ui_confirm byte-identical
+[  ok  ] python syntax            63ms  17 files
+[  ok  ] json parses              29ms  
+[  ok  ] game data                87ms  no warnings
+[  ok  ] banned terms            119ms  54 files clean
+[  ok  ] sfx determinism         118ms  ui_confirm byte-identical
 [  ok  ] music manifest            0ms  14 tracks
-[  ok  ] backlog rendered          0ms  11 open
-[  ok  ] sim determinism        1749ms  deterministic
-[  ok  ] rules parity           2883ms  18 runs identical (gdscript vs python)
+[  ok  ] backlog rendered          0ms  14 open
+[  ok  ] sim determinism        1756ms  deterministic
+[  ok  ] godot boots            1079ms  main scene loads clean
+[  ok  ] rules parity           2869ms  18 runs identical (gdscript vs python)
 
-9 passed · 0 failed · 0 skipped · 4973ms
+10 passed · 0 failed · 0 skipped · 6122ms
 ```
 
 ### Inventory
@@ -105,8 +106,8 @@ Recorded so they are not rediscovered. Full detail in `CLAUDE.md`.
 | sfx | 35 of ~60 |
 | music tracks | 14 of 14 |
 | sprite renders | 13 |
-| godot scripts | 4 |
-| godot scenes | 0 |
+| godot scripts | 9 |
+| godot scenes | 1 |
 
 ### Anchor grades
 
@@ -118,23 +119,27 @@ Recorded so they are not rediscovered. Full detail in `CLAUDE.md`.
 
 ### Backlog
 
-11 open · 4 closed
+14 open · 5 closed
 
-- `blocker` LF-001 Godot: no gameplay code exists yet — engine layer is empty
 - `high` LF-003 Productionize Blender render pipeline from validation script
 - `high` LF-004 No sprite atlas packer
 - `high` LF-006 Write dialog for all 24 anchors
 - `high` LF-014 Brownout is never a rational choice with homogeneous towers
+- `high` LF-016 Sprites: board and units are placeholder polygons
+- `high` LF-017 No main menu, level select, or between-anchor flow
 - `med` LF-005 Source the 12 organic CC0 SFX
 - `med` LF-007 Godot .import settings for music loop flags not generated
 - `med` LF-008 IBM Plex Mono/Sans Condensed not vendored
 - `med` LF-009 No save system or meta-progression
 - `med` LF-015 Rebalance anchors 02-24 as they are authored
+- `med` LF-019 Emplacements cannot be sold or upgraded
 - `low` LF-010 Gamepad support deferred until content-complete
+- `low` LF-018 Unfocused Godot window is throttled — verification must use --fixed-fps
 
 ### Recent commits
 
 ```
+45241ef feat(engine): GDScript rules core + Python/GDScript parity gate
 1b2684e docs: correct wave count in STATE
 3f60b26 feat(sim): headless combat simulator + anchor grading
 c210a6c feat: project foundation — CLAUDE.md, agents, skills, gate, backlog, content schemas
@@ -142,7 +147,6 @@ e7e775d feat(audio): loop audition page + local server
 cbb32a1 fix(audio): re-ingest A2-CMB from replaced master; manifest merge; loop-check tool
 8afa5a4 chore(audio): stop versioning WAV masters
 b83cde5 feat(audio): music ingest pipeline + 22 more SFX
-22a6af5 feat(audio): procedural SFX synthesizer + playable soundboard
 ```
 
 <!-- END AUTO -->

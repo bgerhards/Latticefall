@@ -172,6 +172,25 @@ def check_sim() -> Result:
     return Result(OK, "deterministic")
 
 
+def check_godot_boots() -> Result:
+    """Load the main scene headlessly and assert no script errors.
+
+    A GDScript parse error does not stop the process — Godot logs it and carries on
+    with the scene missing. Exit code alone would call that a pass, so the output is
+    what has to be asserted on.
+    """
+    godot = "/Applications/Godot.app/Contents/MacOS/Godot"
+    if not Path(godot).exists():
+        return Result(SKIP, "godot not installed")
+    r = run(godot, "--headless", "--path", str(ROOT), "--quit-after", "120")
+    blob = r.stdout + r.stderr
+    bad = [l for l in blob.splitlines()
+           if "SCRIPT ERROR" in l or "Parse Error" in l or "Compile Error" in l]
+    if bad:
+        return Result(FAIL, "\n".join(bad[:8]))
+    return Result(OK, "main scene loads clean")
+
+
 def check_rules_parity() -> Result:
     """The rules exist twice, in Python and GDScript. Prove they agree.
 
@@ -198,6 +217,7 @@ CHECKS = [
     ("music manifest",    check_music_manifest),
     ("backlog rendered",  check_backlog_rendered),
     ("sim determinism",   check_sim),
+    ("godot boots",       check_godot_boots),
     ("rules parity",      check_rules_parity),
 ]
 

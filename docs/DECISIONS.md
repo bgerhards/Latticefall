@@ -206,3 +206,39 @@ rather than a tradeoff. It only becomes a real choice once draws are heterogeneo
 instance briefly raising a 40 MW shield wall. Filed as LF-014; it needs verifying once
 anchor-04 unlocks the shield wall, and if it does not hold, the hook is weaker than
 decision 003 assumes.
+
+---
+
+## 015 — The rules are written twice and parity-gated
+
+**Decided.** `sim/engine.py` (Python) and `scripts/anchor_sim.gd` (GDScript) both implement
+the anchor rules. **Python is the reference.** `tools/test_parity.py` replays every
+anchor × policy × difficulty through both and diffs them; it runs in `tools/check.py` on
+every commit. Discrete outcomes must match exactly, peak load within 0.01 MW.
+
+**Rejected.** A single implementation. Godot cannot be driven from a Python balance sweep
+cheaply, and a GDScript-only sim would make grading 24 anchors an interactive chore —
+which is the failure decision 003 exists to avoid. Sharing code across the boundary would
+mean either embedding Python in the game or writing the balance tooling in GDScript; both
+cost more than a diff test.
+
+**Consequence.** Duplication is deliberate and *policed*. If the two disagree the game is
+not playing the level that was graded, and the gate says so. Any rule change must land in
+both files in the same commit.
+
+---
+
+## 016 — Verification runs at fixed FPS, and the build screenshots itself
+
+**Decided.** Automated visual checks pass `--fixed-fps` and use `-- --shot <path> <frame>`,
+which renders, writes a PNG and quits.
+
+**Context.** A wall-clock capture showed the level still in `prep` fifteen seconds after
+combat should have begun: macOS throttles the unfocused window. This is the same class of
+bug as `requestAnimationFrame` freezing in a background browser tab, which already cost a
+debugging cycle on the loop page.
+
+**Consequence.** Screenshots are frame-addressed and reproducible, and verification never
+depends on capturing someone's desktop. `check.py` also boots the main scene headlessly and
+asserts on *output*, because a GDScript parse error does not change the exit code — Godot
+logs it and carries on with the scene missing.

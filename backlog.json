@@ -1,5 +1,5 @@
 {
-  "next_id": 16,
+  "next_id": 20,
   "items": [
     {
       "id": "LF-001",
@@ -7,11 +7,11 @@
       "kind": "feature",
       "area": "engine",
       "pri": "blocker",
-      "status": "open",
+      "status": "done",
       "why": "Everything so far is pipeline. The game itself is unstarted.",
       "opened": "2026-07-26",
-      "closed": null,
-      "note": ""
+      "closed": "2026-07-26",
+      "note": "anchor-01 playable end to end; parity-gated against sim"
     },
     {
       "id": "LF-002",
@@ -177,6 +177,54 @@
       "pri": "med",
       "status": "open",
       "why": "Only anchor-01 has been graded. brutal=1.55 was tuned against one level.",
+      "opened": "2026-07-26",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-016",
+      "title": "Sprites: board and units are placeholder polygons",
+      "kind": "feature",
+      "area": "art",
+      "pri": "high",
+      "status": "open",
+      "why": "Game is playable but looks like a prototype. Blocked on LF-003 (render pipeline) and LF-004 (atlas).",
+      "opened": "2026-07-26",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-017",
+      "title": "No main menu, level select, or between-anchor flow",
+      "kind": "feature",
+      "area": "engine",
+      "pri": "high",
+      "status": "open",
+      "why": "",
+      "opened": "2026-07-26",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-018",
+      "title": "Unfocused Godot window is throttled \u2014 verification must use --fixed-fps",
+      "kind": "risk",
+      "area": "tooling",
+      "pri": "low",
+      "status": "open",
+      "why": "A wall-clock screenshot showed 'prep' 15s after combat should have started. Same class of bug as rAF freezing in a background browser tab.",
+      "opened": "2026-07-26",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-019",
+      "title": "Emplacements cannot be sold or upgraded",
+      "kind": "feature",
+      "area": "engine",
+      "pri": "med",
+      "status": "open",
+      "why": "",
       "opened": "2026-07-26",
       "closed": null,
       "note": ""
