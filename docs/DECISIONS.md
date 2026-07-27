@@ -416,3 +416,56 @@ hook (decision 003), which is the user's call, not this session's:
    editing decision 003 rather than the draw table.
 
 `LF-014` stays open and now carries the numbers instead of a suspicion.
+
+---
+
+## 022 — Brownout is priced by how far over the bus is, superseding the flat penalty in 003
+
+**Decided.** The brownout fire-rate penalty scales with the size of the overdraw:
+`penalty = min(0.70, (load / capacity - 1) * 1.5)`. It replaces the flat 40% of
+decision 003. Written twice — `sim/engine.py` and `scripts/anchor_sim.gd` — and
+parity-gated like every other rule. Reproduce with `tools/analysis_overdraw.py`.
+
+**Context.** Decision 021 measured the flat rule and found overdrawing never paid, at any
+difficulty, on any build, including a briefly-raised shield wall. The cause was the shape
+of the cost, not its size: 2 MW over cost exactly what 40 MW over cost, so "never exceed
+capacity" was unconditionally correct. That makes the power budget a **wall**, while
+`CLAUDE.md` describes it as the game's **currency**. A currency is something you can spend
+at a price.
+
+The slope is chosen so one emplacement past capacity lands near break-even. `N+1` towers
+at `(1 - k/N)` output versus `N` at full rate is a coin flip around `k ≈ N/(N+1)`, and
+Act I boards run 5–8 emplacements. Verified: 8 pulse turrets (96 MW, exactly at capacity)
+score 8.00 effective; a 9th at 108 MW takes 18.8% and scores 7.31.
+
+**Result — overdrawing is now rational at the margin.** anchor-04, boards played to the
+end:
+
+| board | draw | penalty | standard | hard | brutal |
+|---|---|---|---|---|---|
+| 7 guns + relay | 92 MW | none | won, 10 | won, 9 | won, 6 |
+| 8 guns at capacity, no relay | 96 MW | none | lost w4 | lost w4 | lost w4 |
+| **8 guns + relay** | **104 MW** | **12.5%** | **won, 10** | **won, 9** | **won, 7** |
+| 9 guns + relay | 116 MW | 31.2% | won, 10 | won, 5 | lost w8 |
+
+The live decision is now "drop a gun to stay inside the budget, or take 12.5% off
+everything to keep both the gun and the relay" — and taking the hit is correct. Going
+further is not. That is a real optimum with a real cost on either side of it, which is
+what decision 003 always claimed and never had.
+
+**Rejected.**
+- *Give the Shield Wall a burst effect instead.* Fixes one emplacement and leaves the
+  economy broken for every high-draw emplacement after it, and needs a new effect type in
+  the rules core, written twice.
+- *Accept brownout as a punishment and amend 003's framing.* Cheapest, and it abandons the
+  hook the whole game is sold on.
+
+**Consequence.** All four authored anchors still grade clean with no retuning, so this is
+not paid for in rebalancing. The HUD now reports the live percentage rather than a fixed
+"-40%", because the number is the decision. Act II's `drains_mw` enemies become a
+graduated bite rather than a coin flip, and Act III's degrading capacity becomes a slope
+rather than a cliff.
+
+This does **not** rescue the Shield Wall, and that was never the same problem: 40 MW on a
+96 MW bus is a 42% overdraw and now prices at 62.5%. The wall is simply overpriced in draw
+for a 0.45x slow across two tiles of a forty-tile path. Filed separately.

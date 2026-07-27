@@ -10,7 +10,8 @@ The design decision that makes this possible is that power is a scalar over time
 (see docs/DECISIONS.md 003). An anchor resolves without rendering a frame.
 
 What is modelled:
-  - continuous power draw, capacity, and brownout (-40% fire rate across the board)
+  - continuous power draw, capacity, and brownout (a board-wide fire-rate penalty
+    scaled by how far over capacity the bus is — decision 022)
   - enemies that drain the bus while alive (Act II onward)
   - slow fields and reveal coverage, so zero-damage emplacements have a real role
   - armour as flat reduction, shielding as a targeting gate
@@ -28,7 +29,29 @@ from dataclasses import dataclass, field
 from .content import Anchor, Enemy, Tower
 
 DT = 1.0 / 30.0
-BROWNOUT_FIRE_PENALTY = 0.40      # decision 003
+# Brownout is priced by how far over capacity the bus is, not as a flat cliff.
+# Decision 022, superseding the flat 0.40 of decision 003.
+#
+# A flat penalty made the power budget a wall rather than a currency: 2 MW over cost
+# exactly what 40 MW over cost, so "never exceed capacity" was always correct and the
+# mechanic collapsed into a build constraint. LF-014 measured that and found no build,
+# at any difficulty, where overdrawing paid — including a briefly-raised shield wall.
+#
+# The slope is set so that adding one emplacement past capacity lands near break-even:
+# N+1 towers at (1 - k/N) effective output versus N at full rate is a coin-flip at
+# k ~ N/(N+1), and boards in Act I run 5-8 emplacements. It is therefore a judgement
+# call — worth it when the extra gun covers path the others cannot reach — rather than
+# an obvious yes or an obvious no.
+BROWNOUT_SLOPE = 1.5
+BROWNOUT_MAX_PENALTY = 0.70
+
+
+def brownout_penalty(load_mw: float, capacity_mw: float) -> float:
+    """Fire-rate penalty in [0, BROWNOUT_MAX_PENALTY]. 0 when at or under capacity."""
+    if capacity_mw <= 0.0 or load_mw <= capacity_mw:
+        return 0.0
+    over = load_mw / capacity_mw - 1.0
+    return min(BROWNOUT_MAX_PENALTY, over * BROWNOUT_SLOPE)
 MAX_SIM_SECONDS = 3600.0
 
 # name -> (enemy hp multiplier, bounty multiplier)
@@ -217,8 +240,8 @@ class Sim:
 
     # ───────────────────────────────────────────────────────────── tick ──
 
-    def _step(self, brownout: bool) -> None:
-        rate = 1.0 - BROWNOUT_FIRE_PENALTY if brownout else 1.0
+    def _step(self, penalty: float) -> None:
+        rate = 1.0 - penalty
 
         # move
         for u in self.units:
@@ -326,13 +349,13 @@ class Sim:
 
     def _tick_once(self) -> None:
         load = self.bus_load()
-        brownout = load > self.a.capacity_mw
+        penalty = brownout_penalty(load, self.a.capacity_mw)
         self.peak_load = max(self.peak_load, load)
         self._load_integral += load * DT
-        if brownout:
+        if penalty > 0.0:
             self._brownout_time += DT
         self.t += DT
-        self._step(brownout)
+        self._step(penalty)
 
     def _advance(self, seconds: float) -> None:
         for _ in range(int(seconds / DT)):

@@ -1,5 +1,5 @@
 {
-  "next_id": 32,
+  "next_id": 33,
   "items": [
     {
       "id": "LF-001",
@@ -163,11 +163,11 @@
       "kind": "question",
       "area": "design",
       "pri": "high",
-      "status": "open",
+      "status": "done",
       "why": "N towers at 60% fire rate = 0.6N effective; with a slot-limited board that is always worse than running capacity/draw at full rate. Brownout only becomes a tradeoff with heterogeneous draws (e.g. briefly raising a 40MW shield wall). Verify this holds once anchor-04 unlocks shield-wall.",
       "opened": "2026-07-26",
-      "closed": null,
-      "note": ""
+      "closed": "2026-07-27",
+      "note": "closed at 8cbe408"
     },
     {
       "id": "LF-015",
@@ -369,6 +369,18 @@
       "pri": "med",
       "status": "open",
       "why": "Emission colour is correct in the sprite (cyan-green) but the additive glow pass stacks over the albedo core and clips. Same class as LF-020/022 but in the engine blend, not the render",
+      "opened": "2026-07-27",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-032",
+      "title": "Shield wall is overpriced: 40 MW for a 0.45x slow in radius 2.0 is never worth building",
+      "kind": "bug",
+      "area": "design",
+      "pri": "high",
+      "status": "open",
+      "why": "Measured under decision 022 at anchor-04: no-wall wins 10/9/6 lives, wall-always-on loses hard and brutal, optimally-toggled wall loses brutal. Its 40 MW is a 42% overdraw pricing at 62.5%. Either the draw comes down or the effect becomes decisive",
       "opened": "2026-07-27",
       "closed": null,
       "note": ""

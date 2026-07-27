@@ -25,7 +25,7 @@
       "text": "The one I read as hold. It isn't hold. It's closer to seal." },
 
     { "trigger": "brownout", "speaker": "okonkwo", "critical": false,
-      "text": "That's the wall. Everything on the board just dropped forty percent to feed it." },
+      "text": "That's the wall. It's pulling more than the bus has and everything else is paying for it." },
 
     { "trigger": "first-leak", "speaker": "control", "critical": false,
       "text": "One through." },

@@ -12,7 +12,10 @@ how to work; that file says where we are.
 
 - You hold transit anchors on a precursor network humanity did not build and cannot switch off.
 - Emplacements cost money to build and **draw continuous power** to run. Power is the real currency.
-- Exceeding reactor capacity browns the whole bus out: −40% fire rate, not a blocked build.
+- Exceeding reactor capacity browns the whole bus out — never a blocked build. The penalty
+  is **priced by how far over you are**, `min(0.70, (load/cap − 1) × 1.5)`, so a small
+  overdraw is cheap and a large one is ruinous. Decision 022; a flat −40% made "never
+  exceed capacity" unconditionally correct and the currency was really a wall.
 - 24 anchors, 3 acts. Each act introduces one antagonist, one biome, one power tier, and one
   mechanic that invalidates the previous act's dominant strategy.
 - Grounded military sci-fi. Professionals doing dangerous technical work. Dry, not heroic.

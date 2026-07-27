@@ -119,7 +119,11 @@ func refresh() -> void:
 	_load_label.add_theme_color_override("font_color", C_ALERT if sim.brownout else C_AMBER)
 	_fill.size.x = 306.0 * clampf(load / maxf(cap, 1.0), 0.0, 1.0)
 	_fill.color = C_ALERT if sim.brownout else C_VERD
-	_fault.text = "BUS OVERDRAW — ALL SYSTEMS -40% FIRE RATE" if sim.brownout else ""
+	# The penalty scales with the overdraw (decision 022), so the readout has to show
+	# the real number — a fixed "-40%" would be lying about the decision the player is
+	# making, which is *how far* over to go, not merely whether.
+	_fault.text = ("BUS OVERDRAW — ALL SYSTEMS %d%% FIRE RATE"
+			% [-roundi(sim.penalty_now() * 100.0)]) if sim.brownout else ""
 
 	_stat.text = "funds $%d      lives %d      leaks %d" % [sim.funds, sim.lives, sim.leaks]
 	var total: int = sim.anchor["waves"].size()

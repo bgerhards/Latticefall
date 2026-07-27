@@ -13,7 +13,12 @@ extends RefCounted
 ## Kept free of Node so it can run headless in a test and inside a scene unchanged.
 
 const DT: float = 1.0 / 30.0
-const BROWNOUT_FIRE_PENALTY: float = 0.40
+# Mirrors brownout_penalty() in sim/engine.py — decision 022, superseding the flat
+# 0.40 of decision 003. Priced by how far over the bus is, not as a cliff, so the
+# power budget is a currency rather than a wall. Any change here must be made there
+# too; tools/test_parity.py diffs the two on every commit.
+const BROWNOUT_SLOPE: float = 1.5
+const BROWNOUT_MAX_PENALTY: float = 0.70
 
 ## name -> [enemy hp multiplier, bounty multiplier]. Mirrors DIFFICULTIES in engine.py.
 const DIFFICULTIES: Dictionary = {
@@ -181,9 +186,22 @@ func _can_target(tw: Dictionary, u: Dictionary, revealed: bool) -> bool:
 
 # ─────────────────────────────────────────────────────────────── ticking ──
 
+func brownout_penalty(load_mw: float, cap_mw: float) -> float:
+	## Fire-rate penalty in [0, BROWNOUT_MAX_PENALTY]. 0 at or under capacity.
+	if cap_mw <= 0.0 or load_mw <= cap_mw:
+		return 0.0
+	return minf(BROWNOUT_MAX_PENALTY, (load_mw / cap_mw - 1.0) * BROWNOUT_SLOPE)
+
+
+func penalty_now() -> float:
+	## For the HUD: how hard the bus is being punished right now.
+	return brownout_penalty(bus_load(), capacity())
+
+
 func tick() -> void:
 	var load := bus_load()
-	var over := load > capacity()
+	var penalty := brownout_penalty(load, capacity())
+	var over := penalty > 0.0
 	if over != brownout:
 		brownout = over
 		brownout_changed.emit(over)
@@ -192,11 +210,11 @@ func tick() -> void:
 	if over:
 		_brownout_time += DT
 	t += DT
-	_step(over)
+	_step(penalty)
 
 
-func _step(over: bool) -> void:
-	var rate: float = (1.0 - BROWNOUT_FIRE_PENALTY) if over else 1.0
+func _step(penalty: float) -> void:
+	var rate: float = 1.0 - penalty
 
 	for u in units:
 		if not u["alive"]:
