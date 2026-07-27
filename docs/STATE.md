@@ -22,7 +22,7 @@ Be honest about this when reporting progress: three subsystems exist and zero of
 | **Audio — music** | 14 Suno tracks ingested. 415 MB WAV → 28 MB Ogg, 35.9 min. Loops baked with correlation-matched splices, auditioned by ear and approved. Masters live outside git in `~/Latticefall-masters/`, verified by SHA-256 in the manifest. |
 | **Audio — SFX** | 35 of ~60 effects, synthesized from code and byte-reproducible. The remaining ~12 organic ones need CC0 sourcing (LF-005). |
 | **Art pipeline** | Proven, not productionized. Iso camera, two-pass albedo + glow, Blender 5.2 API traps all mapped. Output so far is blockouts, not art (LF-003). |
-| **Content data** | `anchor-01` complete: layout, 5 waves, 12 dialog lines. 5 emplacements, 4 enemies. Schema-validated. |
+| **Content data** | `anchor-01` complete and graded: layout, 6 waves, 12 dialog lines. 5 emplacements, 4 enemies. Schema-validated. |
 | **Simulation** | `sim/` — headless, fixed-timestep, **no RNG in the core loop**, so determinism is structural. Grades an anchor across 6 build policies x 3 difficulties in ~0.9 s. |
 | **Tooling** | `tools/check.py` gate — **8 checks passing, 0 skipped**. Backlog with stable IDs. 5 agents, 5 skills. |
 
