@@ -26,6 +26,7 @@ extends Node2D
 var _shot_path: String = ""
 var _shot_at: int = 240
 var _frame: int = 0
+var _shot_taken: bool = false
 var _autoplay: bool = false
 
 
@@ -74,10 +75,17 @@ func _bed_for(aid: String) -> String:
 
 
 func _process(_delta: float) -> void:
-    if _shot_path == "":
+    if _shot_path == "" or _shot_taken:
         return
     _frame += 1
-    if _frame == _shot_at:
+    if _frame >= _shot_at:
+        _shot_taken = true
+        # Freeze before awaiting. --fixed-fps disables real-time sync, so the loop
+        # spins as fast as it can and hundreds of frames elapse while this coroutine
+        # is suspended — which advanced the sim past the frame that was asked for and
+        # made the same command capture different states run to run. Pausing first
+        # makes the captured content depend on _shot_at alone. This was LF-029.
+        get_tree().paused = true
         await RenderingServer.frame_post_draw
         var img := get_viewport().get_texture().get_image()
         var err := img.save_png(_shot_path)

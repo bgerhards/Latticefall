@@ -94,10 +94,17 @@ class Policy:
     winning policy is a puzzle with one answer, which the design treats as a defect.
     """
 
-    def __init__(self, name: str, preference: list[str], allow_overdraw: bool = False):
+    def __init__(self, name: str, preference: list[str], allow_overdraw: bool = False,
+                 caps: dict[str, int] | None = None):
         self.name = name
         self.preference = preference
         self.allow_overdraw = allow_overdraw
+        # Per-emplacement build limit. Without it a policy that leads with a support
+        # emplacement fills every slot with it — "intel-first" built four scan relays
+        # and no guns, and no policy could express the one sensible board for
+        # anchor-02: a single relay plus turrets. Support towers need a count, not
+        # just a rank, or every anchor from 02 on is ungradeable.
+        self.caps = caps or {}
 
     def rank(self, tower_id: str) -> int:
         return self.preference.index(tower_id) if tower_id in self.preference else 99
@@ -161,6 +168,10 @@ class Sim:
             slot_order = self._slot_priority()
             for tower in self.buildable:
                 if tower.cost > self.funds:
+                    continue
+                cap = self.policy.caps.get(tower.id)
+                if cap is not None and sum(1 for p in self.placed
+                                           if p.tower.id == tower.id) >= cap:
                     continue
                 projected = self._online_draw() + tower.draw_mw
                 if not self.policy.allow_overdraw and projected > self.a.capacity_mw:
@@ -340,12 +351,19 @@ def standard_policies(tower_ids: list[str]) -> list[Policy]:
 
     rest = lambda first: first + [t for t in tower_ids if t not in first]
 
+    # Support emplacements are capped. They deal no damage, so an uncapped preference
+    # for one produces a board with no guns on it — which grades a level as unwinnable
+    # for a reason that has nothing to do with the level.
     out = [
         Policy("cheap-mass",   rest(has("pulse-turret"))),
         Policy("burst",        rest(has("ion-lance") + has("pulse-turret"))),
         Policy("rapid",        rest(has("arc-node") + has("pulse-turret"))),
-        Policy("control",      rest(has("shield-wall") + has("pulse-turret"))),
-        Policy("intel-first",  rest(has("scan-relay") + has("pulse-turret"))),
+        Policy("control",      rest(has("shield-wall") + has("pulse-turret")),
+               caps={"shield-wall": 2, "scan-relay": 1}),
+        Policy("intel-first",  rest(has("scan-relay") + has("pulse-turret")),
+               caps={"scan-relay": 1, "shield-wall": 1}),
+        Policy("screened",     rest(has("scan-relay") + has("pulse-turret")),
+               caps={"scan-relay": 2, "shield-wall": 1}),
         Policy("greedy-overdraw", rest(has("ion-lance") + has("arc-node")), allow_overdraw=True),
     ]
     return out

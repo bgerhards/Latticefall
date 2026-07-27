@@ -10,10 +10,11 @@
       "range": 3.2,
       "fire_interval": 0.75,
       "targets": [
-        "ground"
+        "ground",
+        "air"
       ],
       "unlocked_at": "anchor-01",
-      "note": "Baseline. Cheap to run \u2014 the one you leave online during a brownout."
+      "note": "Baseline. Cheap to run \u2014 the one you leave online during a brownout. Engages air, but only what a scan relay is revealing, so on anchor-02 cutting the relay blinds every gun on the board rather than disarming them."
     },
     {
       "id": "arc-node",

@@ -62,7 +62,7 @@ func _init() -> void:
 
 func _policies(ids: Array) -> Array:
 	## Mirrors standard_policies() in sim/engine.py, including order.
-	var mk := func(name: String, first: Array, overdraw: bool) -> Dictionary:
+	var mk := func(name: String, first: Array, overdraw: bool, caps: Dictionary) -> Dictionary:
 		var pref: Array = []
 		for i in first:
 			if ids.has(i):
@@ -70,14 +70,18 @@ func _policies(ids: Array) -> Array:
 		for i in ids:
 			if not pref.has(i):
 				pref.append(i)
-		return {"name": name, "pref": pref, "overdraw": overdraw}
+		return {"name": name, "pref": pref, "overdraw": overdraw, "caps": caps}
 	return [
-		mk.call("cheap-mass", ["pulse-turret"], false),
-		mk.call("burst", ["ion-lance", "pulse-turret"], false),
-		mk.call("rapid", ["arc-node", "pulse-turret"], false),
-		mk.call("control", ["shield-wall", "pulse-turret"], false),
-		mk.call("intel-first", ["scan-relay", "pulse-turret"], false),
-		mk.call("greedy-overdraw", ["ion-lance", "arc-node"], true),
+		mk.call("cheap-mass", ["pulse-turret"], false, {}),
+		mk.call("burst", ["ion-lance", "pulse-turret"], false, {}),
+		mk.call("rapid", ["arc-node", "pulse-turret"], false, {}),
+		mk.call("control", ["shield-wall", "pulse-turret"], false,
+			{"shield-wall": 2, "scan-relay": 1}),
+		mk.call("intel-first", ["scan-relay", "pulse-turret"], false,
+			{"scan-relay": 1, "shield-wall": 1}),
+		mk.call("screened", ["scan-relay", "pulse-turret"], false,
+			{"scan-relay": 2, "shield-wall": 1}),
+		mk.call("greedy-overdraw", ["ion-lance", "arc-node"], true, {}),
 	]
 
 
@@ -176,6 +180,14 @@ func _try_build(s, policy: Dictionary, buildable: Array) -> void:
 			var tw: Dictionary = s.towers[tid]
 			if int(tw["cost"]) > s.funds:
 				continue
+			# Mirrors Policy.caps in sim/engine.py — see the note there.
+			if policy["caps"].has(tid):
+				var built := 0
+				for p in s.placed:
+					if String(p["tower"]["id"]) == tid:
+						built += 1
+				if built >= int(policy["caps"][tid]):
+					continue
 			var projected: float = s.online_draw() + float(tw["draw_mw"])
 			if not policy["overdraw"] and projected > s.capacity():
 				continue

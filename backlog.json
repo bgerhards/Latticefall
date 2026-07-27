@@ -343,11 +343,11 @@
       "kind": "risk",
       "area": "tooling",
       "pri": "low",
-      "status": "open",
+      "status": "done",
       "why": "Observed twice (wave 6 vs wave 1 at frame 1800) in runs made after re-rendering but before 'Godot --headless --path . --import'. NOT reproducible since: 12/12 runs now identical, including under CPU load. main.gd now prints STATE frame/sim_t/wave/phase on every --shot, so a recurrence is self-evident rather than inferred from pixels. Reopen only with a STATE line showing sim_t != frame/60",
       "opened": "2026-07-27",
-      "closed": null,
-      "note": ""
+      "closed": "2026-07-27",
+      "note": "closed at 9d9ff55"
     }
   ]
 }

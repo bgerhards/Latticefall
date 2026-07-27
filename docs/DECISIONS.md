@@ -317,3 +317,61 @@ chosen inside their `_ready()`. Setup is explicit: `view.boot()`, then `hud.bind
 — path direction arrows, IN/OUT markers, numbered slots — and `anchor_id` is a dropdown
 of the levels that exist. Runtime output is unchanged: the self-screenshot before and
 after the restructure is pixel-identical.
+
+---
+
+## 019 — The Pulse Turret engages air; the Scan Relay gates sight, not firepower
+
+**Decided.** `pulse-turret` targets `["ground", "air"]`. Air units still require reveal
+coverage to be targetable, so a Scan Relay is what makes them shootable — not a different
+gun.
+
+**Context.** Anchor-02 is "Line of Sight" and its beat is that cutting the relay to afford
+a volley is the first real power decision. That was not buildable. The only emplacements
+unlocked at anchor-02 are the Pulse Turret (`ground` only) and the Scan Relay (0 damage),
+so `warden-mote` was literally unkillable and the anchor graded unwinnable by every policy.
+The next air-capable weapon, the Arc Node, does not unlock until anchor-03.
+
+**Rejected.**
+- *Move the Arc Node to anchor-02.* Makes the anchor teach two new things at once — air
+  units and a new emplacement — and spends anchor-03's unlock a level early.
+- *Give the Scan Relay damage.* It stops being a support emplacement, and the interesting
+  question ("is sight worth 8 MW") collapses into "is this gun worth 8 MW".
+- *Have motes leak by design and pay for it in lives.* An unavoidable loss is not a
+  decision, and the level would teach that the relay is mandatory rather than a trade.
+
+**Consequence.** The relay is a sight gate over guns the player already understands, which
+is what the level's title says it is. Cutting it blinds every gun on the board rather than
+disarming them. The Arc Node keeps its anchor-03 unlock and its own identity — a much
+higher fire rate at more than twice the draw. Graded clean at all three difficulties:
+`intel-first` finishes anchor-02 with 10 lives against `cheap-mass`'s 3 on an identical
+final board, because it lights the relay before the first motes arrive rather than after,
+so the anchor rewards *when* you buy sight, not just whether.
+
+---
+
+## 020 — Grading policies carry a per-emplacement build cap
+
+**Decided.** `Policy` takes a `caps` dict limiting how many of a given emplacement it will
+build. Support emplacements are capped in every policy that leads with one. Mirrored in
+`scripts/test/parity.gd`, which reimplements the policy loop for the parity gate.
+
+**Context.** `_try_build` spends greedily in preference order, which is fine for weapons
+and degenerate for support. `intel-first` built **four Scan Relays and no guns** and lost
+on wave 1 — and no policy in the set could express one relay plus turrets, the only
+sensible board for anchor-02. The grader was reporting the level unwinnable for a reason
+that had nothing to do with the level.
+
+**Rejected.**
+- *Leave it and design around the harness.* Every anchor from 02 on has a support
+  emplacement available; anchors 04+ add the Shield Wall. The gap would only widen.
+- *Search for the optimal build.* Explicitly rejected by the existing design of the
+  grader: an optimiser answers "is this winnable at all", not "does more than one
+  sensible approach work". Caps keep policies legible as playstyles.
+
+**Consequence.** Support emplacements now need a *count* in a policy, not just a rank. A
+new `screened` policy (two relays) exists so the grader can distinguish over-investing in
+sight from investing correctly — on anchor-02 brutal it loses, which is the intended
+shape. This also unblocks `LF-014`: the question of whether overdrawing the bus is ever
+rational cannot be asked until builds can contain a high-draw support emplacement, which
+is exactly what the Shield Wall is at anchor-04.
