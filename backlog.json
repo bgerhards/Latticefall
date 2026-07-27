@@ -379,11 +379,11 @@
       "kind": "bug",
       "area": "design",
       "pri": "high",
-      "status": "open",
+      "status": "done",
       "why": "Measured under decision 022 at anchor-04: no-wall wins 10/9/6 lives, wall-always-on loses hard and brutal, optimally-toggled wall loses brutal. Its 40 MW is a 42% overdraw pricing at 62.5%. Either the draw comes down or the effect becomes decisive",
       "opened": "2026-07-27",
-      "closed": null,
-      "note": ""
+      "closed": "2026-07-27",
+      "note": "closed at 5f13193"
     }
   ]
 }
