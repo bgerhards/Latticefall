@@ -902,3 +902,34 @@ drifts from the one the sim reads.
 `--shot` run can capture the populated panel; like `--paused` in decision 034, the state is
 otherwise unreachable at `--fixed-fps` because reaching it needs a click. Both screenshots
 were taken and both defects it fixed were found by looking at them.
+
+---
+
+## 036 — Arming a build clears the board selection, refining 035
+
+**Decided.** `AnchorView.select()` sets `selected_slot` back to `NO_SLOT`. Clicking a
+button in the build bar therefore takes the inspector with it: the panel switches from
+describing the emplacement standing on the board to describing the one a click would place.
+
+**Why.** Decision 035 gave the inspector two sources — the board selection, and the armed
+build button as a fallback — and made the board selection win. That is right when the
+player selects on the board and wrong when they pick from the bar, because picking from the
+bar *is* the question "what is this thing". Reported from play: the bar highlighted Ion
+Lance while the panel went on describing an Anchor Damper that happened to still be
+selected. Two controls claimed to be showing the same thing and disagreed.
+
+The rule is now simply **the panel describes whatever the player last pointed at**, and both
+controls are ways of pointing. Selecting on the board still wins over a previously armed
+button, because that click came later.
+
+**Rejected.**
+- *Showing both, split down the panel.* Halves the space for a datasheet that already needs
+  eight rows and a note, to serve a comparison the player did not ask for.
+- *Leaving the board selection up and only recolouring the bar.* That is the state that was
+  reported as wrong. A highlight that does not drive the panel is a highlight that lies.
+
+**Consequence.** Building still selects what was just built, so the panel flips to
+EMPLACEMENT after a placement while the bar stays armed for the next one. That is the same
+"last thing pointed at" rule. `--pick <tower-id>` arms a button from the CLI so that
+`--select N --pick X` screenshots this interaction; without it the fix is unverifiable at
+`--fixed-fps`, exactly as with `--paused` in 034 and `--select` in 035.

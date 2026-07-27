@@ -88,6 +88,8 @@ blocks playing the game.
 - **The board has a selection, and it is what sell/upgrade/power act on** — not the hover.
   The inspector panel is generated from the tower record, so a new emplacement documents
   itself. Decision 035.
+- **The inspector describes whatever was last pointed at**, board or build bar; arming a
+  build clears the board selection. Decision 036.
 
 ## Traps that have already cost time
 

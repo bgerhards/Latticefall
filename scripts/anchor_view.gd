@@ -354,8 +354,15 @@ func toggle_at(slot: Vector2i) -> void:
 
 
 func select(tower_id: String) -> void:
+	## Arming something to build puts the board selection down. The inspector can only
+	## describe one emplacement, and picking from the build bar is the player asking about
+	## the one they just picked — leaving the board selection up left the panel describing a
+	## turret on the board while the bar highlighted a different one the player was reading
+	## about, which is the panel answering a question nobody asked.
 	selected_tower = tower_id
+	selected_slot = NO_SLOT
 	Audio.sfx("ui_click")
+	queue_redraw()
 
 
 # ──────────────────────────────────────────────────────────────── draw ──

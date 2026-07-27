@@ -32,6 +32,7 @@ var _autoplay: bool = false
 var _recorded: bool = false
 var _open_pause: bool = false
 var _select_nth: int = 0
+var _pick_tower: String = ""
 
 const MENU_SCENE := "res://scenes/menu.tscn"
 
@@ -56,6 +57,8 @@ func _ready() -> void:
     view.start()
     if _select_nth > 0 and view.sim != null and view.sim.placed.size() >= _select_nth:
         view.selected_slot = view.sim.placed[_select_nth - 1]["slot"]
+    if _pick_tower != "":
+        view.select(_pick_tower)      # applied after --select, so it can be seen to win
     if _open_pause:
         # The shot counter lives in this node's _process, and show_menu() pauses the
         # tree — so without this the screenshot never happens and the run hangs.
@@ -89,6 +92,12 @@ func _setup_cli() -> void:
                 # never screenshotted is a UI panel nobody has looked at.
                 if i + 1 < argv.size() and argv[i + 1].is_valid_int():
                     _select_nth = int(argv[i + 1])
+            "--pick":
+                # Arm an emplacement in the build bar, exactly as clicking its button
+                # does. Paired with --select it proves the board selection is dropped
+                # when the bar is used, which is the whole of that interaction.
+                if i + 1 < argv.size():
+                    _pick_tower = argv[i + 1]
             "--difficulty":
                 if i + 1 < argv.size():
                     difficulty = argv[i + 1]
