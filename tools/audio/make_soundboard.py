@@ -12,32 +12,49 @@ the bank changes:
 from __future__ import annotations
 
 import base64
+import io
 import json
+import sys
 import wave
 from pathlib import Path
 
 import numpy as np
+import soundfile as sf
 
 ROOT = Path(__file__).resolve().parents[2]
 SFX = ROOT / "assets" / "audio" / "sfx"
 OUT = ROOT / "docs" / "latticefall-sfx.html"
 
-# name -> (group, label, note)
+# Groups are derived from the bank so this page can never drift out of sync
+# with tools/synth_sfx.py. Add a sound there and it appears here.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from synth_sfx import BANK  # noqa: E402
+
+GROUP_OF = {
+    "ui_": "Interface", "place_": "Interface",
+    "power_": "Power", "brownout": "Power", "reactor": "Power",
+    "capacity": "Power", "breaker": "Power", "overload": "Power",
+    "turret_": "Weapons", "arc_": "Weapons", "lance_": "Weapons",
+    "mortar_": "Weapons", "flak_": "Weapons", "beam_": "Weapons", "pulse_": "Weapons",
+    "impact_": "Impacts", "shield_": "Impacts", "ricochet": "Impacts", "crit_": "Impacts",
+    "warden_": "Enemies", "drone_": "Enemies", "heavy_": "Enemies",
+    "anchor_": "World",
+}
+ORDER = ["Interface", "Power", "Weapons", "Impacts", "Enemies", "World"]
+
+
+def group_of(name: str) -> str:
+    for prefix, grp in GROUP_OF.items():
+        if name.startswith(prefix) or prefix in name:
+            return grp
+    return "World"
+
+
 CATALOG = [
-    ("ui_click",            "Interface", "Click",              "Menus, hover, increment. 30 ms — anything longer feels laggy."),
-    ("ui_confirm",          "Interface", "Confirm",            "Open fifth. Meridian's interval — affirmative, never cheerful."),
-    ("ui_deny",             "Interface", "Deny",               "Minor second. The Ordinal's interval, borrowed to mean <em>wrong</em>."),
-    ("place_emplacement",   "Interface", "Emplacement seated", "Weight plus a metallic lock. Confirms the tile took the build."),
-    ("power_online",        "Power",     "System online",      "Capacitor spin-up resolving into the reactor's own 50 Hz."),
-    ("power_offline",       "Power",     "System offline",     "Discharge whine falling away, then a dull thud."),
-    ("brownout_alarm",      "Power",     "Brownout alarm",     "Two-tone fault buzzer whose pitch <em>sags</em> — power failing, audibly."),
-    ("reactor_hum_loop",    "Power",     "Reactor bed",        "2.000 s seamless loop. Always running under an anchor."),
-    ("turret_pulse_fire",   "Weapons",   "Pulse Turret",       "Crack, descending body, sub. Fired constantly, so mixed back."),
-    ("arc_node_fire",       "Weapons",   "Arc Node",           "Electrical, not ballistic — the amplitude flutter is what sells it."),
-    ("impact_metal",        "Impacts",   "Impact — armour",    "Inharmonic partial stack. This is what separates metal from a beep."),
-    ("warden_death",        "Enemies",   "Warden destroyed",   "Ring collapses, sub drops out, debris settles."),
-    ("anchor_ambient_loop", "World",     "Anchor bed",         "4.000 s seamless loop. Detuned cluster beating against itself."),
+    (name, group_of(name), name.replace("_", " ").replace(" loop", "").strip().title(), desc)
+    for name, (_fn, desc) in BANK.items()
 ]
+CATALOG.sort(key=lambda r: (ORDER.index(r[1]), r[0]))
 
 # The full 60. S = synthesized here, C = CC0-sourced then layered with synth.
 PLAN = [
@@ -57,6 +74,14 @@ def envelope(a: np.ndarray, buckets: int = 150) -> list[float]:
     peaks = np.array([c.max() for c in chunks])
     m = peaks.max()
     return [round(float(v / m), 4) for v in peaks] if m > 0 else [0.0] * buckets
+
+
+def to_ogg(p: Path) -> bytes:
+    """Vorbis for the page only. The repo keeps lossless WAV masters."""
+    a, sr = sf.read(str(p), dtype="float32", always_2d=True)
+    buf = io.BytesIO()
+    sf.write(buf, a, sr, format="OGG", subtype="VORBIS")
+    return buf.getvalue()
 
 
 def read_wav(p: Path):
@@ -84,7 +109,7 @@ def build() -> str:
             "crest": round(peak / rms, 2) if rms else 0,
             "loop": "loop" in name,
             "env": envelope(a),
-            "uri": "data:audio/wav;base64," + base64.b64encode(p.read_bytes()).decode(),
+            "uri": "data:audio/ogg;base64," + base64.b64encode(to_ogg(p)).decode(),
         })
     total_synth = sum(n for _, n, k, _ in PLAN if k == "S")
     total_src = sum(n for _, n, k, _ in PLAN if k == "C")
@@ -92,7 +117,8 @@ def build() -> str:
                    .replace("__PLAN__", json.dumps(PLAN)) \
                    .replace("__NSYNTH__", str(total_synth)) \
                    .replace("__NSRC__", str(total_src)) \
-                   .replace("__NTOTAL__", str(total_synth + total_src))
+                   .replace("__NTOTAL__", str(total_synth + total_src)) \
+                   .replace("__NBANK__", str(len(sounds)))
 
 
 TEMPLATE = r"""<title>LATTICEFALL — SFX Bank</title>
@@ -171,7 +197,7 @@ tr:last-child td{border-bottom:0}
 <g fill="var(--amber)"><path d="M50 18 l4.5 7 h-9 Z"/><path d="M50 82 l4.5 -7 h-9 Z"/><path d="M18 50 l7 -4.5 v9 Z"/><path d="M82 50 l-7 -4.5 v9 Z"/></g>
 <circle cx="50" cy="50" r="4.5" fill="var(--verd)"/></svg>
 <div><h1 class="wordmark">SFX <span>BANK</span></h1>
-<div class="mast-sub">Latticefall · 13 sounds playable · generated from code</div></div>
+<div class="mast-sub">Latticefall · __NBANK__ sounds playable · generated from code</div></div>
 </header>
 
 <section class="sec"><div class="rail"><b>00</b><span>Answer</span></div><div class="body-col">
@@ -183,7 +209,7 @@ tr:last-child td{border-bottom:0}
 </div></section>
 
 <section class="sec"><div class="rail"><b>01</b><span>Listen</span></div><div class="body-col">
-<h2>The bank</h2>
+<h2>The bank — __NBANK__ sounds</h2>
 <p>Waveforms are real peak envelopes drawn from the samples. <strong>Crest</strong> is peak-to-RMS ratio — it's the number that tells you whether a sound has punch or has been crushed flat. Loops are marked; they're built at durations where every partial completes a whole number of cycles, so they repeat without a seam.</p>
 <div id="bank"></div>
 <div class="note"><b>Listen for →</b> Confirm and Deny are an open fifth and a minor second. That's the score bible's interval language applied to interface audio, so the UI and the soundtrack argue from the same harmonic vocabulary instead of coexisting by accident.</div>
@@ -204,7 +230,7 @@ tr:last-child td{border-bottom:0}
 <div class="note bad"><b>Blocked →</b> <code>ffmpeg</code> on your machine is broken: <code>Library not loaded: libx265.215.dylib</code>. Not needed for these, but the music loop pipeline needs it. Run <code>brew reinstall ffmpeg</code> when convenient.</div>
 </div></section>
 
-<footer class="foot"><span>Latticefall · SFX bank Rev A</span><span>13 of 60 built</span><span>Synthesized, not sampled</span></footer>
+<footer class="foot"><span>Latticefall · SFX bank Rev A</span><span>__NBANK__ of 60 built</span><span>Synthesized, not sampled</span></footer>
 </div>
 <script>
 var SOUNDS = __SOUNDS__, PLAN = __PLAN__;
