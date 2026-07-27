@@ -136,30 +136,30 @@ Full detail in `CLAUDE.md`. Recorded so they are not rediscovered.
 ### Gate
 
 ```
-[  ok  ] python syntax           152ms  22 files
-[  ok  ] json parses              56ms  
-[  ok  ] game data                99ms  3 warning(s)
-[  ok  ] banned terms            213ms  77 files clean
-[  ok  ] sfx determinism         117ms  ui_confirm byte-identical
+[  ok  ] python syntax           133ms  23 files
+[  ok  ] json parses              64ms  
+[  ok  ] game data               109ms  3 warning(s)
+[  ok  ] banned terms            225ms  94 files clean
+[  ok  ] sfx determinism         118ms  ui_confirm byte-identical
 [  ok  ] music manifest            0ms  14 tracks
 [  ok  ] backlog rendered          0ms  16 open
-[  ok  ] sim determinism        1875ms  deterministic
-[  ok  ] godot boots            1395ms  main scene loads clean
-[  ok  ] game renders           2324ms  coverage 0.39, 71 tones
-[  ok  ] rules parity          85693ms  168 runs identical (gdscript vs python)
+[  ok  ] sim determinism        2738ms  deterministic
+[  ok  ] godot boots            1382ms  main scene loads clean
+[  ok  ] game renders           2289ms  coverage 0.39, 71 tones
+[  ok  ] rules parity         308920ms  528 runs identical (gdscript vs python)
 
-11 passed · 0 failed · 0 skipped · 91924ms
+11 passed · 0 failed · 0 skipped · 315980ms
 ```
 
 ### Inventory
 
 | | count |
 |---|---|
-| anchors authored | 8 of 24 |
-| dialog files | 8 |
+| anchors authored | 16 of 24 |
+| dialog files | 16 |
 | sfx | 35 of ~60 |
 | music tracks | 14 of 14 |
-| sprite renders | 110 |
+| sprite renders | 166 |
 | godot scripts | 12 |
 | godot scenes | 1 |
 
@@ -167,25 +167,32 @@ Full detail in `CLAUDE.md`. Recorded so they are not rediscovered.
 
 | anchor | act | cap | waves | standard | hard | brutal | verdict |
 |---|---|---|---|---|---|---|---|
-| anchor-01 | 1 | 60 MW | 6 | 1/2 | 1/2 | 1/2 | ok |
-| anchor-02 | 1 | 80 MW | 7 | 3/4 | 3/4 | 2/4 | ok |
-| anchor-03 | 1 | 92 MW | 7 | 3/5 | 3/5 | 3/4 | ok |
-| anchor-04 | 1 | 96 MW | 8 | 3/6 | 3/6 | 2/6 | ok |
-| anchor-05 | 1 | 100 MW | 7 | 3/6 | 4/6 | 3/6 | ok |
-| anchor-06 | 1 | 104 MW | 7 | 4/7 | 4/7 | 3/7 | ok |
-| anchor-07 | 1 | 106 MW | 8 | 3/7 | 3/7 | 2/7 | ok |
-| anchor-08 | 1 | 110 MW | 9 | 3/7 | 2/7 | 2/7 | ok |
+| anchor-01 | 1 | 60 MW | 6 | 2/4 | 2/4 | 1/4 | ok |
+| anchor-02 | 1 | 80 MW | 7 | 4/7 | 3/7 | 2/7 | ok |
+| anchor-03 | 1 | 92 MW | 7 | 3/8 | 3/8 | 3/7 | ok |
+| anchor-04 | 1 | 96 MW | 8 | 3/9 | 3/9 | 2/9 | ok |
+| anchor-05 | 1 | 100 MW | 7 | 6/9 | 6/9 | 4/9 | ok |
+| anchor-06 | 1 | 104 MW | 7 | 5/11 | 4/11 | 3/11 | ok |
+| anchor-07 | 1 | 106 MW | 8 | 3/11 | 3/11 | 2/11 | ok |
+| anchor-08 | 1 | 110 MW | 9 | 3/11 | 2/11 | 2/11 | ok |
+| anchor-09 | 2 | 118 MW | 8 | 7/11 | 6/11 | 3/11 | ok |
+| anchor-10 | 2 | 134 MW | 8 | 6/11 | 3/11 | 3/11 | ok |
+| anchor-11 | 2 | 142 MW | 8 | 4/11 | 3/11 | 2/11 | ok |
+| anchor-12 | 2 | 150 MW | 8 | 4/11 | 4/11 | 4/11 | ok |
+| anchor-13 | 2 | 158 MW | 9 | 5/11 | 4/11 | 2/11 | ok |
+| anchor-14 | 2 | 166 MW | 9 | 7/11 | 5/11 | 4/11 | ok |
+| anchor-15 | 2 | 174 MW | 9 | 6/11 | 6/11 | 4/11 | ok |
+| anchor-16 | 2 | 180 MW | 10 | 3/11 | 2/11 | 2/11 | ok |
 
 *Cells are distinct winning builds / distinct builds tried.*
 
 ### Backlog
 
-16 open · 21 closed
+16 open · 22 closed
 
 - `high` LF-004 No sprite atlas packer
 - `high` LF-017 No main menu, level select, or between-anchor flow
 - `high` LF-035 Write dialog for anchors 09-24
-- `high` LF-036 No Sable Reach emplacement or sprite exists for Act II
 - `med` LF-005 Source the 12 organic CC0 SFX
 - `med` LF-007 Godot .import settings for music loop flags not generated
 - `med` LF-008 IBM Plex Mono/Sans Condensed not vendored
@@ -195,6 +202,7 @@ Full detail in `CLAUDE.md`. Recorded so they are not rediscovered.
 - `med` LF-021 Anchor ring, heavy and mote need silhouette pass at 100% zoom
 - `med` LF-025 Editor preview shows flat-colour tiles until the project is reloaded, because the Sprites autoload is only instantiated in-editor at startup
 - `med` LF-026 HUD and dialog build their Control widgets in code rather than being authored in the scene
+- `med` LF-038 Act II waves are thin (2-5 units per type) and lives run high (16-24) because shielded heavies and drain eat the whole difficulty budget — consider a mid-cost anti-armour emplacement or a lance/mortar draw cut so volume can come back
 - `low` LF-010 Gamepad support deferred until content-complete
 - `low` LF-018 Unfocused Godot window is throttled — verification must use --fixed-fps
 - `low` LF-037 Four build slots sit just outside the shortest weapon's range on anchors 03/04/05
@@ -202,14 +210,14 @@ Full detail in `CLAUDE.md`. Recorded so they are not rediscovered.
 ### Recent commits
 
 ```
+3d01481 feat(art): Act II sprite set — three emplacements and four Sable Reach units
+915d5da feat(content): Act II is complete — anchors 11-16, shielding reworked, parity in float64
+7378dee feat(content): Act II opens — Sable Reach roster, damper, anchors 09-10
+0f622b2 docs: session wrap — Act I complete, decision 026, STATE for a fresh context
 b29d2be fix(art): render albedo with emission off — decision 007 was not actually true
 ccf0e4e feat(content): anchors 07-08 — Act I is complete and grades clean
 7d4ac2b feat(content): anchor-06 "Hard Currency" — ion lance unlock, compact serpentine
 6c78fc1 feat(content): anchor-05 "Housekeeping"; validator catches dead build slots
-7129d64 docs: rewrite STATE for a fresh context
-6f33bf2 docs: decision 023 — correct the shield-wall measurement in 021
-8abcbf6 fix(balance): the shield wall is worth building — 26 MW, range 3.6, 0.28 slow
-5f13193 feat(rules): price brownout by overdraw size, superseding the flat penalty
 ```
 
 <!-- END AUTO -->

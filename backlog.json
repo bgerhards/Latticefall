@@ -427,11 +427,11 @@
       "kind": "feature",
       "area": "art",
       "pri": "high",
-      "status": "open",
+      "status": "done",
       "why": "Act II's antagonist is human and its mechanic is drains_mw capacity theft. reach-breacher exists in data/enemies.json and has never been used or rendered; there is no Sable Reach emplacement at all. Act II cannot be authored without both",
       "opened": "2026-07-27",
-      "closed": null,
-      "note": ""
+      "closed": "2026-07-27",
+      "note": "closed at 3d01481"
     },
     {
       "id": "LF-037",
