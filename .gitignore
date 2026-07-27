@@ -20,3 +20,7 @@
 .venv/
 __pycache__/
 *.pyc
+
+# Music masters live outside the repo (see assets/audio/music_manifest.json
+# for their sha256). Only the encoded Ogg is versioned.
+assets/audio/source/
