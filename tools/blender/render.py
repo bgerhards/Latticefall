@@ -309,6 +309,154 @@ def a_warden_mote():
           material=mat("mr", BONE, 0.8, 0.3))
 
 
+def a_flak_array():
+    # Four short barrels on a wide yoke. Read against the pulse turret's single long
+    # barrel and the lance's diagonal: the flak array is the *widest* weapon silhouette
+    # in the game, because it is the one that covers a lane rather than a point.
+    cyl(8, 0.60, 0.22, (0, 0, 0.11), material=mat("kb", STEEL, 0.5, 0.5))
+    cube(0.46, (0, -0.04, 0.36), scale=(1.5, 0.9, 0.7), material=mat("kh", STEEL_LT, 0.6, 0.4))
+    for i, s in enumerate((-1, 1)):
+        for j, z in enumerate((0.46, 0.62)):
+            cyl(10, 0.055, 0.68, (s * 0.20, 0.26, z), rot=(math.radians(74), 0, 0),
+                material=mat("kr%d%d" % (i, j), STEEL_LT, 0.9, 0.25))
+    for s in (-1, 1):                                   # ammo cans, so it reads crewed
+        cube(0.22, (s * 0.46, -0.18, 0.28), scale=(1.0, 1.4, 0.9),
+             material=mat("kc%d" % s, STONE_WARM, 0.2, 0.75))
+    sphere(0.075, (0, 0.10, 0.66), segments=12, rings=8,
+           material=mat("kt", AMBER, 0.0, 0.3,
+                        emit=(1.0, 0.66, 0.18), emit_strength=1.2))
+
+
+def a_anchor_damper():
+    # Plant, not a gun: a squat drum wrapped in coils with a field ring floating over it.
+    # No barrel anywhere, and the only bright element is the ring — the player has to be
+    # able to tell at a glance which emplacement is spending power to deny power.
+    cyl(12, 0.52, 0.30, (0, 0, 0.15), material=mat("db", STONE, 0.1, 0.8))
+    cyl(12, 0.44, 0.34, (0, 0, 0.46), material=mat("dd", STEEL, 0.55, 0.45))
+    for i in range(3):                                  # coil bands
+        cyl(24, 0.47, 0.045, (0, 0, 0.34 + i * 0.14),
+            material=mat("dc%d" % i, BONE, 0.75, 0.3))
+    for i in range(3):                                  # standoffs holding the ring up
+        a = math.radians(i * 120)
+        cube(0.06, (math.cos(a) * 0.30, math.sin(a) * 0.30, 0.74), scale=(1, 1, 3.4),
+             rot_z=a, material=mat("ds%d" % i, STEEL_LT, 0.7, 0.35))
+    # Small and dim on purpose. At major 0.40 / strength 1.5 the field ring was brighter
+    # and wider than the anchor ring's own wards, and a board with four dampers on it
+    # read as four objectives.
+    torus(0.28, 0.032, (0, 0, 0.94),
+          material=mat("dr", VERD_LIT, 0.2, 0.3,
+                       emit=(0.20, 0.60, 0.50), emit_strength=0.85))
+
+
+def a_mortar_emplacement():
+    # Short fat tube at a steep angle on a broad plate. The lance is a long shallow
+    # diagonal; the mortar is a stubby steep one, so the two do not read alike at zoom.
+    cube(1.0, (0, 0, 0.06), scale=(0.78, 0.78, 0.12), material=mat("mb", STONE, 0.15, 0.8))
+    cyl(8, 0.40, 0.24, (0, -0.06, 0.24), material=mat("mm", STEEL, 0.5, 0.5))
+    cyl(14, 0.20, 0.86, (0.0, 0.16, 0.62), rot=(math.radians(28), 0, 0),
+        material=mat("mt", STEEL_LT, 0.85, 0.3))
+    cyl(14, 0.24, 0.12, (0.0, 0.02, 0.30), rot=(math.radians(28), 0, 0),
+        material=mat("mc", STEEL, 0.8, 0.35))
+    for s in (-1, 1):                                   # recoil spades
+        cube(0.10, (s * 0.40, -0.28, 0.16), scale=(1.0, 2.2, 1.2),
+             material=mat("mp%d" % s, BONE, 0.4, 0.6))
+    for s in (-1, 1):                                   # shell rack
+        cube(0.12, (s * 0.30, -0.40, 0.24), scale=(1.0, 1.0, 2.0),
+             material=mat("mr%d" % s, STONE_WARM, 0.2, 0.7))
+    sphere(0.065, (0.0, 0.44, 0.86), segments=12, rings=8,
+           material=mat("mg", AMBER, 0.0, 0.3,
+                        emit=(1.0, 0.58, 0.14), emit_strength=1.1))
+
+
+# Sable Reach units. Human contractors, so the language is plate, scaffolding and
+# floodlight — cold blue-white lamps rather than the wardens' red eye or the Ordinal's
+# verdigris. Faction should be readable from the emissive colour alone at 100% zoom.
+REACH_LAMP = (0.62, 0.80, 0.98)
+REACH_PLATE = (0.180, 0.165, 0.140)
+
+
+def a_reach_sapper():
+    # Light, hunched, and carrying the tap on its back — the drain is the silhouette.
+    # Scaled up from the first cut: at 0.34 body it was a smudge next to a warden drone
+    # and the tap module, which is the whole point of the unit, did not read at all.
+    cube(0.44, (0, -0.02, 0.46), scale=(0.9, 0.7, 1.1),
+         material=mat("ssb", REACH_PLATE, 0.35, 0.6))
+    cube(0.36, (0, -0.28, 0.64), scale=(0.85, 0.6, 1.35),        # the tap module
+         material=mat("sst", STEEL_LT, 0.6, 0.4))
+    cyl(8, 0.055, 0.40, (0, -0.36, 0.92), material=mat("ssa", BONE, 0.7, 0.3))
+    sphere(0.07, (0, -0.36, 1.14), segments=12, rings=8,
+           material=mat("ssl", REACH_LAMP, 0.0, 0.3,
+                        emit=(0.55, 0.78, 1.0), emit_strength=1.4))
+    for s in (-1, 1):
+        cube(0.12, (s * 0.20, 0.02, 0.16), scale=(1.0, 1.0, 2.4),
+             material=mat("ssl%d" % s, STEEL, 0.5, 0.55))
+    sphere(0.06, (0, 0.24, 0.60), segments=12, rings=8,
+           material=mat("ssv", REACH_LAMP, 0.0, 0.35,
+                        emit=(0.50, 0.72, 0.96), emit_strength=1.0))
+
+
+def a_reach_breacher():
+    # A shielded man: the screen is a flat panel carried in front, and it is the only
+    # emissive surface. Wider than the sapper, half the height of the bulwark.
+    cube(0.40, (0, -0.06, 0.44), scale=(1.0, 0.8, 1.15),
+         material=mat("sbb", REACH_PLATE, 0.4, 0.55))
+    cube(0.52, (0, 0.26, 0.50), scale=(1.0, 0.06, 1.25),          # the screen
+         material=mat("sbs", REACH_LAMP, 0.1, 0.25,
+                      emit=(0.42, 0.66, 0.94), emit_strength=1.2))
+    for s in (-1, 1):
+        cube(0.09, (s * 0.20, -0.06, 0.16), scale=(1.0, 1.0, 2.2),
+             material=mat("sbl%d" % s, STEEL, 0.5, 0.55))
+    cube(0.16, (0, -0.24, 0.66), scale=(1.0, 0.9, 0.8),
+         material=mat("sbp", STEEL_LT, 0.65, 0.4))
+    sphere(0.05, (0, -0.24, 0.82), segments=12, rings=8,
+           material=mat("sbl", REACH_LAMP, 0.0, 0.3,
+                        emit=(0.55, 0.78, 1.0), emit_strength=1.1))
+
+
+def a_reach_skiff():
+    # The only Reach unit off the ground: a flat hull on two ducted fans, lamps
+    # underneath. Reads as a vehicle, not a drone — the wardens have the drones.
+    # It flies at the warden mote's altitude, not just above the deck: at z 0.78 it sat
+    # level with the ground units and nothing about it said "air".
+    cube(0.70, (0, 0, 1.12), scale=(1.0, 0.55, 0.20),
+         material=mat("skh", REACH_PLATE, 0.45, 0.5))
+    cube(0.34, (0, 0.16, 1.24), scale=(0.9, 0.7, 0.5),
+         material=mat("skc", STEEL_LT, 0.6, 0.4))
+    for s in (-1, 1):
+        cyl(14, 0.22, 0.11, (s * 0.36, -0.06, 1.02),
+            material=mat("skd%d" % s, STEEL, 0.7, 0.35))
+        torus(0.22, 0.030, (s * 0.36, -0.06, 1.02),
+              material=mat("skr%d" % s, BONE, 0.75, 0.3))
+        sphere(0.055, (s * 0.36, -0.06, 0.90), segments=12, rings=8,
+               material=mat("skl%d" % s, REACH_LAMP, 0.0, 0.3,
+                            emit=(0.52, 0.76, 1.0), emit_strength=1.3))
+    cube(0.10, (0, 0.40, 1.14), scale=(1.0, 1.0, 0.6),
+         material=mat("skn", REACH_LAMP, 0.0, 0.3,
+                      emit=(0.46, 0.70, 0.98), emit_strength=1.0))
+
+
+def a_reach_bulwark():
+    # Plate on legs. Broad, low and front-heavy: the slab is most of the silhouette,
+    # because on this unit the plate is the mechanic.
+    cube(0.56, (0, -0.10, 0.46), scale=(1.1, 0.85, 1.05),
+         material=mat("bwb", REACH_PLATE, 0.45, 0.5))
+    # The slab is lit steel, not STEEL: at the dark value it was a black rectangle with
+    # no readable edge against the deck, and the unit's defining feature disappeared.
+    cube(0.86, (0, 0.30, 0.52), scale=(1.0, 0.10, 1.15),          # the slab
+         material=mat("bwp", BONE, 0.65, 0.4))
+    cube(0.70, (0, 0.36, 0.52), scale=(1.0, 0.03, 0.95),          # screen over the slab
+         material=mat("bws", REACH_LAMP, 0.1, 0.25,
+                      emit=(0.38, 0.60, 0.90), emit_strength=1.1))
+    for s in (-1, 1):
+        cube(0.16, (s * 0.30, -0.14, 0.18), scale=(1.0, 1.0, 2.0),
+             material=mat("bwl%d" % s, STEEL, 0.55, 0.5))
+        cube(0.12, (s * 0.34, -0.30, 0.62), scale=(1.0, 1.2, 1.4),
+             material=mat("bwt%d" % s, STONE_WARM, 0.3, 0.7))
+    sphere(0.06, (0, -0.34, 0.86), segments=12, rings=8,
+           material=mat("bwe", REACH_LAMP, 0.0, 0.3,
+                        emit=(0.55, 0.78, 1.0), emit_strength=1.2))
+
+
 ASSETS = {
     "tile_ground": a_tile_ground,
     "tile_path": a_tile_path,
@@ -322,6 +470,13 @@ ASSETS = {
     "warden_drone": a_warden_drone,
     "warden_heavy": a_warden_heavy,
     "warden_mote": a_warden_mote,
+    "flak_array": a_flak_array,
+    "anchor_damper": a_anchor_damper,
+    "mortar_emplacement": a_mortar_emplacement,
+    "reach_sapper": a_reach_sapper,
+    "reach_breacher": a_reach_breacher,
+    "reach_skiff": a_reach_skiff,
+    "reach_bulwark": a_reach_bulwark,
 }
 
 

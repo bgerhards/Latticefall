@@ -7,6 +7,24 @@
     171.5
   ],
   "sprites": {
+    "anchor_damper": {
+      "y045": {
+        "albedo": "assets/renders/anchor_damper_y045_albedo.png",
+        "glow": "assets/renders/anchor_damper_y045_glow.png"
+      },
+      "y135": {
+        "albedo": "assets/renders/anchor_damper_y135_albedo.png",
+        "glow": "assets/renders/anchor_damper_y135_glow.png"
+      },
+      "y225": {
+        "albedo": "assets/renders/anchor_damper_y225_albedo.png",
+        "glow": "assets/renders/anchor_damper_y225_glow.png"
+      },
+      "y315": {
+        "albedo": "assets/renders/anchor_damper_y315_albedo.png",
+        "glow": "assets/renders/anchor_damper_y315_glow.png"
+      }
+    },
     "anchor_ring": {
       "y045": {
         "albedo": "assets/renders/anchor_ring_y045_albedo.png",
@@ -43,6 +61,24 @@
         "glow": "assets/renders/arc_node_y315_glow.png"
       }
     },
+    "flak_array": {
+      "y045": {
+        "albedo": "assets/renders/flak_array_y045_albedo.png",
+        "glow": "assets/renders/flak_array_y045_glow.png"
+      },
+      "y135": {
+        "albedo": "assets/renders/flak_array_y135_albedo.png",
+        "glow": "assets/renders/flak_array_y135_glow.png"
+      },
+      "y225": {
+        "albedo": "assets/renders/flak_array_y225_albedo.png",
+        "glow": "assets/renders/flak_array_y225_glow.png"
+      },
+      "y315": {
+        "albedo": "assets/renders/flak_array_y315_albedo.png",
+        "glow": "assets/renders/flak_array_y315_glow.png"
+      }
+    },
     "ion_lance": {
       "y045": {
         "albedo": "assets/renders/ion_lance_y045_albedo.png",
@@ -61,6 +97,24 @@
         "glow": "assets/renders/ion_lance_y315_glow.png"
       }
     },
+    "mortar_emplacement": {
+      "y045": {
+        "albedo": "assets/renders/mortar_emplacement_y045_albedo.png",
+        "glow": "assets/renders/mortar_emplacement_y045_glow.png"
+      },
+      "y135": {
+        "albedo": "assets/renders/mortar_emplacement_y135_albedo.png",
+        "glow": "assets/renders/mortar_emplacement_y135_glow.png"
+      },
+      "y225": {
+        "albedo": "assets/renders/mortar_emplacement_y225_albedo.png",
+        "glow": "assets/renders/mortar_emplacement_y225_glow.png"
+      },
+      "y315": {
+        "albedo": "assets/renders/mortar_emplacement_y315_albedo.png",
+        "glow": "assets/renders/mortar_emplacement_y315_glow.png"
+      }
+    },
     "pulse_turret": {
       "y045": {
         "albedo": "assets/renders/pulse_turret_y045_albedo.png",
@@ -77,6 +131,78 @@
       "y315": {
         "albedo": "assets/renders/pulse_turret_y315_albedo.png",
         "glow": "assets/renders/pulse_turret_y315_glow.png"
+      }
+    },
+    "reach_breacher": {
+      "y045": {
+        "albedo": "assets/renders/reach_breacher_y045_albedo.png",
+        "glow": "assets/renders/reach_breacher_y045_glow.png"
+      },
+      "y135": {
+        "albedo": "assets/renders/reach_breacher_y135_albedo.png",
+        "glow": "assets/renders/reach_breacher_y135_glow.png"
+      },
+      "y225": {
+        "albedo": "assets/renders/reach_breacher_y225_albedo.png",
+        "glow": "assets/renders/reach_breacher_y225_glow.png"
+      },
+      "y315": {
+        "albedo": "assets/renders/reach_breacher_y315_albedo.png",
+        "glow": "assets/renders/reach_breacher_y315_glow.png"
+      }
+    },
+    "reach_bulwark": {
+      "y045": {
+        "albedo": "assets/renders/reach_bulwark_y045_albedo.png",
+        "glow": "assets/renders/reach_bulwark_y045_glow.png"
+      },
+      "y135": {
+        "albedo": "assets/renders/reach_bulwark_y135_albedo.png",
+        "glow": "assets/renders/reach_bulwark_y135_glow.png"
+      },
+      "y225": {
+        "albedo": "assets/renders/reach_bulwark_y225_albedo.png",
+        "glow": "assets/renders/reach_bulwark_y225_glow.png"
+      },
+      "y315": {
+        "albedo": "assets/renders/reach_bulwark_y315_albedo.png",
+        "glow": "assets/renders/reach_bulwark_y315_glow.png"
+      }
+    },
+    "reach_sapper": {
+      "y045": {
+        "albedo": "assets/renders/reach_sapper_y045_albedo.png",
+        "glow": "assets/renders/reach_sapper_y045_glow.png"
+      },
+      "y135": {
+        "albedo": "assets/renders/reach_sapper_y135_albedo.png",
+        "glow": "assets/renders/reach_sapper_y135_glow.png"
+      },
+      "y225": {
+        "albedo": "assets/renders/reach_sapper_y225_albedo.png",
+        "glow": "assets/renders/reach_sapper_y225_glow.png"
+      },
+      "y315": {
+        "albedo": "assets/renders/reach_sapper_y315_albedo.png",
+        "glow": "assets/renders/reach_sapper_y315_glow.png"
+      }
+    },
+    "reach_skiff": {
+      "y045": {
+        "albedo": "assets/renders/reach_skiff_y045_albedo.png",
+        "glow": "assets/renders/reach_skiff_y045_glow.png"
+      },
+      "y135": {
+        "albedo": "assets/renders/reach_skiff_y135_albedo.png",
+        "glow": "assets/renders/reach_skiff_y135_glow.png"
+      },
+      "y225": {
+        "albedo": "assets/renders/reach_skiff_y225_albedo.png",
+        "glow": "assets/renders/reach_skiff_y225_glow.png"
+      },
+      "y315": {
+        "albedo": "assets/renders/reach_skiff_y315_albedo.png",
+        "glow": "assets/renders/reach_skiff_y315_glow.png"
       }
     },
     "scan_relay": {
