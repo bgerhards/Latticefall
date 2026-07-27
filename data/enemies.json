@@ -29,8 +29,8 @@
       "note": "Act II air. Drains while it flies, so an unrevealed skiff costs power as well as ground." },
 
     { "id": "reach-bulwark", "name": "Reach Bulwark", "faction": "sable-reach",
-      "hp": 430, "speed": 0.5, "bounty": 75, "kind": "ground", "armour": 8,
+      "hp": 380, "speed": 0.55, "bounty": 75, "kind": "ground", "armour": 5,
       "shielded": true, "drains_mw": 9,
-      "note": "Act II heavy. Armour plus shielding means only the lance reaches it, and it drains the bus for the whole time it takes to chew through." }
+      "note": "Act II heavy. Shielded and armoured, so an unrated weapon lands a quarter of its damage and then pays armour out of that — a pulse turret does nothing to it. The lance and the mortar do. At 8 armour and 430 HP it was immune to literally everything else and every anchor carrying it graded unwinnable." }
   ]
 }

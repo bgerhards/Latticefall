@@ -19,6 +19,9 @@ const DT: float = 1.0 / 30.0
 # too; tools/test_parity.py diffs the two on every commit.
 const BROWNOUT_SLOPE: float = 1.5
 const BROWNOUT_MAX_PENALTY: float = 0.70
+## Mirrors SHIELD_LEAK in sim/engine.py. Shielding taxes damage from weapons not rated
+## for it rather than blocking them outright — decision 029.
+const SHIELD_LEAK: float = 0.25
 
 ## name -> [enemy hp multiplier, bounty multiplier]. Mirrors DIFFICULTIES in engine.py.
 const DIFFICULTIES: Dictionary = {
@@ -58,7 +61,13 @@ var peak_load: float = 0.0
 var _load_integral: float = 0.0
 var _brownout_time: float = 0.0
 
-var _waypoints: PackedVector2Array = PackedVector2Array()
+# Waypoints are held as two float64 arrays, not a PackedVector2Array. Vector2 stores
+# float32 components, so every position the sim derived from one was a rounded copy of
+# what the Python reference computed — invisible until Act II, where damper coverage
+# turned a sub-ulp position difference into a different bus load, a different fire rate,
+# and six extra leaks. Decision 030.
+var _wx: PackedFloat64Array = PackedFloat64Array()
+var _wy: PackedFloat64Array = PackedFloat64Array()
 var _seg_len: PackedFloat64Array = PackedFloat64Array()
 var _cum_len: PackedFloat64Array = PackedFloat64Array()
 var path_length: float = 0.0
@@ -83,33 +92,44 @@ func setup(anchor_data: Dictionary, tower_defs: Dictionary, enemy_defs: Dictiona
 	for s in anchor.get("slots", []):
 		free_slots.append(Vector2i(int(s[0]), int(s[1])))
 
-	_waypoints = PackedVector2Array()
+	_wx = PackedFloat64Array()
+	_wy = PackedFloat64Array()
 	for p in anchor.get("path", []):
-		_waypoints.append(Vector2(float(p[0]), float(p[1])))
+		_wx.append(float(p[0]))
+		_wy.append(float(p[1]))
 	_seg_len = PackedFloat64Array()
 	_cum_len = PackedFloat64Array([0.0])
 	var total := 0.0
-	for i in range(_waypoints.size() - 1):
-		var a := _waypoints[i]
-		var b := _waypoints[i + 1]
-		var d: float = abs(b.x - a.x) + abs(b.y - a.y)   # axis-aligned segments
+	for i in range(_wx.size() - 1):
+		var d: float = abs(_wx[i + 1] - _wx[i]) + abs(_wy[i + 1] - _wy[i])   # axis-aligned
 		_seg_len.append(d)
 		total += d
 		_cum_len.append(total)
 	path_length = total
 
 
-func point_at(dist: float) -> Vector2:
+func point_at_xy(dist: float) -> PackedFloat64Array:
+	## World position `dist` tiles along the path, in float64. Mirrors Anchor.point_at().
+	var last: int = _wx.size() - 1
 	if dist <= 0.0:
-		return _waypoints[0]
+		return PackedFloat64Array([_wx[0], _wy[0]])
 	if dist >= path_length:
-		return _waypoints[_waypoints.size() - 1]
+		return PackedFloat64Array([_wx[last], _wy[last]])
 	for i in range(_seg_len.size()):
 		if dist <= _cum_len[i + 1]:
 			var seg: float = _seg_len[i]
 			var f: float = 0.0 if seg == 0.0 else (dist - _cum_len[i]) / seg
-			return _waypoints[i].lerp(_waypoints[i + 1], f)
-	return _waypoints[_waypoints.size() - 1]
+			return PackedFloat64Array([
+				_wx[i] + (_wx[i + 1] - _wx[i]) * f,
+				_wy[i] + (_wy[i + 1] - _wy[i]) * f])
+	return PackedFloat64Array([_wx[last], _wy[last]])
+
+
+func point_at(dist: float) -> Vector2:
+	## Float32 convenience for drawing. Never use it for a rules decision — the sim
+	## itself works in point_at_xy()'s float64.
+	var p := point_at_xy(dist)
+	return Vector2(p[0], p[1])
 
 
 # ───────────────────────────────────────────────────────────────── power ──
@@ -132,7 +152,8 @@ func bus_load() -> float:
 		var drain := float(u["kind"].get("drains_mw", 0.0))
 		if drain <= 0.0:
 			continue
-		var damp: float = minf(1.0, _covered_by("damp", point_at(u["dist"])))
+		var at := point_at_xy(u["dist"])
+		var damp: float = minf(1.0, _covered_by("damp", at[0], at[1]))
 		v += drain * (1.0 - damp)
 	return v
 
@@ -169,7 +190,9 @@ func set_online(index: int, on: bool) -> void:
 
 # ────────────────────────────────────────────────────────────── coverage ──
 
-func _covered_by(effect: String, at: Vector2) -> float:
+func _covered_by(effect: String, x: float, y: float) -> float:
+	## Squared-distance comparison, as in sim/engine.py — no square root is taken on
+	## either side, so both runtimes do the same double arithmetic. Decision 030.
 	var best := 0.0
 	for p in placed:
 		if not p["online"]:
@@ -177,7 +200,10 @@ func _covered_by(effect: String, at: Vector2) -> float:
 		var eff: Dictionary = p["tower"].get("effect", {})
 		if eff.get("type", "") != effect:
 			continue
-		if Vector2(p["slot"]).distance_to(at) <= float(p["tower"]["range"]):
+		var dx: float = float(p["slot"].x) - x
+		var dy: float = float(p["slot"].y) - y
+		var r: float = float(p["tower"]["range"])
+		if dx * dx + dy * dy <= r * r:
 			best = maxf(best, float(eff.get("value", 1.0)))
 	return best
 
@@ -186,9 +212,15 @@ func _can_target(tw: Dictionary, u: Dictionary, revealed: bool) -> bool:
 	var targets: Array = tw["targets"]
 	if String(u["kind"].get("kind", "ground")) == "air":
 		return targets.has("air") and revealed
-	if bool(u["kind"].get("shielded", false)):
-		return targets.has("shielded")
 	return targets.has("ground")
+
+
+func _shield_scale(tw: Dictionary, u: Dictionary) -> float:
+	## Mirrors Sim._shield_scale(): a weapon not rated for shielding still lands a
+	## quarter of its damage.
+	if bool(u["kind"].get("shielded", false)) and not Array(tw["targets"]).has("shielded"):
+		return SHIELD_LEAK
+	return 1.0
 
 
 # ─────────────────────────────────────────────────────────────── ticking ──
@@ -226,8 +258,8 @@ func _step(penalty: float) -> void:
 	for u in units:
 		if not u["alive"]:
 			continue
-		var at := point_at(u["dist"])
-		var slow := _covered_by("slow", at)
+		var at := point_at_xy(u["dist"])
+		var slow := _covered_by("slow", at[0], at[1])
 		var speed: float = float(u["kind"]["speed"]) * (slow if slow > 0.0 else 1.0)
 		u["dist"] = float(u["dist"]) + speed * DT
 		if float(u["dist"]) >= path_length:
@@ -244,16 +276,20 @@ func _step(penalty: float) -> void:
 		p["cooldown"] = float(p["cooldown"]) - DT * rate
 		if float(p["cooldown"]) > 0.0:
 			continue
-		var slot_v := Vector2(p["slot"])
+		var sx := float(p["slot"].x)
+		var sy := float(p["slot"].y)
+		var rng := float(tw["range"])
 		var target: Dictionary = {}
 		for u in units:
 			if not u["alive"]:
 				continue
-			var at := point_at(u["dist"])
-			if slot_v.distance_to(at) > float(tw["range"]):
+			var at := point_at_xy(u["dist"])
+			var dx: float = sx - at[0]
+			var dy: float = sy - at[1]
+			if dx * dx + dy * dy > rng * rng:
 				continue
 			var revealed: bool = String(u["kind"].get("kind", "ground")) != "air" \
-				or _covered_by("reveal", at) > 0.0
+				or _covered_by("reveal", at[0], at[1]) > 0.0
 			if not _can_target(tw, u, revealed):
 				continue
 			if target.is_empty() or float(u["dist"]) > float(target["dist"]):
@@ -263,17 +299,23 @@ func _step(penalty: float) -> void:
 		_damage(target, tw, 1.0)
 		var splash := float(tw.get("splash", 0.0))
 		if splash > 0.0:
-			var tp := point_at(target["dist"])
+			var tp := point_at_xy(target["dist"])
 			for u in units:
 				if u == target or not u["alive"]:
 					continue
-				if point_at(u["dist"]).distance_to(tp) <= splash:
+				var up := point_at_xy(u["dist"])
+				var sdx: float = up[0] - tp[0]
+				var sdy: float = up[1] - tp[1]
+				if sdx * sdx + sdy * sdy <= splash * splash:
 					_damage(u, tw, 0.5)
 		p["cooldown"] = float(tw["fire_interval"])
 
 
 func _damage(u: Dictionary, tw: Dictionary, scale: float) -> void:
-	var dealt: float = maxf(0.0, float(tw["damage"]) * scale - float(u["kind"].get("armour", 0.0)))
+	# Armour first, then the shield tax on what got through. Mirrors Sim._damage().
+	var after_armour: float = maxf(0.0, float(tw["damage"]) * scale
+		- float(u["kind"].get("armour", 0.0)))
+	var dealt: float = after_armour * _shield_scale(tw, u)
 	u["hp"] = float(u["hp"]) - dealt
 	if float(u["hp"]) <= 0.0:
 		u["alive"] = false

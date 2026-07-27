@@ -1,5 +1,5 @@
 {
-  "next_id": 38,
+  "next_id": 39,
   "items": [
     {
       "id": "LF-001",
@@ -441,6 +441,18 @@
       "pri": "low",
       "status": "open",
       "why": "The new validator flags them: anchor-03 [3,10] at 3.0, anchor-04 [15,7] at 3.0, anchor-05 [2,5] at 2.8 and [1,11] at 3.0, against the arc node's 2.6. All three anchors grade clean so these are warnings not errors \u2014 a scan relay or longer-ranged gun still reaches. Moving them one tile would need a re-sweep, so it is deliberately not done at wrap",
+      "opened": "2026-07-27",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-038",
+      "title": "Act II waves are thin (2-5 units per type) and lives run high (16-24) because shielded heavies and drain eat the whole difficulty budget \u2014 consider a mid-cost anti-armour emplacement or a lance/mortar draw cut so volume can come back",
+      "kind": "polish",
+      "area": "design",
+      "pri": "med",
+      "status": "open",
+      "why": "",
       "opened": "2026-07-27",
       "closed": null,
       "note": ""

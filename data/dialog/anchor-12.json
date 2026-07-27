@@ -1,0 +1,61 @@
+{
+  "schema": "dialog",
+  "anchor": "anchor-12",
+  "lines": [
+    { "trigger": "brief", "speaker": "control",
+      "text": "Anchor twenty-nine. A hundred and fifty megawatts. Be advised this anchor was logged dark eight months ago. It is not dark." },
+    { "trigger": "brief", "speaker": "okonkwo",
+      "text": "The bindstone's been read. Recently, and properly — somebody who knew what they were doing took the key off it and left the stone intact." },
+    { "trigger": "brief", "speaker": "vasquez",
+      "text": "Meaning they can open it again." },
+    { "trigger": "brief", "speaker": "okonkwo",
+      "text": "Meaning anyone they sold it to can open it again. A bind key isn't a lock you pick. It's a number." },
+    { "trigger": "brief", "speaker": "control",
+      "text": "Field lead, hold the ring and secure the stone. Recovery of the key is secondary." },
+    { "trigger": "brief", "speaker": "vasquez",
+      "text": "Understood. Okonkwo, how many of these have they read?" },
+    { "trigger": "brief", "speaker": "okonkwo",
+      "text": "I'll know when I'm standing on the last one." },
+
+    { "trigger": "wave-start:1", "speaker": "control",
+      "text": "Contact. Reach crews, and they came in through the ring, not the door." },
+
+    { "trigger": "wave-clear:2", "speaker": "vasquez", "critical": false,
+      "text": "They transited in. To an anchor they'd already stripped." },
+    { "trigger": "wave-clear:2", "speaker": "okonkwo", "critical": false,
+      "text": "They didn't strip it. They *listed* it. This one's a showroom." },
+
+    { "trigger": "wave-clear:4", "speaker": "okonkwo", "critical": false,
+      "text": "Four keys on the stone's read log. Four. Different hands, different months." },
+    { "trigger": "wave-clear:4", "speaker": "vasquez", "critical": false,
+      "text": "Buyers." },
+    { "trigger": "wave-clear:4", "speaker": "okonkwo", "critical": false,
+      "text": "Buyers." },
+
+    { "trigger": "wave-clear:6", "speaker": "control", "critical": false,
+      "text": "Field lead, Actual is asking whether the stone can be made unreadable." },
+    { "trigger": "wave-clear:6", "speaker": "okonkwo", "critical": false,
+      "text": "By me? No. By a demolition charge and eleven years of nobody finding out, possibly." },
+    { "trigger": "wave-clear:6", "speaker": "vasquez", "critical": false,
+      "text": "Log that as a no, Control." },
+
+    { "trigger": "brownout", "speaker": "vasquez", "critical": false,
+      "text": "Bus is over. Shed something before the ring does it for us." },
+
+    { "trigger": "first-leak", "speaker": "okonkwo", "critical": false,
+      "text": "One past the line. They're not stopping to fight — they're inventorying." },
+
+    { "trigger": "low-lives", "speaker": "control", "critical": false,
+      "text": "Field lead, your margin is thin. Actual will not authorise a second team." },
+
+    { "trigger": "debrief", "speaker": "okonkwo",
+      "text": "Anchor's held. The stone's still readable and there are four keys off it in circulation." },
+    { "trigger": "debrief", "speaker": "vasquez",
+      "text": "Control. Sable Reach is selling doors." },
+    { "trigger": "debrief", "speaker": "control",
+      "text": "Understood. Meridian Actual will task an assessment.",
+      "beat": "the same procedural non-answer, and Vasquez stops asking after this" },
+    { "trigger": "debrief", "speaker": "vasquez",
+      "text": "Don't bother. I'll bring you the assessment myself." }
+  ]
+}

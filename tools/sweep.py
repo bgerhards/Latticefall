@@ -63,6 +63,7 @@ def main() -> int:
     ap.add_argument("--cap", help="comma-separated capacities in MW")
     ap.add_argument("--funds", help="comma-separated starting funds")
     ap.add_argument("--weight", help="comma-separated spawn-count multipliers")
+    ap.add_argument("--lives", help="comma-separated life counts")
     ap.add_argument("--apply", action="store_true",
                     help="write the best clean cell back into the anchor file")
     ap.add_argument("--quiet", action="store_true", help="only print clean cells")
@@ -75,50 +76,54 @@ def main() -> int:
     caps = parse_list(args.cap, [base.capacity_mw * m for m in (0.9, 1.0, 1.1)])
     funds = parse_list(args.funds, [base.starting_funds * m for m in (0.85, 1.0, 1.15)])
     weights = parse_list(args.weight, [0.85, 1.0, 1.15])
+    lives = [int(x) for x in parse_list(args.lives, [float(base.lives)])]
+    total = len(caps) * len(funds) * len(weights) * len(lives)
 
     print(f"{args.anchor}  {base.title}  ·  sweeping "
-          f"{len(caps)}x{len(funds)}x{len(weights)} = "
-          f"{len(caps) * len(funds) * len(weights)} cells\n")
-    print(f"{'cap':>6s} {'funds':>7s} {'wt':>5s}  "
+          f"{len(caps)}x{len(funds)}x{len(weights)}x{len(lives)} = {total} cells\n")
+    print(f"{'cap':>6s} {'funds':>7s} {'wt':>5s} {'liv':>4s}  "
           f"{'std':>7s} {'hard':>7s} {'brutal':>7s} {'peak':>6s}  verdict")
 
     clean: list[tuple] = []
     for cap in caps:
         for fu in funds:
             for wt in weights:
-                cand = replace(base, capacity_mw=cap, starting_funds=int(fu),
-                               waves=scaled_waves(base.waves, wt))
-                r = grade_anchor(cand, diffs, towers, enemies)
-                cells = [r["by_difficulty"][d] for d in diffs]
-                peak = max(c["peak_load_ratio"] for c in cells)
-                line = (f"{cap:>6.0f} {int(fu):>7d} {wt:>5.2f}  "
-                        + " ".join(f"{c['distinct_winning_builds']:>2d}/"
-                                   f"{c['distinct_builds_tried']:<4d}" for c in cells)
-                        + f" {peak:>5.0%}  ")
-                if r["ok"]:
-                    # Prefer the cell that is winnable by the most builds at standard
-                    # while still biting at brutal — a level that grades clean on a
-                    # knife edge will not survive the next tower stat change.
-                    score = (r["by_difficulty"]["standard"]["distinct_winning_builds"]
-                             + r["by_difficulty"]["brutal"]["distinct_winning_builds"])
-                    clean.append((score, cap, int(fu), wt, r))
-                    print(line + "ok")
-                elif not args.quiet:
-                    print(line + r["problems"][0][:60])
+                for lv in lives:
+                    cand = replace(base, capacity_mw=cap, starting_funds=int(fu),
+                                   lives=lv, waves=scaled_waves(base.waves, wt))
+                    r = grade_anchor(cand, diffs, towers, enemies)
+                    cells = [r["by_difficulty"][d] for d in diffs]
+                    peak = max(c["peak_load_ratio"] for c in cells)
+                    line = (f"{cap:>6.0f} {int(fu):>7d} {wt:>5.2f} {lv:>4d}  "
+                            + " ".join(f"{c['distinct_winning_builds']:>2d}/"
+                                       f"{c['distinct_builds_tried']:<4d}" for c in cells)
+                            + f" {peak:>5.0%}  ")
+                    if r["ok"]:
+                        # Prefer the cell winnable by the most builds at standard while
+                        # still biting at brutal — a level that grades clean on a knife
+                        # edge will not survive the next tower stat change.
+                        score = (r["by_difficulty"]["standard"]["distinct_winning_builds"]
+                                 + r["by_difficulty"]["brutal"]["distinct_winning_builds"])
+                        clean.append((score, cap, int(fu), wt, lv, r))
+                        print(line + "ok")
+                    elif not args.quiet:
+                        print(line + r["problems"][0][:60])
 
-    print(f"\n{len(clean)} clean cell(s) of {len(caps) * len(funds) * len(weights)}")
+    print(f"\n{len(clean)} clean cell(s) of {total}")
     if not clean:
         return 1
 
     clean.sort(key=lambda c: (-c[0], c[1]))
-    score, cap, fu, wt, _ = clean[0]
-    print(f"best: capacity {cap:.0f} MW · funds {fu} · weight {wt:.2f} (score {score})")
+    score, cap, fu, wt, lv, _ = clean[0]
+    print(f"best: capacity {cap:.0f} MW · funds {fu} · weight {wt:.2f} · "
+          f"lives {lv} (score {score})")
 
     if args.apply:
         p = DATA / "anchors" / f"{args.anchor}.json"
         doc = json.loads(p.read_text())
         doc["capacity_mw"] = int(cap) if float(cap).is_integer() else cap
         doc["starting_funds"] = fu
+        doc["lives"] = lv
         for w in doc["waves"]:
             for s in w["spawns"]:
                 s["count"] = max(1, round(s["count"] * wt))

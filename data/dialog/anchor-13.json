@@ -1,0 +1,62 @@
+{
+  "schema": "dialog",
+  "anchor": "anchor-13",
+  "lines": [
+    { "trigger": "brief", "speaker": "control",
+      "text": "Anchor thirty-four. A hundred and fifty-eight megawatts. Be advised there is a Sable Reach crew on the deck and they are not shooting at anybody." },
+    { "trigger": "brief", "speaker": "vasquez",
+      "text": "Say again?" },
+    { "trigger": "brief", "speaker": "control",
+      "text": "Eleven of them. They have been overrun. Their lift is forty minutes out." },
+    { "trigger": "brief", "speaker": "okonkwo",
+      "text": "Mortar emplacement's cleared, for what it's worth. Thirty megawatts, reaches most of this board, and it cannot see air at all." },
+    { "trigger": "brief", "speaker": "vasquez",
+      "text": "Control, are we ordered to hold for their evacuation?" },
+    { "trigger": "brief", "speaker": "control",
+      "text": "You are not ordered to." },
+    { "trigger": "brief", "speaker": "vasquez",
+      "text": "Understood. Okonkwo, put the mortar where it covers their side of the ring." },
+
+    { "trigger": "wave-start:1", "speaker": "control",
+      "text": "Contact. Warden pattern, and a lot of it." },
+
+    { "trigger": "wave-clear:2", "speaker": "okonkwo", "critical": false,
+      "text": "Their crew chief is on our channel. He says thank you, and he says he can hold a breaker if we tell him which one." },
+    { "trigger": "wave-clear:2", "speaker": "vasquez", "critical": false,
+      "text": "Tell him the north relay. And tell him if he touches anything else I'll know." },
+
+    { "trigger": "wave-clear:4", "speaker": "control", "critical": false,
+      "text": "Field lead, be advised: Actual is asking why your losses are on a Sable Reach position." },
+    { "trigger": "wave-clear:4", "speaker": "vasquez", "critical": false,
+      "text": "Because that's where the wardens are, Control." },
+
+    { "trigger": "wave-clear:6", "speaker": "okonkwo", "critical": false,
+      "text": "We're down four. Ruiz, Adeyemi, and two of theirs I don't have names for." },
+    { "trigger": "wave-clear:6", "speaker": "vasquez", "critical": false,
+      "text": "Get the names." },
+
+    { "trigger": "wave-clear:8", "speaker": "okonkwo", "critical": false,
+      "text": "Their lift's on the pad. Nine of eleven walking." },
+
+    { "trigger": "brownout", "speaker": "okonkwo", "critical": false,
+      "text": "Over capacity — and their people are standing in the arc. Whatever you shed, not the north side." },
+
+    { "trigger": "first-leak", "speaker": "control", "critical": false,
+      "text": "One through. Their crew is behind that line." },
+
+    { "trigger": "low-lives", "speaker": "vasquez", "critical": false,
+      "text": "Hold. Forty minutes was the number and we're at thirty-one." },
+
+    { "trigger": "debrief", "speaker": "control",
+      "text": "Anchor held. Sable Reach personnel evacuated: nine. Meridian losses: four." },
+    { "trigger": "debrief", "speaker": "vasquez",
+      "text": "Ruiz, Adeyemi, Sandoval, Kerr. Say them properly, Control." },
+    { "trigger": "debrief", "speaker": "control",
+      "text": "Ruiz. Adeyemi. Sandoval. Kerr.",
+      "beat": "Control does exactly as asked and nothing more — the tone does not change, which is the point" },
+    { "trigger": "debrief", "speaker": "ferrar",
+      "text": "Captain. I did not ask you to do that." },
+    { "trigger": "debrief", "speaker": "vasquez",
+      "text": "No. You didn't." }
+  ]
+}

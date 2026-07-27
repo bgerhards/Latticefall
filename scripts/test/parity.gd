@@ -90,6 +90,8 @@ func _policies(ids: Array) -> Array:
 			{"scan-relay": 1, "anchor-damper": 1}, 0.15),
 		mk.call("reserved-mass", ["pulse-turret", "scan-relay"], false,
 			{"scan-relay": 1, "shield-wall": 1, "anchor-damper": 1}, 0.30),
+		mk.call("anti-armour", ["ion-lance", "mortar-emplacement", "pulse-turret"], false,
+			{"scan-relay": 1, "anchor-damper": 1}, 0.20),
 	]
 
 
@@ -167,13 +169,16 @@ func _run(anchor: Dictionary, towers: Dictionary, enemies: Dictionary,
 func _slot_priority(s) -> Array:
 	## Same metric as engine.py: distance from the slot to the nearest sampled point
 	## on the path, sampled at the same resolution so both pick the same slot.
+	## Squared distances in float64, matching Sim._slot_priority(). Decision 030.
 	var steps: int = maxi(2, int(s.path_length))
 	var scored: Array = []
 	for slot in s.free_slots:
-		var best := 1e9
+		var best := 1e18
 		for i in range(steps + 1):
-			var p: Vector2 = s.point_at(s.path_length * float(i) / float(steps))
-			best = minf(best, Vector2(slot).distance_to(p))
+			var p: PackedFloat64Array = s.point_at_xy(s.path_length * float(i) / float(steps))
+			var dx: float = p[0] - float(slot.x)
+			var dy: float = p[1] - float(slot.y)
+			best = minf(best, dx * dx + dy * dy)
 		scored.append([best, slot.x, slot.y, slot])
 	scored.sort_custom(func(a, b):
 		if a[0] != b[0]: return a[0] < b[0]

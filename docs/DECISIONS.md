@@ -655,3 +655,73 @@ anchors to make a point about Act II. New behaviour goes in new policies.
 **Consequence.** Three policies model leaving headroom. anchor-09 went from 0 winning
 builds at any swept capacity to 7/6/3 at 118 MW — inside the act's tier, with no change to
 the level's numbers.
+
+---
+
+## 029 — Shielding taxes damage, it does not block it
+
+**Decided.** A shielded unit takes `SHIELD_LEAK` = 25% damage from weapons without
+`shielded` in their `targets`, rather than being immune to them. The ion lance and the
+mortar emplacement remain the efficient answers; they are no longer the only ones.
+
+**Context.** anchor-11 graded unwinnable at every capacity and weight swept, and the
+detail run showed every policy dying on the wave the first breacher arrived. With
+immunity, one shielded unit per wave is an unanswerable leak for any board without a
+lance — and a lance-led board cannot afford enough guns to cover a 40-tile path, because
+three lances are 102 MW of a 142 MW bus. The level was not the problem: **a hard gate on
+one emplacement makes every anchor carrying that enemy a single-solution level**, which
+decision 013 defines as a defect.
+
+This is the same argument as decision 019, which established that the scan relay gates
+*sight* and not firepower. Extending it: no unit trait should make an emplacement
+mandatory.
+
+**Rejected.**
+- *Unlock the mortar earlier so two answers exist.* Two mandatory-ish answers instead of
+  one; the boards would still be forced.
+- *Drop breachers from anchors 11-12.* Postpones the problem to 13 and thins the act's
+  antagonist to a drain gimmick.
+- *Cut the lance's draw so lance boards can also carry guns.* Re-costs a tower that
+  decision 024 already settled, to fix a problem the tower did not cause.
+
+**Consequence.** Order matters: **armour is subtracted first, and the shield tax applies to
+what got through.** The other order was tried and reproduced the original bug one tier up
+— against the bulwark at 8 armour, a pulse turret's 9 damage taxed to 2.25 never clears
+armour at all, so the bulwark was immune to everything but the lance and anchor-14 graded
+unwinnable at every capacity, funds and weight swept. Armour-first leaves mass fire a
+slow, bad, *existent* answer. The bulwark was also softened to 380 HP / 5 armour.
+
+Act I is unaffected — no Act I enemy is shielded — and all eight Act I anchors re-graded
+clean unchanged.
+
+---
+
+## 030 — The rules work in float64 and compare squared distances
+
+**Decided.** `AnchorSim` holds path geometry in `PackedFloat64Array`, not
+`PackedVector2Array`, and **every range test in both engines compares squared distances**
+rather than taking a square root. `point_at()` still returns a `Vector2` for drawing;
+`point_at_xy()` is what the rules use.
+
+**Context.** Parity failed on exactly one run of 528: anchor-14, `reserved-mass`,
+standard — same build, same spend, same peak load, but Python leaked 14 and GDScript
+leaked 8. Two causes, both invisible for the whole of Act I:
+
+1. **Godot's `Vector2` is float32.** Every position the GDScript sim derived from one was
+   a rounded copy of the float64 the reference computed.
+2. **`math.hypot` is not `sqrt(dx*dx + dy*dy)`.** Python's is correctly rounded; Godot's
+   `distance_to` is not. Against a range like the scan relay's 6.0 — a value a grid
+   distance can hit exactly — the two can land on opposite sides of `<=`.
+
+Act I tolerated both because coverage only gated slow and reveal, where one tick of
+difference changes nothing. Act II made coverage decide **bus load**: a damper's radius
+now determines drain, which determines brownout, which determines fire rate for the whole
+board. A sub-ulp position difference became six leaks.
+
+**Rejected.** *Widen the parity tolerance.* The tolerance exists for accumulated float
+drift in reported aggregates, not for discrete outcomes. Leaks and lives are exact fields
+precisely so that a divergence like this one cannot be waved through.
+
+**Consequence.** No square root is taken anywhere in either rules implementation. The
+comparison is `dx*dx + dy*dy <= r*r` on both sides, so the two runtimes execute the same
+IEEE-754 double operations in the same order. 528 runs identical.

@@ -45,6 +45,12 @@ DT = 1.0 / 30.0
 BROWNOUT_SLOPE = 1.5
 BROWNOUT_MAX_PENALTY = 0.70
 
+# Fraction of damage a weapon without "shielded" in its targets still lands on a shielded
+# unit. Shielding is a tax, not a gate — decision 029. At 0.0 the ion lance was the only
+# answer in the game, so every anchor carrying breachers graded unwinnable or
+# single-solution, which is the defect the grader exists to catch.
+SHIELD_LEAK = 0.25
+
 
 def brownout_penalty(load_mw: float, capacity_mw: float) -> float:
     """Fire-rate penalty in [0, BROWNOUT_MAX_PENALTY]. 0 when at or under capacity."""
@@ -194,15 +200,21 @@ class Sim:
     # ────────────────────────────────────────────────────────────── build ──
 
     def _slot_priority(self) -> list[tuple[int, int]]:
-        """Slots nearest the path first — a slot covering nothing is worth nothing."""
-        def d(slot):
-            best = 1e9
+        """Slots nearest the path first — a slot covering nothing is worth nothing.
+
+        Ranked by *squared* distance. Every range test in both engines compares squares
+        rather than calling a square root, so the two runtimes do identical IEEE-754
+        double arithmetic instead of comparing a `hypot` against a `sqrt` and disagreeing
+        in the last bit. See decision 030."""
+        def d2(slot):
+            best = 1e18
             steps = max(2, int(self.a.path_length))
             for i in range(steps + 1):
                 px, py = self.a.point_at(self.a.path_length * i / steps)
-                best = min(best, math.hypot(px - slot[0], py - slot[1]))
+                dx, dy = px - slot[0], py - slot[1]
+                best = min(best, dx * dx + dy * dy)
             return best
-        return sorted(self.free_slots, key=lambda s: (d(s), s))
+        return sorted(self.free_slots, key=lambda s: (d2(s), s))
 
     def _try_build(self) -> None:
         """Spend down in preference order while funds and capacity allow."""
@@ -247,16 +259,23 @@ class Sim:
         for p in self.placed:
             if not p.online or p.tower.effect_type != effect:
                 continue
-            if math.hypot(p.slot[0] - x, p.slot[1] - y) <= p.tower.range:
+            dx, dy = p.slot[0] - x, p.slot[1] - y
+            if dx * dx + dy * dy <= p.tower.range * p.tower.range:
                 best = max(best, p.tower.effect_value or 1.0)
         return best
 
     def _can_target(self, tower: Tower, u: Unit, revealed: bool) -> bool:
         if u.kind.kind == "air":
             return "air" in tower.targets and revealed
-        if u.kind.shielded:
-            return "shielded" in tower.targets
         return "ground" in tower.targets
+
+    @staticmethod
+    def _shield_scale(tower: Tower, u: Unit) -> float:
+        """Multiplier for shielding. 1.0 unless the unit is shielded and the weapon is
+        not rated for it, in which case it still lands SHIELD_LEAK of its damage."""
+        if u.kind.shielded and "shielded" not in tower.targets:
+            return SHIELD_LEAK
+        return 1.0
 
     # ───────────────────────────────────────────────────────────── tick ──
 
@@ -288,7 +307,8 @@ class Sim:
                 if not u.alive:
                     continue
                 x, y = self.a.point_at(u.dist)
-                if math.hypot(p.slot[0] - x, p.slot[1] - y) > p.tower.range:
+                dx, dy = p.slot[0] - x, p.slot[1] - y
+                if dx * dx + dy * dy > p.tower.range * p.tower.range:
                     continue
                 revealed = u.kind.kind != "air" or self._covered_by("reveal", x, y) > 0
                 if not self._can_target(p.tower, u, revealed):
@@ -304,12 +324,18 @@ class Sim:
                     if u is target or not u.alive:
                         continue
                     ux, uy = self.a.point_at(u.dist)
-                    if math.hypot(ux - tx, uy - ty) <= p.tower.splash:
+                    dx, dy = ux - tx, uy - ty
+                    if dx * dx + dy * dy <= p.tower.splash * p.tower.splash:
                         self._damage(u, p.tower, scale=0.5)
             p.cooldown = p.tower.fire_interval
 
     def _damage(self, u: Unit, tower: Tower, scale: float = 1.0) -> None:
-        u.hp -= max(0.0, tower.damage * scale - u.kind.armour)
+        # Armour first, then the shield tax on what got through. The other order makes
+        # a shielded armoured unit immune rather than expensive — 9 damage taxed to 3.15
+        # never clears 5 armour, so the bulwark could only be killed by the lance and
+        # anchor-14 graded unwinnable at every setting swept.
+        after_armour = max(0.0, tower.damage * scale - u.kind.armour)
+        u.hp -= after_armour * self._shield_scale(tower, u)
         if u.hp <= 0:
             u.alive = False
             self.funds += int(u.kind.bounty * self.bounty_mult)
@@ -418,5 +444,12 @@ def standard_policies(tower_ids: list[str]) -> list[Policy]:
         Policy("reserved-mass", rest(has("pulse-turret") + has("scan-relay")),
                caps={"scan-relay": 1, "shield-wall": 1, "anchor-damper": 1},
                reserve=0.30),
+        # Shielded units are answered only by the lance and (from anchor-13) the mortar,
+        # so a board facing them must lead with one. Without this policy every anchor
+        # carrying breachers grades unwinnable — not because it is, but because the two
+        # lance-leading policies in the set both spend the bus flat and brown out.
+        Policy("anti-armour",
+               rest(has("ion-lance") + has("mortar-emplacement") + has("pulse-turret")),
+               caps={"scan-relay": 1, "anchor-damper": 1}, reserve=0.20),
     ]
     return out
