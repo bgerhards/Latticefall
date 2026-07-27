@@ -102,9 +102,24 @@ func _editor_refresh() -> void:
 		glow_layer.queue_redraw()
 
 
+var _autobuild := false
+
+
 func autobuild() -> void:
-	## Debug/smoke aid: fill slots the way the 'cheap-mass' policy would, so combat can
-	## be exercised without a human. Never called during normal play.
+	## Debug/smoke aid: build the way the 'cheap-mass' policy would, so combat can be
+	## exercised without a human. Never called during normal play.
+	##
+	## It re-runs at the start of every wave, which is what the grading policies do —
+	## they spend bounty income between waves. Building only once, before wave one, is a
+	## different (and much worse) player: on anchor-01 it can afford three turrets out of
+	## 300 starting funds and loses, while the policy that graded the level buys five
+	## across six waves and clears it with all ten lives. A smoke test that plays a
+	## strictly worse game than the one that was balanced is not evidence of anything.
+	_autobuild = true
+	_autobuild_step()
+
+
+func _autobuild_step() -> void:
 	var unlocked: Array = Content.unlocked_at(anchor_id)
 	while sim.free_slots.size() > 0:
 		var placed_one := false
@@ -220,6 +235,8 @@ func _advance() -> void:
 func _begin_wave(index: int) -> void:
 	_wave_index = index
 	sim.begin_wave(index)          # Act III: the bus loses its decay before the prep phase
+	if _autobuild:
+		_autobuild_step()
 	_queue = sim.wave_queue(index)
 	_qi = 0
 	_wave_t = 0.0
@@ -271,7 +288,7 @@ func sell_at(slot: Vector2i) -> void:
 		Audio.sfx("ui_deny")
 		return
 	sim.sell(i)
-	Audio.sfx("power_offline")
+	Audio.sfx("ui_sell")
 	state_changed.emit()
 	queue_redraw()
 
@@ -281,7 +298,7 @@ func upgrade_at(slot: Vector2i) -> void:
 	if i < 0 or not sim.upgrade(i):
 		Audio.sfx("ui_deny")
 		return
-	Audio.sfx("place_emplacement")
+	Audio.sfx("ui_upgrade")
 	Audio.sfx("power_online")
 	state_changed.emit()
 	queue_redraw()

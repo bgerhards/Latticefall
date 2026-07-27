@@ -175,11 +175,11 @@
       "kind": "chore",
       "area": "design",
       "pri": "med",
-      "status": "open",
+      "status": "done",
       "why": "Only anchor-01 has been graded. brutal=1.55 was tuned against one level.",
       "opened": "2026-07-26",
-      "closed": null,
-      "note": ""
+      "closed": "2026-07-27",
+      "note": "closed at c048141"
     },
     {
       "id": "LF-016",
@@ -223,11 +223,11 @@
       "kind": "feature",
       "area": "engine",
       "pri": "med",
-      "status": "open",
+      "status": "done",
       "why": "",
       "opened": "2026-07-26",
-      "closed": null,
-      "note": ""
+      "closed": "2026-07-27",
+      "note": "closed at c048141"
     },
     {
       "id": "LF-020",
@@ -247,11 +247,11 @@
       "kind": "polish",
       "area": "art",
       "pri": "med",
-      "status": "open",
+      "status": "done",
       "why": "They read at contact-sheet size; not verified at in-game size on both light and dark tiles.",
       "opened": "2026-07-27",
-      "closed": null,
-      "note": ""
+      "closed": "2026-07-27",
+      "note": "closed at c048141"
     },
     {
       "id": "LF-022",
@@ -439,11 +439,11 @@
       "kind": "polish",
       "area": "data",
       "pri": "low",
-      "status": "open",
+      "status": "done",
       "why": "The new validator flags them: anchor-03 [3,10] at 3.0, anchor-04 [15,7] at 3.0, anchor-05 [2,5] at 2.8 and [1,11] at 3.0, against the arc node's 2.6. All three anchors grade clean so these are warnings not errors \u2014 a scan relay or longer-ranged gun still reaches. Moving them one tile would need a re-sweep, so it is deliberately not done at wrap",
       "opened": "2026-07-27",
-      "closed": null,
-      "note": ""
+      "closed": "2026-07-27",
+      "note": "closed at c048141"
     },
     {
       "id": "LF-038",
@@ -463,11 +463,11 @@
       "kind": "feature",
       "area": "engine",
       "pri": "med",
-      "status": "open",
+      "status": "done",
       "why": "",
       "opened": "2026-07-27",
-      "closed": null,
-      "note": ""
+      "closed": "2026-07-27",
+      "note": "closed at c048141"
     }
   ]
 }

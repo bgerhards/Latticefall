@@ -826,3 +826,26 @@ that has already run out of slots.
 **Consequence.** `docs/STATE.md` and this entry both record that the anchor grades describe
 a plan-once player. If a future change makes the grader revise its boards mid-level, every
 anchor needs re-sweeping.
+
+---
+
+## 034 — Esc pauses; the game is stoppable, and volume lives where it is noticed
+
+**Decided.** `scenes/main.tscn` carries a `PauseMenu` layer. Esc or Space opens it, the
+tree pauses, and the overlay offers Resume, Restart Anchor, Operations and Quit, plus
+music and effects sliders. The `Audio` autoload and the overlay both run with
+`PROCESS_MODE_ALWAYS`, so sound keeps playing while paused — a volume slider you cannot
+hear while dragging is not a volume slider.
+
+**Why volume here and not only in the main menu.** The moment a player wants to change the
+volume is the moment it is too loud, and that moment is mid-anchor. Putting it only on the
+title screen means quitting the level to fix it.
+
+**Consequence.** Volume is stored in the save as 0..1 linear and converted with
+`linear_to_db` in one place; every cue's own `volume_db` is a level *relative* to that.
+`--paused` opens the overlay at boot so it can be screenshotted — it is the one screen
+that cannot be reached by playing at `--fixed-fps`, because reaching it needs a key press.
+That screenshot immediately showed the QUIT button hanging out of the bottom of the panel.
+
+Esc no longer leaves the anchor. A `--shot` run still exits on Esc, because it has nobody
+to pause for.

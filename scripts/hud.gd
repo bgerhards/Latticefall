@@ -19,6 +19,10 @@ var _outcome: Label
 var _outcome_hint: Label
 var _sell_button: Button
 var _upgrade_button: Button
+var _outcome_actions: HBoxContainer
+var _next_button: Button
+
+const MENU_SCENE := "res://scenes/menu.tscn"
 var _buttons: Array[Button] = []
 
 
@@ -110,6 +114,34 @@ func bind(v: Node2D) -> void:
 	_outcome_hint.visible = false
 	root.add_child(_outcome_hint)
 
+	# What to do next, offered where the player is already looking. Without this the only
+	# way on from a finished anchor was a key and a menu — LF-039.
+	_outcome_actions = HBoxContainer.new()
+	_outcome_actions.position = Vector2(660, 480)
+	_outcome_actions.add_theme_constant_override("separation", 10)
+	_outcome_actions.visible = false
+	root.add_child(_outcome_actions)
+
+	_next_button = Button.new()
+	_next_button.custom_minimum_size = Vector2(210, 40)
+	Ui.style(_next_button, 14, false, true)
+	_next_button.pressed.connect(_on_next)
+	_outcome_actions.add_child(_next_button)
+
+	var replay := Button.new()
+	replay.text = "REPLAY ANCHOR"
+	replay.custom_minimum_size = Vector2(190, 40)
+	Ui.style(replay, 14)
+	replay.pressed.connect(func(): get_tree().reload_current_scene())
+	_outcome_actions.add_child(replay)
+
+	var ops := Button.new()
+	ops.text = "OPERATIONS"
+	ops.custom_minimum_size = Vector2(170, 40)
+	Ui.style(ops, 14)
+	ops.pressed.connect(func(): get_tree().change_scene_to_file(MENU_SCENE))
+	_outcome_actions.add_child(ops)
+
 	# Sell / upgrade act on whatever the cursor is over. A selection model would need a
 	# second concept of "selected" alongside the build cursor, and the board already
 	# highlights the hovered slot — so the panel names the emplacement it will act on.
@@ -192,9 +224,29 @@ func refresh() -> void:
 	var phase: String = view.phase()
 	_outcome.visible = phase in ["done", "lost"]
 	_outcome_hint.visible = _outcome.visible
+	_outcome_actions.visible = _outcome.visible
 	if _outcome.visible:
 		var held := phase == "done"
 		_outcome.text = "ANCHOR HELD" if held else "ANCHOR LOST"
 		_outcome.add_theme_color_override("font_color", C_VERD if held else C_ALERT)
-		_outcome_hint.text = ("%d lives remaining   ·   ESC to return to operations"
-			% sim.lives) if held else "ESC to return to operations"
+		_outcome_hint.text = ("%d lives remaining   ·   %d leaks"
+			% [sim.lives, sim.leaks]) if held else "the ring did not hold"
+		# The next anchor only exists if this one was held and it is not the last.
+		var nxt := _next_anchor_id()
+		_next_button.visible = held and nxt != ""
+		if _next_button.visible:
+			_next_button.text = "NEXT: ANCHOR %s" % nxt.substr(7)
+
+
+func _next_anchor_id() -> String:
+	var ids := Progress.anchor_ids()
+	var i := Array(ids).find(view.anchor_id)
+	return String(ids[i + 1]) if i >= 0 and i + 1 < ids.size() else ""
+
+
+func _on_next() -> void:
+	var nxt := _next_anchor_id()
+	if nxt == "":
+		return
+	Progress.selected_anchor = nxt
+	get_tree().reload_current_scene()

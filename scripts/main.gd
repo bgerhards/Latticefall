@@ -19,6 +19,7 @@ extends Node2D
 @onready var view: Node2D = $AnchorView
 @onready var hud: CanvasLayer = $Hud
 @onready var dialog: CanvasLayer = $DialogView
+@onready var pause_menu: CanvasLayer = $PauseMenu
 
 ## `-- --shot <path> [frame]` renders, saves a PNG and quits. Verification should not
 ## depend on capturing someone's desktop, and a screenshot the build can take itself
@@ -29,6 +30,7 @@ var _frame: int = 0
 var _shot_taken: bool = false
 var _autoplay: bool = false
 var _recorded: bool = false
+var _open_pause: bool = false
 
 const MENU_SCENE := "res://scenes/menu.tscn"
 
@@ -51,6 +53,11 @@ func _ready() -> void:
     if _autoplay:
         view.autobuild()
     view.start()
+    if _open_pause:
+        # The shot counter lives in this node's _process, and show_menu() pauses the
+        # tree — so without this the screenshot never happens and the run hangs.
+        process_mode = Node.PROCESS_MODE_ALWAYS
+        pause_menu.show_menu()
 
 
 func _setup_cli() -> void:
@@ -67,6 +74,11 @@ func _setup_cli() -> void:
                     anchor_id = argv[i + 1]
             "--autoplay":
                 _autoplay = true
+            "--paused":
+                # Opens the pause overlay at boot so a screenshot can show it. The
+                # overlay is the one screen that cannot be reached by playing at
+                # --fixed-fps, because reaching it requires a key press.
+                _open_pause = true
             "--difficulty":
                 if i + 1 < argv.size():
                     difficulty = argv[i + 1]
@@ -151,11 +163,12 @@ func _unhandled_input(event: InputEvent) -> void:
         return
     match event.keycode:
         KEY_ESCAPE:
-            # Back to the menu, not out of the game. A --shot run has no menu to
-            # return to and should still exit, which is what _shot_path tests.
+            # Pause, rather than leave. A --shot run has no one to pause for and must
+            # still exit on its own, which is what _shot_path tests.
             if _shot_path != "":
                 get_tree().quit()
             else:
-                get_tree().change_scene_to_file(MENU_SCENE)
-        KEY_Q:
-            get_tree().quit()
+                pause_menu.toggle()
+        KEY_SPACE:
+            if _shot_path == "":
+                pause_menu.toggle()

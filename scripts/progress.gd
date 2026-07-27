@@ -18,6 +18,9 @@ var cleared: Dictionary = {}
 var difficulty: String = "standard"
 ## Anchor chosen in the menu, for the same reason.
 var selected_anchor: String = "anchor-01"
+## Player volume, 0..1 linear. Converted to dB by the audio director.
+var music_volume: float = 0.8
+var sfx_volume: float = 0.9
 
 signal changed
 
@@ -106,6 +109,8 @@ func load_state() -> void:
 		return
 	cleared = doc.get("cleared", {})
 	difficulty = String(doc.get("difficulty", "standard"))
+	music_volume = float(doc.get("music_volume", music_volume))
+	sfx_volume = float(doc.get("sfx_volume", sfx_volume))
 
 
 func save_state() -> void:
@@ -117,6 +122,8 @@ func save_state() -> void:
 		"version": SAVE_VERSION,
 		"cleared": cleared,
 		"difficulty": difficulty,
+		"music_volume": music_volume,
+		"sfx_volume": sfx_volume,
 	}, "  "))
 
 
