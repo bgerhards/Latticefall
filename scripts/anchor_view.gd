@@ -293,6 +293,7 @@ const C_SLOT := Color(0.20, 0.34, 0.31)
 const C_VERD := Color(0.37, 0.66, 0.58)
 const C_AMBER := Color(0.91, 0.64, 0.24)
 const C_ALERT := Color(0.82, 0.33, 0.25)
+const C_SHADOW := Color(0.0, 0.0, 0.0, 0.34)
 
 
 func drawables() -> Array:
@@ -387,8 +388,25 @@ func _draw_hover() -> void:
 	draw_polyline(ring + PackedVector2Array([ring[0]]), C_AMBER, 2.0)
 
 
+func _draw_contact_shadow(at: Vector2, radius: float) -> void:
+	## Without this a sprite reads as floating over the board rather than standing on
+	## it (LF-024). Drawn in engine rather than baked into the sprite: a baked shadow
+	## would be part of the albedo silhouette and could not sit under the *neighbouring*
+	## tile, which is exactly where a contact shadow has to fall. The ellipse is 2:1
+	## because the tile is (decision 017).
+	var pts := PackedVector2Array()
+	for i in range(16):
+		var a := TAU * float(i) / 16.0
+		pts.append(at + Vector2(cos(a) * radius, sin(a) * radius * 0.5))
+	draw_colored_polygon(pts, C_SHADOW)
+
+
 func _draw_entities() -> void:
 	var dim: float = 0.6 if sim.brownout else 1.0
+	# Every shadow first, so a nearer sprite's shadow cannot land on top of a farther
+	# sprite that has already been drawn.
+	for d in drawables():
+		_draw_contact_shadow(d["at"], 27.0 if d["kind"] == "tower" else 15.0)
 	for d in drawables():
 		var tex: Texture2D = _tex(d["sprite"], d["yaw"], "albedo")
 		if tex != null:

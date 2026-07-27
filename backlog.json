@@ -1,5 +1,5 @@
 {
-  "next_id": 27,
+  "next_id": 29,
   "items": [
     {
       "id": "LF-001",
@@ -309,6 +309,30 @@
       "pri": "med",
       "status": "open",
       "why": "",
+      "opened": "2026-07-27",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-027",
+      "title": "Sprite pivot ignores the render camera height_bias, so every sprite draws ~48px above its tile",
+      "kind": "bug",
+      "area": "art",
+      "pri": "high",
+      "status": "open",
+      "why": "Hover highlight and turrets sit off their slot rings. Manifest pivot is (128,128); measured tile silhouette centre is (127.5,176.5). render_pair uses height_bias=0.55 but _measure_tile calibrates at 0.0, so the bias never reaches the pivot",
+      "opened": "2026-07-27",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-028",
+      "title": "Frame pacing not reproducible under --fixed-fps",
+      "kind": "bug",
+      "area": "tooling",
+      "pri": "high",
+      "status": "open",
+      "why": "Two identical --autoplay runs reached different sim states at frame 1800 (coverage 0.306 vs 0.394, wave 6 vs wave 1). Makes screenshot-based art review unreliable; suspect the minf(delta,0.25) clamp absorbing a long first frame",
       "opened": "2026-07-27",
       "closed": null,
       "note": ""

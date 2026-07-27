@@ -50,7 +50,9 @@ ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 OUT_DIR = os.path.join(ROOT, "assets", "renders")
 MANIFEST = os.path.join(OUT_DIR, "sprites.json")
 
-# ── palette (matches the game's UI and the Ordinal/Meridian split) ──────────
+# ── palette ────────────────────────────────────────────────────────────────
+# Written in **sRGB**, the same space as the game's UI constants, and linearised by
+# mat(). Do not put linear values here — see srgb() for why that was the bug.
 VERDIGRIS = (0.16, 0.42, 0.35)
 VERD_LIT = (0.24, 0.58, 0.48)
 AMBER = (0.91, 0.58, 0.16)
@@ -71,15 +73,32 @@ def wipe() -> None:
         bpy.data.materials.remove(m)
 
 
+def srgb(*c):
+    """sRGB -> scene-linear. Every colour in this file is authored in sRGB.
+
+    Blender's colour inputs are scene-linear, and view_transform='Standard' encodes
+    back to sRGB when the PNG is written. Probed on this machine: an emission of 0.5
+    is stored as 188/255, i.e. sRGB 0.733 — so a value written as though it were a
+    display colour renders roughly three times too light.
+
+    That is what made the board read as a light grey slab against a dark UI (LF-023):
+    STONE was written as 0.105 to sit alongside the game's own 0.09 tile constant, but
+    landed on #444c4e instead of #162126. The same mistake desaturated every emitter —
+    an eye of (1.0, 0.22, 0.12) at strength 1.3 clipped red and published as pale
+    white-orange rather than red (LF-020, LF-022).
+    """
+    return tuple(v / 12.92 if v <= 0.04045 else ((v + 0.055) / 1.055) ** 2.4 for v in c)
+
+
 def mat(name, rgb, metal=0.0, rough=0.55, emit=None, emit_strength=1.2):
     m = bpy.data.materials.new(name)
     m.use_nodes = True
     b = m.node_tree.nodes["Principled BSDF"]
-    b.inputs["Base Color"].default_value = (*rgb, 1.0)
+    b.inputs["Base Color"].default_value = (*srgb(*rgb), 1.0)
     b.inputs["Metallic"].default_value = metal
     b.inputs["Roughness"].default_value = rough
     if emit:
-        b.inputs["Emission Color"].default_value = (*emit, 1.0)
+        b.inputs["Emission Color"].default_value = (*srgb(*emit), 1.0)
         b.inputs["Emission Strength"].default_value = emit_strength
     return m
 
@@ -195,7 +214,12 @@ def a_warden_drone():
         a = math.radians(i * 120 + 30)
         cube(0.12, (math.cos(a) * 0.3, math.sin(a) * 0.3, 0.26), scale=(1.6, 0.5, 0.9),
              rot_z=a, material=mat("dl%d" % i, STEEL, 0.6, 0.45))
-    sphere(0.075, (0, 0.2, 0.46), segments=12, rings=8,
+    # The eye must clear the hull. At y=0.20 its centre sat 0.204 from the body centre
+    # against a body radius of 0.26, so all but a sliver was inside the sphere and it
+    # rendered at yaw 135/225 only — and the game draws every sprite at yaw 45, so
+    # in-game drones had no eye and an entirely black glow pass. Seated at 0.245 it
+    # protrudes about half its radius and reads from all four yaws.
+    sphere(0.075, (0, 0.245, 0.455), segments=12, rings=8,
            material=mat("de", (0.85, 0.25, 0.18), 0.0, 0.3,
                         emit=(1.0, 0.22, 0.12), emit_strength=1.3))
 
@@ -274,9 +298,13 @@ def setup_compositor(sc):
     sc.compositing_node_group = ng
     rl = ng.nodes.new("CompositorNodeRLayers")
     glare = ng.nodes.new("CompositorNodeGlare")
-    # Threshold sits above the lit-surface range so only genuine emitters bloom;
+    # This runs on the Emission pass, which already excludes lit surfaces, so the
+    # threshold only has to clear near-black. It was 0.55, chosen when the palette was
+    # being fed display values and every emitter was ~3x too bright in linear terms
+    # (see srgb()); at correct levels that muted the slot rings and anchor wards
+    # entirely. Emitters now land at 0.2–1.3 linear, so 0.08 separates cleanly.
     # Size is the spread in the 256px cell.
-    for k, v in (("Type", "Bloom"), ("Quality", "High"), ("Threshold", 0.55),
+    for k, v in (("Type", "Bloom"), ("Quality", "High"), ("Threshold", 0.08),
                  ("Strength", 1.0), ("Size", 7.0)):
         glare.inputs[k].default_value = v
     ng.links.new(rl.outputs["Emission"], glare.inputs["Image"])
