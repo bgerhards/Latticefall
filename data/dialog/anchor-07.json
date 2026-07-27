@@ -1,0 +1,51 @@
+{
+  "schema": "dialog",
+  "anchor": "anchor-07",
+  "lines": [
+    { "trigger": "brief", "speaker": "control",
+      "text": "Anchor thirty-eight. A hundred and six megawatts. Standard hold." },
+    { "trigger": "brief", "speaker": "vasquez",
+      "text": "Control, there are tracks on the approach. Boot tread, not ours." },
+    { "trigger": "brief", "speaker": "control",
+      "text": "Say again?" },
+    { "trigger": "brief", "speaker": "vasquez",
+      "text": "Boot tread. Two sizes. And a ration wrapper, printed, in a language I can read.",
+      "beat": "the reveal is a wrapper, not a firefight" },
+    { "trigger": "brief", "speaker": "okonkwo",
+      "text": "Months old. There's dust settled in the tread and the dust here settles slowly." },
+    { "trigger": "brief", "speaker": "control",
+      "text": "Log it and hold the anchor." },
+
+    { "trigger": "wave-start:1", "speaker": "okonkwo",
+      "text": "Somebody stood exactly where you're standing and did exactly this." },
+
+    { "trigger": "wave-clear:2", "speaker": "vasquez", "critical": false,
+      "text": "Then where are they." },
+    { "trigger": "wave-clear:2", "speaker": "okonkwo", "critical": false,
+      "text": "Not here. That's the part I'd think about." },
+
+    { "trigger": "wave-clear:5", "speaker": "okonkwo", "critical": false,
+      "text": "Their emplacement mounts are still bolted in. They took the guns and left the brackets." },
+    { "trigger": "wave-clear:5", "speaker": "vasquez", "critical": false,
+      "text": "That's a withdrawal, not a rout. Somebody packed." },
+
+    { "trigger": "brownout", "speaker": "okonkwo", "critical": false,
+      "text": "Bus is over. You know the cost by now." },
+
+    { "trigger": "first-leak", "speaker": "control", "critical": false,
+      "text": "One through." },
+
+    { "trigger": "low-lives", "speaker": "vasquez", "critical": false,
+      "text": "Losing the ring. Cut what isn't shooting." },
+
+    { "trigger": "debrief", "speaker": "vasquez",
+      "text": "Anchor's held. Control, I want a name for whoever was here." },
+    { "trigger": "debrief", "speaker": "control",
+      "text": "Nothing on file for this anchor." },
+    { "trigger": "debrief", "speaker": "vasquez",
+      "text": "That's not what I asked." },
+    { "trigger": "debrief", "speaker": "okonkwo",
+      "text": "They were here for months, Vasquez. Somebody filed something.",
+      "beat": "Sable Reach seeded without being named — the act ends before the answer" }
+  ]
+}
