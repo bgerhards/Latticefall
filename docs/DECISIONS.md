@@ -276,3 +276,44 @@ pitch page and this log, because it was written down once from memory and then t
 render pipeline now asserts the 128x64 tile measurement on every run rather than trusting a
 constant — see `tools/blender/render.py`. This is why the project rule is to verify against
 the installed tool, and it is the rule I broke.
+
+---
+
+## 018 — The scene tree is authored, and the gate asserts the game renders
+
+**Decided.** `scenes/main.tscn` authors its nodes — `AnchorView` (with a `GlowLayer`
+child), `Hud`, `DialogView` — instead of constructing them in `_ready()`. `anchor_view.gd`
+is a `@tool` script that draws the board in the editor. `tools/check.py` gains a
+**game renders** check that asserts the frame is not blank.
+
+**Context.** The scene file was a bare `Node2D` with one script and zero children;
+every node was built in code at `_ready()`. The game ran correctly — but opening the
+project showed an empty grey viewport and a scene dock revealing nothing, so a level
+could not be seen, inspected, or judged without pressing Run. It was reported as "the
+game does not work"; the game was fine, the editor was blind.
+
+The gate did not catch it because `check_godot_boots` runs `--headless` and greps only
+for script errors. A scene that renders nothing passes that perfectly. Measured on the
+real renderer: a healthy anchor-01 frame is **0.395** coverage / 79 tones, a board that
+failed to load is **0.031** / 29, and the old bare scene is **0.0000** / 1. The bar sits
+at 0.15 with room on both sides.
+
+**Rejected.**
+- *Leave it; the game runs.* The editor is where levels get authored. 23 anchors remain,
+  and laying out paths and slots against an invisible board is not workable.
+- *An `EditorPlugin` gizmo.* More machinery than a `@tool` `_draw()`, and it would live
+  outside the code that draws the real board — the two would drift.
+- *Route the preview through the `Content` autoload.* Godot instantiates an autoload in
+  the editor only when its script is `@tool`, and only at editor startup, so a
+  freshly-tool-ified singleton stays null until the project is reloaded and the preview
+  silently draws nothing. `scripts/anchor_data.gd` reads the JSON directly instead;
+  `Content` remains the single loader for actual play (decision 008).
+- *Decode the PNG in Python to measure coverage.* No Pillow here, and hand-rolling a
+  PNG un-filter is more code than having the renderer report its own statistic.
+
+**Consequence.** Children now `_ready()` before `Main` does, so the anchor cannot be
+chosen inside their `_ready()`. Setup is explicit: `view.boot()`, then `hud.bind()` and
+`dialog.bind()`, then `view.start()`. The editor preview also draws an authoring overlay
+— path direction arrows, IN/OUT markers, numbered slots — and `anchor_id` is a dropdown
+of the levels that exist. Runtime output is unchanged: the self-screenshot before and
+after the restructure is pixel-identical.

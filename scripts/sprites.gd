@@ -1,6 +1,10 @@
+@tool
 extends Node
 ## Autoload `Sprites`. Loads the rendered sprite library described by
 ## assets/renders/sprites.json.
+##
+## `@tool` for the same reason as content.gd: the editor board preview needs real
+## tile textures, and a non-tool autoload does not exist while editing.
 ##
 ## The manifest is written by tools/blender/render.py and carries the projection it
 ## was rendered at, so the game can assert that its own iso constants match the ones

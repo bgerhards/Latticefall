@@ -19,7 +19,11 @@ var _shown: float = 0.0
 var _hold: float = 0.0
 
 
-func _ready() -> void:
+func bind(v: Node2D) -> void:
+	## Built on an explicit call from main.gd rather than in _ready() — see hud.gd.
+	## The opening brief is fired by view.start(), which main.gd calls only after every
+	## listener is bound, so no line can be emitted before this node can hear it.
+	view = v
 	var root := Control.new()
 	root.set_anchors_preset(Control.PRESET_FULL_RECT)
 	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -44,8 +48,7 @@ func _ready() -> void:
 
 	_layout()
 	get_viewport().size_changed.connect(_layout)
-	if view:
-		view.dialog_trigger.connect(on_trigger)
+	view.dialog_trigger.connect(on_trigger)
 
 
 func _layout() -> void:
@@ -100,6 +103,8 @@ func _process(delta: float) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if _panel == null:
+		return                                   # not bound yet; nothing to advance
 	if event is InputEventKey and event.pressed and event.keycode == KEY_SPACE:
 		if _full != "" and _shown < float(_full.length()):
 			_shown = float(_full.length())

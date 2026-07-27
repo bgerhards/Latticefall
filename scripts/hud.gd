@@ -29,7 +29,11 @@ func _make_label(size: int, col: Color) -> Label:
 	return l
 
 
-func _ready() -> void:
+func bind(v: Node2D) -> void:
+	## Built on an explicit call from main.gd rather than in _ready(). This node is now
+	## an authored child of Main, so its _ready() runs *before* Main's — before the CLI
+	## has chosen an anchor and before the sim exists.
+	view = v
 	var root := Control.new()
 	root.set_anchors_preset(Control.PRESET_FULL_RECT)
 	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -80,7 +84,7 @@ func _ready() -> void:
 	bar.add_theme_constant_override("separation", 6)
 	root.add_child(bar)
 
-	for tid in Content.unlocked_at(view.anchor_id if view else "anchor-01"):
+	for tid in Content.unlocked_at(view.anchor_id):
 		var t: Dictionary = Content.tower(tid)
 		var b := Button.new()
 		b.text = "%s\n$%d · %d MW" % [t["name"], int(t["cost"]), int(t["draw_mw"])]
@@ -90,15 +94,13 @@ func _ready() -> void:
 		bar.add_child(b)
 		_buttons.append(b)
 
-	if view:
-		view.state_changed.connect(refresh)
-		view.wave_state.connect(func(_i, _n, _p): refresh())
+	view.state_changed.connect(refresh)
+	view.wave_state.connect(func(_i, _n, _p): refresh())
 	refresh()
 
 
 func _on_pick(tid: String) -> void:
-	if view:
-		view.select(tid)
+	view.select(tid)
 	refresh()
 
 

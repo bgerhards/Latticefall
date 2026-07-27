@@ -1,3 +1,4 @@
+@tool
 extends Node2D
 ## Playable anchor. Owns an AnchorSim and renders it.
 ##
@@ -5,18 +6,38 @@ extends Node2D
 ## is parity-tested against it on every commit. Nothing in this file may decide a
 ## rule — it drives the clock, draws the result, and turns clicks into calls.
 ##
-## Art is placeholder geometry. Sprites arrive as albedo + glow pairs (decision 007);
-## the glow layer will be modulated by bus load so brownout visibly dims the board.
+## Sprites are albedo + glow pairs (decision 007); the glow child layer is modulated
+## by bus load so a brownout visibly dims the board.
+##
+## `@tool` so the board draws in the editor. Before this, scenes/main.tscn was a bare
+## Node2D that built every node in _ready(), which meant opening the project showed an
+## empty grey viewport and a scene dock with one childless node — the level could not
+## be seen or judged without pressing Run. The editor path reads the anchor JSON and
+## draws tiles, path and slots only; it never constructs a sim, never touches Audio,
+## and never runs the clock.
 
 const AnchorSimScript := preload("res://scripts/anchor_sim.gd")
 const IsoScript := preload("res://scripts/iso.gd")
+const AnchorDataScript := preload("res://scripts/anchor_data.gd")
 
 signal state_changed
 signal dialog_trigger(trigger: String)
 signal wave_state(index: int, total: int, phase: String)
 
-@export var anchor_id: String = "anchor-01"
+@export var anchor_id: String = "anchor-01":
+	set(value):
+		anchor_id = value
+		if Engine.is_editor_hint():
+			_editor_refresh()
 @export var difficulty: String = "standard"
+
+
+func _validate_property(property: Dictionary) -> void:
+	## Turn anchor_id into a dropdown of the levels that actually exist, so switching
+	## the previewed anchor in the inspector cannot be misspelled.
+	if property.name == "anchor_id":
+		property.hint = PROPERTY_HINT_ENUM
+		property.hint_string = ",".join(AnchorDataScript.anchor_ids())
 
 var sim
 var selected_tower: String = ""
@@ -35,6 +56,24 @@ var glow_layer: Node2D
 
 
 func _ready() -> void:
+	glow_layer = get_node_or_null("GlowLayer")
+	set_process(false)
+	if Engine.is_editor_hint():
+		# A tool script would otherwise tick and take input inside the editor.
+		set_process_unhandled_input(false)
+		_editor_refresh()
+		return
+	set_process_unhandled_input(true)
+
+
+func boot(aid: String, diff: String) -> void:
+	## Called by main.gd after the CLI has been parsed, not from _ready().
+	##
+	## The scene now authors this node as a child of Main, so _ready() here runs
+	## *before* Main._ready() and therefore before `--anchor` has been read. Doing
+	## setup on an explicit call keeps the CLI able to choose the level.
+	anchor_id = aid
+	difficulty = diff
 	var anchor: Dictionary = Content.anchor(anchor_id)
 	if anchor.is_empty():
 		push_error("anchor_view: no data for %s" % anchor_id)
@@ -49,8 +88,17 @@ func _ready() -> void:
 	selected_tower = String(unlocked[0]) if unlocked.size() > 0 else ""
 
 	_centre()
-	set_process(false)
-	set_process_unhandled_input(true)
+	queue_redraw()
+
+
+func _editor_refresh() -> void:
+	## Editor-only. No sim, no audio, no clock — just re-centre and repaint.
+	if not is_inside_tree():
+		return
+	_centre()
+	queue_redraw()
+	if glow_layer:
+		glow_layer.queue_redraw()
 
 
 func autobuild() -> void:
@@ -80,20 +128,50 @@ func start() -> void:
 	set_process(true)
 
 
+func _anchor_data() -> Dictionary:
+	## The level, whether or not a sim exists. The editor preview has no sim, and no
+	## autoloads either, so it reads the file directly rather than through Content.
+	if sim != null:
+		return sim.anchor
+	if Engine.is_editor_hint():
+		return AnchorDataScript.anchor(anchor_id)
+	return Content.anchor(anchor_id)
+
+
+func _sprite_lib() -> Node:
+	## The Sprites autoload if it exists. It does not exist while editing unless the
+	## project has been reloaded since sprites.gd became a tool script, so every caller
+	## must cope with null and fall back to flat-colour drawing.
+	return get_node_or_null(^"/root/Sprites")
+
+
+func _tex(sprite_name: String, yaw: int, pass_name: String) -> Texture2D:
+	var lib := _sprite_lib()
+	if lib == null or not lib.ok:
+		return null
+	return lib.get_tex(sprite_name, yaw, pass_name)
+
+
 func _centre() -> void:
 	## Centre the board so the whole diamond fits the viewport.
-	var grid: Dictionary = Content.anchor(anchor_id).get("grid", {"w": 12, "h": 10})
+	var grid: Dictionary = _anchor_data().get("grid", {"w": 12, "h": 10})
 	var w: int = int(grid["w"])
 	var h: int = int(grid["h"])
-	var vp := get_viewport_rect().size
 	var mid := IsoScript.tile_to_screen(float(w) * 0.5, float(h) * 0.5)
+	if Engine.is_editor_hint():
+		# There is no game viewport while editing, and get_viewport_rect() would
+		# return the editor's. Hang the board off this node's own origin instead,
+		# so it is centred on wherever the node sits in the scene.
+		_origin = -mid
+		return
+	var vp := get_viewport_rect().size
 	_origin = Vector2(vp.x * 0.5, vp.y * 0.42) - mid
 
 
 # ─────────────────────────────────────────────────────────────── clock ──
 
 func _process(delta: float) -> void:
-	if _phase in ["done", "lost"]:
+	if sim == null or _phase in ["done", "lost"]:
 		return
 	_accum += minf(delta, 0.25)      # clamp so a stall cannot fast-forward the level
 	while _accum >= AnchorSimScript.DT:
@@ -249,11 +327,22 @@ func drawables() -> Array:
 
 
 func _draw() -> void:
-	if sim == null:
+	var anchor: Dictionary = _anchor_data()
+	if anchor.is_empty():
 		return
-	var anchor: Dictionary = sim.anchor
+	_draw_board(anchor)
+	if sim == null:
+		_draw_editor_overlay(anchor)     # no sim means we are previewing, not playing
+		return
+	_draw_hover()
+	_draw_entities()
+
+
+func _draw_board(anchor: Dictionary) -> void:
+	## The static level: ground, path and slot tiles. Shared by the running game and
+	## the editor preview so the two can never disagree about what a level looks like.
 	var grid: Dictionary = anchor["grid"]
-	var path_tiles := _path_tiles()
+	var path_tiles := _path_tiles(anchor)
 
 	var slot_set := {}
 	for slot in anchor["slots"]:
@@ -272,9 +361,9 @@ func _draw() -> void:
 				kind = "tile_path"
 			elif slot_set.has(cell):
 				kind = "tile_slot"
-			var tex: Texture2D = Sprites.get_tex(kind, 45, "albedo") if Sprites.ok else null
+			var tex: Texture2D = _tex(kind, 45, "albedo")
 			if tex != null:
-				draw_texture(tex, c - Sprites.pivot)
+				draw_texture(tex, c - _sprite_lib().pivot)
 			else:
 				var col := C_TILE if (x + y) % 2 == 0 else C_TILE_ALT
 				if path_tiles.has(cell):
@@ -283,25 +372,79 @@ func _draw() -> void:
 					col = C_SLOT
 				draw_colored_polygon(IsoScript.diamond(c, 0.98), col)
 
-	if slot_set.has(hovered_slot) and sim.free_slots.has(hovered_slot):
-		var hc := IsoScript.tile_to_screen(float(hovered_slot.x), float(hovered_slot.y)) + _origin
-		var ring := IsoScript.diamond(hc, 0.92)
-		draw_polyline(ring + PackedVector2Array([ring[0]]), C_AMBER, 2.0)
 
+func _draw_hover() -> void:
+	var anchor: Dictionary = sim.anchor
+	var is_slot := false
+	for slot in anchor["slots"]:
+		if Vector2i(int(slot[0]), int(slot[1])) == hovered_slot:
+			is_slot = true
+			break
+	if not is_slot or not sim.free_slots.has(hovered_slot):
+		return
+	var hc := IsoScript.tile_to_screen(float(hovered_slot.x), float(hovered_slot.y)) + _origin
+	var ring := IsoScript.diamond(hc, 0.92)
+	draw_polyline(ring + PackedVector2Array([ring[0]]), C_AMBER, 2.0)
+
+
+func _draw_entities() -> void:
 	var dim: float = 0.6 if sim.brownout else 1.0
 	for d in drawables():
-		var tex: Texture2D = Sprites.get_tex(d["sprite"], d["yaw"], "albedo") if Sprites.ok else null
+		var tex: Texture2D = _tex(d["sprite"], d["yaw"], "albedo")
 		if tex != null:
 			var tint := Color(1, 1, 1)
 			if d["kind"] == "tower" and not d["online"]:
 				tint = Color(0.45, 0.48, 0.5)      # offline reads as cold, not just unlit
-			draw_texture(tex, d["at"] - Sprites.pivot, tint)
+			draw_texture(tex, d["at"] - _sprite_lib().pivot, tint)
 			if d["kind"] == "unit":
 				_draw_health(d["ref"], d["at"])
 		elif d["kind"] == "tower":
 			_draw_tower(d["ref"], dim)
 		else:
 			_draw_unit(d["ref"])
+
+
+func _draw_editor_overlay(anchor: Dictionary) -> void:
+	## Authoring aid, editor only. Shows the things a level is actually made of —
+	## where units enter and leave, which way the path runs, and which tiles are
+	## buildable — so an anchor can be judged without running it.
+	var pts: Array = anchor.get("path", [])
+	if pts.size() >= 2:
+		var line := PackedVector2Array()
+		for p in pts:
+			line.append(IsoScript.tile_to_screen(float(p[0]), float(p[1])) + _origin)
+		draw_polyline(line, Color(C_AMBER, 0.55), 3.0)
+		for i in range(pts.size() - 1):
+			_draw_arrow(line[i], line[i + 1])
+		_draw_marker(line[0], C_VERD, "IN")
+		_draw_marker(line[line.size() - 1], C_ALERT, "OUT")
+
+	for i in range(anchor.get("slots", []).size()):
+		var slot: Array = anchor["slots"][i]
+		var c := IsoScript.tile_to_screen(float(slot[0]), float(slot[1])) + _origin
+		var ring := IsoScript.diamond(c, 0.88)
+		draw_polyline(ring + PackedVector2Array([ring[0]]), Color(C_VERD, 0.9), 2.0)
+		_label(c + Vector2(0, 4), str(i + 1), Color(C_VERD, 0.9))
+
+
+func _draw_arrow(a: Vector2, b: Vector2) -> void:
+	var mid := (a + b) * 0.5
+	var dir := (b - a).normalized()
+	var perp := Vector2(-dir.y, dir.x)
+	draw_colored_polygon(PackedVector2Array([
+		mid + dir * 9.0, mid - dir * 5.0 + perp * 5.0, mid - dir * 5.0 - perp * 5.0,
+	]), Color(C_AMBER, 0.85))
+
+
+func _draw_marker(c: Vector2, col: Color, text: String) -> void:
+	draw_circle(c, 9.0, Color(col, 0.85))
+	_label(c + Vector2(0, -16), text, col)
+
+
+func _label(c: Vector2, text: String, col: Color) -> void:
+	var font := ThemeDB.fallback_font
+	var w := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x
+	draw_string(font, c - Vector2(w * 0.5, 0), text, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, col)
 
 
 func _draw_tower(p: Dictionary, dim: float) -> void:
@@ -339,9 +482,9 @@ func _draw_unit(u: Dictionary) -> void:
 	draw_rect(Rect2(c + Vector2(-10, -24), Vector2(20.0 * frac, 3)), C_VERD)
 
 
-func _path_tiles() -> Dictionary:
+func _path_tiles(anchor: Dictionary) -> Dictionary:
 	var out := {}
-	var pts: Array = sim.anchor["path"]
+	var pts: Array = anchor["path"]
 	for i in range(pts.size() - 1):
 		var a := Vector2i(int(pts[i][0]), int(pts[i][1]))
 		var b := Vector2i(int(pts[i + 1][0]), int(pts[i + 1][1]))

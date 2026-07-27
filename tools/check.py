@@ -191,6 +191,47 @@ def check_godot_boots() -> Result:
     return Result(OK, "main scene loads clean")
 
 
+def check_game_renders() -> Result:
+    """Run the real renderer and assert the frame is not blank.
+
+    `check_godot_boots` runs headless and only greps for script errors, so it passes
+    happily on a scene that draws nothing at all — which is how scenes/main.tscn stayed
+    a childless Node2D for several sessions while the gate stayed green. The build
+    reports `FRAME coverage=… distinct=…` alongside its self-screenshot; measured here,
+    a healthy anchor-01 frame is ~0.39 coverage and a board that failed to load is
+    ~0.03, so the bar sits between them with room on both sides.
+
+    This needs a real window: GL Compatibility headless renders nothing to read back.
+    """
+    godot = "/Applications/Godot.app/Contents/MacOS/Godot"
+    if not Path(godot).exists():
+        return Result(SKIP, "godot not installed")
+
+    MIN_COVERAGE, MIN_DISTINCT = 0.15, 12
+    shot = ROOT / ".godot" / "gate-frame.png"
+    shot.parent.mkdir(parents=True, exist_ok=True)
+    r = run(godot, "--path", str(ROOT), "--fixed-fps", "60",
+            "--", "--shot", str(shot), "120")
+    blob = r.stdout + r.stderr
+
+    line = next((l for l in blob.splitlines() if l.startswith("FRAME ")), "")
+    if not line:
+        return Result(FAIL, "build never reported a frame — it did not reach the shot:\n"
+                            + blob.strip()[-800:])
+    try:
+        coverage = float(line.split("coverage=")[1].split()[0])
+        distinct = int(line.split("distinct=")[1].split()[0])
+    except (IndexError, ValueError):
+        return Result(FAIL, f"could not parse frame stats: {line!r}")
+
+    if coverage < MIN_COVERAGE or distinct < MIN_DISTINCT:
+        return Result(FAIL,
+                      f"frame is effectively blank: coverage={coverage:.4f} "
+                      f"(min {MIN_COVERAGE}), distinct={distinct} (min {MIN_DISTINCT})")
+    shot.unlink(missing_ok=True)
+    return Result(OK, f"coverage {coverage:.2f}, {distinct} tones")
+
+
 def check_rules_parity() -> Result:
     """The rules exist twice, in Python and GDScript. Prove they agree.
 
@@ -218,6 +259,7 @@ CHECKS = [
     ("backlog rendered",  check_backlog_rendered),
     ("sim determinism",   check_sim),
     ("godot boots",       check_godot_boots),
+    ("game renders",      check_game_renders),
     ("rules parity",      check_rules_parity),
 ]
 
