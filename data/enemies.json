@@ -1,0 +1,21 @@
+{
+  "schema": "enemies",
+  "enemies": [
+    { "id": "warden-drone", "name": "Warden Drone", "faction": "ordinal",
+      "hp": 40, "speed": 1.1, "bounty": 12, "kind": "ground",
+      "note": "Act I baseline. Indifferent, not malicious." },
+
+    { "id": "warden-heavy", "name": "Warden Heavy", "faction": "ordinal",
+      "hp": 220, "speed": 0.6, "bounty": 40, "kind": "ground", "armour": 4,
+      "note": "Armour makes fire rate matter less than damage per shot." },
+
+    { "id": "warden-mote", "name": "Warden Mote", "faction": "ordinal",
+      "hp": 22, "speed": 1.9, "bounty": 8, "kind": "air",
+      "note": "Invisible without a scan relay — the reason cutting the relay has a cost." },
+
+    { "id": "reach-breacher", "name": "Reach Breacher", "faction": "sable-reach",
+      "hp": 160, "speed": 1.0, "bounty": 35, "kind": "ground", "shielded": true,
+      "drains_mw": 6,
+      "note": "Act II. Drains the bus while alive — the enemy attacks your economy directly." }
+  ]
+}

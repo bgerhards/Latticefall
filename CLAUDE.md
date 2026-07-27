@@ -1,0 +1,131 @@
+# LATTICEFALL
+
+Isometric tower defense. Godot 4.7.1, GL Compatibility renderer. Sprites are rendered
+out of Blender 5.2 LTS, not drawn.
+
+**Read `docs/STATE.md` first every session.** It says what is in flight. This file says
+how to work; that file says where we are.
+
+---
+
+## The game in five lines
+
+- You hold transit anchors on a precursor network humanity did not build and cannot switch off.
+- Emplacements cost money to build and **draw continuous power** to run. Power is the real currency.
+- Exceeding reactor capacity browns the whole bus out: −40% fire rate, not a blocked build.
+- 24 anchors, 3 acts. Each act introduces one antagonist, one biome, one power tier, and one
+  mechanic that invalidates the previous act's dominant strategy.
+- Grounded military sci-fi. Professionals doing dangerous technical work. Dry, not heroic.
+
+## Non-negotiables
+
+| Rule | Why |
+|---|---|
+| Never use terminology from the influencing series | Legal. See `docs/NOMENCLATURE.md` — it has a **banned list**. Check it before naming anything. |
+| Game content is data, not code | A level, wave, tower, or dialog line is a JSON file validated against a schema. Lets balance run headless and lets one anchor be edited without loading the codebase. |
+| Verify against the installed tool, never from memory | Blender 5.2 removed `scene.node_tree` and turned Glare's settings into sockets. Assumed API costs a full re-render of every asset. Probe first. |
+| Every asset is reproducible from a script | `.blend` files and render scripts are the source. Rendered PNGs are build output that happens to be committed. |
+| Loudness-match audio, never peak-normalize | Peak normalization is why programmer audio sounds flat. |
+
+---
+
+## Layout
+
+```
+data/            game content — the source of truth for everything tunable
+  schema/        JSON Schema for each content type; CI validates against these
+  towers.json    emplacement definitions (cost, draw, damage, range)
+  enemies.json   unit definitions
+  anchors/       one file per level: anchor-01.json … anchor-24.json
+  dialog/        one file per level, keyed by trigger
+sim/             headless combat simulation — pure Python, no Godot, no rendering
+tools/           deterministic scripts. Everything here is runnable and idempotent.
+  audio/         synth, ingest, soundboard, loop audition
+  blender/       sprite render pipeline
+  validate/      schema + data integrity checks
+assets/
+  audio/{sfx,music}/     committed build output
+  renders/               committed sprite output
+  blend/                 .blend sources
+scenes/, scripts/        Godot
+docs/            STATE, BACKLOG, DECISIONS, NOMENCLATURE, STORY
+```
+
+## Commands
+
+```bash
+.venv/bin/python tools/check.py                    # the gate. run before every commit.
+.venv/bin/python tools/backlog.py add "..." --kind bug --area audio
+.venv/bin/python tools/validate/validate_data.py   # schemas + cross-references
+.venv/bin/python tools/audio/synth_sfx.py          # rebuild SFX bank
+.venv/bin/python tools/audio/ingest_music.py       # rebuild music from masters
+.venv/bin/python tools/audio/serve.py              # loop audition page
+tools/blender/render.sh <asset>                    # render one asset, all 4 yaws
+```
+
+`tools/check.py` is the single gate: schema validation, data cross-references, sim
+determinism, asset manifest integrity, Python syntax. **If it fails, do not commit.**
+
+---
+
+## Art pipeline facts (verified on this machine — do not re-derive)
+
+- **True 2:1 isometric.** Camera elevation is `atan(1/2)` = **26.5651°**, orthographic.
+  Every asset renders at yaw 45 / 135 / 225 / 315.
+- Blender 5.2 registers **only `BLENDER_EEVEE`**. Cycles is not enabled and is not wanted.
+- `scene.node_tree` **does not exist**. The compositor is `scene.compositing_node_group`,
+  a `CompositorNodeTree`, terminated by `NodeGroupOutput` — `CompositorNodeComposite` is gone.
+- Glare node settings are **input sockets**, not Python properties. Values are title-case
+  strings: `Type="Bloom"`, `Quality="High"`.
+- The emission render pass socket is named **`Emission`** (enable `view_layer.use_pass_emit`).
+- `CompositorNodeOutputFile` has `directory`/`file_name`/`file_output_items` — not
+  `base_path`/`file_slots` — and its node-level format only accepts `OPEN_EXR_MULTILAYER`.
+- Set `view_settings.view_transform = 'Standard'` so sprite colour matches in-engine colour.
+
+**Glow is never baked into a sprite.** Each asset renders twice: albedo with compositing
+*off*, glow with compositing *on* through Glare on the Emission pass. Godot draws the glow
+layer additively and modulates it by bus load — so brownout visibly dims every emissive
+element in the game. A baked glow cannot dim, and bleeds past the alpha silhouette.
+
+## Audio pipeline facts
+
+- ffmpeg here has **no libvorbis** — only the experimental native `vorbis`. Encode Vorbis
+  with libsndfile (`soundfile`), and **stream it in blocks**: libsndfile segfaults on a
+  single multi-million-frame write.
+- Music masters are **not in git** (415 MB vs a 1 GB LFS quota). They live in
+  `~/Latticefall-masters/`, verified by the SHA-256 in `assets/audio/music_manifest.json`.
+- Loops are baked: the tail splice best correlating with the head, then an equal-power
+  crossfade. No engine-side loop logic.
+- Automated seam metrics **do not** describe loop quality here — the crossfade joins samples
+  already adjacent in the source, so the seam is continuous by construction. Judge by ear
+  with the loop audition page. Do not "improve" the splice scorer against a seam number.
+
+---
+
+## Working agreement
+
+**Backlog before work.** Anything discovered mid-task that isn't part of the current task
+goes in the backlog, not into the current change. `tools/backlog.py add`.
+
+**Decisions are append-only.** `docs/DECISIONS.md` holds one entry per real decision with
+its rejected alternatives. If a question feels already-settled, it is in there — read it
+rather than re-opening it. Add an entry when a decision is made, never edit an old one;
+supersede it with a new entry that references it.
+
+**State before context.** Long sessions get summarized. `docs/STATE.md` is what survives —
+keep it current, and write it for someone with no memory of the conversation.
+
+**Report faithfully.** If a check fails, say so with the output. If something was skipped,
+say it was skipped. Half the value of the tooling here is that it makes claims falsifiable.
+
+**Scope discipline.** Finish the whole task; if part is blocked, finish everything else and
+say plainly what was left and why.
+
+## Conventions
+
+- Python: stdlib + numpy/soundfile only, type hints on function signatures, module
+  docstring explaining *why* the file exists. Scripts are idempotent and safe to re-run.
+- GDScript: `snake_case` members, `PascalCase` classes, typed vars, signals over polling.
+- Data: `snake_case` keys, IDs are `kebab-case`, every file has `"schema"` naming its schema.
+- Commits: conventional prefix, subject under 72 chars, body explains *why* and lists any
+  API traps discovered so the next session does not rediscover them.

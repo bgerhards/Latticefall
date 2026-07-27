@@ -1,0 +1,29 @@
+{
+  "schema": "towers",
+  "towers": [
+    { "id": "pulse-turret", "name": "Pulse Turret", "cost": 100, "draw_mw": 12,
+      "damage": 9, "range": 3.2, "fire_interval": 0.75, "targets": ["ground"],
+      "unlocked_at": "anchor-01",
+      "note": "Baseline. Cheap to run — the one you leave online during a brownout." },
+
+    { "id": "arc-node", "name": "Arc Node", "cost": 190, "draw_mw": 26,
+      "damage": 6, "range": 2.6, "fire_interval": 0.4, "targets": ["ground", "air"],
+      "unlocked_at": "anchor-03",
+      "note": "Chains. Draw is high enough that two of them force a real decision." },
+
+    { "id": "ion-lance", "name": "Ion Lance", "cost": 320, "draw_mw": 34,
+      "damage": 48, "range": 5.5, "fire_interval": 2.4, "targets": ["ground", "shielded"],
+      "unlocked_at": "anchor-06",
+      "note": "Only reliable answer to shielded units. Cannot be left running casually." },
+
+    { "id": "shield-wall", "name": "Shield Wall", "cost": 240, "draw_mw": 40,
+      "damage": 0, "range": 2.0, "fire_interval": 1.0, "targets": ["ground"],
+      "unlocked_at": "anchor-04",
+      "note": "Blocks leaks. The single biggest draw in Act I — bringing it up browns out a small bus." },
+
+    { "id": "scan-relay", "name": "Scan Relay", "cost": 80, "draw_mw": 8,
+      "damage": 0, "range": 6.0, "fire_interval": 1.0, "targets": ["air"],
+      "unlocked_at": "anchor-02",
+      "note": "Reveals air and shielded units. First thing players learn to cut mid-wave." }
+  ]
+}

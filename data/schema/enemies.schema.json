@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Enemy definitions",
+  "type": "object",
+  "required": ["schema", "enemies"],
+  "properties": {
+    "schema": {"const": "enemies"},
+    "enemies": {
+      "type": "array", "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "name", "faction", "hp", "speed", "bounty", "kind"],
+        "additionalProperties": false,
+        "properties": {
+          "id": {"type": "string", "pattern": "^[a-z][a-z0-9-]*$"},
+          "name": {"type": "string"},
+          "faction": {"enum": ["ordinal", "sable-reach", "hollow"]},
+          "hp": {"type": "number", "exclusiveMinimum": 0},
+          "speed": {"type": "number", "exclusiveMinimum": 0, "description": "tiles/sec"},
+          "bounty": {"type": "integer", "minimum": 0},
+          "kind": {"enum": ["ground", "air"]},
+          "armour": {"type": "number", "minimum": 0, "description": "flat damage reduction"},
+          "shielded": {"type": "boolean"},
+          "drains_mw": {"type": "number", "minimum": 0,
+                        "description": "MW stolen from the bus while alive. Act II+."},
+          "note": {"type": "string"}
+        }
+      }
+    }
+  }
+}

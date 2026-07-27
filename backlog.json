@@ -1,0 +1,161 @@
+{
+  "next_id": 14,
+  "items": [
+    {
+      "id": "LF-001",
+      "title": "Godot: no gameplay code exists yet \u2014 engine layer is empty",
+      "kind": "feature",
+      "area": "engine",
+      "pri": "blocker",
+      "status": "open",
+      "why": "Everything so far is pipeline. The game itself is unstarted.",
+      "opened": "2026-07-26",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-002",
+      "title": "Headless combat sim not written",
+      "kind": "feature",
+      "area": "engine",
+      "pri": "blocker",
+      "status": "open",
+      "why": "Decision 003 depends on grading anchors without rendering.",
+      "opened": "2026-07-26",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-003",
+      "title": "Productionize Blender render pipeline from validation script",
+      "kind": "feature",
+      "area": "art",
+      "pri": "high",
+      "status": "open",
+      "why": "render_props.py is a proof, not a pipeline. Needs 4 yaws, albedo+glow, manifest.",
+      "opened": "2026-07-26",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-004",
+      "title": "No sprite atlas packer",
+      "kind": "feature",
+      "area": "art",
+      "pri": "high",
+      "status": "open",
+      "why": "",
+      "opened": "2026-07-26",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-005",
+      "title": "Source the 12 organic CC0 SFX",
+      "kind": "chore",
+      "area": "audio",
+      "pri": "med",
+      "status": "open",
+      "why": "Synthesis cannot fake footsteps, debris, weather, voices.",
+      "opened": "2026-07-26",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-006",
+      "title": "Write dialog for all 24 anchors",
+      "kind": "feature",
+      "area": "story",
+      "pri": "high",
+      "status": "open",
+      "why": "Nomenclature bible now exists, so writing is unblocked.",
+      "opened": "2026-07-26",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-007",
+      "title": "Godot .import settings for music loop flags not generated",
+      "kind": "chore",
+      "area": "audio",
+      "pri": "med",
+      "status": "open",
+      "why": "",
+      "opened": "2026-07-26",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-008",
+      "title": "IBM Plex Mono/Sans Condensed not vendored",
+      "kind": "chore",
+      "area": "build",
+      "pri": "med",
+      "status": "open",
+      "why": "OFL, redistributable. UI depends on it.",
+      "opened": "2026-07-26",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-009",
+      "title": "No save system or meta-progression",
+      "kind": "feature",
+      "area": "engine",
+      "pri": "med",
+      "status": "open",
+      "why": "",
+      "opened": "2026-07-26",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-010",
+      "title": "Gamepad support deferred until content-complete",
+      "kind": "feature",
+      "area": "engine",
+      "pri": "low",
+      "status": "open",
+      "why": "",
+      "opened": "2026-07-26",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-011",
+      "title": "A2-CMB seam 0.00749 is second-highest of the set",
+      "kind": "polish",
+      "area": "audio",
+      "pri": "low",
+      "status": "done",
+      "why": "Within range of the others; listen again if it ever ticks.",
+      "opened": "2026-07-26",
+      "closed": "2026-07-26",
+      "note": "user auditioned all loops, judged fine"
+    },
+    {
+      "id": "LF-012",
+      "title": "Blender emissive/bloom unwired",
+      "kind": "bug",
+      "area": "art",
+      "pri": "high",
+      "status": "done",
+      "why": "",
+      "opened": "2026-07-26",
+      "closed": "2026-07-26",
+      "note": "resolved: separate glow layer, decision 007"
+    },
+    {
+      "id": "LF-013",
+      "title": "git-lfs not installed",
+      "kind": "risk",
+      "area": "build",
+      "pri": "blocker",
+      "status": "done",
+      "why": "",
+      "opened": "2026-07-26",
+      "closed": "2026-07-26",
+      "note": "installed; masters later removed from git per decision 012"
+    }
+  ]
+}

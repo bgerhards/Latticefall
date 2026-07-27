@@ -1,0 +1,37 @@
+{
+  "schema": "dialog",
+  "anchor": "anchor-01",
+  "lines": [
+    { "trigger": "brief", "speaker": "control",
+      "text": "Meridian, you're through. Anchor reads stable. Local reactor is live and has been live for eleven years." },
+    { "trigger": "brief", "speaker": "okonkwo",
+      "text": "Eleven years of somebody's power bill and nobody home. That bothers me more than the wardens do." },
+    { "trigger": "brief", "speaker": "vasquez",
+      "text": "Bother me about it after. Sixty megawatts, that's the whole budget?" },
+    { "trigger": "brief", "speaker": "okonkwo",
+      "text": "That's the whole budget. Build what you can run, not what you can afford.",
+      "beat": "teaches the hook without saying the word tutorial" },
+
+    { "trigger": "wave-start:1", "speaker": "control",
+      "text": "Contact. Ordinal constructs, low threat profile. They're not coming for you — they're coming for the ring." },
+
+    { "trigger": "wave-clear:2", "speaker": "vasquez", "critical": false,
+      "text": "They don't flank. They don't stop. What are these things for?" },
+    { "trigger": "wave-clear:2", "speaker": "okonkwo", "critical": false,
+      "text": "Containment. They're executing an order. I'd like to know what it was about." },
+
+    { "trigger": "brownout", "speaker": "okonkwo", "critical": false,
+      "text": "Bus is over. Everything you own just got slower — pick something and cut it." },
+
+    { "trigger": "first-leak", "speaker": "control", "critical": false,
+      "text": "One through. Ring integrity holding. Don't make a habit of it." },
+
+    { "trigger": "debrief", "speaker": "vasquez",
+      "text": "Anchor's ours. Okonkwo, the containment order — can you read it?" },
+    { "trigger": "debrief", "speaker": "okonkwo",
+      "text": "Some of it. It names a thing, and then it names sixty other anchors. This one is number four.",
+      "beat": "the campaign's actual premise, delivered flatly" },
+    { "trigger": "debrief", "speaker": "vasquez",
+      "text": "Number four of sixty." }
+  ]
+}
