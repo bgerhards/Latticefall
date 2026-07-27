@@ -499,3 +499,39 @@ re-costed to 26 MW / range 3.6 / 0.28 slow against the corrected harness — see
 confounding variable in every experiment that uses it. Any future analysis built on it has
 to hold slot assignment constant across the boards being compared, or say plainly which
 positions each board got.
+
+---
+
+## 024 — An emplacement's worth is reach x output, not damage per megawatt
+
+**Correction to my own analysis, recorded because it nearly cost a rebalance of the
+tower table.**
+
+While anchor-06 refused to grade clean, I measured damage per megawatt against armour and
+concluded the ion lance was strictly dominated: 18.3 dps on 34 MW (0.54/MW) against the
+pulse turret's 6.7 dps on 12 MW (0.56/MW) — the designated anti-armour unlock, worse at
+armour than the starter gun, at three times the funds and draw. That was filed as LF-033
+and I was about to raise its damage from 48 to 66.
+
+**The arithmetic was right and the metric was wrong.** Damage per megawatt ignores how much
+path an emplacement can *reach*, and reach is the ion lance's entire identity — 5.5 against
+the pulse turret's 3.2. My first anchor-06 was a sprawling 34-tile path with slots strung
+along it, where no emplacement could cover more than one stretch, so the only thing that
+mattered was how many guns you could afford. That board is won by whoever buys the most
+emplacements, which is always the cheapest one. Expensive towers lost on every setting
+swept, at every capacity, at every wave weight.
+
+Rebuilt as a compact serpentine — four lanes three tiles apart inside a 13x11 grid — a
+central slot reaches two lanes with a 3.2 range and **all four** with the lance's 5.5. With
+the lance's stats **completely unchanged**, every configuration swept graded clean, 3–5
+distinct winning builds at every difficulty, and the lance-led `burst` policy wins standard
+and hard. LF-033 dropped, not fixed: there was nothing wrong with the lance.
+
+**The rule to author by.** Path shape decides which stat matters. A long, thin, spread-out
+path rewards cheap mass and makes every premium emplacement bad regardless of its numbers.
+A folded path with lanes inside a long weapon's radius is what makes range worth paying
+for. Before concluding an emplacement is mis-costed, check whether any level in the game
+lets it use the thing it is expensive for.
+
+Related: decision 023, where a different harness artefact produced a different wrong
+conclusion about the shield wall. Both times the level, not the tower, was the variable.

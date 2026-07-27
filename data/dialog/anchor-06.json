@@ -1,0 +1,51 @@
+{
+  "schema": "dialog",
+  "anchor": "anchor-06",
+  "lines": [
+    { "trigger": "brief", "speaker": "control",
+      "text": "Anchor thirty-one. A hundred and four megawatts. Be advised there's a korrite seam under the deck plate — that's why this one got funded." },
+    { "trigger": "brief", "speaker": "vasquez",
+      "text": "So the other thirty were charity." },
+    { "trigger": "brief", "speaker": "control",
+      "text": "The other thirty were strategic. This one pays for the other thirty." },
+    { "trigger": "brief", "speaker": "okonkwo",
+      "text": "Ion lance is cleared. Thirty-four megawatts, and it reaches across four lanes from the middle of this board — that's what you're buying, not the damage.",
+      "beat": "names the lance's real differentiator: reach, not damage per megawatt" },
+    { "trigger": "brief", "speaker": "vasquez",
+      "text": "Understood. Everyone watch the footing, the deck's been cut open." },
+
+    { "trigger": "wave-start:1", "speaker": "control",
+      "text": "Contact. They're routing round the seam, not through it." },
+
+    { "trigger": "wave-clear:2", "speaker": "vasquez", "critical": false,
+      "text": "They won't cross the cut. Why won't they cross the cut?" },
+    { "trigger": "wave-clear:2", "speaker": "okonkwo", "critical": false,
+      "text": "Because we made it. They only have routes for what was here when the order was written." },
+
+    { "trigger": "wave-clear:4", "speaker": "okonkwo", "critical": false,
+      "text": "Somebody's already taken about nine tonnes out of this seam. The cut faces are old." },
+    { "trigger": "wave-clear:4", "speaker": "vasquez", "critical": false,
+      "text": "Ours?" },
+    { "trigger": "wave-clear:4", "speaker": "okonkwo", "critical": false,
+      "text": "Not ours." },
+
+    { "trigger": "brownout", "speaker": "okonkwo", "critical": false,
+      "text": "The lance is heavy on the bus. You're over — everything's firing slower to pay for it." },
+
+    { "trigger": "first-leak", "speaker": "control", "critical": false,
+      "text": "One through. Seam's intact." },
+
+    { "trigger": "low-lives", "speaker": "vasquez", "critical": false,
+      "text": "Ring first. The rock can wait." },
+
+    { "trigger": "debrief", "speaker": "control",
+      "text": "Good work. Survey team's inbound for the seam." },
+    { "trigger": "debrief", "speaker": "vasquez",
+      "text": "Control, the seam's been worked. Old faces, clean cuts, not Ordinal." },
+    { "trigger": "debrief", "speaker": "control",
+      "text": "Understood. Survey team's still inbound.",
+      "beat": "Control does not engage — the first time the chain of command is visibly not telling them something" },
+    { "trigger": "debrief", "speaker": "okonkwo",
+      "text": "That's a no, then." }
+  ]
+}

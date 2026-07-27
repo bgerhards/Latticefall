@@ -391,10 +391,10 @@
       "kind": "bug",
       "area": "design",
       "pri": "high",
-      "status": "open",
+      "status": "dropped",
       "why": "Measured: vs plate-4 the lance does 18.3 dps on 34 MW (0.54 per MW), the pulse turret 6.7 dps on 12 MW (0.56 per MW). The designated anti-armour unlock is worse at armour than the starter gun, while costing 3x the funds and draw so it buys fewer emplacements covering less path. Same class as LF-032. Raising damage to 66 fixes brutal but hard still grades single-solution",
       "opened": "2026-07-27",
-      "closed": null,
+      "closed": "2026-07-27",
       "note": ""
     },
     {
@@ -403,11 +403,11 @@
       "kind": "chore",
       "area": "data",
       "pri": "high",
-      "status": "open",
+      "status": "done",
       "why": "Layout is good (path 34 tiles, all 10 slots within 2.0 of the path; WIP JSON kept out of data/ deliberately). Blocked on LF-033: with the lance dominated, cheap-mass is the only build that clears hard, so the level grades single-solution at every weight swept. Fix the lance first, then re-sweep",
       "opened": "2026-07-27",
-      "closed": null,
-      "note": ""
+      "closed": "2026-07-27",
+      "note": "closed at 6c78fc1"
     }
   ]
 }
