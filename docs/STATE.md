@@ -83,18 +83,18 @@ Recorded so they are not rediscovered. Full detail in `CLAUDE.md`.
 ### Gate
 
 ```
-[  ok  ] python syntax            99ms  18 files
-[  ok  ] json parses              33ms  
-[  ok  ] game data                87ms  no warnings
-[  ok  ] banned terms            131ms  56 files clean
-[  ok  ] sfx determinism         118ms  ui_confirm byte-identical
+[  ok  ] python syntax           105ms  19 files
+[  ok  ] json parses              37ms  
+[  ok  ] game data                85ms  no warnings
+[  ok  ] banned terms            151ms  59 files clean
+[  ok  ] sfx determinism         101ms  ui_confirm byte-identical
 [  ok  ] music manifest            0ms  14 tracks
-[  ok  ] backlog rendered          0ms  15 open
-[  ok  ] sim determinism        1762ms  deterministic
-[  ok  ] godot boots            1336ms  main scene loads clean
-[  ok  ] rules parity           2991ms  18 runs identical (gdscript vs python)
+[  ok  ] backlog rendered          0ms  17 open
+[  ok  ] sim determinism        1765ms  deterministic
+[  ok  ] godot boots            1043ms  main scene loads clean
+[  ok  ] rules parity           2970ms  18 runs identical (gdscript vs python)
 
-10 passed · 0 failed · 0 skipped · 6557ms
+10 passed · 0 failed · 0 skipped · 6257ms
 ```
 
 ### Inventory
@@ -105,8 +105,8 @@ Recorded so they are not rediscovered. Full detail in `CLAUDE.md`.
 | dialog files | 1 |
 | sfx | 35 of ~60 |
 | music tracks | 14 of 14 |
-| sprite renders | 85 |
-| godot scripts | 9 |
+| sprite renders | 86 |
+| godot scripts | 11 |
 | godot scenes | 1 |
 
 ### Anchor grades
@@ -119,12 +119,11 @@ Recorded so they are not rediscovered. Full detail in `CLAUDE.md`.
 
 ### Backlog
 
-15 open · 6 closed
+17 open · 7 closed
 
 - `high` LF-004 No sprite atlas packer
 - `high` LF-006 Write dialog for all 24 anchors
 - `high` LF-014 Brownout is never a rational choice with homogeneous towers
-- `high` LF-016 Sprites: board and units are placeholder polygons
 - `high` LF-017 No main menu, level select, or between-anchor flow
 - `med` LF-005 Source the 12 organic CC0 SFX
 - `med` LF-007 Godot .import settings for music loop flags not generated
@@ -134,12 +133,16 @@ Recorded so they are not rediscovered. Full detail in `CLAUDE.md`.
 - `med` LF-019 Emplacements cannot be sold or upgraded
 - `med` LF-020 Sprite emissives still over-driven; drone eye reads white not red
 - `med` LF-021 Anchor ring, heavy and mote need silhouette pass at 100% zoom
+- `med` LF-022 Turret muzzle emissive clips to white
+- `med` LF-023 Board tiles read light grey against the dark UI
+- `med` LF-024 No contact shadow under units or emplacements
 - `low` LF-010 Gamepad support deferred until content-complete
 - `low` LF-018 Unfocused Godot window is throttled — verification must use --fixed-fps
 
 ### Recent commits
 
 ```
+c858604 fix: iso camera elevation is 30deg, not atan(1/2); add sprite pipeline
 94f8ad4 feat(engine): anchor-01 playable end to end
 45241ef feat(engine): GDScript rules core + Python/GDScript parity gate
 1b2684e docs: correct wave count in STATE
@@ -147,7 +150,6 @@ Recorded so they are not rediscovered. Full detail in `CLAUDE.md`.
 c210a6c feat: project foundation — CLAUDE.md, agents, skills, gate, backlog, content schemas
 e7e775d feat(audio): loop audition page + local server
 cbb32a1 fix(audio): re-ingest A2-CMB from replaced master; manifest merge; loop-check tool
-8afa5a4 chore(audio): stop versioning WAV masters
 ```
 
 <!-- END AUTO -->

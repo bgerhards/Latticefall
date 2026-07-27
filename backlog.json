@@ -1,5 +1,5 @@
 {
-  "next_id": 22,
+  "next_id": 25,
   "items": [
     {
       "id": "LF-001",
@@ -187,11 +187,11 @@
       "kind": "feature",
       "area": "art",
       "pri": "high",
-      "status": "open",
+      "status": "done",
       "why": "Game is playable but looks like a prototype. Blocked on LF-003 (render pipeline) and LF-004 (atlas).",
       "opened": "2026-07-26",
-      "closed": null,
-      "note": ""
+      "closed": "2026-07-27",
+      "note": "sprites wired; board, emplacements, units and additive glow all rendered"
     },
     {
       "id": "LF-017",
@@ -249,6 +249,42 @@
       "pri": "med",
       "status": "open",
       "why": "They read at contact-sheet size; not verified at in-game size on both light and dark tiles.",
+      "opened": "2026-07-27",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-022",
+      "title": "Turret muzzle emissive clips to white",
+      "kind": "polish",
+      "area": "art",
+      "pri": "med",
+      "status": "open",
+      "why": "Amber (1.0,0.62,0.15) at any strength >1 clips the red channel. Needs a desaturated emissive colour, not a lower strength.",
+      "opened": "2026-07-27",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-023",
+      "title": "Board tiles read light grey against the dark UI",
+      "kind": "polish",
+      "area": "art",
+      "pri": "med",
+      "status": "open",
+      "why": "",
+      "opened": "2026-07-27",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-024",
+      "title": "No contact shadow under units or emplacements",
+      "kind": "polish",
+      "area": "art",
+      "pri": "med",
+      "status": "open",
+      "why": "Nothing is grounded; units look like they float over the board.",
       "opened": "2026-07-27",
       "closed": null,
       "note": ""

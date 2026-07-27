@@ -71,7 +71,7 @@ def wipe() -> None:
         bpy.data.materials.remove(m)
 
 
-def mat(name, rgb, metal=0.0, rough=0.55, emit=None, emit_strength=2.0):
+def mat(name, rgb, metal=0.0, rough=0.55, emit=None, emit_strength=1.2):
     m = bpy.data.materials.new(name)
     m.use_nodes = True
     b = m.node_tree.nodes["Principled BSDF"]
@@ -155,7 +155,7 @@ def a_anchor_ring():
     torus(0.70, 0.095, (0, 0, 0.86), rot=(math.radians(90), 0, 0),
           material=mat("ar", VERDIGRIS, 0.85, 0.28))
     torus(0.53, 0.035, (0, 0, 0.86), rot=(math.radians(90), 0, 0),
-          material=mat("ag", VERD_LIT, 0.0, 0.4, emit=(0.30, 0.90, 0.74), emit_strength=2.2))
+          material=mat("ag", VERD_LIT, 0.0, 0.4, emit=(0.30, 0.90, 0.74), emit_strength=1.3))
     for i in range(6):                      # six wards, per the nomenclature bible
         a = math.radians(i * 60 + 15)
         cube(0.12, (math.cos(a) * 0.78, math.sin(a) * 0.78, 0.86),
@@ -173,7 +173,7 @@ def a_pulse_turret():
     cyl(16, 0.085, 0.9, (0.0, 0.30, 0.56), rot=(math.radians(76), 0, 0),
         material=mat("tr", STEEL, 0.9, 0.25))
     sphere(0.10, (0.0, 0.63, 0.70), material=mat("tt", AMBER, 0.0, 0.3,
-                                                 emit=(1.0, 0.62, 0.15), emit_strength=2.4))
+                                                 emit=(1.0, 0.62, 0.15), emit_strength=1.3))
     for s in (-1, 1):
         cube(0.13, (s * 0.34, -0.1, 0.5), scale=(0.5, 1.5, 1.7),
              material=mat("tf%d" % s, STEEL_LT, 0.7, 0.35))
@@ -186,7 +186,7 @@ def a_arc_node():
         cube(0.1, (math.cos(a) * 0.34, math.sin(a) * 0.34, 0.45), scale=(1, 1, 3.2),
              rot_z=a, material=mat("np%d" % i, STEEL_LT, 0.75, 0.3))
     sphere(0.24, (0, 0, 0.86), material=mat("nc", VERD_LIT, 0.0, 0.25,
-                                            emit=(0.35, 0.95, 0.80), emit_strength=2.6))
+                                            emit=(0.35, 0.95, 0.80), emit_strength=1.5))
 
 
 def a_warden_drone():
@@ -197,7 +197,7 @@ def a_warden_drone():
              rot_z=a, material=mat("dl%d" % i, STEEL, 0.6, 0.45))
     sphere(0.075, (0, 0.2, 0.46), segments=12, rings=8,
            material=mat("de", (0.85, 0.25, 0.18), 0.0, 0.3,
-                        emit=(1.0, 0.22, 0.12), emit_strength=2.2))
+                        emit=(1.0, 0.22, 0.12), emit_strength=1.3))
 
 
 def a_warden_heavy():
@@ -208,7 +208,7 @@ def a_warden_heavy():
              material=mat("hg%d" % s, STONE, 0.4, 0.7))
     sphere(0.085, (0, 0.28, 0.8), segments=12, rings=8,
            material=mat("he", (0.9, 0.3, 0.15), 0.0, 0.3,
-                        emit=(1.0, 0.28, 0.12), emit_strength=2.2))
+                        emit=(1.0, 0.28, 0.12), emit_strength=1.3))
 
 
 def a_warden_mote():
@@ -274,8 +274,10 @@ def setup_compositor(sc):
     sc.compositing_node_group = ng
     rl = ng.nodes.new("CompositorNodeRLayers")
     glare = ng.nodes.new("CompositorNodeGlare")
-    for k, v in (("Type", "Bloom"), ("Quality", "High"), ("Threshold", 0.30),
-                 ("Strength", 1.0), ("Size", 6.0)):
+    # Threshold sits above the lit-surface range so only genuine emitters bloom;
+    # Size is the spread in the 256px cell.
+    for k, v in (("Type", "Bloom"), ("Quality", "High"), ("Threshold", 0.55),
+                 ("Strength", 1.0), ("Size", 7.0)):
         glare.inputs[k].default_value = v
     ng.links.new(rl.outputs["Emission"], glare.inputs["Image"])
     out = ng.nodes.new("NodeGroupOutput")

@@ -60,7 +60,9 @@ docs/            STATE, BACKLOG, DECISIONS, NOMENCLATURE, STORY
 .venv/bin/python tools/audio/synth_sfx.py          # rebuild SFX bank
 .venv/bin/python tools/audio/ingest_music.py       # rebuild music from masters
 .venv/bin/python tools/audio/serve.py              # loop audition page
-tools/blender/render.sh <asset>                    # render one asset, all 4 yaws
+/Applications/Blender.app/Contents/MacOS/Blender -b \
+  --python tools/blender/render.py -- --only pulse_turret   # render one asset
+.venv/bin/python tools/blender/mask_glow.py        # ALWAYS run after rendering
 ```
 
 `tools/check.py` is the single gate: schema validation, data cross-references, sim
@@ -84,6 +86,11 @@ determinism, asset manifest integrity, Python syntax. **If it fails, do not comm
 - `CompositorNodeOutputFile` has `directory`/`file_name`/`file_output_items` — not
   `base_path`/`file_slots` — and its node-level format only accepts `OPEN_EXR_MULTILAYER`.
 - Set `view_settings.view_transform = 'Standard'` so sprite colour matches in-engine colour.
+
+**Glow renders opaque and must be masked.** The compositor writes alpha 1 across the
+whole frame, so an unmasked glow drawn additively lifts the entire 256px cell and the
+board fills with bright rectangles. `tools/blender/mask_glow.py` rewrites alpha from
+luminance; it is idempotent and must run after every render.
 
 **Glow is never baked into a sprite.** Each asset renders twice: albedo with compositing
 *off*, glow with compositing *on* through Glare on the Emission pass. Godot draws the glow

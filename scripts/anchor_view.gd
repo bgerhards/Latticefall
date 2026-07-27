@@ -31,6 +31,7 @@ var _lead_left: float = 0.0
 var _phase: String = "idle"      # idle | prep | combat | done | lost
 var _fired_triggers: Dictionary = {}
 var _origin: Vector2 = Vector2.ZERO
+var glow_layer: Node2D
 
 
 func _ready() -> void:
@@ -216,6 +217,37 @@ const C_AMBER := Color(0.91, 0.64, 0.24)
 const C_ALERT := Color(0.82, 0.33, 0.25)
 
 
+func drawables() -> Array:
+	## One ordered list, shared by the albedo draw and the additive glow layer, so the
+	## two passes cannot disagree about contents or depth order.
+	var out: Array = []
+	for p in sim.placed:
+		out.append({
+			"depth": IsoScript.depth(p["slot"].x, p["slot"].y),
+			"kind": "tower",
+			"sprite": String(p["tower"]["id"]).replace("-", "_"),
+			"yaw": 45,
+			"online": bool(p["online"]),
+			"at": IsoScript.tile_to_screen(float(p["slot"].x), float(p["slot"].y)) + _origin,
+			"ref": p,
+		})
+	for u in sim.units:
+		if not u["alive"]:
+			continue
+		var at: Vector2 = sim.point_at(u["dist"])
+		out.append({
+			"depth": IsoScript.depth(at.x, at.y),
+			"kind": "unit",
+			"sprite": String(u["kind"]["id"]).replace("-", "_"),
+			"yaw": 45,
+			"online": true,
+			"at": IsoScript.tile_to_screen(at.x, at.y) + _origin,
+			"ref": u,
+		})
+	out.sort_custom(func(a, b): return a["depth"] < b["depth"])
+	return out
+
+
 func _draw() -> void:
 	if sim == null:
 		return
@@ -223,40 +255,53 @@ func _draw() -> void:
 	var grid: Dictionary = anchor["grid"]
 	var path_tiles := _path_tiles()
 
-	for y in range(int(grid["h"])):
-		for x in range(int(grid["w"])):
-			var c := IsoScript.tile_to_screen(float(x), float(y)) + _origin
-			var col := C_TILE if (x + y) % 2 == 0 else C_TILE_ALT
-			if path_tiles.has(Vector2i(x, y)):
-				col = C_PATH
-			draw_colored_polygon(IsoScript.diamond(c, 0.98), col)
-
+	var slot_set := {}
 	for slot in anchor["slots"]:
-		var sv := Vector2i(int(slot[0]), int(slot[1]))
-		var c := IsoScript.tile_to_screen(float(sv.x), float(sv.y)) + _origin
-		var free: bool = sim.free_slots.has(sv)
-		var col := C_SLOT if free else Color(0.16, 0.22, 0.24)
-		draw_colored_polygon(IsoScript.diamond(c, 0.86), col)
-		if free and sv == hovered_slot:
-			draw_polyline(IsoScript.diamond(c, 0.9) + PackedVector2Array([IsoScript.diamond(c, 0.9)[0]]),
-					C_AMBER, 2.0)
+		slot_set[Vector2i(int(slot[0]), int(slot[1]))] = true
 
-	# emplacements, then units, sorted by depth so overlap reads correctly
-	var drawables: Array = []
-	for p in sim.placed:
-		drawables.append([IsoScript.depth(p["slot"].x, p["slot"].y), "tower", p])
-	for u in sim.units:
-		if u["alive"]:
-			var at: Vector2 = sim.point_at(u["dist"])
-			drawables.append([IsoScript.depth(at.x, at.y), "unit", u])
-	drawables.sort_custom(func(a, b): return a[0] < b[0])
+	# painter's order: increasing tile depth, so a nearer tile overdraws a farther one
+	for s_ in range(int(grid["w"]) + int(grid["h"]) - 1):
+		for x in range(int(grid["w"])):
+			var y := s_ - x
+			if y < 0 or y >= int(grid["h"]):
+				continue
+			var cell := Vector2i(x, y)
+			var c := IsoScript.tile_to_screen(float(x), float(y)) + _origin
+			var kind := "tile_ground"
+			if path_tiles.has(cell):
+				kind = "tile_path"
+			elif slot_set.has(cell):
+				kind = "tile_slot"
+			var tex: Texture2D = Sprites.get_tex(kind, 45, "albedo") if Sprites.ok else null
+			if tex != null:
+				draw_texture(tex, c - Sprites.pivot)
+			else:
+				var col := C_TILE if (x + y) % 2 == 0 else C_TILE_ALT
+				if path_tiles.has(cell):
+					col = C_PATH
+				elif slot_set.has(cell):
+					col = C_SLOT
+				draw_colored_polygon(IsoScript.diamond(c, 0.98), col)
+
+	if slot_set.has(hovered_slot) and sim.free_slots.has(hovered_slot):
+		var hc := IsoScript.tile_to_screen(float(hovered_slot.x), float(hovered_slot.y)) + _origin
+		var ring := IsoScript.diamond(hc, 0.92)
+		draw_polyline(ring + PackedVector2Array([ring[0]]), C_AMBER, 2.0)
 
 	var dim: float = 0.6 if sim.brownout else 1.0
-	for d in drawables:
-		if d[1] == "tower":
-			_draw_tower(d[2], dim)
+	for d in drawables():
+		var tex: Texture2D = Sprites.get_tex(d["sprite"], d["yaw"], "albedo") if Sprites.ok else null
+		if tex != null:
+			var tint := Color(1, 1, 1)
+			if d["kind"] == "tower" and not d["online"]:
+				tint = Color(0.45, 0.48, 0.5)      # offline reads as cold, not just unlit
+			draw_texture(tex, d["at"] - Sprites.pivot, tint)
+			if d["kind"] == "unit":
+				_draw_health(d["ref"], d["at"])
+		elif d["kind"] == "tower":
+			_draw_tower(d["ref"], dim)
 		else:
-			_draw_unit(d[2])
+			_draw_unit(d["ref"])
 
 
 func _draw_tower(p: Dictionary, dim: float) -> void:
@@ -270,6 +315,16 @@ func _draw_tower(p: Dictionary, dim: float) -> void:
 		# keeping glow a separate layer rather than baking it (decision 007).
 		var glow := (C_VERD if not sim.brownout else C_ALERT)
 		draw_circle(c + Vector2(0, -34), 5.0, Color(glow.r, glow.g, glow.b, dim))
+
+
+func _draw_health(u: Dictionary, c: Vector2) -> void:
+	var kind: Dictionary = u["kind"]
+	var frac: float = clampf(float(u["hp"]) / (float(kind["hp"]) * sim.hp_mult), 0.0, 1.0)
+	if frac >= 0.999:
+		return                                   # full health bars are visual noise
+	draw_rect(Rect2(c + Vector2(-11, -30), Vector2(22, 3)), Color(0, 0, 0, 0.65))
+	draw_rect(Rect2(c + Vector2(-11, -30), Vector2(22.0 * frac, 3)),
+			C_VERD if frac > 0.35 else C_ALERT)
 
 
 func _draw_unit(u: Dictionary) -> void:
