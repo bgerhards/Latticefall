@@ -167,6 +167,12 @@ keep it current, and write it for someone with no memory of the conversation.
 **Report faithfully.** If a check fails, say so with the output. If something was skipped,
 say it was skipped. Half the value of the tooling here is that it makes claims falsifiable.
 
+**Killing `check.py` does not kill its Godot.** The parity check spawns a headless Godot
+that survives `pkill -f check.py`, gets reparented to init, and keeps a core at 100%. The
+next gate run then takes nearly twice as long for no visible reason. Kill the Godot too,
+and confirm with `ps` that nothing is left — the same class of mistake as the background
+load-test loops recorded in `docs/STATE.md`.
+
 **Scope discipline.** Finish the whole task; if part is blocked, finish everything else and
 say plainly what was left and why.
 

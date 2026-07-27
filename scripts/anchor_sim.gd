@@ -22,6 +22,13 @@ const BROWNOUT_MAX_PENALTY: float = 0.70
 ## Mirrors SHIELD_LEAK in sim/engine.py. Shielding taxes damage from weapons not rated
 ## for it rather than blocking them outright — decision 029.
 const SHIELD_LEAK: float = 0.25
+## Act III decay never takes the bus below this fraction of rated capacity. Mirrors
+## CAPACITY_FLOOR in sim/engine.py.
+const CAPACITY_FLOOR: float = 0.45
+## Fraction of what was paid that a sold emplacement returns. Below about a half,
+## selling is a punishment and the player simply never does it; at 1.0 the board can be
+## rebuilt free every wave and the build decision stops being a decision.
+const SELL_REFUND: float = 0.6
 
 ## name -> [enemy hp multiplier, bounty multiplier]. Mirrors DIFFICULTIES in engine.py.
 const DIFFICULTIES: Dictionary = {
@@ -56,6 +63,10 @@ var free_slots: Array[Vector2i] = []
 var units: Array[Dictionary] = []       # {kind, hp, dist, alive}
 var t: float = 0.0
 var brownout: bool = false
+## Waves begun, 0-based. Act III capacity decay is priced off this. The runner sets it
+## with begin_wave() before the prep phase, so a build is made against the capacity the
+## wave will actually run at.
+var wave_index: int = 0
 
 var peak_load: float = 0.0
 var _load_integral: float = 0.0
@@ -159,6 +170,25 @@ func bus_load() -> float:
 
 
 func capacity() -> float:
+	## Capacity for the current wave. Fixed in Acts I and II; falls by
+	## `capacity_decay_mw` per wave in Act III, floored at CAPACITY_FLOOR of rated.
+	## Mirrors Sim.capacity_now() in sim/engine.py. Decision 031.
+	var rated := float(anchor.get("capacity_mw", 0.0))
+	var decay := float(anchor.get("capacity_decay_mw", 0.0))
+	var base := rated
+	if decay > 0.0:
+		base = maxf(rated * CAPACITY_FLOOR, rated - decay * float(wave_index))
+	for p in placed:
+		if not p["online"]:
+			continue
+		var eff: Dictionary = p["tower"].get("effect", {})
+		if String(eff.get("type", "")) == "restore":
+			base += float(eff.get("value", 0.0))
+	return base
+
+
+func rated_capacity() -> float:
+	## What the anchor is nominally rated at, before Act III decay. For the HUD.
 	return float(anchor.get("capacity_mw", 0.0))
 
 
@@ -186,6 +216,63 @@ func build_at(tower_id: String, slot: Vector2i) -> bool:
 func set_online(index: int, on: bool) -> void:
 	if index >= 0 and index < placed.size():
 		placed[index]["online"] = on
+
+
+func sell(index: int) -> int:
+	## Remove an emplacement and refund SELL_REFUND of what was paid for it, upgrade
+	## included. Returns the refund, or 0 if there was nothing there.
+	##
+	## Not modelled in sim/engine.py and not used by any grading policy: a policy builds
+	## once, at the start of a wave, and never changes its mind. That keeps the two rule
+	## sets in parity — the grade describes a board that was never re-planned, which is a
+	## floor on what a player can do rather than a description of best play. Decision 033.
+	if index < 0 or index >= placed.size():
+		return 0
+	var p: Dictionary = placed[index]
+	var paid: int = int(p["tower"]["cost"]) + int(p.get("upgrade_paid", 0))
+	var refund := int(floor(float(paid) * SELL_REFUND))
+	free_slots.append(p["slot"])
+	placed.remove_at(index)
+	funds += refund
+	funds_changed.emit(funds)
+	return refund
+
+
+func upgrade_cost(index: int) -> int:
+	## What upgrading this emplacement would cost, or 0 if it cannot be upgraded.
+	if index < 0 or index >= placed.size():
+		return 0
+	var p: Dictionary = placed[index]
+	if bool(p.get("upgraded", false)):
+		return 0
+	var up: Dictionary = p["tower"].get("upgrade", {})
+	if up.is_empty():
+		return 0
+	return int(up.get("cost", 0))
+
+
+func upgrade(index: int) -> bool:
+	## Spend to improve one emplacement in place. The upgraded stats are a *copy* of the
+	## tower definition with the upgrade block merged in, so nothing mutates the shared
+	## Content dictionary — an upgrade on one board would otherwise upgrade that
+	## emplacement type for every board in the session.
+	var cost := upgrade_cost(index)
+	if cost <= 0 or cost > funds:
+		return false
+	var p: Dictionary = placed[index]
+	var merged: Dictionary = p["tower"].duplicate(true)
+	for k in Dictionary(p["tower"]["upgrade"]):
+		if k == "cost":
+			continue
+		merged[k] = p["tower"]["upgrade"][k]
+	merged["name"] = "%s II" % String(p["tower"]["name"])
+	p["tower"] = merged
+	p["upgraded"] = true
+	p["upgrade_paid"] = cost
+	funds -= cost
+	spend += cost
+	funds_changed.emit(funds)
+	return true
 
 
 # ────────────────────────────────────────────────────────────── coverage ──
@@ -327,6 +414,12 @@ func _damage(u: Dictionary, tw: Dictionary, scale: float) -> void:
 func spawn(enemy_id: String) -> void:
 	var e: Dictionary = enemies[enemy_id]
 	units.append({"kind": e, "hp": float(e["hp"]) * hp_mult, "dist": 0.0, "alive": true})
+
+
+func begin_wave(index: int) -> void:
+	## Call before the prep phase of wave `index` (0-based). Mirrors the assignment to
+	## Sim.wave_index at the top of Sim.run()'s wave loop.
+	wave_index = index
 
 
 func wave_queue(index: int) -> Array:

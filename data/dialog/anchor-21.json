@@ -1,0 +1,52 @@
+{
+  "schema": "dialog",
+  "anchor": "anchor-21",
+  "lines": [
+    { "trigger": "brief", "speaker": "control",
+      "text": "Two hundred and thirty megawatts rated. Be advised the decay rate here is measured at seventeen a wave, not nine." },
+    { "trigger": "brief", "speaker": "okonkwo",
+      "text": "Confirm seventeen." },
+    { "trigger": "brief", "speaker": "control",
+      "text": "Seventeen confirmed." },
+    { "trigger": "brief", "speaker": "okonkwo",
+      "text": "Then there is no build that holds this anchor. I want that on the record before you ask me for one." },
+    { "trigger": "brief", "speaker": "vasquez",
+      "text": "I'm not asking for one. I'm asking what fails first." },
+    { "trigger": "brief", "speaker": "okonkwo",
+      "text": "That's a much better question and I have an answer for it. Restorers first, guns second, and put nothing on the far lane you aren't prepared to switch off." },
+
+    { "trigger": "wave-start:1", "speaker": "control",
+      "text": "Contact." },
+
+    { "trigger": "wave-clear:2", "speaker": "okonkwo", "critical": false,
+      "text": "Ceiling's at one ninety-six. You built for two thirty." },
+
+    { "trigger": "wave-clear:4", "speaker": "okonkwo", "critical": false,
+      "text": "One sixty-two. Start choosing." },
+    { "trigger": "wave-clear:4", "speaker": "vasquez", "critical": false,
+      "text": "Cut the north relay." },
+    { "trigger": "wave-clear:4", "speaker": "okonkwo", "critical": false,
+      "text": "That blinds two guns." },
+    { "trigger": "wave-clear:4", "speaker": "vasquez", "critical": false,
+      "text": "I know what it does." },
+
+    { "trigger": "wave-clear:6", "speaker": "okonkwo", "critical": false,
+      "text": "One twenty-eight. That's the floor — it stops here. Small mercy, and I mean small." },
+
+    { "trigger": "brownout", "speaker": "okonkwo", "critical": false,
+      "text": "Over. Everything you have is firing at two thirds and the ceiling is still coming down." },
+
+    { "trigger": "first-leak", "speaker": "control", "critical": false,
+      "text": "One through." },
+
+    { "trigger": "low-lives", "speaker": "vasquez", "critical": false,
+      "text": "Shed the outer lane. All of it. Ring only." },
+
+    { "trigger": "debrief", "speaker": "control",
+      "text": "Anchor is held." },
+    { "trigger": "debrief", "speaker": "okonkwo",
+      "text": "Held. We finished on four emplacements out of twelve and I could not tell you which four I'd pick again." },
+    { "trigger": "debrief", "speaker": "vasquez",
+      "text": "The ones that were still on." }
+  ]
+}

@@ -51,6 +51,9 @@ BROWNOUT_MAX_PENALTY = 0.70
 # single-solution, which is the defect the grader exists to catch.
 SHIELD_LEAK = 0.25
 
+# Act III capacity decay never takes the bus below this fraction of its rated capacity.
+CAPACITY_FLOOR = 0.45
+
 
 def brownout_penalty(load_mw: float, capacity_mw: float) -> float:
     """Fire-rate penalty in [0, BROWNOUT_MAX_PENALTY]. 0 when at or under capacity."""
@@ -178,6 +181,26 @@ class Sim:
         self._load_integral = 0.0
         self._brownout_time = 0.0
         self.peak_load = 0.0
+        # Waves begun. Act III capacity decay is priced off this, not off elapsed time,
+        # so the loss lands on a beat the player can see coming and build against.
+        self.wave_index = 0
+
+    def capacity_now(self) -> float:
+        """Capacity this wave. Fixed in Acts I and II; falls per wave in Act III.
+
+        Floored at CAPACITY_FLOOR of the anchor's rated capacity — a bus that decays to
+        nothing is not a decision, it is a timer, and the act is supposed to be about
+        choosing what fails first."""
+        base = self.a.capacity_mw
+        if self.a.capacity_decay_mw > 0.0:
+            lost = self.a.capacity_decay_mw * self.wave_index
+            base = max(self.a.capacity_mw * CAPACITY_FLOOR, self.a.capacity_mw - lost)
+        # Restorers add capacity back. They are the only thing in the game that does,
+        # and they pay for it with a slot and a draw of their own — decision 031.
+        for p in self.placed:
+            if p.online and p.tower.effect_type == "restore":
+                base += p.tower.effect_value
+        return base
 
     # ───────────────────────────────────────────────────────────── power ──
 
@@ -228,7 +251,7 @@ class Sim:
                                            if p.tower.id == tower.id) >= cap:
                     continue
                 projected = self._online_draw() + tower.draw_mw
-                budget = self.a.capacity_mw * (1.0 - self.policy.reserve)
+                budget = self.capacity_now() * (1.0 - self.policy.reserve)
                 if not self.policy.allow_overdraw and projected > budget:
                     continue
                 slot = slot_order[0]
@@ -244,7 +267,7 @@ class Sim:
         """Under a strict policy, take the least-preferred emplacement offline."""
         if self.policy.allow_overdraw:
             return
-        while self._online_draw() > self.a.capacity_mw:
+        while self._online_draw() > self.capacity_now():
             live = [p for p in self.placed if p.online]
             if not live:
                 return
@@ -347,6 +370,9 @@ class Sim:
         died_on: int | None = None
 
         for wi, wave in enumerate(self.a.waves, start=1):
+            # The bus loses its Act III decay *before* the prep phase, so the player
+            # builds against the capacity this wave will actually run at.
+            self.wave_index = wi - 1
             # prep phase: build, then shed anything that overdraws
             self._try_build()
             self._shed_load()
@@ -395,7 +421,7 @@ class Sim:
 
     def _tick_once(self) -> None:
         load = self.bus_load()
-        penalty = brownout_penalty(load, self.a.capacity_mw)
+        penalty = brownout_penalty(load, self.capacity_now())
         self.peak_load = max(self.peak_load, load)
         self._load_integral += load * DT
         if penalty > 0.0:
@@ -451,5 +477,9 @@ def standard_policies(tower_ids: list[str]) -> list[Policy]:
         Policy("anti-armour",
                rest(has("ion-lance") + has("mortar-emplacement") + has("pulse-turret")),
                caps={"scan-relay": 1, "anchor-damper": 1}, reserve=0.20),
+        # Act III. Buys capacity back before building into it. Capped at two restorers:
+        # uncapped, a board that only restores capacity has nothing to spend it on.
+        Policy("restore-first", rest(has("restorer") + has("pulse-turret")),
+               caps={"restorer": 2, "scan-relay": 1, "anchor-damper": 1}, reserve=0.10),
     ]
     return out

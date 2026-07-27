@@ -1,36 +1,131 @@
 {
   "schema": "enemies",
   "enemies": [
-    { "id": "warden-drone", "name": "Warden Drone", "faction": "ordinal",
-      "hp": 40, "speed": 1.1, "bounty": 12, "kind": "ground",
-      "note": "Act I baseline. Indifferent, not malicious." },
-
-    { "id": "warden-heavy", "name": "Warden Heavy", "faction": "ordinal",
-      "hp": 220, "speed": 0.6, "bounty": 40, "kind": "ground", "armour": 4,
-      "note": "Armour makes fire rate matter less than damage per shot." },
-
-    { "id": "warden-mote", "name": "Warden Mote", "faction": "ordinal",
-      "hp": 22, "speed": 1.9, "bounty": 8, "kind": "air",
-      "note": "Invisible without a scan relay — the reason cutting the relay has a cost." },
-
-    { "id": "reach-breacher", "name": "Reach Breacher", "faction": "sable-reach",
-      "hp": 160, "speed": 1.0, "bounty": 35, "kind": "ground", "shielded": true,
+    {
+      "id": "warden-drone",
+      "name": "Warden Drone",
+      "faction": "ordinal",
+      "hp": 40,
+      "speed": 1.1,
+      "bounty": 12,
+      "kind": "ground",
+      "note": "Act I baseline. Indifferent, not malicious."
+    },
+    {
+      "id": "warden-heavy",
+      "name": "Warden Heavy",
+      "faction": "ordinal",
+      "hp": 220,
+      "speed": 0.6,
+      "bounty": 40,
+      "kind": "ground",
+      "armour": 4,
+      "note": "Armour makes fire rate matter less than damage per shot."
+    },
+    {
+      "id": "warden-mote",
+      "name": "Warden Mote",
+      "faction": "ordinal",
+      "hp": 22,
+      "speed": 1.9,
+      "bounty": 8,
+      "kind": "air",
+      "note": "Invisible without a scan relay \u2014 the reason cutting the relay has a cost."
+    },
+    {
+      "id": "reach-breacher",
+      "name": "Reach Breacher",
+      "faction": "sable-reach",
+      "hp": 160,
+      "speed": 1.0,
+      "bounty": 35,
+      "kind": "ground",
+      "shielded": true,
       "drains_mw": 6,
-      "note": "Act II. Drains the bus while alive — the enemy attacks your economy directly." },
-
-    { "id": "reach-sapper", "name": "Reach Sapper", "faction": "sable-reach",
-      "hp": 70, "speed": 1.45, "bounty": 20, "kind": "ground",
+      "note": "Act II. Drains the bus while alive \u2014 the enemy attacks your economy directly."
+    },
+    {
+      "id": "reach-sapper",
+      "name": "Reach Sapper",
+      "faction": "sable-reach",
+      "hp": 70,
+      "speed": 1.45,
+      "bounty": 20,
+      "kind": "ground",
       "drains_mw": 8,
-      "note": "Act II. Fragile, fast, and the largest single drain in the act. Kill it early or the whole board fires slower while it walks." },
-
-    { "id": "reach-skiff", "name": "Reach Skiff", "faction": "sable-reach",
-      "hp": 95, "speed": 1.5, "bounty": 24, "kind": "air",
+      "note": "Act II. Fragile, fast, and the largest single drain in the act. Kill it early or the whole board fires slower while it walks."
+    },
+    {
+      "id": "reach-skiff",
+      "name": "Reach Skiff",
+      "faction": "sable-reach",
+      "hp": 95,
+      "speed": 1.5,
+      "bounty": 24,
+      "kind": "air",
       "drains_mw": 5,
-      "note": "Act II air. Drains while it flies, so an unrevealed skiff costs power as well as ground." },
-
-    { "id": "reach-bulwark", "name": "Reach Bulwark", "faction": "sable-reach",
-      "hp": 380, "speed": 0.55, "bounty": 75, "kind": "ground", "armour": 5,
-      "shielded": true, "drains_mw": 9,
-      "note": "Act II heavy. Shielded and armoured, so an unrated weapon lands a quarter of its damage and then pays armour out of that — a pulse turret does nothing to it. The lance and the mortar do. At 8 armour and 430 HP it was immune to literally everything else and every anchor carrying it graded unwinnable." }
+      "note": "Act II air. Drains while it flies, so an unrevealed skiff costs power as well as ground."
+    },
+    {
+      "id": "reach-bulwark",
+      "name": "Reach Bulwark",
+      "faction": "sable-reach",
+      "hp": 380,
+      "speed": 0.55,
+      "bounty": 75,
+      "kind": "ground",
+      "armour": 5,
+      "shielded": true,
+      "drains_mw": 9,
+      "note": "Act II heavy. Shielded and armoured, so an unrated weapon lands a quarter of its damage and then pays armour out of that \u2014 a pulse turret does nothing to it. The lance and the mortar do. At 8 armour and 430 HP it was immune to literally everything else and every anchor carrying it graded unwinnable."
+    },
+    {
+      "id": "hollow-drift",
+      "name": "Hollow Drift",
+      "faction": "hollow",
+      "hp": 120,
+      "speed": 1.45,
+      "bounty": 26,
+      "kind": "air",
+      "drains_mw": 6,
+      "note": "Act III air. Reads on instruments as a pressure gradient, not an object."
+    },
+    {
+      "id": "hollow-echo",
+      "name": "Hollow Echo",
+      "faction": "hollow",
+      "hp": 150,
+      "speed": 1.2,
+      "bounty": 28,
+      "kind": "ground",
+      "shielded": true,
+      "drains_mw": 8,
+      "note": "Act III baseline. Screened by whatever it is made of rather than by equipment."
+    },
+    {
+      "id": "hollow-vessel",
+      "name": "Hollow Vessel",
+      "faction": "hollow",
+      "hp": 260,
+      "speed": 0.9,
+      "bounty": 55,
+      "kind": "ground",
+      "armour": 3,
+      "drains_mw": 10,
+      "note": "Act III mid. Carries most of the act's drain and is not screened, so mass fire answers it."
+    },
+    {
+      "id": "hollow-column",
+      "name": "Hollow Column",
+      "faction": "hollow",
+      "hp": 520,
+      "speed": 0.5,
+      "bounty": 90,
+      "kind": "ground",
+      "armour": 6,
+      "shielded": true,
+      "drains_mw": 12,
+      "note": "Act III heavy. Slow, screened, plated, and the single largest draw on the bus in the game."
+    }
   ]
 }

@@ -79,6 +79,78 @@
         "glow": "assets/renders/flak_array_y315_glow.png"
       }
     },
+    "hollow_column": {
+      "y045": {
+        "albedo": "assets/renders/hollow_column_y045_albedo.png",
+        "glow": "assets/renders/hollow_column_y045_glow.png"
+      },
+      "y135": {
+        "albedo": "assets/renders/hollow_column_y135_albedo.png",
+        "glow": "assets/renders/hollow_column_y135_glow.png"
+      },
+      "y225": {
+        "albedo": "assets/renders/hollow_column_y225_albedo.png",
+        "glow": "assets/renders/hollow_column_y225_glow.png"
+      },
+      "y315": {
+        "albedo": "assets/renders/hollow_column_y315_albedo.png",
+        "glow": "assets/renders/hollow_column_y315_glow.png"
+      }
+    },
+    "hollow_drift": {
+      "y045": {
+        "albedo": "assets/renders/hollow_drift_y045_albedo.png",
+        "glow": "assets/renders/hollow_drift_y045_glow.png"
+      },
+      "y135": {
+        "albedo": "assets/renders/hollow_drift_y135_albedo.png",
+        "glow": "assets/renders/hollow_drift_y135_glow.png"
+      },
+      "y225": {
+        "albedo": "assets/renders/hollow_drift_y225_albedo.png",
+        "glow": "assets/renders/hollow_drift_y225_glow.png"
+      },
+      "y315": {
+        "albedo": "assets/renders/hollow_drift_y315_albedo.png",
+        "glow": "assets/renders/hollow_drift_y315_glow.png"
+      }
+    },
+    "hollow_echo": {
+      "y045": {
+        "albedo": "assets/renders/hollow_echo_y045_albedo.png",
+        "glow": "assets/renders/hollow_echo_y045_glow.png"
+      },
+      "y135": {
+        "albedo": "assets/renders/hollow_echo_y135_albedo.png",
+        "glow": "assets/renders/hollow_echo_y135_glow.png"
+      },
+      "y225": {
+        "albedo": "assets/renders/hollow_echo_y225_albedo.png",
+        "glow": "assets/renders/hollow_echo_y225_glow.png"
+      },
+      "y315": {
+        "albedo": "assets/renders/hollow_echo_y315_albedo.png",
+        "glow": "assets/renders/hollow_echo_y315_glow.png"
+      }
+    },
+    "hollow_vessel": {
+      "y045": {
+        "albedo": "assets/renders/hollow_vessel_y045_albedo.png",
+        "glow": "assets/renders/hollow_vessel_y045_glow.png"
+      },
+      "y135": {
+        "albedo": "assets/renders/hollow_vessel_y135_albedo.png",
+        "glow": "assets/renders/hollow_vessel_y135_glow.png"
+      },
+      "y225": {
+        "albedo": "assets/renders/hollow_vessel_y225_albedo.png",
+        "glow": "assets/renders/hollow_vessel_y225_glow.png"
+      },
+      "y315": {
+        "albedo": "assets/renders/hollow_vessel_y315_albedo.png",
+        "glow": "assets/renders/hollow_vessel_y315_glow.png"
+      }
+    },
     "ion_lance": {
       "y045": {
         "albedo": "assets/renders/ion_lance_y045_albedo.png",
@@ -203,6 +275,24 @@
       "y315": {
         "albedo": "assets/renders/reach_skiff_y315_albedo.png",
         "glow": "assets/renders/reach_skiff_y315_glow.png"
+      }
+    },
+    "restorer": {
+      "y045": {
+        "albedo": "assets/renders/restorer_y045_albedo.png",
+        "glow": "assets/renders/restorer_y045_glow.png"
+      },
+      "y135": {
+        "albedo": "assets/renders/restorer_y135_albedo.png",
+        "glow": "assets/renders/restorer_y135_glow.png"
+      },
+      "y225": {
+        "albedo": "assets/renders/restorer_y225_albedo.png",
+        "glow": "assets/renders/restorer_y225_glow.png"
+      },
+      "y315": {
+        "albedo": "assets/renders/restorer_y315_albedo.png",
+        "glow": "assets/renders/restorer_y315_glow.png"
       }
     },
     "scan_relay": {

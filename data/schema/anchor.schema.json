@@ -138,6 +138,11 @@
     "tutorial": {
       "type": "boolean",
       "description": "relaxes the multiple-viable-builds requirement. Only legitimate while few emplacements are unlocked."
+    },
+    "capacity_decay_mw": {
+      "type": "number",
+      "minimum": 0,
+      "description": "Act III: MW the bus loses at the start of each wave after the first, floored at 45% of rated capacity."
     }
   }
 }

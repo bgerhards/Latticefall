@@ -12,7 +12,7 @@ dest_files=["res://.godot/imported/A2-BLD_contract_terms.ogg-81692672fa543fdb01a
 
 [params]
 
-loop=false
+loop=true
 loop_offset=0
 bpm=0
 beat_count=0

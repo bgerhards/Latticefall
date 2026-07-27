@@ -725,3 +725,104 @@ precisely so that a divergence like this one cannot be waved through.
 **Consequence.** No square root is taken anywhere in either rules implementation. The
 comparison is `dx*dx + dy*dy <= r*r` on both sides, so the two runtimes execute the same
 IEEE-754 double operations in the same order. 528 runs identical.
+
+---
+
+## 031 — Act III degrades capacity per wave, and the restorer buys it back
+
+**Decided.** An anchor may declare `capacity_decay_mw`: megawatts the bus loses at the
+start of **every wave after the first**, floored at `CAPACITY_FLOOR` = 45% of rated
+capacity. The counterplay is the **restorer** — 44 MW returned for 10 MW drawn, 380 up
+front, and a slot that will therefore never hold a gun.
+
+**Why per wave and not per second.** The loss has to land on a beat the player can see
+coming and build against. Continuous decay makes the board a timer and the correct play
+becomes "build nothing early", which is not a decision, it is a delay. Per-wave decay
+means the prep phase is where the act happens: the build that was exactly right on wave
+one is over capacity by wave five and something has to be switched off.
+
+**Why a floor.** Without one the bus reaches zero and the level resolves itself. At 45%
+the player always has a board — a small one, made entirely of choices about what already
+failed. anchor-21 "Attrition" is authored at 17 MW a wave specifically to reach that floor
+by wave six.
+
+**Rejected.**
+- *Decay driven by Hollow units on the board.* Indistinguishable from the Act II drain
+  mechanic, which would make Act III louder rather than different.
+- *A restorer with no draw of its own.* Then it is free capacity and every board opens
+  with two. The 10 MW and the slot are what make it a trade.
+
+**Consequence.** `Sim.capacity_now()` and `AnchorSim.capacity()` replace every direct read
+of `capacity_mw`, including the build budget, the shed loop and the brownout test, on both
+sides of the parity gate. `AnchorSim.begin_wave()` is called from the view and the parity
+runner before each prep phase. The `restore-first` policy joins the grading set. All 24
+anchors grade clean.
+
+---
+
+## 032 — The menu is the boot scene, and progress is a readable JSON save
+
+**Decided.** `scenes/menu.tscn` is the project's main scene. It lists all 24 anchors in
+three labelled act rows, carries the difficulty choice, and hands the selection to the
+game through the `Progress` autoload. Progress is stored at `user://progress.json` as
+plain readable JSON: a version, a `cleared` map of anchor -> difficulty -> best lives
+remaining, and the chosen difficulty.
+
+**Anchors unlock in order**, and clearing on *any* difficulty unlocks the next one — a
+hard clear should not be a prerequisite for seeing the next scene, because the story is
+the reason the order exists.
+
+**The CLI still wins.** `-- --anchor anchor-17` or `-- --shot …` skips the menu entirely
+and boots straight into the game. Verification runs the real game rather than a menu, and
+the gate's self-screenshot would otherwise be a screenshot of a title card. This is why
+the CLI parsing moved into `menu.gd` — it is the boot scene now, so it has to be the thing
+that reads `argv`.
+
+**Rejected.**
+- *Keep `main.tscn` as the boot scene and load the menu from it.* Inverted: the menu would
+  be a child of the thing it launches, and every launch would build a board first.
+- *A binary or `ConfigFile` save.* Nothing in the save is load-bearing for the rules —
+  losing it costs unlocks, not correctness — so it should be a file a bug report can paste.
+
+**Consequence.** A new gate check, `menu renders`, screenshots the boot scene via
+`--shot-menu` and asserts it is not blank and lists eight Act I anchors. Without it
+nothing in the gate ever looks at the first screen the player sees, because `game
+renders` passes `--shot`, which the menu deliberately treats as "go straight to the
+game". The HUD gained an end-of-anchor banner — it is the only place the game tells the
+player how to leave a finished level.
+
+---
+
+## 033 — Sell and upgrade exist for the player and not for the grader
+
+**Decided.** An emplacement can be **sold** for `SELL_REFUND` = 60% of everything paid for
+it, and **upgraded** once in place into a second tier declared in `towers.json` under
+`upgrade`. Both live only in `AnchorSim` — the GDScript rules the game runs. Neither is
+implemented in `sim/engine.py`, and no grading policy uses either.
+
+**Why the asymmetry is correct rather than a gap.** A grading policy builds once, at the
+start of a wave, and never revises. That is what makes a grade a *floor*: "this anchor is
+winnable by four distinct builds that were planned before the first unit spawned". A
+player who can sell and upgrade can only do better than that floor. Teaching the policies
+to sell would make every grade a claim about a much larger search space, and the sweep
+that balanced 24 anchors would have to be redone against a harness whose optimum nobody
+can characterise.
+
+Parity is unaffected because the parity runner drives the same build/shed loop as the
+Python reference and never calls `sell()` or `upgrade()`.
+
+**Numbers.** 60% refund: below about half, selling is a punishment and no player ever does
+it; at full price the board can be rebuilt free every wave and the build stops being a
+decision. Every second tier costs **more draw** as well as money — an upgraded pulse
+turret is 18 MW against 12 — so upgrading is the same trade as building, made on a board
+that has already run out of slots.
+
+**Rejected.**
+- *Upgrades as a free stat bump.* Then the only question is money, and the game's currency
+  is power.
+- *Teaching the policies to sell.* See above; it would invalidate every existing grade for
+  no gain in confidence.
+
+**Consequence.** `docs/STATE.md` and this entry both record that the anchor grades describe
+a plan-once player. If a future change makes the grader revise its boards mid-level, every
+anchor needs re-sweeping.

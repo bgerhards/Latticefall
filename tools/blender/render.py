@@ -291,22 +291,42 @@ def a_warden_drone():
 
 
 def a_warden_heavy():
-    cube(0.62, (0, 0, 0.42), scale=(1.0, 0.85, 0.9), material=mat("hb", STEEL, 0.5, 0.55))
-    cube(0.5, (0, 0, 0.78), scale=(0.8, 0.7, 0.35), material=mat("hh", STEEL_LT, 0.65, 0.4))
+    # Silhouette pass (LF-021): at 100% zoom the old shape was a dark box with a red dot
+    # and could not be told from a drone at a glance. It is the armoured unit, so it now
+    # reads as *wide and low* — tracks that stand proud of the hull, shoulder plates in
+    # lit steel, and the hull itself stepped rather than a single cube.
+    cube(0.66, (0, 0, 0.34), scale=(1.15, 0.9, 0.7), material=mat("hb", STEEL, 0.5, 0.55))
+    cube(0.54, (0, -0.02, 0.62), scale=(1.0, 0.8, 0.45), material=mat("hb2", STEEL, 0.55, 0.5))
+    cube(0.46, (0, 0, 0.84), scale=(0.85, 0.7, 0.30), material=mat("hh", STEEL_LT, 0.65, 0.4))
     for s in (-1, 1):
-        cube(0.2, (s * 0.34, 0, 0.2), scale=(1, 1, 1.6),
+        # track units, wider than the hull so the outline is unmistakably broad
+        cube(0.22, (s * 0.44, 0, 0.17), scale=(0.9, 2.6, 1.3),
              material=mat("hg%d" % s, STONE, 0.4, 0.7))
-    sphere(0.085, (0, 0.28, 0.8), segments=12, rings=8,
+        for i in range(3):                              # road wheels, for a read at zoom
+            cyl(8, 0.075, 0.09, (s * 0.50, -0.22 + i * 0.22, 0.13),
+                rot=(0, math.radians(90), 0),
+                material=mat("hw%d%d" % (s, i), STEEL_LT, 0.7, 0.4))
+        cube(0.20, (s * 0.30, -0.04, 0.72), scale=(1.0, 1.5, 0.5),
+             material=mat("hs%d" % s, STEEL_LT, 0.7, 0.35))
+    sphere(0.095, (0, 0.30, 0.86), segments=12, rings=8,
            material=mat("he", (0.9, 0.3, 0.15), 0.0, 0.3,
                         emit=(1.0, 0.28, 0.12), emit_strength=1.3))
 
 
 def a_warden_mote():
-    sphere(0.16, (0, 0, 0.72), segments=16, rings=10,
+    # Silhouette pass (LF-021). A lone glowing sphere reads as a light source rather than
+    # a unit, and at 100% zoom it was indistinguishable from a slot ring. Two crossed
+    # gimbals give it an outline that survives being small and bright.
+    sphere(0.15, (0, 0, 0.72), segments=16, rings=10,
            material=mat("mc", VERD_LIT, 0.3, 0.35,
-                        emit=(0.4, 1.0, 0.85), emit_strength=1.2))
-    torus(0.28, 0.028, (0, 0, 0.72), rot=(math.radians(70), 0, 0),
+                        emit=(0.4, 1.0, 0.85), emit_strength=1.1))
+    torus(0.29, 0.030, (0, 0, 0.72), rot=(math.radians(70), 0, 0),
           material=mat("mr", BONE, 0.8, 0.3))
+    torus(0.24, 0.026, (0, 0, 0.72), rot=(math.radians(70), math.radians(74), 0),
+          material=mat("mr2", STEEL_LT, 0.85, 0.3))
+    for s in (-1, 1):                                   # stub vanes, so it has corners
+        cube(0.07, (s * 0.30, 0, 0.72), scale=(1.4, 0.5, 0.5), rot_z=math.radians(s * 20),
+             material=mat("mv%d" % s, BONE, 0.75, 0.35))
 
 
 def a_flak_array():
@@ -457,6 +477,91 @@ def a_reach_bulwark():
                         emit=(0.55, 0.78, 1.0), emit_strength=1.2))
 
 
+def a_restorer():
+    # Meridian plant at its least elegant: a cabinet, a stack of fins, and a core that
+    # is the brightest warm element on any board. It gives capacity back, so it should
+    # look like the thing everything else is plugged into.
+    cube(1.0, (0, 0, 0.07), scale=(0.66, 0.66, 0.14), material=mat("rb", STONE, 0.15, 0.8))
+    cube(0.62, (0, 0, 0.48), scale=(0.9, 0.75, 1.15), material=mat("rc", STEEL, 0.5, 0.5))
+    for i in range(5):                                  # cooling fins
+        cube(0.60, (0, -0.24, 0.26 + i * 0.13), scale=(1.0, 0.30, 0.06),
+             material=mat("rf%d" % i, STEEL_LT, 0.8, 0.3))
+    # The core stands *proud of* the cabinet. At y=0.16 it was inside it and the
+    # brightest element in the asset rendered as nothing at all from three yaws.
+    cyl(12, 0.17, 0.62, (0, 0.34, 0.66),
+        material=mat("rk", AMBER, 0.0, 0.25,
+                     emit=(1.0, 0.70, 0.24), emit_strength=1.6))
+    cyl(12, 0.21, 0.06, (0, 0.34, 1.00), material=mat("rt", BONE, 0.7, 0.35))
+    for s in (-1, 1):                                   # conduit down to the deck
+        cyl(6, 0.045, 0.42, (s * 0.34, 0.02, 0.24),
+            material=mat("rd%d" % s, STEEL_LT, 0.75, 0.35))
+
+
+# The Hollow. Never described directly in dialog, so the art does not describe it either:
+# no faces, no optics, no limbs. Geometry that is almost architecture, in a violet-white
+# that appears nowhere else in the game — the fourth and last faction colour.
+HOLLOW_LIT = (0.66, 0.60, 0.90)
+HOLLOW_DARK = (0.075, 0.070, 0.095)
+
+
+def a_hollow_echo():
+    # A cluster of thin shards leaning the same way. Baseline unit, so it has to read
+    # instantly at 100% zoom without having any features to read.
+    # Thicker and wider than the first cut: at 0.10 radius the shards were hairlines and
+    # the act's baseline unit was invisible on a dark deck.
+    for i, (x, y, h, t) in enumerate([(0.0, 0.0, 1.05, 1.0), (-0.22, 0.16, 0.80, 0.85),
+                                      (0.23, -0.14, 0.70, 0.8), (0.07, 0.26, 0.56, 0.7),
+                                      (-0.10, -0.22, 0.50, 0.65)]):
+        cone(6, 0.20 * t, 0.020, h, (x, y, h * 0.5),
+             rot=(math.radians(7), math.radians(-5), 0),
+             material=mat("he%d" % i, HOLLOW_DARK, 0.2, 0.55))
+    cone(6, 0.09, 0.016, 0.50, (0.0, 0.0, 0.84), rot=(math.radians(7), math.radians(-5), 0),
+         material=mat("hec", HOLLOW_LIT, 0.0, 0.3,
+                      emit=(0.58, 0.50, 0.92), emit_strength=1.2))
+
+
+def a_hollow_drift():
+    # Air. A lens, edge-on, with nothing inside it. Flies at the warden mote's altitude.
+    cyl(24, 0.30, 0.05, (0, 0, 0.88), rot=(math.radians(74), 0, 0),
+        material=mat("hdl", HOLLOW_DARK, 0.3, 0.4))
+    torus(0.31, 0.022, (0, 0, 0.88), rot=(math.radians(74), 0, 0),
+          material=mat("hdr", HOLLOW_LIT, 0.0, 0.3,
+                       emit=(0.60, 0.52, 0.94), emit_strength=1.3))
+    sphere(0.06, (0, 0, 0.88), segments=12, rings=8,
+           material=mat("hdc", HOLLOW_LIT, 0.0, 0.3,
+                        emit=(0.72, 0.66, 1.0), emit_strength=1.1))
+
+
+def a_hollow_vessel():
+    # A shell with the inside missing: an open ring standing upright on a dark plinth.
+    # The gap is the silhouette, which is the only way to draw the thing honestly.
+    cyl(10, 0.34, 0.16, (0, 0, 0.08), material=mat("hvb", HOLLOW_DARK, 0.2, 0.6))
+    torus(0.36, 0.075, (0, 0, 0.58), rot=(math.radians(90), 0, 0),
+          material=mat("hvr", HOLLOW_DARK, 0.35, 0.45))
+    torus(0.24, 0.028, (0, 0, 0.58), rot=(math.radians(90), 0, 0),
+          material=mat("hvg", HOLLOW_LIT, 0.0, 0.3,
+                       emit=(0.56, 0.48, 0.90), emit_strength=1.2))
+    for s in (-1, 1):
+        cube(0.10, (s * 0.30, 0, 0.26), scale=(1.0, 1.0, 2.2),
+             material=mat("hvl%d" % s, HOLLOW_DARK, 0.3, 0.5))
+
+
+def a_hollow_column():
+    # The heavy: stacked slabs with lit seams, taller than anything else on the board
+    # except the anchor ring itself. It is slow, so it is allowed to be architecture.
+    for i in range(4):
+        w = 0.62 - i * 0.09
+        cube(1.0, (0, 0, 0.16 + i * 0.30), scale=(w, w * 0.8, 0.13),
+             rot_z=math.radians(i * 12), material=mat("hcs%d" % i, HOLLOW_DARK, 0.3, 0.5))
+        cube(1.0, (0, 0, 0.30 + i * 0.30), scale=(w * 0.92, w * 0.72, 0.022),
+             rot_z=math.radians(i * 12),
+             material=mat("hcg%d" % i, HOLLOW_LIT, 0.0, 0.3,
+                          emit=(0.50, 0.43, 0.84), emit_strength=1.0))
+    cone(8, 0.16, 0.02, 0.36, (0, 0, 1.42),
+         material=mat("hct", HOLLOW_LIT, 0.0, 0.3,
+                      emit=(0.64, 0.56, 0.96), emit_strength=1.3))
+
+
 ASSETS = {
     "tile_ground": a_tile_ground,
     "tile_path": a_tile_path,
@@ -477,6 +582,11 @@ ASSETS = {
     "reach_breacher": a_reach_breacher,
     "reach_skiff": a_reach_skiff,
     "reach_bulwark": a_reach_bulwark,
+    "restorer": a_restorer,
+    "hollow_echo": a_hollow_echo,
+    "hollow_drift": a_hollow_drift,
+    "hollow_vessel": a_hollow_vessel,
+    "hollow_column": a_hollow_column,
 }
 
 

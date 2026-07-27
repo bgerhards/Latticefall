@@ -92,6 +92,8 @@ func _policies(ids: Array) -> Array:
 			{"scan-relay": 1, "shield-wall": 1, "anchor-damper": 1}, 0.30),
 		mk.call("anti-armour", ["ion-lance", "mortar-emplacement", "pulse-turret"], false,
 			{"scan-relay": 1, "anchor-damper": 1}, 0.20),
+		mk.call("restore-first", ["restorer", "pulse-turret"], false,
+			{"restorer": 2, "scan-relay": 1, "anchor-damper": 1}, 0.10),
 	]
 
 
@@ -119,6 +121,7 @@ func _run(anchor: Dictionary, towers: Dictionary, enemies: Dictionary,
 	var died_on: int = -1
 
 	for wi in range(anchor["waves"].size()):
+		s.begin_wave(wi)
 		_try_build(s, policy, buildable)
 		_shed(s, policy)
 		var lead := float(anchor["waves"][wi].get("lead_in", 20.0))

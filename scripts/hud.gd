@@ -15,18 +15,17 @@ var _load_label: Label
 var _stat: Label
 var _wave: Label
 var _fault: Label
+var _outcome: Label
+var _outcome_hint: Label
+var _sell_button: Button
+var _upgrade_button: Button
 var _buttons: Array[Button] = []
 
 
-func _mono(size: int) -> Font:
-	return ThemeDB.fallback_font
-
-
-func _make_label(size: int, col: Color) -> Label:
-	var l := Label.new()
-	l.add_theme_font_size_override("font_size", size)
-	l.add_theme_color_override("font_color", col)
-	return l
+func _make_label(size: int, col: Color, mono: bool = false, bold: bool = false) -> Label:
+	## Numbers are monospaced — the bus readout counts, and a proportional digit set
+	## makes it jitter sideways as it does. See scripts/ui_theme.gd.
+	return Ui.label("", size, col, mono, bold)
 
 
 func bind(v: Node2D) -> void:
@@ -51,7 +50,7 @@ func bind(v: Node2D) -> void:
 	title.position = Vector2(28, 24)
 	root.add_child(title)
 
-	_load_label = _make_label(26, C_AMBER)
+	_load_label = _make_label(26, C_AMBER, true, true)
 	_load_label.position = Vector2(28, 40)
 	root.add_child(_load_label)
 
@@ -67,15 +66,15 @@ func bind(v: Node2D) -> void:
 	_fill.size = Vector2(0, 16)
 	root.add_child(_fill)
 
-	_fault = _make_label(12, C_ALERT)
+	_fault = _make_label(12, C_ALERT, false, true)
 	_fault.position = Vector2(28, 98)
 	root.add_child(_fault)
 
-	_stat = _make_label(14, C_BONE)
+	_stat = _make_label(14, C_BONE, true)
 	_stat.position = Vector2(28, 134)
 	root.add_child(_stat)
 
-	_wave = _make_label(14, C_MUTED)
+	_wave = _make_label(14, C_MUTED, true)
 	_wave.position = Vector2(28, 154)
 	root.add_child(_wave)
 
@@ -89,10 +88,47 @@ func bind(v: Node2D) -> void:
 		var b := Button.new()
 		b.text = "%s\n$%d · %d MW" % [t["name"], int(t["cost"]), int(t["draw_mw"])]
 		b.custom_minimum_size = Vector2(126, 46)
-		b.add_theme_font_size_override("font_size", 11)
+		Ui.style(b, 11)
 		b.pressed.connect(_on_pick.bind(String(tid)))
 		bar.add_child(b)
 		_buttons.append(b)
+
+	# End-of-anchor banner. Centred, large, and the only place the game tells the player
+	# how to get back out of a level — without it the only exit from a finished anchor is
+	# a key nobody has been told about.
+	_outcome = _make_label(40, C_BONE, false, true)
+	_outcome.position = Vector2(0, 380)
+	_outcome.size = Vector2(1920, 60)
+	_outcome.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_outcome.visible = false
+	root.add_child(_outcome)
+
+	_outcome_hint = _make_label(15, C_MUTED)
+	_outcome_hint.position = Vector2(0, 436)
+	_outcome_hint.size = Vector2(1920, 24)
+	_outcome_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_outcome_hint.visible = false
+	root.add_child(_outcome_hint)
+
+	# Sell / upgrade act on whatever the cursor is over. A selection model would need a
+	# second concept of "selected" alongside the build cursor, and the board already
+	# highlights the hovered slot — so the panel names the emplacement it will act on.
+	var manage := HBoxContainer.new()
+	manage.position = Vector2(28, 240)
+	manage.add_theme_constant_override("separation", 6)
+	root.add_child(manage)
+
+	_sell_button = Button.new()
+	_sell_button.custom_minimum_size = Vector2(190, 34)
+	Ui.style(_sell_button, 12)
+	_sell_button.pressed.connect(func(): view.sell_at(view.hovered_slot))
+	manage.add_child(_sell_button)
+
+	_upgrade_button = Button.new()
+	_upgrade_button.custom_minimum_size = Vector2(210, 34)
+	Ui.style(_upgrade_button, 12)
+	_upgrade_button.pressed.connect(func(): view.upgrade_at(view.hovered_slot))
+	manage.add_child(_upgrade_button)
 
 	view.state_changed.connect(refresh)
 	view.wave_state.connect(func(_i, _n, _p): refresh())
@@ -134,3 +170,31 @@ func refresh() -> void:
 	for i in range(_buttons.size()):
 		var tid: String = Content.unlocked_at(view.anchor_id)[i]
 		_buttons[i].modulate = Color(1, 1, 1) if sim.can_afford(tid) else Color(0.5, 0.5, 0.5)
+
+	var idx: int = view.placed_index_at(view.hovered_slot)
+	if idx < 0:
+		_sell_button.disabled = true
+		_upgrade_button.disabled = true
+		_sell_button.text = "SELL  —"
+		_upgrade_button.text = "UPGRADE  —"
+	else:
+		var p: Dictionary = sim.placed[idx]
+		var paid: int = int(p["tower"]["cost"]) + int(p.get("upgrade_paid", 0))
+		_sell_button.disabled = false
+		_sell_button.text = "SELL %s  +$%d" % [String(p["tower"]["name"]),
+			int(floor(float(paid) * sim.SELL_REFUND))]
+		var up: int = sim.upgrade_cost(idx)
+		_upgrade_button.disabled = up <= 0 or up > sim.funds
+		_upgrade_button.text = ("UPGRADE  $%d · %d MW" % [up, int(
+			Dictionary(p["tower"].get("upgrade", {})).get("draw_mw", p["tower"]["draw_mw"]))]
+			) if up > 0 else "UPGRADED"
+
+	var phase: String = view.phase()
+	_outcome.visible = phase in ["done", "lost"]
+	_outcome_hint.visible = _outcome.visible
+	if _outcome.visible:
+		var held := phase == "done"
+		_outcome.text = "ANCHOR HELD" if held else "ANCHOR LOST"
+		_outcome.add_theme_color_override("font_color", C_VERD if held else C_ALERT)
+		_outcome_hint.text = ("%d lives remaining   ·   ESC to return to operations"
+			% sim.lives) if held else "ESC to return to operations"

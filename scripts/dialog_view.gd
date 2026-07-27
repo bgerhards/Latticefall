@@ -36,12 +36,12 @@ func bind(v: Node2D) -> void:
 	root.add_child(_panel)
 
 	_who = Label.new()
-	_who.add_theme_font_size_override("font_size", 12)
+	Ui.style(_who, 12, false, true)
 	_who.add_theme_color_override("font_color", C_VERD)
 	root.add_child(_who)
 
 	_text = Label.new()
-	_text.add_theme_font_size_override("font_size", 16)
+	Ui.style(_text, 16)
 	_text.add_theme_color_override("font_color", C_BONE)
 	_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	root.add_child(_text)

@@ -1,0 +1,61 @@
+{
+  "schema": "dialog",
+  "anchor": "anchor-24",
+  "lines": [
+    { "trigger": "brief", "speaker": "control",
+      "text": "Two hundred and sixty megawatts. Decay sixteen a wave. This is the last anchor on the order that will still take a shutter." },
+    { "trigger": "brief", "speaker": "vasquez",
+      "text": "Say the rest of it, Control." },
+    { "trigger": "brief", "speaker": "control",
+      "text": "The shutter is bolted from this side. It cannot be set remotely and it cannot be set from the far side. Somebody has to be on the deck when it closes." },
+    { "trigger": "brief", "speaker": "vasquez",
+      "text": "Understood." },
+    { "trigger": "brief", "speaker": "control",
+      "text": "Actual wants it stated that this is a volunteer tasking." },
+    { "trigger": "brief", "speaker": "vasquez",
+      "text": "It's stated. Hold the brief there, I've got a board to build." },
+
+    { "trigger": "wave-start:1", "speaker": "control",
+      "text": "Contact. Everything the order describes, all at once." },
+
+    { "trigger": "wave-clear:2", "speaker": "control", "critical": false,
+      "text": "Anchor fifty-two reports holding. Okonkwo says the water is still fine." },
+
+    { "trigger": "wave-clear:4", "speaker": "vasquez", "critical": false,
+      "text": "Ceiling?" },
+    { "trigger": "wave-clear:4", "speaker": "control", "critical": false,
+      "text": "One ninety-six and falling on schedule." },
+
+    { "trigger": "wave-clear:6", "speaker": "control", "critical": false,
+      "text": "Field lead, the wardens on the far side of the ring have stopped moving. All of them, at once." },
+    { "trigger": "wave-clear:6", "speaker": "vasquez", "critical": false,
+      "text": "They're out of power." },
+    { "trigger": "wave-clear:6", "speaker": "control", "critical": false,
+      "text": "They have been out of power for a hundred and ten years, Captain." },
+
+    { "trigger": "wave-clear:8", "speaker": "control", "critical": false,
+      "text": "Shutter crew is off the deck. Charges are set. It closes on your word and not before." },
+
+    { "trigger": "wave-clear:9", "speaker": "control", "critical": false,
+      "text": "Field lead. One wave on the board." },
+
+    { "trigger": "brownout", "speaker": "control", "critical": false,
+      "text": "Bus is over. There is nothing left to shed that is not holding the ring." },
+
+    { "trigger": "first-leak", "speaker": "control", "critical": false,
+      "text": "One through. It did not stop at the ring." },
+
+    { "trigger": "low-lives", "speaker": "control", "critical": false,
+      "text": "Field lead, the ring is failing. Say the word and I will close it with you inside." },
+
+    { "trigger": "debrief", "speaker": "control",
+      "text": "Shutter is set. Anchor is closed from this side." },
+    { "trigger": "debrief", "speaker": "control",
+      "text": "Sixty anchors remain on the order. Meridian holds four of them." },
+    { "trigger": "debrief", "speaker": "control",
+      "text": "Field lead, acknowledge." },
+    { "trigger": "debrief", "speaker": "control",
+      "text": "Meridian Actual, standing by.",
+      "beat": "Vasquez has no line after the last wave. Control asks twice and the game ends on the silence." }
+  ]
+}

@@ -28,12 +28,21 @@ var _shot_at: int = 240
 var _frame: int = 0
 var _shot_taken: bool = false
 var _autoplay: bool = false
+var _recorded: bool = false
+
+const MENU_SCENE := "res://scenes/menu.tscn"
 
 
 func _ready() -> void:
     RenderingServer.set_default_clear_color(Color(0.055, 0.078, 0.09))
+    # The menu is the boot scene, so it has already resolved the CLI and the player's
+    # choice into Progress. _setup_cli() still runs afterwards because a --shot run
+    # reaches this scene directly and its arguments must still win.
+    anchor_id = Progress.selected_anchor
+    difficulty = Progress.difficulty
     _setup_cli()
 
+    view.state_changed.connect(_on_state_changed)
     view.boot(anchor_id, difficulty)
     hud.bind(view)
     dialog.bind(view)
@@ -126,6 +135,27 @@ func _frame_stats(img: Image) -> Dictionary:
     }
 
 
+func _on_state_changed() -> void:
+    ## Record the clear exactly once, the first time the view reports `done`. The signal
+    ## fires on every wave boundary, so this has to be idempotent — a second call would
+    ## be harmless to Progress but would re-emit `changed` for nothing.
+    if _recorded or view.phase() != "done":
+        return
+    _recorded = true
+    Progress.mark_cleared(anchor_id, difficulty, view.sim.lives)
+    print("CLEARED %s %s lives=%d" % [anchor_id, difficulty, view.sim.lives])
+
+
 func _unhandled_input(event: InputEvent) -> void:
-    if event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
-        get_tree().quit()
+    if not (event is InputEventKey and event.pressed):
+        return
+    match event.keycode:
+        KEY_ESCAPE:
+            # Back to the menu, not out of the game. A --shot run has no menu to
+            # return to and should still exit, which is what _shot_path tests.
+            if _shot_path != "":
+                get_tree().quit()
+            else:
+                get_tree().change_scene_to_file(MENU_SCENE)
+        KEY_Q:
+            get_tree().quit()

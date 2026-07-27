@@ -85,18 +85,75 @@
               "type"
             ],
             "additionalProperties": false,
-            "description": "non-damage role. 'slow' scales enemy speed in range; 'reveal' makes air units targetable; 'damp' suppresses that fraction of a covered unit's bus drain.",
+            "description": "non-damage role. 'slow' scales enemy speed in range; 'reveal' makes air units targetable; 'damp' suppresses that fraction of a covered unit's bus drain; 'restore' adds its value in MW back to reactor capacity while online.",
             "properties": {
               "type": {
                 "enum": [
                   "slow",
                   "reveal",
-                  "damp"
+                  "damp",
+                  "restore"
                 ]
               },
               "value": {
                 "type": "number",
                 "exclusiveMinimum": 0
+              }
+            }
+          },
+          "upgrade": {
+            "type": "object",
+            "required": [
+              "cost"
+            ],
+            "additionalProperties": false,
+            "description": "optional second tier bought in place. Any stat named here replaces the base value; 'cost' is what the upgrade itself costs.",
+            "properties": {
+              "cost": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "draw_mw": {
+                "type": "number",
+                "minimum": 0
+              },
+              "damage": {
+                "type": "number",
+                "minimum": 0
+              },
+              "range": {
+                "type": "number",
+                "exclusiveMinimum": 0
+              },
+              "fire_interval": {
+                "type": "number",
+                "exclusiveMinimum": 0
+              },
+              "splash": {
+                "type": "number",
+                "minimum": 0
+              },
+              "effect": {
+                "type": "object",
+                "required": [
+                  "type"
+                ],
+                "additionalProperties": false,
+                "description": "non-damage role. 'slow' scales enemy speed in range; 'reveal' makes air units targetable; 'damp' suppresses that fraction of a covered unit's bus drain; 'restore' adds its value in MW back to reactor capacity while online.",
+                "properties": {
+                  "type": {
+                    "enum": [
+                      "slow",
+                      "reveal",
+                      "damp",
+                      "restore"
+                    ]
+                  },
+                  "value": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                  }
+                }
               }
             }
           }

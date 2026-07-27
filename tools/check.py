@@ -232,6 +232,43 @@ def check_game_renders() -> Result:
     return Result(OK, f"coverage {coverage:.2f}, {distinct} tones")
 
 
+def check_menu_renders() -> Result:
+    """The boot scene is the menu now, and it is built entirely in code.
+
+    `game renders` passes `--shot`, which the menu treats as "go straight to the game" —
+    so without this check nothing looks at the screen the player actually sees first, and
+    a menu that drew nothing (or listed no anchors) would ship green.
+    """
+    godot = "/Applications/Godot.app/Contents/MacOS/Godot"
+    if not Path(godot).exists():
+        return Result(SKIP, "godot not installed")
+
+    MIN_COVERAGE, WANT_BUTTONS = 0.015, 8
+    shot = ROOT / ".godot" / "gate-menu.png"
+    shot.parent.mkdir(parents=True, exist_ok=True)
+    r = run(godot, "--path", str(ROOT), "--fixed-fps", "60",
+            "--", "--shot-menu", str(shot), "40")
+    blob = r.stdout + r.stderr
+
+    line = next((l for l in blob.splitlines() if l.startswith("MENUFRAME ")), "")
+    if not line:
+        return Result(FAIL, "menu never reported a frame:\n" + blob.strip()[-800:])
+    try:
+        coverage = float(line.split("coverage=")[1].split()[0])
+        buttons = int(line.split("buttons=")[1].split()[0])
+    except (IndexError, ValueError):
+        return Result(FAIL, f"could not parse menu stats: {line!r}")
+
+    # The menu is mostly dark by design, so the coverage bar is low; the anchor count is
+    # the real assertion. Act I is eight anchors and the grid is per-act.
+    if coverage < MIN_COVERAGE:
+        return Result(FAIL, f"menu is blank: coverage={coverage:.4f} (min {MIN_COVERAGE})")
+    if buttons != WANT_BUTTONS:
+        return Result(FAIL, f"menu listed {buttons} act-I anchors, expected {WANT_BUTTONS}")
+    shot.unlink(missing_ok=True)
+    return Result(OK, f"coverage {coverage:.3f}, {buttons} anchors listed")
+
+
 def check_rules_parity() -> Result:
     """The rules exist twice, in Python and GDScript. Prove they agree.
 
@@ -260,6 +297,7 @@ CHECKS = [
     ("sim determinism",   check_sim),
     ("godot boots",       check_godot_boots),
     ("game renders",      check_game_renders),
+    ("menu renders",      check_menu_renders),
     ("rules parity",      check_rules_parity),
 ]
 

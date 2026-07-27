@@ -1,0 +1,54 @@
+{
+  "schema": "dialog",
+  "anchor": "anchor-20",
+  "lines": [
+    { "trigger": "brief", "speaker": "control",
+      "text": "Two hundred and twenty megawatts. Be advised there is warden activity on the deck already." },
+    { "trigger": "brief", "speaker": "vasquez",
+      "text": "How many?" },
+    { "trigger": "brief", "speaker": "control",
+      "text": "Nine. They are formed up on the ingress lane facing away from the ring." },
+    { "trigger": "brief", "speaker": "okonkwo",
+      "text": "Facing away from the ring." },
+    { "trigger": "brief", "speaker": "vasquez",
+      "text": "Understood. Build behind them." },
+
+    { "trigger": "wave-start:1", "speaker": "control",
+      "text": "Contact. Wardens are engaging." },
+
+    { "trigger": "wave-clear:2", "speaker": "control", "critical": false,
+      "text": "Warden count: seven." },
+
+    { "trigger": "wave-clear:4", "speaker": "control", "critical": false,
+      "text": "Warden count: four." },
+    { "trigger": "wave-clear:4", "speaker": "vasquez", "critical": false,
+      "text": "Can we put a relay over them? So they can see." },
+    { "trigger": "wave-clear:4", "speaker": "okonkwo", "critical": false,
+      "text": "Already did." },
+
+    { "trigger": "wave-clear:6", "speaker": "control", "critical": false,
+      "text": "Warden count: one." },
+
+    { "trigger": "wave-clear:7", "speaker": "control", "critical": false,
+      "text": "Warden count: zero." },
+
+    { "trigger": "brownout", "speaker": "okonkwo", "critical": false,
+      "text": "Over capacity. Shed the far lane — nothing of ours is standing in it." },
+
+    { "trigger": "first-leak", "speaker": "control", "critical": false,
+      "text": "One through." },
+
+    { "trigger": "low-lives", "speaker": "vasquez", "critical": false,
+      "text": "Hold." },
+
+    { "trigger": "debrief", "speaker": "control",
+      "text": "Anchor is held. Meridian losses: none." },
+    { "trigger": "debrief", "speaker": "vasquez",
+      "text": "Log nine wardens destroyed in place, facing outward." },
+    { "trigger": "debrief", "speaker": "control",
+      "text": "That is not a category Actual maintains." },
+    { "trigger": "debrief", "speaker": "vasquez",
+      "text": "Then start one.",
+      "beat": "nobody says the word ally, at any point, and that is the level" }
+  ]
+}

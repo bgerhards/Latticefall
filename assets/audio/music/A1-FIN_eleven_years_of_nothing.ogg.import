@@ -12,7 +12,7 @@ dest_files=["res://.godot/imported/A1-FIN_eleven_years_of_nothing.ogg-b0fe578116
 
 [params]
 
-loop=false
+loop=true
 loop_offset=0
 bpm=0
 beat_count=0

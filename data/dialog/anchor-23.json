@@ -1,0 +1,62 @@
+{
+  "schema": "dialog",
+  "anchor": "anchor-23",
+  "lines": [
+    { "trigger": "brief", "speaker": "control",
+      "text": "Two hundred and fifty megawatts. Decay fourteen a wave. This anchor cannot be shut and cannot be left." },
+    { "trigger": "brief", "speaker": "okonkwo",
+      "text": "It can be held, though. That's different and it's worth saying out loud." },
+    { "trigger": "brief", "speaker": "vasquez",
+      "text": "Held by what, after we leave?" },
+    { "trigger": "brief", "speaker": "okonkwo",
+      "text": "By somebody keeping the bus above the floor and the wards lit. It's not difficult work. It's continuous work." },
+    { "trigger": "brief", "speaker": "vasquez",
+      "text": "No." },
+    { "trigger": "brief", "speaker": "okonkwo",
+      "text": "I haven't asked you anything yet. Let's do the wave table first." },
+
+    { "trigger": "wave-start:1", "speaker": "control",
+      "text": "Contact." },
+
+    { "trigger": "wave-clear:2", "speaker": "okonkwo", "critical": false,
+      "text": "Right. Handover, then, while I've got the board in front of me. Restorers on the two inner slots, and never let both go offline in the same wave." },
+    { "trigger": "wave-clear:2", "speaker": "vasquez", "critical": false,
+      "text": "Okonkwo." },
+    { "trigger": "wave-clear:2", "speaker": "okonkwo", "critical": false,
+      "text": "The relay on the high side reads the whole ingress. Don't move it. People always move it." },
+
+    { "trigger": "wave-clear:4", "speaker": "okonkwo", "critical": false,
+      "text": "Ward four sticks. You have to power it twice — off, three seconds, on. It'll do it every time and it isn't broken." },
+
+    { "trigger": "wave-clear:6", "speaker": "okonkwo", "critical": false,
+      "text": "The lance carriage on the east slot has about eleven degrees of play. Aim it at the corner, not the lane." },
+    { "trigger": "wave-clear:6", "speaker": "vasquez", "critical": false,
+      "text": "Are you finished?" },
+    { "trigger": "wave-clear:6", "speaker": "okonkwo", "critical": false,
+      "text": "Nearly. Water's on the second sublevel and it's fine, whatever the survey says." },
+
+    { "trigger": "wave-clear:8", "speaker": "okonkwo", "critical": false,
+      "text": "That's the handover. Sixty-one people, Vasquez. It only works if one of them is standing here." },
+
+    { "trigger": "brownout", "speaker": "okonkwo", "critical": false,
+      "text": "Over. Bring the second restorer up — that's what it's for." },
+
+    { "trigger": "first-leak", "speaker": "control", "critical": false,
+      "text": "One through." },
+
+    { "trigger": "low-lives", "speaker": "vasquez", "critical": false,
+      "text": "Ring. Nothing else matters here." },
+
+    { "trigger": "debrief", "speaker": "control",
+      "text": "Anchor is held. Lift is on the pad, field lead. Two seats." },
+    { "trigger": "debrief", "speaker": "vasquez",
+      "text": "Control, log one volunteer to remain and hold anchor fifty-two." },
+    { "trigger": "debrief", "speaker": "control",
+      "text": "Name for the log." },
+    { "trigger": "debrief", "speaker": "vasquez",
+      "text": "Okonkwo, Ikenna. Lattice specialist. Civilian contractor.",
+      "beat": "written as a technical handover throughout — nobody says goodbye and nobody thanks anybody" },
+    { "trigger": "debrief", "speaker": "okonkwo",
+      "text": "Tell them the water's fine." }
+  ]
+}

@@ -1,5 +1,5 @@
 {
-  "next_id": 39,
+  "next_id": 40,
   "items": [
     {
       "id": "LF-001",
@@ -79,11 +79,11 @@
       "kind": "chore",
       "area": "audio",
       "pri": "med",
-      "status": "open",
+      "status": "done",
       "why": "",
       "opened": "2026-07-26",
-      "closed": null,
-      "note": ""
+      "closed": "2026-07-27",
+      "note": "closed at 8c05a5c"
     },
     {
       "id": "LF-008",
@@ -91,11 +91,11 @@
       "kind": "chore",
       "area": "build",
       "pri": "med",
-      "status": "open",
+      "status": "done",
       "why": "OFL, redistributable. UI depends on it.",
       "opened": "2026-07-26",
-      "closed": null,
-      "note": ""
+      "closed": "2026-07-27",
+      "note": "closed at 8c05a5c"
     },
     {
       "id": "LF-009",
@@ -103,11 +103,11 @@
       "kind": "feature",
       "area": "engine",
       "pri": "med",
-      "status": "open",
+      "status": "done",
       "why": "",
       "opened": "2026-07-26",
-      "closed": null,
-      "note": ""
+      "closed": "2026-07-27",
+      "note": "closed at 8c05a5c"
     },
     {
       "id": "LF-010",
@@ -199,11 +199,11 @@
       "kind": "feature",
       "area": "engine",
       "pri": "high",
-      "status": "open",
+      "status": "done",
       "why": "",
       "opened": "2026-07-26",
-      "closed": null,
-      "note": ""
+      "closed": "2026-07-27",
+      "note": "closed at 8c05a5c"
     },
     {
       "id": "LF-018",
@@ -415,11 +415,11 @@
       "kind": "feature",
       "area": "story",
       "pri": "high",
-      "status": "open",
+      "status": "done",
       "why": "Act I (01-08) is written and validated. Acts II and III are 16 anchors with no dialog. Beats are in docs/STORY.md; writing rules and the trigger vocabulary are enforced by data/schema/dialog.schema.json",
       "opened": "2026-07-27",
-      "closed": null,
-      "note": ""
+      "closed": "2026-07-27",
+      "note": "closed at 8c05a5c"
     },
     {
       "id": "LF-036",
@@ -450,6 +450,18 @@
       "title": "Act II waves are thin (2-5 units per type) and lives run high (16-24) because shielded heavies and drain eat the whole difficulty budget \u2014 consider a mid-cost anti-armour emplacement or a lance/mortar draw cut so volume can come back",
       "kind": "polish",
       "area": "design",
+      "pri": "med",
+      "status": "open",
+      "why": "",
+      "opened": "2026-07-27",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-039",
+      "title": "Between-anchor flow is menu-only: no post-debrief 'next anchor' button, no act transition screen, no way to replay from the debrief",
+      "kind": "feature",
+      "area": "engine",
       "pri": "med",
       "status": "open",
       "why": "",

@@ -8,117 +8,101 @@ conversation that produced it. The facts below the AUTO marker are regenerated b
 
 ## Where the project is
 
-**Act I is complete: anchors 01-08 are playable, graded and committed. Anchors 09-24 do not exist.**
+**All 24 anchors exist, grade clean, and have dialog. All three acts are content-complete.**
 
-All eight Act I anchors grade clean — winnable at all three difficulties by more than one
-build, with peak load above the pressure floor. Every subsystem it needs — content
-data, rules, simulation, audio, sprites, and now an editor you can actually see the board
-in — is built and gated. What remains is volume: 20 more anchors and their dialog.
+Every anchor is winnable at standard, hard and brutal by more than one distinct build,
+with peak load above the pressure floor. Every tower and enemy in the data has a sprite —
+24 sprite assets covering four factions. The rules are written twice and every parity run
+is identical.
 
-Do not describe this as "nearly done". Eight levels of twenty-four, and Act II needs a
-new antagonist, biome and mechanic rather than more of the same.
+**What this is not:** a finished game. There is no main menu, no level select, no flow
+between anchors, and no save system — the only way to play anchor 17 is to pass
+`--anchor anchor-17` on the command line. That is the next body of work, and it is engine
+work rather than content work. Do not describe the project as nearly done without saying
+which part.
 
 ## What works
 
 | | |
 |---|---|
-| **Game** | `anchor-01` … `anchor-08` playable end to end. Run: `/Applications/Godot.app/Contents/MacOS/Godot --path .` |
-| **Editor** | `scenes/main.tscn` authors its node tree, and `anchor_view.gd` is a `@tool` script that draws the board while editing, with path arrows, IN/OUT markers and numbered slots. `anchor_id` is a dropdown of the levels that exist. |
-| **Rules** | Written twice — `sim/engine.py` and `scripts/anchor_sim.gd` — and diffed on every commit. 168 runs identical. |
-| **Simulation** | Headless, fixed timestep, no RNG in the core loop. Grades an anchor across 7 policies x 3 difficulties. |
-| **Art** | 12 sprites. All five emplacements have art. Palette is authored in sRGB and linearised; the pivot is measured, not assumed. |
-| **Audio** | Complete. 14 music tracks, 35 of ~60 SFX. |
-| **Gate** | `tools/check.py` — 11 checks, 0 skipped. Now includes **game renders**, which asserts the frame is not blank. |
+| **Content** | 24 anchors, 24 dialog files, 9 emplacements, 11 enemies across 4 factions. |
+| **Game** | Any anchor plays end to end: `Godot --path . -- --anchor anchor-17` |
+| **Editor** | `anchor_view.gd` is a `@tool` script and draws the board while editing. |
+| **Rules** | `sim/engine.py` and `scripts/anchor_sim.gd`, diffed on every commit. |
+| **Simulation** | Headless, fixed timestep, no RNG. Grades an anchor across 12 policies x 3 difficulties. |
+| **Sweeping** | `tools/sweep.py` grades a capacity x funds x weight x lives grid and can apply the best cell. |
+| **Art** | 24 sprites. Faction reads by emissive colour: Ordinal verdigris, warden red, Sable Reach blue-white, Hollow violet. |
+| **Audio** | 14 music tracks, 35 of ~60 SFX. Nothing new was needed for Acts II and III. |
+| **Gate** | `tools/check.py` — 11 checks, 0 skipped. Parity now runs 864 sims and takes ~8 minutes; budget for it. |
+
+## The three act mechanics, and where they live
+
+- **Act I — power scarcity.** Brownout priced by overdraw size,
+  `min(0.70, (load/cap-1)*1.5)`. Decision 022.
+- **Act II — the bus is contested.** `drains_mw` units steal capacity while alive; the
+  **anchor damper** suppresses 60% of the drain inside its arc. Decisions 027, 029.
+- **Act III — the bus degrades.** `capacity_decay_mw` per wave, floored at 45% of rated;
+  the **restorer** returns 44 MW for 10 MW drawn and a slot spent. Decision 031.
 
 ## What does not exist
 
-- **Anchors 09-24 and all their dialog.** The bulk of the remaining work. `LF-035`.
-- **Any Sable Reach content.** `reach-breacher` sits unused in `data/enemies.json`; there
-  is no Sable Reach emplacement and no sprite for either. Act II is blocked on it. `LF-036`.
-- Main menu, level select, between-anchor flow. `LF-017`.
-- Sprite atlas packing. `LF-004`. Save system, meta-progression, gamepad.
-- Emplacement sell/upgrade. `LF-019`.
+- **Main menu, level select, between-anchor flow.** `LF-017`. The largest remaining gap.
+- **Save system / meta-progression.** `LF-009`.
+- Sprite atlas packing `LF-004`. Sell/upgrade `LF-019`. Gamepad `LF-010`.
+- Vendored fonts `LF-008`. The 12 organic CC0 SFX `LF-005`.
 
 ## Next task
 
-**Act II, anchors 09-16.** New antagonist (Sable Reach), new biome, power tier 110-180 MW,
-and the act's mechanic: `drains_mw` units steal bus capacity while alive, so power stops
-being a budget the player controls alone. `reach-breacher` already exists in
-`data/enemies.json` and is unused. No Sable Reach emplacement or sprite exists yet.
+**`LF-017` — the flow around the levels.** Main menu, level select over 24 anchors,
+brief → play → debrief, and enough persistence to remember which anchors are cleared
+(`LF-009`). Everything else on the list is polish by comparison; this is the difference
+between a set of levels and a game.
 
-**Method that works — do not skip it.** Write the level, then *sweep* capacity x funds x
-wave weight against `sim/run.py`. Every one of 02-08 was unwinnable or single-solution on
-the first cut; none were fixable by intuition. Two further rules learned the hard way:
+## Method that works — do not skip it
 
-- **Check the layout before the numbers.** anchor-06 refused to grade at any weight because
-  its slots were out of weapon range and its path too long. The validator now errors on
-  unreachable slots, but path *shape* still has to be judged — a long thin path rewards
-  cheap mass and makes every premium emplacement bad regardless of stats (decision 024).
-- **Act I power tiers are 60/80/92/96/100/104/106/110.** Act II starts at 110.
+**Author the layout, then sweep, then write dialog.** Decision 026. Not one anchor of the
+24 graded clean on its first cut. `tools/sweep.py <anchor> --cap … --funds … --weight …
+--lives …` grades the grid; `--apply` writes the chosen cell back into the anchor file.
 
-## Settled this session — do not reopen
+- **Check the layout before the numbers** — the validator errors on slots no weapon can
+  reach and warns on ones the shortest-ranged weapon cannot.
+- **Check the harness before the level.** Three times now the grader, not the content, was
+  what was broken. Decisions 023, 024, 028.
+- Act II and III sweeps land at wave weight 0.45–0.7 with high life counts. Recorded as
+  `LF-038`: shielded heavies and drain eat the whole difficulty budget, so wave volume has
+  nowhere left to go.
 
-- **Brownout is priced by overdraw size**, `min(0.70, (load/cap - 1) * 1.5)`, not a flat
-  40%. Decision 022, superseding 003. `LF-014` is closed: overdrawing is now rational at
-  the margin and ruinous beyond it. Verify with `tools/analysis_overdraw.py`.
-- **The pulse turret engages air**; the scan relay gates sight, not firepower. Decision 019.
-- **Grading policies carry per-emplacement caps.** Without them a policy that leads with a
-  support emplacement builds only that and grades the level unwinnable. Decision 020.
-- **Anchors are balanced by sweeping the simulator, never by intuition.** Every one of
-  02-08 failed its first cut, often by direction rather than magnitude. Decision 026 has
-  the order: layout, then sweep, then dialog.
-- **An emplacement's worth is reach x output, not damage per megawatt.** Decision 024. The
-  ion lance was nearly re-costed over this; the level was the variable, not the tower.
-- **The albedo pass renders with emission off.** Decision 025 — decision 007 had been
-  false since the pipeline was written.
+## Settled recently — do not reopen
 
-## Things I concluded and then had to correct
-
-Kept because the pattern matters more than the individual errors: **four times a confident
-conclusion was overturned by measurement, and twice the real variable was the level or the
-harness rather than the thing being measured.**
-
-- "Frame pacing does not reproduce" — it reproduced immediately at a later shot frame.
-- "The shield wall is unbuildable" — the harness had given it the best slot. Decision 023.
-- "The ion lance is strictly dominated" — right arithmetic, wrong metric. Decision 024.
-- "Glow is never baked into a sprite" — it had been, for the life of the pipeline.
-  Decision 025.
-
-Before concluding a tower or a rule is wrong, check the level and the harness first.
+- **Shielding taxes damage, it does not block it.** 25% leak, and **armour is subtracted
+  before the tax**. Decision 029. Hard immunity made the ion lance mandatory and every
+  anchor carrying a breacher graded unwinnable.
+- **Policies carry a `reserve`** — headroom left unbuilt, because from Act II an enemy
+  draws on the bus too. Decision 028.
+- **The rules work in float64 and compare squared distances.** Decision 030.
+- **Act III capacity decay is per wave, not per second, and has a floor.** Decision 031.
 
 ## Traps that have already cost time
 
-Full detail in `CLAUDE.md`. Recorded so they are not rediscovered.
+Full detail in `CLAUDE.md`. These are the ones that bit *this* session.
 
-- **Godot's game mode never reimports changed assets.** A re-render is invisible until
-  `Godot --headless --path . --import` runs. This produced a full round of "the art fix
-  did nothing" this session. Order is always render → `mask_glow` → `--import` → shoot.
-- **A self-screenshot is at 0.75 scale** — a 1920x1080 logical viewport in a 1440x810
-  window. Comparing screenshot pixels to tile maths needs the *logical* size.
-- **`--fixed-fps` disables real-time sync**, so the loop spins unthrottled. A shot
-  coroutine awaiting `frame_post_draw` resumed 133,000 frames late and captured a game
-  that had already been lost. `main.gd` now pauses before capturing.
-- **A fixed-board harness encodes a placement policy.** `pin()` assigns slots by path
-  proximity, so the order of a spec list is a confounding variable — it invalidated the
-  first shield-wall measurement. Decision 023.
-- **Background jobs spawned inside a shell command outlive it, and `jobs -p` does not
-  reliably capture them.** A CPU-contention test spawned four `while :; do :; done` loops
-  to load the machine; the trailing `kill $LOADPIDS` matched nothing and all four ran at
-  100% CPU for over two hours, taking the load average to 6.3. It made the gate's
-  `game renders` check read 276803ms against a true 2324ms, which nearly went into this
-  file as a fact. If a test needs background load, record the PIDs with `$!` per job and
-  kill them by number, then verify with `ps` that they are gone.
-- The iso camera elevation is 30 degrees, not `atan(1/2)`. Decision 017.
-- The colour palette is authored in **sRGB** and linearised by `mat()`. Blender's inputs
-  are scene-linear; writing display values there renders everything ~3x too light.
-- The sprite pivot is **measured** by `calibrate()`, not assumed to be the canvas centre —
-  the camera's `HEIGHT_BIAS` puts world origin ~43px below it.
-- **"Compositing off" is not "emission off".** Principled emission lands in the beauty
-  render regardless, so the albedo pass carried the glow as well and the engine summed
-  both. `render_pair()` now zeroes emission for the albedo render. Decision 025.
-- Blender 5.x removed `scene.node_tree`; Glare settings are input sockets.
-- The compositor writes an opaque frame, so glow renders must be luminance-masked.
-- A GDScript parse error does not change Godot's exit code. Assert on output.
+- **Godot's `Vector2` is float32 and `distance_to` is not correctly rounded.** Path
+  geometry in the GDScript rules is `PackedFloat64Array`, and every range test compares
+  `dx*dx + dy*dy <= r*r`. One run of 528 diverged by six leaks before this was found.
+- **Unranked emplacements all sort at rank 99.** Python's stable sort returned
+  `towers.json` file order where GDScript returned alphabetical; the two agreed by luck
+  until Act II added three towers. Both now sort by `(rank, id)`.
+- **A grader that cannot express the play an act is built around will call the act
+  impossible.** 36 of 36 cells unwinnable on anchor-09, at capacities above the act's
+  entire power tier, because no policy left headroom for enemy drain.
+- **Look at art in the engine, not in the render output.** Six assets needed re-rendering
+  after a screenshot: a glow that outshone the objective, a flyer at deck height, a unit
+  that vanished on a dark deck, an emissive core rendered *inside* its own cabinet.
+- **A re-render is invisible until `--import`.** Order is always render → `mask_glow` →
+  `--import` → screenshot.
+- **`--fixed-fps` disables real-time sync**; `main.gd` pauses before capturing.
+- Colours are authored in **sRGB** and linearised by `mat()`.
+- The sprite pivot is **measured** by `calibrate()`, not assumed.
 - ffmpeg here has no libvorbis; libsndfile segfaults on large single Vorbis writes.
 - **Do not tune the music loop splicer against a seam metric.** Decision 011.
 
@@ -136,53 +120,61 @@ Full detail in `CLAUDE.md`. Recorded so they are not rediscovered.
 ### Gate
 
 ```
-[  ok  ] python syntax           133ms  23 files
-[  ok  ] json parses              64ms  
-[  ok  ] game data               109ms  3 warning(s)
-[  ok  ] banned terms            225ms  94 files clean
-[  ok  ] sfx determinism         118ms  ui_confirm byte-identical
+[  ok  ] python syntax           163ms  23 files
+[  ok  ] json parses              74ms  
+[  ok  ] game data               151ms  3 warning(s)
+[  ok  ] banned terms            241ms  110 files clean
+[  ok  ] sfx determinism         124ms  ui_confirm byte-identical
 [  ok  ] music manifest            0ms  14 tracks
 [  ok  ] backlog rendered          0ms  16 open
-[  ok  ] sim determinism        2738ms  deterministic
-[  ok  ] godot boots            1382ms  main scene loads clean
-[  ok  ] game renders           2289ms  coverage 0.39, 71 tones
-[  ok  ] rules parity         308920ms  528 runs identical (gdscript vs python)
+[  ok  ] sim determinism        3112ms  deterministic
+[  ok  ] godot boots            1446ms  main scene loads clean
+[  ok  ] game renders           2742ms  coverage 0.39, 71 tones
+[  ok  ] rules parity         722410ms  864 runs identical (gdscript vs python)
 
-11 passed · 0 failed · 0 skipped · 315980ms
+11 passed · 0 failed · 0 skipped · 730462ms
 ```
 
 ### Inventory
 
 | | count |
 |---|---|
-| anchors authored | 16 of 24 |
-| dialog files | 16 |
+| anchors authored | 24 of 24 |
+| dialog files | 24 |
 | sfx | 35 of ~60 |
 | music tracks | 14 of 14 |
-| sprite renders | 166 |
-| godot scripts | 12 |
-| godot scenes | 1 |
+| sprite renders | 206 |
+| godot scripts | 14 |
+| godot scenes | 2 |
 
 ### Anchor grades
 
 | anchor | act | cap | waves | standard | hard | brutal | verdict |
 |---|---|---|---|---|---|---|---|
 | anchor-01 | 1 | 60 MW | 6 | 2/4 | 2/4 | 1/4 | ok |
-| anchor-02 | 1 | 80 MW | 7 | 4/7 | 3/7 | 2/7 | ok |
-| anchor-03 | 1 | 92 MW | 7 | 3/8 | 3/8 | 3/7 | ok |
-| anchor-04 | 1 | 96 MW | 8 | 3/9 | 3/9 | 2/9 | ok |
+| anchor-02 | 1 | 80 MW | 7 | 4/8 | 3/8 | 2/8 | ok |
+| anchor-03 | 1 | 92 MW | 7 | 4/9 | 4/9 | 3/8 | ok |
+| anchor-04 | 1 | 96 MW | 8 | 4/10 | 3/10 | 2/10 | ok |
 | anchor-05 | 1 | 100 MW | 7 | 6/9 | 6/9 | 4/9 | ok |
-| anchor-06 | 1 | 104 MW | 7 | 5/11 | 4/11 | 3/11 | ok |
-| anchor-07 | 1 | 106 MW | 8 | 3/11 | 3/11 | 2/11 | ok |
-| anchor-08 | 1 | 110 MW | 9 | 3/11 | 2/11 | 2/11 | ok |
-| anchor-09 | 2 | 118 MW | 8 | 7/11 | 6/11 | 3/11 | ok |
-| anchor-10 | 2 | 134 MW | 8 | 6/11 | 3/11 | 3/11 | ok |
+| anchor-06 | 1 | 104 MW | 7 | 6/12 | 5/12 | 4/12 | ok |
+| anchor-07 | 1 | 106 MW | 8 | 4/12 | 4/12 | 2/12 | ok |
+| anchor-08 | 1 | 110 MW | 9 | 3/12 | 2/12 | 2/12 | ok |
+| anchor-09 | 2 | 118 MW | 8 | 8/12 | 7/12 | 4/12 | ok |
+| anchor-10 | 2 | 134 MW | 8 | 6/12 | 3/12 | 3/12 | ok |
 | anchor-11 | 2 | 142 MW | 8 | 4/11 | 3/11 | 2/11 | ok |
 | anchor-12 | 2 | 150 MW | 8 | 4/11 | 4/11 | 4/11 | ok |
-| anchor-13 | 2 | 158 MW | 9 | 5/11 | 4/11 | 2/11 | ok |
+| anchor-13 | 2 | 158 MW | 9 | 6/12 | 5/12 | 3/12 | ok |
 | anchor-14 | 2 | 166 MW | 9 | 7/11 | 5/11 | 4/11 | ok |
 | anchor-15 | 2 | 174 MW | 9 | 6/11 | 6/11 | 4/11 | ok |
 | anchor-16 | 2 | 180 MW | 10 | 3/11 | 2/11 | 2/11 | ok |
+| anchor-17 | 3 | 190 MW | 8 | 3/12 | 3/12 | 2/12 | ok |
+| anchor-18 | 3 | 200 MW | 8 | 3/12 | 3/12 | 3/12 | ok |
+| anchor-19 | 3 | 210 MW | 8 | 3/11 | 3/11 | 3/11 | ok |
+| anchor-20 | 3 | 220 MW | 8 | 3/11 | 3/11 | 3/11 | ok |
+| anchor-21 | 3 | 230 MW | 8 | 3/11 | 3/11 | 3/11 | ok |
+| anchor-22 | 3 | 240 MW | 9 | 3/11 | 3/11 | 3/11 | ok |
+| anchor-23 | 3 | 250 MW | 9 | 3/11 | 3/11 | 3/11 | ok |
+| anchor-24 | 3 | 260 MW | 10 | 3/11 | 3/11 | 3/11 | ok |
 
 *Cells are distinct winning builds / distinct builds tried.*
 
@@ -210,6 +202,7 @@ Full detail in `CLAUDE.md`. Recorded so they are not rediscovered.
 ### Recent commits
 
 ```
+8c05a5c chore(backlog): close LF-036 — Act II art exists
 3d01481 feat(art): Act II sprite set — three emplacements and four Sable Reach units
 915d5da feat(content): Act II is complete — anchors 11-16, shielding reworked, parity in float64
 7378dee feat(content): Act II opens — Sable Reach roster, damper, anchors 09-10
@@ -217,7 +210,6 @@ Full detail in `CLAUDE.md`. Recorded so they are not rediscovered.
 b29d2be fix(art): render albedo with emission off — decision 007 was not actually true
 ccf0e4e feat(content): anchors 07-08 — Act I is complete and grades clean
 7d4ac2b feat(content): anchor-06 "Hard Currency" — ion lance unlock, compact serpentine
-6c78fc1 feat(content): anchor-05 "Housekeeping"; validator catches dead build slots
 ```
 
 <!-- END AUTO -->

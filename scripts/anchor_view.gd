@@ -219,6 +219,7 @@ func _advance() -> void:
 
 func _begin_wave(index: int) -> void:
 	_wave_index = index
+	sim.begin_wave(index)          # Act III: the bus loses its decay before the prep phase
 	_queue = sim.wave_queue(index)
 	_qi = 0
 	_wave_t = 0.0
@@ -255,6 +256,35 @@ func _unhandled_input(event: InputEvent) -> void:
 			_click(hovered_slot)
 		elif event.button_index == MOUSE_BUTTON_RIGHT:
 			_toggle(hovered_slot)
+
+
+func placed_index_at(slot: Vector2i) -> int:
+	for i in range(sim.placed.size()):
+		if sim.placed[i]["slot"] == slot:
+			return i
+	return -1
+
+
+func sell_at(slot: Vector2i) -> void:
+	var i := placed_index_at(slot)
+	if i < 0:
+		Audio.sfx("ui_deny")
+		return
+	sim.sell(i)
+	Audio.sfx("power_offline")
+	state_changed.emit()
+	queue_redraw()
+
+
+func upgrade_at(slot: Vector2i) -> void:
+	var i := placed_index_at(slot)
+	if i < 0 or not sim.upgrade(i):
+		Audio.sfx("ui_deny")
+		return
+	Audio.sfx("place_emplacement")
+	Audio.sfx("power_online")
+	state_changed.emit()
+	queue_redraw()
 
 
 func _click(slot: Vector2i) -> void:

@@ -20,6 +20,7 @@ import argparse
 import json
 import subprocess
 import sys
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -82,8 +83,14 @@ def main() -> int:
         return 0
 
     ids = [args.anchor] if args.anchor else all_anchor_ids()
-    gd = {key(r): r for r in run_godot(args.anchor)}
-    py = {key(r): r for r in run_python(ids)}
+    # The two sides are independent, take roughly the same wall-clock, and neither
+    # writes anything — so running them at once halves the gate's slowest check. At 24
+    # anchors x 12 policies x 3 difficulties this is minutes, not seconds.
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        gd_future = pool.submit(run_godot, args.anchor)
+        py_future = pool.submit(run_python, ids)
+        gd = {key(r): r for r in gd_future.result()}
+        py = {key(r): r for r in py_future.result()}
 
     missing = sorted(set(py) - set(gd))
     extra = sorted(set(gd) - set(py))
