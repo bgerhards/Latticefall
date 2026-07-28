@@ -145,20 +145,20 @@ Full detail in `CLAUDE.md`.
 ### Gate
 
 ```
-[  ok  ] python syntax           169ms  24 files
-[  ok  ] json parses              68ms  
+[  ok  ] python syntax           166ms  24 files
+[  ok  ] json parses              70ms  
 [  ok  ] game data               128ms  no warnings
-[  ok  ] banned terms            229ms  115 files clean
-[  ok  ] sfx determinism         118ms  ui_confirm byte-identical
+[  ok  ] banned terms            243ms  115 files clean
+[  ok  ] sfx determinism         123ms  ui_confirm byte-identical
 [  ok  ] music manifest            0ms  14 tracks
 [  ok  ] backlog rendered          0ms  8 open
-[  ok  ] sim determinism        3047ms  deterministic
-[  ok  ] godot boots            1092ms  main scene loads clean
-[  ok  ] game renders           1906ms  coverage 0.45, 80 tones
-[  ok  ] menu renders           1178ms  coverage 0.037, 8 anchors listed
-[  ok  ] rules parity         510598ms  864 runs identical (gdscript vs python)
+[  ok  ] sim determinism        3065ms  deterministic
+[  ok  ] godot boots            1400ms  main scene loads clean
+[  ok  ] game renders           1992ms  coverage 0.50, 80 tones
+[  ok  ] menu renders           1081ms  coverage 0.037, 8 anchors listed
+[  ok  ] rules parity         512842ms  864 runs identical (gdscript vs python)
 
-12 passed · 0 failed · 0 skipped · 518535ms
+12 passed · 0 failed · 0 skipped · 521111ms
 ```
 
 ### Inventory
@@ -220,14 +220,14 @@ Full detail in `CLAUDE.md`.
 ### Recent commits
 
 ```
+ee52d48 fix(engine): state the shield tax, and stop hardcoding panel heights
+cec69ec feat(engine): threat panel — what is coming, when, and what it costs the bus
+e982685 fix(engine): picking from the build bar takes the inspector with it
+3226f4a fix(engine): the build bar fits its column instead of lying across the board
 ce81773 feat(engine): board selection and an emplacement inspector
 5475dfa feat(engine): pause menu, volume, per-wave autoplay, and slots in range
 c048141 feat(engine): menu, level select, save, sell/upgrade, and vendored fonts
 8c05a5c chore(backlog): close LF-036 — Act II art exists
-3d01481 feat(art): Act II sprite set — three emplacements and four Sable Reach units
-915d5da feat(content): Act II is complete — anchors 11-16, shielding reworked, parity in float64
-7378dee feat(content): Act II opens — Sable Reach roster, damper, anchors 09-10
-0f622b2 docs: session wrap — Act I complete, decision 026, STATE for a fresh context
 ```
 
 <!-- END AUTO -->
