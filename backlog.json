@@ -499,11 +499,11 @@
       "kind": "bug",
       "area": "engine",
       "pri": "med",
-      "status": "open",
+      "status": "done",
       "why": "",
       "opened": "2026-07-27",
-      "closed": null,
-      "note": ""
+      "closed": "2026-07-27",
+      "note": "config/name is Latticefall. Godot derives user:// from it, so Progress.load_state() adopts a pre-rename save once and prints the path it took. Verified against a real save with anchor-01 cleared: clear survived, second boot did not re-adopt, case-mismatch warning gone. Decision 040."
     },
     {
       "id": "LF-043",
@@ -511,11 +511,11 @@
       "kind": "chore",
       "area": "audio",
       "pri": "med",
-      "status": "open",
+      "status": "done",
       "why": "",
       "opened": "2026-07-27",
-      "closed": null,
-      "note": ""
+      "closed": "2026-07-27",
+      "note": "Not sourceable: the entire CC0 sound corpus offers a shovel, a splash and a sand spell for this. Synthesized instead \u2014 debris is a stochastic cloud of tiny impacts, which is what synthesis is good at, so decision 009 had it on the wrong side of its own boundary. Rebuilds byte-identical. Plays under warden_death for units of 150 HP or more. Decision 041."
     }
   ]
 }

@@ -93,8 +93,40 @@ func reset() -> void:
 
 # ───────────────────────────────────────────────────────────────── storage ──
 
+## Where the save lived while the project was still named after its repository.
+## Decision 040 renamed the application to Latticefall, and Godot derives user:// from
+## that name — so on the rename every existing player's progress became a file the game
+## no longer looks at. It is still on disk, so read it once rather than silently starting
+## them over.
+const LEGACY_DIR_NAMES := ["Defend-Claude", "defend-claude"]
+
+
+func _adopt_legacy_save() -> FileAccess:
+	## Returns an open handle to a pre-rename save, having first copied it into the new
+	## location so this only ever happens once. Null when there is nothing to adopt.
+	var here := ProjectSettings.globalize_path("user://").trim_suffix("/")
+	var parent := here.get_base_dir()
+	for name in LEGACY_DIR_NAMES:
+		var candidate := parent.path_join(name).path_join("progress.json")
+		if candidate == ProjectSettings.globalize_path(SAVE_PATH):
+			continue
+		var src := FileAccess.open(candidate, FileAccess.READ)
+		if src == null:
+			continue
+		var text := src.get_as_text()
+		var dst := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
+		if dst != null:
+			dst.store_string(text)
+			dst.close()
+		print("progress: adopted save from %s" % candidate)
+		return FileAccess.open(SAVE_PATH, FileAccess.READ)
+	return null
+
+
 func load_state() -> void:
 	var f := FileAccess.open(SAVE_PATH, FileAccess.READ)
+	if f == null:
+		f = _adopt_legacy_save()
 	if f == null:
 		return
 	var doc: Variant = JSON.parse_string(f.get_as_text())

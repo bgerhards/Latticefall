@@ -1064,3 +1064,86 @@ the fix.
 
 **Consequence.** The art pipeline is now four steps, not three: **render → mask_glow →
 pack_atlas → --import**. `CLAUDE.md` records it and the gate enforces the last two.
+
+---
+
+## 040 — The application is called Latticefall, and the old save is adopted rather than lost
+
+**Decided.** `project.godot` carries `config/name="Latticefall"`. It carried
+`"Defend-Claude"` — the name of the directory the repository happens to sit in — and that
+string is not internal: Godot uses it for the window title and for the name of an exported
+binary. The game has been called LATTICEFALL since decision 006 established the
+nomenclature; the window said otherwise.
+
+**Why this needed more than a one-line rename.** Godot derives `user://` from the
+application name, so renaming moves the save. Every existing player's progress would have
+become a file the game no longer looks at — present on disk, invisible to the menu, and
+indistinguishable from "new player" to anyone debugging it. `Progress.load_state()` now
+falls back to `_adopt_legacy_save()`, which reads the pre-rename file, copies it to the new
+location and returns a handle. It runs once, because the copy is what makes the next boot
+find the save normally.
+
+Both `Defend-Claude` and `defend-claude` are probed. The on-disk directory was lowercase
+because it predated an earlier rename, and macOS resolved the mismatch case-insensitively
+where a case-sensitive filesystem would not have. Probing both is what makes the migration
+work on either.
+
+**Verified against a real save**, not a synthetic one: a progress file with anchor-01
+cleared at ten lives was adopted on first boot, the clear survived, the second boot did not
+re-adopt, and the case-mismatch warning that had appeared on every startup is gone.
+
+**Rejected.**
+- *`custom_user_dir_name` pinned to the old directory.* Keeps the save in place with no
+  migration code, at the cost of a save directory permanently named after a repository
+  nobody ships. It trades a visible one-time migration for a permanent invisible oddity.
+- *Leaving the rename until export.* The window title is wrong every time the game is run,
+  and a rename done later has exactly the same save problem with more saves to lose.
+- *Migrating silently.* It prints the path it adopted. A save moving between directories
+  is the kind of thing that must be greppable when someone reports lost progress.
+
+**Consequence.** `LF-041` was dropped earlier this session as "local state, not a repo
+defect" — that diagnosis was right, and this rename resolves the symptom anyway by
+creating the directory fresh under a name that matches its casing.
+
+---
+
+## 041 — Debris is synthesized after all, correcting decision 009's list
+
+**Decided.** `debris_settle` joins the synthesized bank in `tools/audio/synth_sfx.py`
+rather than being sourced. Decision 009 listed it among the twelve organic cues that
+"synthesis cannot fake"; that premise was wrong for this one sound, and the CC0 search is
+what exposed it.
+
+**What the search found.** `LF-043` opened because eleven of the twelve cues found CC0
+candidates and debris found none. Widening the queries to `dirt`, `gravel`, `sand` and
+`stone falling` returned three items in total across the whole CC0 sound corpus: a shovel,
+a water splash, and a "sand spell". There is no CC0 recording of falling rubble to have.
+
+**Why that is a better outcome than it looks.** Falling debris is a *cloud of tiny
+impacts* — a stochastic process with a decaying event density. That is precisely the shape
+synthesis handles well, and precisely unlike the cues that genuinely resist it. A human
+voice has formant structure no amount of filtered noise reproduces; a hundred pebbles
+landing do not. Decision 009's real boundary is not "organic versus synthetic", it is
+"structured versus stochastic", and debris was filed on the wrong side of it.
+
+**How it is built.** 190 grains, each 6-16 ms of band-passed noise between 700 and 3300 Hz
+under a fast attack-decay, scattered across 1.1 s with their start times biased by a cube
+curve so most land in the first third and the tail thins out. A low-passed dust bed decays
+underneath. Everything is drawn from `rng_for("debris_settle")`, so the cue remains a pure
+function of its own name and rebuilds byte-identical — verified, not assumed.
+
+**Where it plays.** Under `warden_death`, but only for units with 150 HP or more. Every
+construct dying in a cloud of rubble turns a wave of drones into gravel; reserving it for
+heavies makes it read as mass rather than as a death sound, and keeps the mix clear when
+six things die at once.
+
+**Rejected.**
+- *Shipping the shovel.* It is CC0 and it is granular, and it is a shovel. Sourcing
+  something that nearly fits, because the plan said "sourced", is letting a plan outrank
+  the result.
+- *Leaving `LF-043` open indefinitely.* The gap was real but the conclusion — that this
+  sound must be a recording — was not.
+
+**Consequence.** The bank is 36 synthesized cues and 11 sourced. Decision 009's count of
+"48 of ~60 synthesized, ~12 sourced" is superseded: the split is decided per sound by
+whether it is stochastic, not by whether it is physical.

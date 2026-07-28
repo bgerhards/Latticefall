@@ -89,7 +89,7 @@ func boot(aid: String, diff: String) -> void:
 	sim = AnchorSimScript.new()
 	sim.setup(anchor, Content.towers, Content.enemies, difficulty)
 	sim.brownout_changed.connect(_on_brownout)
-	sim.unit_killed.connect(func(_u): Audio.sfx("warden_death"))
+	sim.unit_killed.connect(_on_unit_killed)
 	sim.unit_leaked.connect(func(_u): Audio.sfx("ui_deny"))
 
 	var unlocked: Array = Content.unlocked_at(anchor_id)
@@ -250,6 +250,15 @@ func _begin_wave(index: int) -> void:
 	_lead_left = float(sim.anchor["waves"][index].get("lead_in", 20.0))
 	_phase = "prep"
 	wave_state.emit(index + 1, sim.anchor["waves"].size(), _phase)
+
+
+func _on_unit_killed(u: Dictionary) -> void:
+	## Debris only under the big ones. Every construct dying in a cloud of rubble turns a
+	## wave of drones into gravel; reserving it for heavies makes it read as mass rather
+	## than as a death sound, and keeps it out of the way when six things die at once.
+	Audio.sfx("warden_death")
+	if float(u["kind"].get("hp", 0.0)) >= 150.0:
+		Audio.sfx("debris_settle", -5.0)
 
 
 func _on_brownout(active: bool) -> void:

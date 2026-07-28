@@ -146,7 +146,7 @@ WANTED: dict[str, dict] = {
     "debris_settle": {
         "note": "Small rubble and dust falling after a construct dies. The tail on a kill, "
                 "layered under the synthesized warden_death.",
-        "queries": ["debris", "rubble", "rocks falling"],
+        "queries": ["dirt", "gravel", "stone falling", "debris"],
         "loop": False,
     },
     "rubble_impact": {
@@ -364,7 +364,14 @@ def main() -> int:
     manifest = json.loads(MANIFEST.read_text()) if MANIFEST.exists() else {}
 
     staged = rejected = 0
-    taken: set[str] = set()      # one file answers one cue, across the whole run
+    ## One file answers one cue — seeded from the cues *not* being refreshed, so running
+    ## a single cue cannot quietly take a file another cue is already built from. Without
+    ## this, `fetch_cc0.py debris_settle` could hand it the same stone impact rubble_impact
+    ## already ships, and two cues playing one sound is a bug that only shows up by ear.
+    taken: set[str] = {
+        c["url"] for cue_name, spec in manifest.items() if cue_name not in cues
+        for c in spec.get("candidates", []) if c.get("url")
+    }
     for cue in cues:
         spec = WANTED[cue]
         print(f"\n{cue}  ·  {spec['note'].split('.')[0]}")
