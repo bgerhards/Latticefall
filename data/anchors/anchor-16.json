@@ -5,7 +5,7 @@
   "title": "Sable Reach",
   "capacity_mw": 180,
   "starting_funds": 1800,
-  "lives": 24,
+  "lives": 36,
   "grid": {
     "w": 17,
     "h": 12

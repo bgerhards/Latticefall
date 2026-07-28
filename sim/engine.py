@@ -316,7 +316,11 @@ class Sim:
             if u.dist >= self.a.path_length:
                 u.alive = False
                 self.leaks += 1
-                self.lives -= 1
+                # Priced by the unit, not a flat 1. Decision 047: with a flat cost, three
+                # 170 hp units in place of one 520 hp one tripled the tension along with
+                # the count, so density could only be bought with lives. `leaks` still
+                # counts bodies — it is a different question from what they cost.
+                self.lives -= u.kind.leak_cost
 
         # fire — furthest-along reachable target, a total order, so no RNG needed
         for p in self.placed:

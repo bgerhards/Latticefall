@@ -352,7 +352,10 @@ func _step(penalty: float) -> void:
 		if float(u["dist"]) >= path_length:
 			u["alive"] = false
 			leaks += 1
-			lives -= 1
+			# Priced by the unit, not a flat 1 — and this must stay byte-identical to
+			# sim/engine.py, including the default of 1 for a unit that does not name one.
+			# Decision 047.
+			lives -= int(u["kind"].get("leak_cost", 1))
 			lives_changed.emit(lives)
 			unit_leaked.emit(u)
 

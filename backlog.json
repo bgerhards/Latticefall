@@ -519,7 +519,7 @@
     },
     {
       "id": "LF-044",
-      "title": "Act II/III density is still flat at ~8 units per wave \u2014 the sweep scorer fix (decision 044) recovered lives but not volume, because higher spawn weights do not grade clean at any life count. Needs a roster answer to shielded/armoured units: a mid-cost anti-armour emplacement or a lance/mortar draw cut, then a full re-sweep of anchors 09-24",
+      "title": "Act II/III density: decision 047 removed the blocker, now spend it \u2014 re-author Act II/III wave composition for more, lighter units at constant wave leak_cost, then re-sweep anchors 09-24",
       "kind": "polish",
       "area": "design",
       "pri": "med",
@@ -527,7 +527,7 @@
       "why": "",
       "opened": "2026-07-27",
       "closed": null,
-      "note": ""
+      "note": "PREMISE RE-MEASURED 2026-07-28; the original note was wrong on all three counts.\n1. The roster is not the constraint: ~0.52 dps/MW against shielded/armoured vs ~1.0 against plain is a 2x penalty, not an absence. The proposed mid-cost anti-armour emplacement would not have helped.\n2. Throughput is not the constraint: 2x damage on every weapon AND +60% capacity (3.2x throughput) still reaches only 1/11 winning builds at weight 1.50 on anchor-20.\n3. 'Does not grade clean at any life count' was false \u2014 anchor-20 at weight 1.50 grades clean at 72 lives. Never tested: sweep.py defaults to weights [0.85, 1.0, 1.15] and the anchor's current life count.\n\nROOT CAUSE, now fixed by decision 047: density and leak-tension were the same axis, because a leak cost one life whether it was a 22 hp mote or a 520 hp Column. leak_cost = max(1, round(hp/130)) makes trading one Column for four ~130 hp units tension-neutral.\n\nREMAINING WORK, mechanical and not blocked on the owner: re-author Act II and III wave composition to field more, lighter units in place of the bricks, holding each wave's total leak_cost roughly where it is, then re-sweep anchors 09-24. Judge the result on leak budget (lives / total leak_cost), not on raw lives \u2014 Act I sits at 8.7%, Act II 18.0%, Act III 30.4%."
     },
     {
       "id": "LF-045",

@@ -551,6 +551,7 @@ func _refresh_threat() -> void:
 	var lines: Array[String] = []
 	var total_units := 0
 	var total_drain := 0.0
+	var total_leak_cost := 0
 	var has_air := false
 	for spawn in spawns:
 		var e: Dictionary = Content.enemy(String(spawn.get("enemy", "")))
@@ -559,13 +560,26 @@ func _refresh_threat() -> void:
 		var count: int = int(spawn.get("count", 1))
 		total_units += count
 		total_drain += float(e.get("drains_mw", 0.0)) * float(count)
+		total_leak_cost += int(e.get("leak_cost", 1)) * count
 		if String(e.get("kind", "ground")) == "air":
 			has_air = true
-		lines.append("%2d x  %s" % [count, String(e["name"])])
+		# Leak cost goes on the name row, not the trait row. The trait row is already the
+		# widest string the panel can be asked to draw — 51 monospaced characters, which is
+		# what THREAT_W is sized from — and another field there would run off the screen.
+		# The name row is half that, and a unit that costs more than one life is exactly the
+		# thing worth naming loudly. Decision 047.
+		var cost := int(e.get("leak_cost", 1))
+		lines.append("%2d x  %s%s" % [count, String(e["name"]),
+			"   %d lives each" % cost if cost > 1 else ""])
 		lines.append("      %s" % _enemy_traits(e))
 	_threat_body.text = "\n".join(lines)
 
-	var footer: Array[String] = ["%d units" % total_units]
+	# What the wave costs if none of it is stopped. Since decision 047 a leak costs the
+	# unit's `leak_cost` rather than a flat life, so "5 units" and "11 lives" are different
+	# numbers — and without this the player watches lives fall by four for one leak with
+	# nothing on screen explaining why.
+	var footer: Array[String] = ["%d units · %d lives if it all leaks"
+		% [total_units, total_leak_cost]]
 	if total_drain > 0.0:
 		# The one number that decides an Act II or III build: every unit alive is capacity
 		# stolen, so this is how far the bus is about to be pushed over on its own.

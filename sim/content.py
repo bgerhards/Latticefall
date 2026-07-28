@@ -52,6 +52,10 @@ class Enemy:
     armour: float = 0.0
     shielded: bool = False
     drains_mw: float = 0.0
+    ## Lives lost when this unit reaches the anchor. See decision 047: a flat cost of 1
+    ## made density and leak-tension the same axis, so Act III could only get more units on
+    ## screen by becoming proportionally more forgiving.
+    leak_cost: int = 1
 
 
 @dataclass(frozen=True)
@@ -147,6 +151,7 @@ def load_enemies(path: Path | None = None) -> dict[str, Enemy]:
             speed=e["speed"], bounty=e["bounty"], kind=e["kind"],
             armour=e.get("armour", 0.0), shielded=e.get("shielded", False),
             drains_mw=e.get("drains_mw", 0.0),
+            leak_cost=int(e.get("leak_cost", 1)),
         )
         for e in doc["enemies"]
     }

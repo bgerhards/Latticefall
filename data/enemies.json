@@ -20,7 +20,8 @@
       "bounty": 40,
       "kind": "ground",
       "armour": 4,
-      "note": "Armour makes fire rate matter less than damage per shot."
+      "note": "Armour makes fire rate matter less than damage per shot.",
+      "leak_cost": 2
     },
     {
       "id": "warden-mote",
@@ -77,7 +78,8 @@
       "armour": 5,
       "shielded": true,
       "drains_mw": 9,
-      "note": "Act II heavy. Shielded and armoured, so an unrated weapon lands a quarter of its damage and then pays armour out of that \u2014 a pulse turret does nothing to it. The lance and the mortar do. At 8 armour and 430 HP it was immune to literally everything else and every anchor carrying it graded unwinnable."
+      "note": "Act II heavy. Shielded and armoured, so an unrated weapon lands a quarter of its damage and then pays armour out of that \u2014 a pulse turret does nothing to it. The lance and the mortar do. At 8 armour and 430 HP it was immune to literally everything else and every anchor carrying it graded unwinnable.",
+      "leak_cost": 3
     },
     {
       "id": "hollow-drift",
@@ -112,7 +114,8 @@
       "kind": "ground",
       "armour": 3,
       "drains_mw": 10,
-      "note": "Act III mid. Carries most of the act's drain and is not screened, so mass fire answers it."
+      "note": "Act III mid. Carries most of the act's drain and is not screened, so mass fire answers it.",
+      "leak_cost": 2
     },
     {
       "id": "hollow-column",
@@ -125,7 +128,8 @@
       "armour": 6,
       "shielded": true,
       "drains_mw": 12,
-      "note": "Act III heavy. Slow, screened, plated, and the single largest draw on the bus in the game."
+      "note": "Act III heavy. Slow, screened, plated, and the single largest draw on the bus in the game.",
+      "leak_cost": 4
     }
   ]
 }

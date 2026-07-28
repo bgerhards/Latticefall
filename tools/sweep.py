@@ -130,7 +130,20 @@ def main() -> int:
                         print(line + r["problems"][0][:60])
 
     print(f"\n{len(clean)} clean cell(s) of {total}")
+
+    # State the box, always. "No cell grades clean" is a statement about the grid that was
+    # searched and nothing else, and it has already been read once as a statement about the
+    # game: LF-044 recorded "higher spawn weights do not grade clean at any life count" as a
+    # property of the roster, when the sweep behind it spanned weights 0.85-1.15 and a single
+    # life count. anchor-20 grades clean at weight 1.50 and 72 lives. Printing the bounds
+    # next to the verdict makes the scope of the claim impossible to lose.
+    print(f"searched: capacity {min(caps):.0f}-{max(caps):.0f} MW · "
+          f"funds {int(min(funds))}-{int(max(funds))} · "
+          f"weight {min(weights):.2f}-{max(weights):.2f} · "
+          f"lives {min(lives)}-{max(lives)}")
     if not clean:
+        print("a verdict of 'none' applies to that box only — widen --weight and --lives "
+              "before concluding anything about the content")
         return 1
 
     # Ties broken toward the tighter level, then the denser one, then the cheaper bus —

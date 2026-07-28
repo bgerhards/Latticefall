@@ -8,7 +8,7 @@
 
 | | ID | Area | Kind | Item |
 |---|---|---|---|---|
-| ` ` | LF-044 | design | polish | Act II/III density is still flat at ~8 units per wave — the sweep scorer fix (decision 044) recovered lives but not volume, because higher spawn weights do not grade clean at any life count. Needs a roster answer to shielded/armoured units: a mid-cost anti-armour emplacement or a lance/mortar draw cut, then a full re-sweep of anchors 09-24 |
+| ` ` | LF-044 | design | polish | Act II/III density: decision 047 removed the blocker, now spend it — re-author Act II/III wave composition for more, lighter units at constant wave leak_cost, then re-sweep anchors 09-24 |
 | ` ` | LF-045 | engine | feature | The instrument column cannot reflow, so interface scale is capped at 125%. content_scale_factor divides the 1920x1080 design space, and the column needs ~847px of height at anchor-24 (nine emplacements, eight reserved datasheet rows) — 150% leaves 720 and clips the SELL/UPGRADE/power controls. WCAG 2.1 SC 1.4.4 asks for 200%. Needs a column that can reflow (scroll, collapse the datasheet to the selected tower's rows, or move the build bar out of the column) rather than a larger multiplier |
 
 ---
