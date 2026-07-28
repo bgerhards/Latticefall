@@ -118,6 +118,10 @@ Full detail in `CLAUDE.md`.
 - **A Label's line height is not its font size.** It stacks the `line_spacing` theme
   constant (3) on the face height, so 11 px mono is ~19 px. A guessed 15 drew the threat
   footer through the unit list. Read it from the font, as with the sprite pivot.
+- **No panel in the HUD has a hardcoded height any more.** The build grid, the inspector
+  and the threat panel are each measured — from the anchor's unlocked count, its tallest
+  datasheet, and its busiest wave. Every fixed offset that was replaced had already been
+  wrong for some anchor.
 - **A re-render is invisible until `--import`.** render → `mask_glow` → `--import` → shoot.
 - **`--fixed-fps` disables real-time sync**; `main.gd` pauses before capturing, and
   `--paused` sets `PROCESS_MODE_ALWAYS` or the shot never fires.

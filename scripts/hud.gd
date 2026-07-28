@@ -46,12 +46,12 @@ const MENU_SCENE := "res://scenes/menu.tscn"
 ## because the build bar's height is not known until an anchor says what it unlocks.
 const BAR_TOP := 184.0
 const BUTTON_H := 44.0
-const PANEL_H := 420.0
 ## The threat panel mirrors the instrument column on the right edge. The board is centred
 ## and at anchor-24 is (18+15)*64 = 2112 px wide, so it runs off both sides of a 1920 px
 ## viewport regardless — a panel here covers far tiles, exactly as the left column does.
 const THREAT_X := 1524.0
 const THREAT_BODY_SIZE := 11
+const BODY_SIZE := 13
 
 var _buttons: Array[Button] = []
 
@@ -138,7 +138,14 @@ func bind(v: Node2D) -> void:
 	# on anchor-01.
 	var rows: int = int(ceil(float(unlocked.size()) / 2.0))
 	var bar_h: float = float(rows) * BUTTON_H + maxf(float(rows - 1), 0.0) * 6.0
-	_build_inspector(root, BAR_TOP + bar_h + 16.0)
+	# The datasheet is not a fixed height: a weapon with splash that is not rated for
+	# shielding runs eight rows where a support emplacement runs five. The rule under it was
+	# at a hardcoded offset and the longest sheets already touched it. Measure instead.
+	var stat_rows := 1
+	for tid in unlocked:
+		var t: Dictionary = Content.tower(tid)
+		stat_rows = maxi(stat_rows, _stats_text(t, t.get("upgrade", {})).split("\n").size())
+	_build_inspector(root, BAR_TOP + bar_h + 16.0, stat_rows)
 	_build_threat(root)
 
 	# End-of-anchor banner. Centred, large, and the only place the game tells the player
@@ -191,18 +198,25 @@ func bind(v: Node2D) -> void:
 	refresh()
 
 
-func _build_inspector(root: Control, top: float) -> void:
+func _build_inspector(root: Control, top: float, stat_rows: int) -> void:
 	## One panel that describes whichever emplacement the player is thinking about — the
 	## one selected on the board, or failing that the one about to be built — and carries
 	## the three verbs that act on it. The verbs act on `view.selected_slot`, never on the
 	## hover: reaching a button means dragging the cursor across the board, and a
 	## hover-targeted SELL sells whatever tile the cursor last crossed on its way over.
 	##
-	## Everything is placed relative to `top`, which is wherever the build bar ended.
+	## Everything is placed relative to `top`, which is wherever the build bar ended, and to
+	## the measured height of the tallest datasheet this anchor can show.
+	var body_h := float(stat_rows) * _mono_line_h(BODY_SIZE)
+	var rule_y := top + 86.0 + body_h + 10.0
+	var note_y := rule_y + 8.0
+	var verbs_y := note_y + 100.0
+	var power_y := verbs_y + 38.0
+
 	var panel := ColorRect.new()
 	panel.color = C_PANEL
 	panel.position = Vector2(16, top)
-	panel.size = Vector2(330, PANEL_H)
+	panel.size = Vector2(330, power_y + 42.0 - top)
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(panel)
 
@@ -220,21 +234,21 @@ func _build_inspector(root: Control, top: float) -> void:
 
 	root.add_child(_rule(top + 78))
 
-	_body = _make_label(13, C_BONE, true)
+	_body = _make_label(BODY_SIZE, C_BONE, true)
 	_body.position = Vector2(28, top + 86)
 	root.add_child(_body)
 
-	root.add_child(_rule(top + 228))
+	root.add_child(_rule(rule_y))
 
 	_note = _make_label(12, C_MUTED)
-	_note.position = Vector2(28, top + 236)
+	_note.position = Vector2(28, note_y)
 	_note.size = Vector2(306, 92)
 	_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_note.clip_text = true
 	root.add_child(_note)
 
 	var verbs := HBoxContainer.new()
-	verbs.position = Vector2(28, top + 336)
+	verbs.position = Vector2(28, verbs_y)
 	verbs.add_theme_constant_override("separation", 6)
 	root.add_child(verbs)
 
@@ -252,7 +266,7 @@ func _build_inspector(root: Control, top: float) -> void:
 
 	_power_button = Button.new()
 	_power_button.custom_minimum_size = Vector2(306, 30)
-	_power_button.position = Vector2(28, top + 374)
+	_power_button.position = Vector2(28, power_y)
 	Ui.style(_power_button, 12)
 	_power_button.pressed.connect(func(): view.toggle_at(view.selected_slot))
 	root.add_child(_power_button)
@@ -560,6 +574,12 @@ func _stats_text(t: Dictionary, up: Dictionary) -> String:
 			_fmt(up, "range", "%.1f tiles")))
 	rows.append(_row("draw", "%d MW" % int(t.get("draw_mw", 0)), _fmt(up, "draw_mw", "%d MW")))
 	rows.append(_row("hits", _targets(t), ""))
+	# "hits: ground · air" reads as "cannot touch shielded units", which is not the rule.
+	# An unrated weapon still lands SHIELD_LEAK of its damage, armour subtracted first
+	# (decision 029) — the difference between a bad answer and no answer, and the player
+	# was being shown the wrong one of those.
+	if dmg > 0.0 and not Array(t.get("targets", [])).has("shielded"):
+		rows.append(_row("vs shield", "%d%% damage" % roundi(view.sim.SHIELD_LEAK * 100.0), ""))
 	if float(t.get("splash", 0.0)) > 0.0:
 		rows.append(_row("splash", "%.1f tiles" % float(t["splash"]),
 				_fmt(up, "splash", "%.1f tiles")))
@@ -575,7 +595,7 @@ func _fmt(up: Dictionary, key: String, spec: String) -> String:
 
 
 func _row(label: String, cur: String, nxt: String) -> String:
-	var line := "%-7s %s" % [label, cur]
+	var line := "%-9s %s" % [label, cur]
 	if nxt != "" and nxt != cur:
 		line += "  →  %s" % nxt
 	return line
