@@ -269,6 +269,63 @@ def check_menu_renders() -> Result:
     return Result(OK, f"coverage {coverage:.3f}, {buttons} anchors listed")
 
 
+def check_accessibility() -> Result:
+    """Every piece of text on screen must clear WCAG 2.1 AA and the size floor.
+
+    Runs the game and the menu with `--a11y`, which dumps the live UI tree, and pairs each
+    dump with the screenshot taken on the same frame so `tools/validate/a11y.py` can sample
+    the real composited background under every label. See that module for what is measured
+    and why the thresholds are what they are.
+
+    The game is checked at anchor-24 and at 125% interface scale — the worst case on both
+    axes. Anchor-24 unlocks nine emplacements and fields the widest threat rows, and 125%
+    is the smallest logical viewport the interface is offered in. A layout that survives
+    both survives everything between them.
+
+    This exists because every one of these defects was invisible in the source and obvious
+    in a measurement: an 11 px ladder that read as 8 px in the default window, an alert
+    colour at 4.00:1, a locked-anchor override under a theme key that does not exist, and a
+    note label that drew over the SELL button once its height went to zero.
+    """
+    godot = "/Applications/Godot.app/Contents/MacOS/Godot"
+    if not Path(godot).exists():
+        return Result(SKIP, "godot not installed")
+
+    sys.path.insert(0, str(ROOT / "tools" / "validate"))
+    import a11y                                          # noqa: E402
+
+    out = ROOT / ".godot"
+    out.mkdir(parents=True, exist_ok=True)
+    cases = [
+        ("game", ["--autoplay", "--anchor", "anchor-24", "--select", "1",
+                  "--ui-scale", "1.25"], "--shot", "300"),
+        ("menu", [], "--shot-menu", "40"),
+    ]
+
+    totals, worst = [], []
+    for name, extra, shot_flag, frame in cases:
+        png, js = out / f"gate-a11y-{name}.png", out / f"gate-a11y-{name}.json"
+        r = run(godot, "--path", str(ROOT), "--fixed-fps", "60",
+                "--", *extra, shot_flag, str(png), frame, "--a11y", str(js))
+        if not js.exists():
+            return Result(FAIL, f"{name}: probe wrote no report — the run did not reach "
+                                f"the shot:\n" + (r.stdout + r.stderr).strip()[-800:])
+        findings, summary = a11y.audit(js, png)
+        fails = [f for f in findings if f.severity == "fail"]
+        if fails:
+            detail = "\n".join(f"    {f.check}: {f.text!r} — {f.detail}" for f in fails[:6])
+            return Result(FAIL, f"{name}: {len(fails)} of {summary['items']} text items "
+                                f"fail WCAG AA or the size floor\n{detail}")
+        totals.append(summary["items"])
+        if summary["min_contrast"] is not None:
+            worst.append(summary["min_contrast"])
+        png.unlink(missing_ok=True)
+        js.unlink(missing_ok=True)
+
+    return Result(OK, f"{sum(totals)} text items clean, worst contrast "
+                      f"{min(worst):.2f}:1" if worst else f"{sum(totals)} text items clean")
+
+
 def check_rules_parity() -> Result:
     """The rules exist twice, in Python and GDScript. Prove they agree.
 
@@ -336,6 +393,7 @@ CHECKS = [
     ("godot boots",       check_godot_boots),
     ("game renders",      check_game_renders),
     ("menu renders",      check_menu_renders),
+    ("accessibility",     check_accessibility),
     ("rules parity",      check_rules_parity),
 ]
 

@@ -7,12 +7,14 @@ extends CanvasLayer
 ## weapon can shoot at, and what the support emplacements do at all were readable only in
 ## data/towers.json. Decision 035.
 
-const C_VERD := Color(0.37, 0.66, 0.58)
-const C_AMBER := Color(0.91, 0.64, 0.24)
-const C_ALERT := Color(0.82, 0.33, 0.25)
-const C_MUTED := Color(0.49, 0.56, 0.57)
-const C_BONE := Color(0.86, 0.89, 0.88)
-const C_PANEL := Color(0.086, 0.13, 0.145, 0.94)
+## Colours and sizes come from `Ui`: both are accessibility policy, and policy duplicated
+## across five scripts cannot be audited in one place or corrected in one edit.
+const C_VERD := Ui.C_VERD
+const C_AMBER := Ui.C_AMBER
+const C_ALERT := Ui.C_ALERT
+const C_MUTED := Ui.C_MUTED
+const C_BONE := Ui.C_BONE
+const C_PANEL := Ui.C_PANEL
 
 var view: Node2D
 var _gauge: ColorRect
@@ -42,18 +44,29 @@ var _next_button: Button
 
 const MENU_SCENE := "res://scenes/menu.tscn"
 
-## The instrument column is 330 px wide and everything in it is laid out against these,
-## because the build bar's height is not known until an anchor says what it unlocks.
-const BAR_TOP := 184.0
-const BUTTON_H := 44.0
-## The threat panel mirrors the instrument column on the right edge. The board is centred
-## and at anchor-24 is (18+15)*64 = 2112 px wide, so it runs off both sides of a 1920 px
-## viewport regardless — a panel here covers far tiles, exactly as the left column does.
-const THREAT_X := 1524.0
-const THREAT_BODY_SIZE := 11
-const BODY_SIZE := 13
+## The instrument column. Widened from 330 to 420 to carry the 16 px type ladder: the old
+## column was sized around an 11-13 px ladder that failed the size floor everywhere, and
+## raising the type without widening the column would simply clip it instead.
+const COL_X := Ui.COL_X
+const COL_W := Ui.COL_W
+const PAD := Ui.PAD
+const INNER_W := Ui.INNER_W
+const BUTTON_H := 52.0
+## The threat panel mirrors the instrument column on the right edge. Its x is computed from
+## the live viewport rather than fixed at 1524, because the viewport is no longer always
+## 1920 wide: the interface-scale setting divides the design space by the scale factor, and
+## the resolution setting allows aspects other than 16:9. A hardcoded right edge is off
+## screen at 125% and leaves a gap at 4:3.
+## 520 = the widest row the data can produce, plus padding. The threat list is monospaced,
+## so its width is a fact rather than a judgement: the longest trait row any enemy in
+## enemies.json can generate is 51 characters ("520 hp · 0.50 spd · SHIELD · ARM 6 ·
+## DRAIN 12", indented), which is 490 px at 16 px IBM Plex Mono. At 470 that row ran 44 px
+## past the right edge of the screen at anchor-24.
+const THREAT_W := 520.0
 
 var _buttons: Array[Button] = []
+var _root: Control
+var _relayout_queued := false
 
 
 func _make_label(size: int, col: Color, mono: bool = false, bold: bool = false) -> Label:
@@ -67,68 +80,127 @@ func bind(v: Node2D) -> void:
 	## an authored child of Main, so its _ready() runs *before* Main's — before the CLI
 	## has chosen an anchor and before the sim exists.
 	view = v
-	var root := Control.new()
-	root.set_anchors_preset(Control.PRESET_FULL_RECT)
-	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(root)
+	_build_ui()
+	# The whole panel geometry is a function of the viewport size, so a resize rebuilds it
+	# rather than leaving panels laid out for a viewport that no longer exists. Both the
+	# resolution and the interface-scale settings change that size while the game is running.
+	get_viewport().size_changed.connect(_queue_relayout)
+	view.state_changed.connect(refresh)
+	view.wave_state.connect(func(_i, _n, _p): refresh())
+	refresh()
 
-	var panel := ColorRect.new()
-	panel.color = C_PANEL
-	panel.position = Vector2(16, 16)
-	panel.size = Vector2(330, 108)
-	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	root.add_child(panel)
 
-	var title := _make_label(11, C_MUTED)
+func _queue_relayout() -> void:
+	## Godot emits `size_changed` more than once for a single window change, and once per
+	## frame while a resize is dragged. Rebuilding on each one frees nodes out from under an
+	## in-flight signal, so coalesce to one rebuild per frame.
+	if _relayout_queued:
+		return
+	_relayout_queued = true
+	call_deferred("_do_relayout")
+
+
+func _do_relayout() -> void:
+	_relayout_queued = false
+	if view == null or view.sim == null:
+		return
+	_build_ui()
+	refresh()
+
+
+func _build_ui() -> void:
+	if _root != null:
+		# Detach before freeing: `queue_free` runs at the end of the frame, so a rebuild
+		# that only queued would draw the old HUD underneath the new one until then.
+		remove_child(_root)
+		_root.queue_free()
+	_buttons.clear()
+
+	var vp := get_viewport().get_visible_rect().size
+	_root = Control.new()
+	_root.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_root)
+
+	var inner_x := COL_X + PAD
+	# A running cursor rather than a column of literals. Every offset this replaces was a
+	# number that was right for one font size, and the type ladder has just changed under
+	# all of them.
+	var y := COL_X + PAD
+
+	var title := _make_label(Ui.SIZE_CAPTION, C_MUTED)
 	title.text = "REACTOR BUS"
-	title.position = Vector2(28, 24)
-	root.add_child(title)
+	title.position = Vector2(inner_x, y)
+	_root.add_child(title)
+	y += Ui.line_h(Ui.SIZE_CAPTION, false) + 2.0
 
-	_load_label = _make_label(26, C_AMBER, true, true)
-	_load_label.position = Vector2(28, 40)
-	root.add_child(_load_label)
+	_load_label = _make_label(Ui.SIZE_READOUT, C_AMBER, true, true)
+	_load_label.position = Vector2(inner_x, y)
+	_root.add_child(_load_label)
+	y += Ui.line_h(Ui.SIZE_READOUT) + 4.0
 
 	_gauge = ColorRect.new()
 	_gauge.color = Color(0.07, 0.10, 0.11)
-	_gauge.position = Vector2(28, 78)
-	_gauge.size = Vector2(306, 16)
-	root.add_child(_gauge)
+	_gauge.position = Vector2(inner_x, y)
+	_gauge.size = Vector2(INNER_W, 16)
+	_root.add_child(_gauge)
 
 	_fill = ColorRect.new()
 	_fill.color = C_VERD
-	_fill.position = Vector2(28, 78)
+	_fill.position = Vector2(inner_x, y)
 	_fill.size = Vector2(0, 16)
-	root.add_child(_fill)
+	_root.add_child(_fill)
+	y += 16.0 + 4.0
 
-	_fault = _make_label(12, C_ALERT, false, true)
-	_fault.position = Vector2(28, 98)
-	root.add_child(_fault)
+	_fault = _make_label(Ui.SIZE_BODY, C_ALERT, false, true)
+	_fault.position = Vector2(inner_x, y)
+	_root.add_child(_fault)
+	y += Ui.line_h(Ui.SIZE_BODY, false)
 
-	_stat = _make_label(14, C_BONE, true)
-	_stat.position = Vector2(28, 134)
-	root.add_child(_stat)
+	# The reactor panel is added after its contents because its height is only known once
+	# they have been placed, then moved behind them. No hardcoded 108.
+	var panel := ColorRect.new()
+	panel.color = C_PANEL
+	panel.position = Vector2(COL_X, COL_X)
+	panel.size = Vector2(COL_W, y - COL_X + PAD * 0.5)
+	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_root.add_child(panel)
+	_root.move_child(panel, 0)
 
-	_wave = _make_label(14, C_MUTED, true)
-	_wave.position = Vector2(28, 154)
-	root.add_child(_wave)
+	y += PAD * 1.5
+
+	_stat = _make_label(Ui.SIZE_STAT, C_BONE, true)
+	_stat.position = Vector2(inner_x, y)
+	_root.add_child(_stat)
+	y += Ui.line_h(Ui.SIZE_STAT) + 2.0
+
+	_wave = _make_label(Ui.SIZE_STAT, C_MUTED, true)
+	_wave.position = Vector2(inner_x, y)
+	_root.add_child(_wave)
+	y += Ui.line_h(Ui.SIZE_STAT) + PAD * 1.5
 
 	# Two across, inside the instrument column, rather than one long row. Nine unlocked
 	# emplacements at 126 px each is 1182 px of buttons on a 1920 px viewport — from Act II
 	# the bar lay across the middle of the board and covered the slots it was for. LF-040.
 	var unlocked: Array = Content.unlocked_at(view.anchor_id)
 	var bar := GridContainer.new()
-	bar.columns = 2
-	bar.position = Vector2(28, BAR_TOP)
+	# Three across when the viewport is short. The interface-scale setting divides the
+	# logical viewport by the scale factor, so at 125% the column has 864 px to fit what it
+	# lays out in 1080 — and the build bar is the cheapest row to give back, because a
+	# narrower button still holds the name and price on two lines.
+	var bar_cols := 3 if vp.y < 950.0 else 2
+	bar.columns = bar_cols
+	bar.position = Vector2(inner_x, y)
 	bar.add_theme_constant_override("h_separation", 6)
 	bar.add_theme_constant_override("v_separation", 6)
-	root.add_child(bar)
+	_root.add_child(bar)
 
+	var btn_w := (INNER_W - 6.0 * float(bar_cols - 1)) / float(bar_cols)
 	for tid in unlocked:
 		var t: Dictionary = Content.tower(tid)
-		var b := Button.new()
-		b.text = "%s\n$%d · %d MW" % [t["name"], int(t["cost"]), int(t["draw_mw"])]
-		b.custom_minimum_size = Vector2(150, BUTTON_H)
-		Ui.style(b, 11)
+		var b := Ui.button("%s\n$%d · %d MW"
+			% [t["name"], int(t["cost"]), int(t["draw_mw"])], Ui.SIZE_BODY)
+		b.custom_minimum_size = Vector2(btn_w, BUTTON_H)
 		b.pressed.connect(_on_pick.bind(String(tid)))
 		bar.add_child(b)
 		_buttons.append(b)
@@ -136,7 +208,7 @@ func bind(v: Node2D) -> void:
 	# The bar grows a row every time an act unlocks two more emplacements, so the panel
 	# under it is placed against the bar's real height rather than a number that was true
 	# on anchor-01.
-	var rows: int = int(ceil(float(unlocked.size()) / 2.0))
+	var rows: int = int(ceil(float(unlocked.size()) / float(bar_cols)))
 	var bar_h: float = float(rows) * BUTTON_H + maxf(float(rows - 1), 0.0) * 6.0
 	# The datasheet is not a fixed height: a weapon with splash that is not rated for
 	# shielding runs eight rows where a support emplacement runs five. The rule under it was
@@ -145,60 +217,68 @@ func bind(v: Node2D) -> void:
 	for tid in unlocked:
 		var t: Dictionary = Content.tower(tid)
 		stat_rows = maxi(stat_rows, _stats_text(t, t.get("upgrade", {})).split("\n").size())
-	_build_inspector(root, BAR_TOP + bar_h + 16.0, stat_rows)
-	_build_threat(root)
+	_build_inspector(_root, y + bar_h + PAD, stat_rows, vp)
+	_build_threat(_root, vp)
 
 	# End-of-anchor banner. Centred, large, and the only place the game tells the player
 	# how to get back out of a level — without it the only exit from a finished anchor is
 	# a key nobody has been told about.
-	_outcome = _make_label(40, C_BONE, false, true)
-	_outcome.position = Vector2(0, 380)
-	_outcome.size = Vector2(1920, 60)
+	# Centred and sized against the live viewport, not against 1920x1080.
+	var banner_y := vp.y * 0.35
+	_outcome = _make_label(Ui.SIZE_BANNER, C_BONE, false, true)
+	_outcome.position = Vector2(0, banner_y)
+	_outcome.size = Vector2(vp.x, Ui.line_h(Ui.SIZE_BANNER, false))
 	_outcome.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_outcome.visible = false
-	root.add_child(_outcome)
+	_root.add_child(_outcome)
 
-	_outcome_hint = _make_label(15, C_MUTED)
-	_outcome_hint.position = Vector2(0, 436)
-	_outcome_hint.size = Vector2(1920, 24)
+	var hint_y := banner_y + Ui.line_h(Ui.SIZE_BANNER, false) + 6.0
+	_outcome_hint = _make_label(Ui.SIZE_STAT, C_MUTED)
+	_outcome_hint.position = Vector2(0, hint_y)
+	_outcome_hint.size = Vector2(vp.x, Ui.line_h(Ui.SIZE_STAT, false))
 	_outcome_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_outcome_hint.visible = false
-	root.add_child(_outcome_hint)
+	_root.add_child(_outcome_hint)
 
 	# What to do next, offered where the player is already looking. Without this the only
 	# way on from a finished anchor was a key and a menu — LF-039.
+	const ACTION_W := [250.0, 230.0, 200.0]
 	_outcome_actions = HBoxContainer.new()
-	_outcome_actions.position = Vector2(660, 480)
 	_outcome_actions.add_theme_constant_override("separation", 10)
 	_outcome_actions.visible = false
-	root.add_child(_outcome_actions)
+	# The old fixed x of 660 was centred for three buttons at one font size on a 1920 px
+	# viewport, and for nothing else.
+	_outcome_actions.position = Vector2(
+		(vp.x - (ACTION_W[0] + ACTION_W[1] + ACTION_W[2] + 20.0)) * 0.5,
+		hint_y + Ui.line_h(Ui.SIZE_STAT, false) + 24.0)
+	_root.add_child(_outcome_actions)
 
-	_next_button = Button.new()
-	_next_button.custom_minimum_size = Vector2(210, 40)
-	Ui.style(_next_button, 14, false, true)
+	_next_button = Ui.button("", Ui.SIZE_STAT, true)
+	_next_button.custom_minimum_size = Vector2(ACTION_W[0], 44)
 	_next_button.pressed.connect(_on_next)
 	_outcome_actions.add_child(_next_button)
 
-	var replay := Button.new()
-	replay.text = "REPLAY ANCHOR"
-	replay.custom_minimum_size = Vector2(190, 40)
-	Ui.style(replay, 14)
+	var replay := Ui.button("REPLAY ANCHOR", Ui.SIZE_STAT)
+	replay.custom_minimum_size = Vector2(ACTION_W[1], 44)
 	replay.pressed.connect(func(): get_tree().reload_current_scene())
 	_outcome_actions.add_child(replay)
 
-	var ops := Button.new()
-	ops.text = "OPERATIONS"
-	ops.custom_minimum_size = Vector2(170, 40)
-	Ui.style(ops, 14)
+	var ops := Ui.button("OPERATIONS", Ui.SIZE_STAT)
+	ops.custom_minimum_size = Vector2(ACTION_W[2], 44)
 	ops.pressed.connect(func(): get_tree().change_scene_to_file(MENU_SCENE))
 	_outcome_actions.add_child(ops)
 
-	view.state_changed.connect(refresh)
-	view.wave_state.connect(func(_i, _n, _p): refresh())
-	refresh()
+
+func dialog_reserve() -> float:
+	## What the column must leave at the bottom of the screen. Now only its own margin: the
+	## dialog panel starts to the right of the column (see Ui.COL_W), so it no longer takes
+	## a bite out of a column that reaches the bottom of the viewport at the 16 px ladder.
+	## The first cut of this put the power button underneath the dialog panel, where it was
+	## neither readable nor clickable.
+	return COL_X
 
 
-func _build_inspector(root: Control, top: float, stat_rows: int) -> void:
+func _build_inspector(root: Control, top: float, stat_rows: int, vp: Vector2) -> void:
 	## One panel that describes whichever emplacement the player is thinking about — the
 	## one selected on the board, or failing that the one about to be built — and carries
 	## the three verbs that act on it. The verbs act on `view.selected_slot`, never on the
@@ -207,72 +287,97 @@ func _build_inspector(root: Control, top: float, stat_rows: int) -> void:
 	##
 	## Everything is placed relative to `top`, which is wherever the build bar ended, and to
 	## the measured height of the tallest datasheet this anchor can show.
-	var body_h := float(stat_rows) * _mono_line_h(BODY_SIZE)
-	var rule_y := top + 86.0 + body_h + 10.0
-	var note_y := rule_y + 8.0
-	var verbs_y := note_y + 100.0
-	var power_y := verbs_y + 38.0
+	var inner_x := COL_X + PAD
+	var y := top + PAD
 
-	var panel := ColorRect.new()
-	panel.color = C_PANEL
-	panel.position = Vector2(16, top)
-	panel.size = Vector2(330, power_y + 42.0 - top)
-	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	root.add_child(panel)
-
-	_kicker = _make_label(11, C_MUTED)
-	_kicker.position = Vector2(28, top + 12)
+	_kicker = _make_label(Ui.SIZE_CAPTION, C_MUTED)
+	_kicker.position = Vector2(inner_x, y)
 	root.add_child(_kicker)
+	y += Ui.line_h(Ui.SIZE_CAPTION, false) + 2.0
 
-	_title = _make_label(20, C_BONE, false, true)
-	_title.position = Vector2(28, top + 28)
+	_title = _make_label(Ui.SIZE_LEAD, C_BONE, false, true)
+	_title.position = Vector2(inner_x, y)
 	root.add_child(_title)
+	y += Ui.line_h(Ui.SIZE_LEAD, false) + 2.0
 
-	_sub = _make_label(12, C_AMBER, true)
-	_sub.position = Vector2(28, top + 56)
+	_sub = _make_label(Ui.SIZE_BODY, C_AMBER, true)
+	_sub.position = Vector2(inner_x, y)
 	root.add_child(_sub)
+	y += Ui.line_h(Ui.SIZE_BODY) + 8.0
 
-	root.add_child(_rule(top + 78))
+	root.add_child(_rule(y))
+	y += 8.0
 
-	_body = _make_label(BODY_SIZE, C_BONE, true)
-	_body.position = Vector2(28, top + 86)
+	_body = _make_label(Ui.SIZE_BODY, C_BONE, true)
+	_body.position = Vector2(inner_x, y)
 	root.add_child(_body)
+	y += float(stat_rows) * Ui.line_h(Ui.SIZE_BODY) + 10.0
 
-	root.add_child(_rule(rule_y))
+	root.add_child(_rule(y))
+	y += 8.0
 
-	_note = _make_label(12, C_MUTED)
-	_note.position = Vector2(28, note_y)
-	_note.size = Vector2(306, 92)
+	# The note gets whatever vertical space is left once the fixed rows below it are
+	# accounted for, between two and five wrapped lines. It is the only elastic element in
+	# the column, so it is what absorbs a tall build bar at anchor-24, a long datasheet, and
+	# a short viewport — the alternative is a fixed height that pushes the verbs off screen
+	# in exactly those cases.
+	# The note is the column's only elastic element, so it absorbs a tall build bar at
+	# anchor-24, a long datasheet, and a short viewport. Its floor is zero rather than two
+	# lines: at a raised interface scale there is genuinely no room, and losing supporting
+	# prose is a far better outcome than pushing SELL, UPGRADE and the power switch off the
+	# bottom of the screen, which is what a two-line floor did.
+	var line := Ui.line_h(Ui.SIZE_BODY, false)
+	var below := 36.0 + 6.0 + 34.0 + PAD + 10.0     # verbs, gap, power button, padding
+	var room := vp.y - dialog_reserve() - below - y
+	var note_h := clampf(floorf(room / line) * line, 0.0, 5.0 * line)
+	_note = _make_label(Ui.SIZE_BODY, C_MUTED)
+	_note.position = Vector2(inner_x, y)
+	_note.size = Vector2(INNER_W, note_h)
 	_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_note.clip_text = true
+	# `clip_text` clips horizontally only, so a zero-height note still draws a full line —
+	# on top of the SELL and UPGRADE row, which is what it did at 125%. When there is no
+	# room for even one line the label has to be hidden, not merely given no height.
+	_note.visible = note_h >= line
 	root.add_child(_note)
+	y += note_h + 10.0
 
 	var verbs := HBoxContainer.new()
-	verbs.position = Vector2(28, verbs_y)
+	verbs.position = Vector2(inner_x, y)
 	verbs.add_theme_constant_override("separation", 6)
 	root.add_child(verbs)
 
-	_sell_button = Button.new()
-	_sell_button.custom_minimum_size = Vector2(150, 32)
-	Ui.style(_sell_button, 12)
+	var verb_w := (INNER_W - 6.0) / 2.0
+	_sell_button = Ui.button("", Ui.SIZE_BODY)
+	_sell_button.custom_minimum_size = Vector2(verb_w, 36)
 	_sell_button.pressed.connect(func(): view.sell_at(view.selected_slot))
 	verbs.add_child(_sell_button)
 
-	_upgrade_button = Button.new()
-	_upgrade_button.custom_minimum_size = Vector2(150, 32)
-	Ui.style(_upgrade_button, 12)
+	_upgrade_button = Ui.button("", Ui.SIZE_BODY)
+	_upgrade_button.custom_minimum_size = Vector2(verb_w, 36)
 	_upgrade_button.pressed.connect(func(): view.upgrade_at(view.selected_slot))
 	verbs.add_child(_upgrade_button)
+	y += 36.0 + 6.0
 
-	_power_button = Button.new()
-	_power_button.custom_minimum_size = Vector2(306, 30)
-	_power_button.position = Vector2(28, power_y)
-	Ui.style(_power_button, 12)
+	_power_button = Ui.button("", Ui.SIZE_BODY)
+	_power_button.custom_minimum_size = Vector2(INNER_W, 34)
+	_power_button.position = Vector2(inner_x, y)
 	_power_button.pressed.connect(func(): view.toggle_at(view.selected_slot))
 	root.add_child(_power_button)
+	y += 34.0
+
+	var panel := ColorRect.new()
+	panel.color = C_PANEL
+	panel.position = Vector2(COL_X, top)
+	panel.size = Vector2(COL_W, y - top + PAD)
+	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(panel)
+	# Behind the labels it backs, which were added before it. The reactor panel above is a
+	# sibling at a different y and does not overlap, so their relative order is immaterial.
+	root.move_child(panel, 0)
 
 
-func _build_threat(root: Control) -> void:
+func _build_threat(root: Control, vp: Vector2) -> void:
 	## What is coming, and when. A tower defense played without this is a guessing game:
 	## whether the wave carries air decides if a scan relay is worth 8 MW, whether it
 	## carries shielded units decides between a lance and an arc node, and the wave's total
@@ -287,59 +392,68 @@ func _build_threat(root: Control) -> void:
 	var groups := 1
 	for w in view.sim.anchor["waves"]:
 		groups = maxi(groups, Array(w.get("spawns", [])).size())
-	var body_h := float(groups) * 2.0 * _mono_line_h(THREAT_BODY_SIZE)
-	var rule_y := 104.0 + body_h + 10.0
-	var footer_y := rule_y + 8.0
-	var alert_y := footer_y + 40.0
+
+	# Right-anchored to the live viewport. At 125% interface scale the design space is
+	# 1536 px wide, and a panel pinned at 1524 would be a 12 px sliver at the edge.
+	var px := vp.x - COL_X - THREAT_W
+	var inner_x := px + PAD
+	var inner_w := THREAT_W - PAD * 2.0
+	var y := COL_X + PAD
+
+	_threat_kicker = _make_label(Ui.SIZE_CAPTION, C_MUTED)
+	_threat_kicker.position = Vector2(inner_x, y)
+	root.add_child(_threat_kicker)
+	y += Ui.line_h(Ui.SIZE_CAPTION, false) + 2.0
+
+	_threat_title = _make_label(Ui.SIZE_LEAD, C_BONE, false, true)
+	_threat_title.position = Vector2(inner_x, y)
+	root.add_child(_threat_title)
+	y += Ui.line_h(Ui.SIZE_LEAD, false) + 2.0
+
+	_threat_sub = _make_label(Ui.SIZE_STAT, C_AMBER, true, true)
+	_threat_sub.position = Vector2(inner_x, y)
+	root.add_child(_threat_sub)
+	y += Ui.line_h(Ui.SIZE_STAT) + 8.0
+
+	root.add_child(_rule(y, inner_x, inner_w))
+	y += 8.0
+
+	_threat_body = _make_label(Ui.SIZE_BODY, C_BONE, true)
+	_threat_body.position = Vector2(inner_x, y)
+	root.add_child(_threat_body)
+	# Two lines per spawn group — a name row and a traits row — sized against the busiest
+	# wave this anchor ever fields, not against a constant. Anchor-01 runs one unit type and
+	# anchor-13 runs six; a fixed height leaves the first a mostly empty box.
+	y += float(groups) * 2.0 * Ui.line_h(Ui.SIZE_BODY) + 10.0
+
+	root.add_child(_rule(y, inner_x, inner_w))
+	y += 8.0
+
+	_threat_footer = _make_label(Ui.SIZE_BODY, C_MUTED, true)
+	_threat_footer.position = Vector2(inner_x, y)
+	root.add_child(_threat_footer)
+	y += 2.0 * Ui.line_h(Ui.SIZE_BODY) + 8.0
+
+	var alert_h := 2.0 * Ui.line_h(Ui.SIZE_BODY, false)
+	_threat_alert = _make_label(Ui.SIZE_BODY, C_ALERT, false, true)
+	_threat_alert.position = Vector2(inner_x, y)
+	_threat_alert.size = Vector2(inner_w, alert_h)
+	_threat_alert.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	root.add_child(_threat_alert)
+	y += alert_h
 
 	var panel := ColorRect.new()
 	panel.color = C_PANEL
-	panel.position = Vector2(THREAT_X, 16)
-	panel.size = Vector2(380, alert_y + 32.0 - 16.0)
+	panel.position = Vector2(px, COL_X)
+	panel.size = Vector2(THREAT_W, y - COL_X + PAD)
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(panel)
-
-	_threat_kicker = _make_label(11, C_MUTED)
-	_threat_kicker.position = Vector2(THREAT_X + 12, 28)
-	root.add_child(_threat_kicker)
-
-	_threat_title = _make_label(20, C_BONE, false, true)
-	_threat_title.position = Vector2(THREAT_X + 12, 44)
-	root.add_child(_threat_title)
-
-	_threat_sub = _make_label(14, C_AMBER, true, true)
-	_threat_sub.position = Vector2(THREAT_X + 12, 72)
-	root.add_child(_threat_sub)
-
-	root.add_child(_rule(96, THREAT_X + 12, 356))
-
-	_threat_body = _make_label(11, C_BONE, true)
-	_threat_body.position = Vector2(THREAT_X + 12, 104)
-	root.add_child(_threat_body)
-
-	root.add_child(_rule(rule_y, THREAT_X + 12, 356))
-
-	_threat_footer = _make_label(12, C_MUTED, true)
-	_threat_footer.position = Vector2(THREAT_X + 12, footer_y)
-	root.add_child(_threat_footer)
-
-	_threat_alert = _make_label(12, C_ALERT, false, true)
-	_threat_alert.position = Vector2(THREAT_X + 12, alert_y)
-	_threat_alert.size = Vector2(356, 28)
-	_threat_alert.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	root.add_child(_threat_alert)
+	root.move_child(panel, 0)
 
 
-func _mono_line_h(size: int) -> float:
-	## Measured from the font, not assumed. A Label stacks its `line_spacing` theme constant
-	## (3 by default) on top of the face's own height, so an 11 px mono line is about 19 px,
-	## not 15 — and a guessed 15 drew the footer on top of the last two rows of the unit list.
-	return Ui.MONO.get_height(size) + 3.0
-
-
-func _rule(y: float, x: float = 28.0, w: float = 306.0) -> ColorRect:
+func _rule(y: float, x: float = COL_X + PAD, w: float = INNER_W) -> ColorRect:
 	var r := ColorRect.new()
-	r.color = Color(C_MUTED, 0.28)
+	r.color = Ui.C_RULE
 	r.position = Vector2(x, y)
 	r.size = Vector2(w, 1)
 	r.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -364,7 +478,7 @@ func refresh() -> void:
 
 	_load_label.text = "%d / %d MW" % [roundi(load), roundi(cap)]
 	_load_label.add_theme_color_override("font_color", C_ALERT if sim.brownout else C_AMBER)
-	_fill.size.x = 306.0 * clampf(load / maxf(cap, 1.0), 0.0, 1.0)
+	_fill.size.x = INNER_W * clampf(load / maxf(cap, 1.0), 0.0, 1.0)
 	_fill.color = C_ALERT if sim.brownout else C_VERD
 	# The penalty scales with the overdraw (decision 022), so the readout has to show
 	# the real number — a fixed "-40%" would be lying about the decision the player is

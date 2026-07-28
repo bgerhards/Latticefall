@@ -4,9 +4,9 @@ extends CanvasLayer
 ## Mid-wave lines never block input and are always skippable — the schema forbids a
 ## line from being critical precisely so the player can ignore this entirely.
 
-const C_VERD := Color(0.37, 0.66, 0.58)
-const C_AMBER := Color(0.91, 0.64, 0.24)
-const C_BONE := Color(0.86, 0.89, 0.88)
+const C_VERD := Ui.C_VERD
+const C_AMBER := Ui.C_AMBER
+const C_BONE := Ui.C_BONE
 const CPS := 42.0
 
 var view: Node2D
@@ -30,18 +30,18 @@ func bind(v: Node2D) -> void:
 	add_child(root)
 
 	_panel = ColorRect.new()
-	_panel.color = Color(0.086, 0.13, 0.145, 0.94)
+	_panel.color = Ui.C_PANEL
 	_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_panel.visible = false
 	root.add_child(_panel)
 
 	_who = Label.new()
-	Ui.style(_who, 12, false, true)
+	Ui.style(_who, Ui.SIZE_CAPTION, false, true)
 	_who.add_theme_color_override("font_color", C_VERD)
 	root.add_child(_who)
 
 	_text = Label.new()
-	Ui.style(_text, 16)
+	Ui.style(_text, Ui.SIZE_STAT)
 	_text.add_theme_color_override("font_color", C_BONE)
 	_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	root.add_child(_text)
@@ -53,12 +53,20 @@ func bind(v: Node2D) -> void:
 
 func _layout() -> void:
 	var vp := get_viewport().get_visible_rect().size
-	var h := 96.0
-	_panel.position = Vector2(16, vp.y - h - 16)
-	_panel.size = Vector2(vp.x - 32, h)
-	_who.position = _panel.position + Vector2(16, 10)
-	_text.position = _panel.position + Vector2(16, 30)
-	_text.size = Vector2(_panel.size.x - 32, h - 40)
+	# Measured from the type it holds — a speaker line, then two wrapped lines of dialog —
+	# rather than the fixed 96 that was chosen when the body text was 4 px smaller.
+	var who_h := Ui.line_h(Ui.SIZE_CAPTION, false)
+	var body_h := 2.0 * Ui.line_h(Ui.SIZE_STAT, false)
+	var h := who_h + body_h + 26.0
+	# Starts where the instrument column ends rather than at the left edge. Spanning the
+	# full width put a bar under the column, and the column needs the height more than the
+	# dialog needs the extra 428 px of line.
+	var x := Ui.COL_X + Ui.COL_W + 8.0
+	_panel.position = Vector2(x, vp.y - h - 16)
+	_panel.size = Vector2(maxf(vp.x - x - 16.0, 200.0), h)
+	_who.position = _panel.position + Vector2(16, 8)
+	_text.position = _panel.position + Vector2(16, 8 + who_h + 4.0)
+	_text.size = Vector2(_panel.size.x - 32, body_h)
 
 
 func on_trigger(trigger: String) -> void:

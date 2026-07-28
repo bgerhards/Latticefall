@@ -1,5 +1,5 @@
 {
-  "next_id": 45,
+  "next_id": 46,
   "items": [
     {
       "id": "LF-001",
@@ -526,6 +526,18 @@
       "status": "open",
       "why": "",
       "opened": "2026-07-27",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-045",
+      "title": "The instrument column cannot reflow, so interface scale is capped at 125%. content_scale_factor divides the 1920x1080 design space, and the column needs ~847px of height at anchor-24 (nine emplacements, eight reserved datasheet rows) \u2014 150% leaves 720 and clips the SELL/UPGRADE/power controls. WCAG 2.1 SC 1.4.4 asks for 200%. Needs a column that can reflow (scroll, collapse the datasheet to the selected tower's rows, or move the build bar out of the column) rather than a larger multiplier",
+      "kind": "feature",
+      "area": "engine",
+      "pri": "med",
+      "status": "open",
+      "why": "",
+      "opened": "2026-07-28",
       "closed": null,
       "note": ""
     }

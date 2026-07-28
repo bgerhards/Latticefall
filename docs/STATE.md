@@ -13,9 +13,17 @@ all grading clean, with dialog, art, audio, save, a pause menu, and full keyboar
 gamepad control. Launch it, pick a difficulty, play anchor 01, get handed anchor 02, never
 touch a command line.
 
-**The backlog is one item.** No `high`, no blocker, nothing waiting on the owner. That item
-is `LF-044` — Act II and III still run about 8 units a wave against Act I's 20 — and it
-needs a content change, not a tuning pass. See "What does not exist".
+**The interface was rebuilt for legibility this session.** It ran on an 11-13 px type
+ladder — 8-10 physical pixels in the default window — and measured 22 failures on the game
+screen and 53 on the menu against WCAG 2.1 AA. Both are now 0. The ladder starts at 16 px,
+the palette was solved for contrast rather than picked, and there is an options screen with
+display, resolution, fullscreen, v-sync, frame cap, interface scale and glow. Decisions 045
+and 046.
+
+**The backlog is two items,** both `med`, neither blocked on the owner. `LF-044` — Act II
+and III still run about 8 units a wave against Act I's 20 — needs a content change, not a
+tuning pass. `LF-045` — interface scale is capped at 125% because the instrument column
+cannot reflow. See "What does not exist".
 
 If you are starting fresh: read this file, then `docs/DECISIONS.md` headings, then run the
 gate. The gate takes about nine minutes and passing it is the precondition for everything.
@@ -29,6 +37,8 @@ gate. The gate takes about nine minutes and passing it is the precondition for e
 | **Threat panel** | Right edge. Current wave, a prep countdown in seconds, every unit type with count/hp/speed and `AIR`/`SHIELD`/`ARM`/`DRAIN`, the wave's total bus theft, and an alert when air is inbound with no reveal emplacement online. Decision 037. |
 | **Board feedback** | Reach drawn on the ground: bone for the selection, red when it is offline, amber previewing what the armed emplacement would cover on the hovered slot. |
 | **Input** | Mouse, keyboard and gamepad. Thirteen `lf_*` actions; the board cursor steps slot to slot, scored in screen space. Decision 042. |
+| **Options** | One panel, reachable from the title screen and mid-anchor from pause. Window mode (windowed/borderless/fullscreen), resolution filtered to what fits the monitor, v-sync, frame cap, interface scale, emissive glow, and both volumes. Saved in `progress.json` under `display`. Decision 046. |
+| **Legibility** | Type ladder starts at 16 px and every colour clears WCAG 2.1 AA against the real composited panel. Game screen and menu both measure 0 failures. Decision 045. |
 | **Content** | 24 anchors, 24 dialog files, 9 emplacements, 11 enemies across 4 factions. |
 | **Progress** | `user://progress.json` — cleared map, difficulty, volumes. Anchors unlock in order. A pre-rename save is adopted once. Decision 040. |
 | **Rules** | `sim/engine.py` and `scripts/anchor_sim.gd`, diffed every commit: 864 runs identical. |
@@ -37,7 +47,8 @@ gate. The gate takes about nine minutes and passing it is the precondition for e
 | **Art** | 24 sprites, packed into one atlas page per pass — 192 textures became 2, 8.7 MB became 4.0 MB. Faction reads by emissive colour: Ordinal verdigris, warden red, Sable Reach blue-white, Hollow violet. Decision 039. |
 | **Audio** | 14 music tracks, 47 SFX (36 synthesized + 11 sourced CC0), per-player volume, brownout ducking. Dialog opens and closes on a radio squelch. |
 | **Sourcing** | `fetch_cc0.py` → `audition_cc0.py` → `promote_cc0.py`. Licence verified twice, auditioned by ear, cut baked into the asset, logged in `SOURCES.md`. Decision 038. |
-| **Gate** | `tools/check.py` — 13 checks, 0 skipped, ~9 minutes (parity runs both sides concurrently). |
+| **Gate** | `tools/check.py` — 14 checks, 0 skipped, ~9 minutes (parity runs both sides concurrently). |
+| **A11y audit** | `scripts/a11y_probe.gd` dumps the live UI tree; `tools/validate/a11y.py` pairs it with the same-frame screenshot and measures WCAG contrast against the sampled background. Gated at anchor-24 and 125% — the worst case on both axes. |
 
 ## The three act mechanics
 
@@ -50,7 +61,17 @@ gate. The gate takes about nine minutes and passing it is the precondition for e
 
 ## What does not exist
 
-**`LF-044` — Act II and III wave density.** The whole backlog.
+**`LF-045` — interface scale above 125%.** `content_scale_factor` divides the 1920x1080
+design space, so 150% lays the interface out in 1280x720, and the instrument column needs
+about 847 px of height at anchor-24 — nine emplacements, eight reserved datasheet rows. The
+SELL, UPGRADE and power controls clip, and `a11y.py` reports it. Two compressions already
+buy the 125% step (the build bar goes three columns wide when the viewport is short, and
+the note may shrink to nothing); beyond that there is nothing left to give. WCAG 2.1 SC
+1.4.4 asks for 200%, so **the game does not meet it** — say so rather than shipping a
+setting that clips the controls it exists to help someone reach. Fixing it means a column
+that can reflow, not a bigger multiplier. Decision 046.
+
+**`LF-044` — Act II and III wave density.** The other half of the backlog.
 
 Act I runs 20 units a wave on 10 lives. Act II runs 9.7 on 15.5, Act III 7.7 on 27.5. The
 finale has fewer things on screen than the tutorial.
@@ -69,7 +90,8 @@ change invalidates all sixteen existing grades.
 
 ## Next task
 
-`LF-044`. Nothing else is open, and nothing is blocked on the owner.
+`LF-044` or `LF-045`. Nothing is blocked on the owner. `LF-044` is the larger win for the
+game; `LF-045` is the larger win for the people who cannot currently read it.
 
 ## Method that works — do not skip it
 
@@ -118,6 +140,10 @@ Newest last. Full reasoning and rejected alternatives in `docs/DECISIONS.md`.
   cannot express that without duplicating the code that computes it. Decision 043.
 - **The sweep scores robustness as a threshold**, so it stops buying safety with lives.
   Decision 044.
+- **The type ladder starts at 16 px and the palette is solved for contrast, not chosen.**
+  Both live in `Ui`, and `tools/check.py` measures the rendered result. Decision 045.
+- **Interface scale stops at 125%, and the cap is measured rather than picked.** SC 1.4.4
+  is not met and the docs say so. Decision 046.
 
 ## Traps that have already cost time
 
@@ -150,8 +176,18 @@ Full detail in `CLAUDE.md`.
   alone, so more lives always scored higher and sixteen anchors were tuned loose. Nobody
   authored that shape; the tool chose it. Decision 044.
 - **Verification hooks exist because `--fixed-fps` has nobody to press a key.**
-  `--paused`, `--select N`, `--pick <id>` and `--cursor N` each reach a state that needs a
-  real input. Add one rather than shipping a UI nobody has looked at.
+  `--paused`, `--select N`, `--pick <id>`, `--cursor N`, `--options` and `--ui-scale <f>`
+  each reach a state that needs a real input. Add one rather than shipping a UI nobody has
+  looked at.
+- **A theme override under a name the theme does not know is accepted in silence.** The
+  Button item is `font_disabled_color`; `font_color_disabled` is not an item at all, and it
+  was set on all sixteen locked anchors for several sessions. Same failure mode as a
+  mistyped `InputEvent`. Check the key against `ThemeDB` before trusting it.
+- **`Label.clip_text` clips horizontally only** — a zero-height label still draws a line,
+  over whatever is under it. That put the emplacement note across the SELL button at 125%.
+- **A contrast ratio cannot be read out of the source.** The panel is 94% opaque over the
+  clear colour, so the background under a label exists only once it is drawn; and Godot's
+  default disabled text is 50% alpha, which halves the ratio a declared colour implies.
 - **`backlog.py add` does not re-render `docs/BACKLOG.md`.** Run `backlog.py render`, or
   the gate passes against a stale file.
 - Colours are authored in **sRGB** and linearised by `mat()`.
@@ -173,21 +209,22 @@ provenance is recorded in `assets/audio/SOURCES.md`, and no decision is outstand
 ### Gate
 
 ```
-[  ok  ] python syntax           187ms  28 files
-[  ok  ] json parses              71ms  
-[  ok  ] game data               144ms  no warnings
-[  ok  ] banned terms            257ms  120 files clean
-[  ok  ] sfx determinism         115ms  ui_confirm byte-identical
-[  ok  ] music manifest            1ms  14 tracks
-[  ok  ] sprite atlas             73ms  192 cells in 2 pages, in sync
-[  ok  ] backlog rendered          0ms  1 open
-[  ok  ] sim determinism        3146ms  deterministic
-[  ok  ] godot boots            1585ms  main scene loads clean
-[  ok  ] game renders           2908ms  coverage 0.50, 80 tones
-[  ok  ] menu renders           1388ms  coverage 0.037, 8 anchors listed
-[  ok  ] rules parity         487940ms  864 runs identical (gdscript vs python)
+[  ok  ] python syntax           184ms  29 files
+[  ok  ] json parses              74ms  
+[  ok  ] game data               125ms  no warnings
+[  ok  ] banned terms            244ms  124 files clean
+[  ok  ] sfx determinism         124ms  ui_confirm byte-identical
+[  ok  ] music manifest            0ms  14 tracks
+[  ok  ] sprite atlas             59ms  192 cells in 2 pages, in sync
+[  ok  ] backlog rendered          0ms  2 open
+[  ok  ] sim determinism        3082ms  deterministic
+[  ok  ] godot boots            1586ms  main scene loads clean
+[  ok  ] game renders           2723ms  coverage 0.56, 87 tones
+[  ok  ] menu renders           1454ms  coverage 0.052, 8 anchors listed
+[  ok  ] accessibility          8130ms  65 text items clean, worst contrast 4.68:1
+[  ok  ] rules parity         496096ms  864 runs identical (gdscript vs python)
 
-13 passed · 0 failed · 0 skipped · 497814ms
+14 passed · 0 failed · 0 skipped · 513882ms
 ```
 
 ### Inventory
@@ -199,7 +236,7 @@ provenance is recorded in `assets/audio/SOURCES.md`, and no decision is outstand
 | sfx | 47 of ~60 |
 | music tracks | 14 of 14 |
 | sprite renders | 208 |
-| godot scripts | 16 |
+| godot scripts | 19 |
 | godot scenes | 2 |
 
 ### Anchor grades
@@ -235,21 +272,22 @@ provenance is recorded in `assets/audio/SOURCES.md`, and no decision is outstand
 
 ### Backlog
 
-1 open · 43 closed
+2 open · 43 closed
 
 - `med` LF-044 Act II/III density is still flat at ~8 units per wave — the sweep scorer fix (decision 044) recovered lives but not volume, because higher spawn weights do not grade clean at any life count. Needs a roster answer to shielded/armoured units: a mid-cost anti-armour emplacement or a lance/mortar draw cut, then a full re-sweep of anchors 09-24
+- `med` LF-045 The instrument column cannot reflow, so interface scale is capped at 125%. content_scale_factor divides the 1920x1080 design space, and the column needs ~847px of height at anchor-24 (nine emplacements, eight reserved datasheet rows) — 150% leaves 720 and clips the SELL/UPGRADE/power controls. WCAG 2.1 SC 1.4.4 asks for 200%. Needs a column that can reflow (scroll, collapse the datasheet to the selected tower's rows, or move the build bar out of the column) rather than a larger multiplier
 
 ### Recent commits
 
 ```
+63cc6c6 Merge pull request #1 from bgerhards/feat/content-complete
+7bbd118 docs: session wrap — rewrite STATE for a reader with no memory of this session
 1cfbeaa fix(balance): score robustness as a threshold, and re-sweep Act II and III
 bd6ef38 feat(engine): input action map, gamepad support, and a board cursor
 526209a fix: rename the application to Latticefall, and synthesize the last organic cue
 644074b feat(art): pack the sprite library into a fixed-grid atlas, and gate its staleness
 e7ca4d6 feat(audio): promote 11 auditioned CC0 cues, and give the radio a radio
 8f855a2 feat(audio): CC0 sourcing — confirmed policy, verified fetcher, 26 staged candidates
-89a0832 docs: regenerate STATE facts after the HUD legibility work
-ee52d48 fix(engine): state the shield tax, and stop hardcoding panel heights
 ```
 
 <!-- END AUTO -->
