@@ -57,6 +57,30 @@ def parse_list(raw: str | None, default: list[float]) -> list[float]:
     return [float(x) for x in raw.split(",")]
 
 
+## Robustness is a threshold, not a quantity to maximise.
+##
+## The original score was `standard_wins + brutal_wins`, chosen so a level would not grade
+## clean on a knife edge and then break on the next tower stat change. That intent is right
+## and the implementation paid for it with lives: more lives means more boards survive,
+## which means more distinct winning builds, which means the loosest cell always scored
+## highest. Sixteen anchors were tuned that way and it shows — Act I runs 20 units a wave on
+## 10 lives, Act III runs 8 on 32. The finale had fewer things on screen than the tutorial.
+##
+## So cap the benefit of extra builds at ROBUST_ENOUGH, and let density and tightness decide
+## between cells that are all comfortably robust. Beyond the cap, another winning build buys
+## nothing and a wave with more units in it buys everything.
+ROBUST_ENOUGH = 8
+
+
+def cell_score(result: dict, weight: float, lives: int) -> float:
+    wins = (result["by_difficulty"]["standard"]["distinct_winning_builds"]
+            + result["by_difficulty"]["brutal"]["distinct_winning_builds"])
+    robust = min(wins, ROBUST_ENOUGH) * 10.0        # dominates while still below the cap
+    # Lives are weighted above density on purpose: a player feels "a leak barely matters"
+    # long before they feel "this wave is thin". Anchor-24 shipped 44 lives.
+    return robust + weight * 6.0 - float(lives) * 0.8
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description="Sweep an anchor's knobs against the grader.")
     ap.add_argument("anchor")
@@ -99,11 +123,7 @@ def main() -> int:
                                        f"{c['distinct_builds_tried']:<4d}" for c in cells)
                             + f" {peak:>5.0%}  ")
                     if r["ok"]:
-                        # Prefer the cell winnable by the most builds at standard while
-                        # still biting at brutal — a level that grades clean on a knife
-                        # edge will not survive the next tower stat change.
-                        score = (r["by_difficulty"]["standard"]["distinct_winning_builds"]
-                                 + r["by_difficulty"]["brutal"]["distinct_winning_builds"])
+                        score = cell_score(r, wt, lv)
                         clean.append((score, cap, int(fu), wt, lv, r))
                         print(line + "ok")
                     elif not args.quiet:
@@ -113,10 +133,12 @@ def main() -> int:
     if not clean:
         return 1
 
-    clean.sort(key=lambda c: (-c[0], c[1]))
+    # Ties broken toward the tighter level, then the denser one, then the cheaper bus —
+    # never by list order, which is what "best" used to mean when two cells scored equal.
+    clean.sort(key=lambda c: (-c[0], c[4], -c[3], c[1]))
     score, cap, fu, wt, lv, _ = clean[0]
     print(f"best: capacity {cap:.0f} MW · funds {fu} · weight {wt:.2f} · "
-          f"lives {lv} (score {score})")
+          f"lives {lv} (score {score:.1f})")
 
     if args.apply:
         p = DATA / "anchors" / f"{args.anchor}.json"

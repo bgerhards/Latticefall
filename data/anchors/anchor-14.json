@@ -5,7 +5,7 @@
   "title": "What He Paid For",
   "capacity_mw": 166,
   "starting_funds": 1600,
-  "lives": 16,
+  "lives": 14,
   "grid": {
     "w": 16,
     "h": 14
@@ -172,7 +172,7 @@
       "spawns": [
         {
           "enemy": "warden-drone",
-          "count": 2,
+          "count": 3,
           "interval": 1.0
         },
         {
@@ -200,7 +200,7 @@
       "spawns": [
         {
           "enemy": "warden-drone",
-          "count": 2,
+          "count": 3,
           "interval": 1.0
         },
         {
@@ -234,7 +234,7 @@
       "spawns": [
         {
           "enemy": "warden-drone",
-          "count": 2,
+          "count": 3,
           "interval": 0.95
         },
         {
@@ -268,7 +268,7 @@
       "spawns": [
         {
           "enemy": "warden-drone",
-          "count": 3,
+          "count": 4,
           "interval": 0.95
         },
         {
@@ -302,7 +302,7 @@
       "spawns": [
         {
           "enemy": "warden-drone",
-          "count": 3,
+          "count": 4,
           "interval": 0.9
         },
         {
@@ -336,7 +336,7 @@
       "spawns": [
         {
           "enemy": "warden-drone",
-          "count": 3,
+          "count": 4,
           "interval": 0.9
         },
         {
@@ -353,13 +353,13 @@
         },
         {
           "enemy": "reach-skiff",
-          "count": 2,
+          "count": 3,
           "interval": 1.5,
           "delay": 5
         },
         {
           "enemy": "reach-sapper",
-          "count": 2,
+          "count": 3,
           "interval": 1.6,
           "delay": 7
         },

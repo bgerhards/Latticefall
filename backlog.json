@@ -1,5 +1,5 @@
 {
-  "next_id": 44,
+  "next_id": 45,
   "items": [
     {
       "id": "LF-001",
@@ -211,11 +211,11 @@
       "kind": "risk",
       "area": "tooling",
       "pri": "low",
-      "status": "open",
+      "status": "dropped",
       "why": "A wall-clock screenshot showed 'prep' 15s after combat should have started. Same class of bug as rAF freezing in a background browser tab.",
       "opened": "2026-07-26",
-      "closed": null,
-      "note": ""
+      "closed": "2026-07-27",
+      "note": "Superseded by decision 043. A platform fact, not a task: it cannot be fixed, only known. Recorded in CLAUDE.md and STATE's trap list, and enforced by every verification command passing --fixed-fps."
     },
     {
       "id": "LF-019",
@@ -307,11 +307,11 @@
       "kind": "chore",
       "area": "engine",
       "pri": "med",
-      "status": "open",
+      "status": "dropped",
       "why": "",
       "opened": "2026-07-27",
-      "closed": null,
-      "note": ""
+      "closed": "2026-07-27",
+      "note": "Superseded by decision 043. Every HUD panel is now sized from content \u2014 build grid from the unlock count, inspector from the tallest datasheet measured against the font's line height, threat panel from the busiest wave. A .tscn cannot express those heights, so authoring it would mean keeping all the layout code and adding a scene that disagrees with it. Two sources of truth for one geometry."
     },
     {
       "id": "LF-027",
@@ -451,11 +451,11 @@
       "kind": "polish",
       "area": "design",
       "pri": "med",
-      "status": "open",
+      "status": "done",
       "why": "",
       "opened": "2026-07-27",
-      "closed": null,
-      "note": ""
+      "closed": "2026-07-27",
+      "note": "Half solved by decision 044: the cause was the sweep's scorer, not the content. It scored clean cells by distinct winning builds alone, so more lives always scored higher and the loosest cell always won. Robustness is now a threshold (ROBUST_ENOUGH=8), with density and tightness deciding beyond it. Seven anchors tightened \u2014 18/19 from 30 lives to 22, 22 from 32 to 26, 24 from 44 to 40; Act III mean 31.8 -> 27.5. Density did NOT move and continues as LF-044."
     },
     {
       "id": "LF-039",
@@ -516,6 +516,18 @@
       "opened": "2026-07-27",
       "closed": "2026-07-27",
       "note": "Not sourceable: the entire CC0 sound corpus offers a shovel, a splash and a sand spell for this. Synthesized instead \u2014 debris is a stochastic cloud of tiny impacts, which is what synthesis is good at, so decision 009 had it on the wrong side of its own boundary. Rebuilds byte-identical. Plays under warden_death for units of 150 HP or more. Decision 041."
+    },
+    {
+      "id": "LF-044",
+      "title": "Act II/III density is still flat at ~8 units per wave \u2014 the sweep scorer fix (decision 044) recovered lives but not volume, because higher spawn weights do not grade clean at any life count. Needs a roster answer to shielded/armoured units: a mid-cost anti-armour emplacement or a lance/mortar draw cut, then a full re-sweep of anchors 09-24",
+      "kind": "polish",
+      "area": "design",
+      "pri": "med",
+      "status": "open",
+      "why": "",
+      "opened": "2026-07-27",
+      "closed": null,
+      "note": ""
     }
   ]
 }

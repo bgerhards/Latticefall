@@ -6,7 +6,7 @@
   "capacity_mw": 210,
   "capacity_decay_mw": 8,
   "starting_funds": 2400,
-  "lives": 30,
+  "lives": 22,
   "grid": {
     "w": 16,
     "h": 14

@@ -1196,3 +1196,88 @@ of it.
 **Consequence.** `--cursor N` presses `lf_right` N times at boot so board navigation can be
 screenshotted, joining `--paused`, `--select` and `--pick` as hooks that exist because the
 state they reach needs a real input and `--fixed-fps` has nobody to supply one.
+
+---
+
+## 043 — The HUD stays built in code, and the throttling note is documentation
+
+**Decided.** Two backlog items are closed by judgment rather than by work, because doing
+them would make the project worse.
+
+**`LF-026` — "HUD and dialog build their Control widgets in code rather than being authored
+in the scene".** It was filed with no recorded rationale, and the reasoning that would have
+supported it — the same reasoning that correctly moved `main.tscn`'s children into the
+scene, so opening the project shows structure rather than one childless node — no longer
+applies to this HUD.
+
+Every panel in it is now sized from **content**, not from constants. The build grid's
+height comes from how many emplacements the anchor unlocks. The inspector's comes from the
+tallest datasheet any of those emplacements renders, measured against the font's own line
+height. The threat panel's comes from the busiest wave the anchor fields. Each of those
+replaced a hardcoded offset that had already been wrong for some anchor — decisions 035
+through 037 record all three.
+
+A `.tscn` can hold static nodes at static positions. It cannot express "as tall as the
+tallest datasheet this anchor can show", so authoring the HUD would mean keeping every line
+of the layout code *and* adding a scene that disagrees with it the moment an anchor unlocks
+a ninth emplacement. Two sources of truth for one geometry is the defect, not the fix.
+
+*Rejected middle ground:* author the static furniture — the reactor panel, its labels —
+and leave the dynamic panels in code. It works, and it puts the seam between "authored" and
+"computed" in a place nobody can see from either side. A reader would have to check both to
+know where a widget comes from.
+
+**`LF-018` — "Unfocused Godot window is throttled".** This is a fact about the platform,
+not a task. It cannot be fixed here; it can only be known. It is recorded in `CLAUDE.md`,
+in `docs/STATE.md`'s trap list, and enforced in practice by every verification command in
+the repo passing `--fixed-fps`. Leaving it open implied someone would one day close it,
+which nobody can. A permanent hazard belongs in the documentation that is read, not in the
+queue of things to do.
+
+**Consequence.** If a future session wants the HUD in a scene, the argument to beat is the
+one above: show how a scene expresses a height that depends on the anchor's content without
+duplicating the code that computes it.
+
+---
+
+## 044 — Robustness is a threshold, not a quantity, in the sweep's scorer
+
+**Decided.** `tools/sweep.py` scored a clean cell as
+`standard_distinct_wins + brutal_distinct_wins`. Lives and spawn density were not in the
+score at all. More lives means more boards survive, which means more distinct winning
+builds — so **the loosest cell always scored highest**, and sixteen anchors were tuned by
+that scorer. The result is visible in the content: Act I runs 20 units a wave on 10 lives,
+Act III ran 8 on 32, and the finale had fewer things on screen than the tutorial. `LF-038`
+filed that as a design smell without identifying the cause; the cause was the tool.
+
+The original intent was right and is preserved. Its comment — a level grading clean on a
+knife edge will not survive the next tower stat change — is a real concern. It was simply
+being paid for with lives. Build count now pays up to `ROBUST_ENOUGH = 8` and stops; beyond
+that, density and tightness decide. Lives are weighted above density, because a player
+feels "a leak barely matters" long before they feel "this wave is thin". Ties break toward
+the tighter level, then the denser one, never by list order.
+
+The guard demonstrably still works: on anchor-14, lives 10 scores *lower* than lives 12,
+because dropping to 10 pushes the win count below the cap. That is the knife-edge
+protection refusing a cell, not being bypassed.
+
+**What it fixed, and what it did not.** Seven anchors tightened — anchor-18 and 19 from 30
+lives to 22, anchor-22 from 32 to 26, anchor-24 from 44 to 40. Act III mean lives fell from
+31.8 to 27.5. **Density barely moved**: units per wave went from 7.7 to 7.7 in Act III and
+9.6 to 9.7 in Act II, because higher weights do not grade clean at any life count. Only
+anchor-14 got denser, and only to 6.9.
+
+So `LF-038` is half solved and stays open, re-scoped. The remaining half is what its
+original note guessed: the Act II and III roster has no efficient answer to shielded and
+armoured units, so volume cannot come back without one. That is a content change — a
+mid-cost anti-armour emplacement, or a draw cut on the lance and mortar — and it belongs to
+a session that can re-sweep and re-grade all sixteen anchors behind it.
+
+**Rejected.** *Closing `LF-038` because the numbers improved.* They improved on the axis
+the tool was biasing and not on the axis the note was actually about. Closing it would
+record a fix that a player would not feel.
+
+**Consequence.** Act I is deliberately untouched: it is already the shape the others are
+being pulled toward, and re-sweeping it risks breaking what works. Capacity and starting
+funds were pinned to their current values throughout, because those are the act's power
+tier and changing them is a decision about identity (decision 004), not a tuning knob.

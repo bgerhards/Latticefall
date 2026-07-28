@@ -3,7 +3,7 @@
   "id": "anchor-09",
   "act": 2,
   "title": "Contract Terms",
-  "capacity_mw": 118.0,
+  "capacity_mw": 118,
   "starting_funds": 900,
   "lives": 12,
   "grid": {

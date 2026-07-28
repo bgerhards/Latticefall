@@ -55,15 +55,17 @@ three internal-quality chores.
 - **The app is still called `Defend-Claude`** `LF-042`: `project.godot` carries the repo
   name, so that is the window title and would be the exported binary's name. Renaming it
   relocates `user://`, so it is a decision, not a rename.
-- **Act II wave density** `LF-038`: shielded heavies and drain eat the difficulty budget,
-  so Act II and III sweeps land at wave weight 0.45–0.7 with high life counts. The levels
-  grade clean; the shape is a design smell, not a defect.
+- **Act II/III density** `LF-044`: still ~8 units a wave against Act I's 20. Decision 044
+  fixed the half that was the tool's fault and recovered lives (Act III 31.8 → 27.5); the
+  half that remains is content. Higher spawn weights do not grade clean at any life count,
+  because the roster has no efficient answer to shielded and armoured units. Needs a
+  mid-cost anti-armour emplacement or a lance/mortar draw cut, then a re-sweep of 09–24.
 
 ## Next task
 
-**Nothing is blocking and no `high` is open.** The remaining backlog is `LF-038` (Act II
-wave density, a design smell), `LF-042` (the app is still named after the repo), `LF-043`
-(one unsourced cue), and the three low/med chores. Pick by appetite.
+**`LF-044` is the only open item** and the only one left in the backlog: recover Act II/III
+wave density, which needs a roster change rather than a tuning pass. Everything else this
+session touched is closed.
 
 ## Method that works — do not skip it
 
@@ -96,6 +98,13 @@ wave density, a design smell), `LF-042` (the app is still named after the repo),
   own and sits outside that rule. Decision 038.
 - **The sprite library is a fixed-grid atlas that is never trimmed** — one measured pivot
   only stays correct while every cell is identical. Decision 039.
+- **The app is Latticefall and old saves are adopted once.** Decision 040.
+- **Debris is synthesized**; the bank's real split is stochastic vs structured, not organic
+  vs synthetic. Decision 041.
+- **The HUD stays built in code** because every panel is sized from content. Decision 043.
+- **Input is an action map**, `lf_*`, generated not hand-written. Decision 042.
+- **The sweep scores robustness as a threshold**, so it stops buying safety with lives.
+  Decision 044.
 - **Both sides of the trade are on screen** — the emplacement datasheet on the left, the
   wave's composition and bus theft on the right. Decision 037.
 
@@ -120,6 +129,9 @@ Full detail in `CLAUDE.md`.
   only a screenshot showed. `--select N` exists so the inspector can be one of them.
 - **A button that acts on the hover acts on the wrong thing.** Reaching it drags the cursor
   across the board. Decision 035.
+- **A scoring function is content.** The sweep ranked clean cells by winning-build count
+  alone, so more lives always scored higher and sixteen anchors were tuned loose. Nobody
+  authored that; the tool chose it. Decision 044.
 - **A stale atlas is the second way an art fix can look like it did nothing.** The first
   is skipping `--import`. The pipeline is now render → mask_glow → pack_atlas → --import,
   and the gate's `sprite atlas` check hashes every render so the mistake is red.
@@ -156,20 +168,21 @@ Full detail in `CLAUDE.md`.
 ### Gate
 
 ```
-[  ok  ] python syntax           178ms  27 files
-[  ok  ] json parses              71ms  
-[  ok  ] game data               127ms  no warnings
-[  ok  ] banned terms            237ms  118 files clean
-[  ok  ] sfx determinism         130ms  ui_confirm byte-identical
+[  ok  ] python syntax           196ms  28 files
+[  ok  ] json parses             123ms  
+[  ok  ] game data               152ms  no warnings
+[  ok  ] banned terms            280ms  120 files clean
+[  ok  ] sfx determinism         149ms  ui_confirm byte-identical
 [  ok  ] music manifest            0ms  14 tracks
-[  ok  ] backlog rendered          0ms  8 open
-[  ok  ] sim determinism        3021ms  deterministic
-[  ok  ] godot boots            1456ms  main scene loads clean
-[  ok  ] game renders           2023ms  coverage 0.50, 80 tones
-[  ok  ] menu renders           1146ms  coverage 0.037, 8 anchors listed
-[  ok  ] rules parity         520037ms  864 runs identical (gdscript vs python)
+[  ok  ] sprite atlas             58ms  192 cells in 2 pages, in sync
+[  ok  ] backlog rendered          0ms  1 open
+[  ok  ] sim determinism        3184ms  deterministic
+[  ok  ] godot boots            1557ms  main scene loads clean
+[  ok  ] game renders           2235ms  coverage 0.50, 80 tones
+[  ok  ] menu renders           1266ms  coverage 0.037, 8 anchors listed
+[  ok  ] rules parity         498687ms  864 runs identical (gdscript vs python)
 
-12 passed · 0 failed · 0 skipped · 528427ms
+13 passed · 0 failed · 0 skipped · 507888ms
 ```
 
 ### Inventory
@@ -178,7 +191,7 @@ Full detail in `CLAUDE.md`.
 |---|---|
 | anchors authored | 24 of 24 |
 | dialog files | 24 |
-| sfx | 46 of ~60 |
+| sfx | 47 of ~60 |
 | music tracks | 14 of 14 |
 | sprite renders | 208 |
 | godot scripts | 16 |
@@ -201,7 +214,7 @@ Full detail in `CLAUDE.md`.
 | anchor-11 | 2 | 142 MW | 8 | 4/11 | 3/11 | 2/11 | ok |
 | anchor-12 | 2 | 150 MW | 8 | 4/11 | 4/11 | 4/11 | ok |
 | anchor-13 | 2 | 158 MW | 9 | 6/12 | 5/12 | 3/12 | ok |
-| anchor-14 | 2 | 166 MW | 9 | 7/11 | 5/11 | 4/11 | ok |
+| anchor-14 | 2 | 166 MW | 9 | 6/11 | 3/11 | 3/11 | ok |
 | anchor-15 | 2 | 174 MW | 9 | 6/11 | 6/11 | 4/11 | ok |
 | anchor-16 | 2 | 180 MW | 10 | 3/11 | 2/11 | 2/11 | ok |
 | anchor-17 | 3 | 190 MW | 8 | 3/12 | 3/12 | 2/12 | ok |
@@ -217,28 +230,21 @@ Full detail in `CLAUDE.md`.
 
 ### Backlog
 
-8 open · 35 closed
+1 open · 43 closed
 
-- `high` LF-004 No sprite atlas packer
-- `med` LF-025 Editor preview shows flat-colour tiles until the project is reloaded, because the Sprites autoload is only instantiated in-editor at startup
-- `med` LF-026 HUD and dialog build their Control widgets in code rather than being authored in the scene
-- `med` LF-038 Act II waves are thin (2-5 units per type) and lives run high (16-24) because shielded heavies and drain eat the whole difficulty budget — consider a mid-cost anti-armour emplacement or a lance/mortar draw cut so volume can come back
-- `med` LF-042 Window title and export name are "Defend-Claude" (the repo name), not LATTICEFALL — project.godot config/name reaches the player
-- `med` LF-043 debris_settle has no CC0 candidate — OpenGameArt's sound corpus has nothing whose filename reads as falling debris. Needs different queries, --commons, or a recording
-- `low` LF-010 Gamepad support deferred until content-complete
-- `low` LF-018 Unfocused Godot window is throttled — verification must use --fixed-fps
+- `med` LF-044 Act II/III density is still flat at ~8 units per wave — the sweep scorer fix (decision 044) recovered lives but not volume, because higher spawn weights do not grade clean at any life count. Needs a roster answer to shielded/armoured units: a mid-cost anti-armour emplacement or a lance/mortar draw cut, then a full re-sweep of anchors 09-24
 
 ### Recent commits
 
 ```
+bd6ef38 feat(engine): input action map, gamepad support, and a board cursor
+526209a fix: rename the application to Latticefall, and synthesize the last organic cue
+644074b feat(art): pack the sprite library into a fixed-grid atlas, and gate its staleness
 e7ca4d6 feat(audio): promote 11 auditioned CC0 cues, and give the radio a radio
 8f855a2 feat(audio): CC0 sourcing — confirmed policy, verified fetcher, 26 staged candidates
 89a0832 docs: regenerate STATE facts after the HUD legibility work
 ee52d48 fix(engine): state the shield tax, and stop hardcoding panel heights
 cec69ec feat(engine): threat panel — what is coming, when, and what it costs the bus
-e982685 fix(engine): picking from the build bar takes the inspector with it
-3226f4a fix(engine): the build bar fits its column instead of lying across the board
-ce81773 feat(engine): board selection and an emplacement inspector
 ```
 
 <!-- END AUTO -->
