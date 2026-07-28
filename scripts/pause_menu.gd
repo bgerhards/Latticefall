@@ -6,15 +6,15 @@ extends CanvasLayer
 ## including the anchor view's `_process`, stops, which is the whole point.
 ##
 ## Volume lives here rather than only in the main menu because the moment a player wants
-## to change it is the moment it is too loud, and that moment is mid-anchor.
+## to change it is the moment it is too loud, and that moment is mid-anchor. Display and
+## legibility settings are here for the same reason, behind OPTIONS: text that is too
+## small to read is discovered while playing, not on the title screen.
 
 const MENU_SCENE := "res://scenes/menu.tscn"
 
-const C_MUTED := Color(0.49, 0.56, 0.57)
-const C_BONE := Color(0.86, 0.89, 0.88)
-const C_PANEL := Color(0.07, 0.10, 0.115, 0.96)
-
 var _root: Control
+var _panel: PanelContainer
+var _options: OptionsMenu
 var _shown := false
 
 
@@ -34,35 +34,37 @@ func _build() -> void:
 	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_root.add_child(dim)
 
-	var panel := ColorRect.new()
-	panel.color = C_PANEL
-	panel.position = Vector2(700, 300)
-	# Tall enough for the last button: at 420 the QUIT row hung out of the bottom of
-	# the panel, which is the sort of thing only a screenshot shows.
-	panel.size = Vector2(520, 500)
-	_root.add_child(panel)
+	# Centred on anchors and sized by its contents. The panel used to be a fixed 520x500
+	# rectangle at a fixed (700,300) — correct only at 1920x1080, and already once wrong
+	# when the QUIT row grew out of the bottom of it. Both of those are now impossible:
+	# there is no hardcoded height to be wrong, and no hardcoded centre to be off.
+	var centre := CenterContainer.new()
+	centre.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_root.add_child(centre)
+
+	_panel = PanelContainer.new()
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Ui.C_OVERLAY
+	sb.border_color = Color(Ui.C_MUTED, 0.25)
+	sb.set_border_width_all(1)
+	sb.set_content_margin_all(32)
+	_panel.add_theme_stylebox_override("panel", sb)
+	centre.add_child(_panel)
 
 	var col := VBoxContainer.new()
-	col.position = Vector2(740, 336)
 	col.custom_minimum_size = Vector2(440, 0)
 	col.add_theme_constant_override("separation", 12)
-	_root.add_child(col)
+	_panel.add_child(col)
 
-	col.add_child(Ui.label("PAUSED", 32, C_BONE, false, true))
-	col.add_child(Ui.label("the wave is held where it stands", 13, C_MUTED))
+	col.add_child(Ui.label("PAUSED", 32, Ui.C_BONE, false, true))
+	col.add_child(Ui.label("the wave is held where it stands", Ui.SIZE_BODY, Ui.C_MUTED))
 
 	var gap := Control.new()
 	gap.custom_minimum_size = Vector2(0, 10)
 	col.add_child(gap)
 
-	col.add_child(_slider("MUSIC", "music", col))
-	col.add_child(_slider("EFFECTS", "sfx", col))
-
-	var gap2 := Control.new()
-	gap2.custom_minimum_size = Vector2(0, 10)
-	col.add_child(gap2)
-
 	col.add_child(_button("RESUME", func(): hide_menu()))
+	col.add_child(_button("OPTIONS", func(): _open_options()))
 	col.add_child(_button("RESTART ANCHOR", func():
 		get_tree().paused = false
 		get_tree().reload_current_scene()))
@@ -71,42 +73,33 @@ func _build() -> void:
 		get_tree().change_scene_to_file(MENU_SCENE)))
 	col.add_child(_button("QUIT", func(): get_tree().quit()))
 
+	_options = OptionsMenu.new()
+	_options.visible = false
+	_options.closed.connect(_close_options)
+	_root.add_child(_options)
+
 
 func _button(text: String, on_press: Callable) -> Button:
-	var b := Button.new()
-	b.text = text
-	b.custom_minimum_size = Vector2(440, 38)
-	Ui.style(b, 14)
+	var b := Ui.button(text, Ui.SIZE_STAT)
+	b.custom_minimum_size = Vector2(440, 42)
 	b.pressed.connect(on_press)
 	return b
 
 
-func _slider(text: String, which: String, _parent: Control) -> HBoxContainer:
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 12)
-	var l := Ui.label(text, 13, C_MUTED)
-	l.custom_minimum_size = Vector2(90, 0)
-	row.add_child(l)
-	var s := HSlider.new()
-	s.min_value = 0.0
-	s.max_value = 1.0
-	s.step = 0.05
-	s.custom_minimum_size = Vector2(300, 24)
-	s.value = Progress.music_volume if which == "music" else Progress.sfx_volume
-	s.value_changed.connect(func(v: float):
-		if which == "music":
-			Progress.music_volume = v
-		else:
-			Progress.sfx_volume = v
-		Progress.save_state()
-		Audio.apply_volumes())
-	row.add_child(s)
-	return row
+func _open_options() -> void:
+	_panel.visible = false
+	_options.visible = true
+
+
+func _close_options() -> void:
+	_options.visible = false
+	_panel.visible = true
 
 
 func show_menu() -> void:
 	_shown = true
 	_root.visible = true
+	_close_options()
 	get_tree().paused = true
 
 

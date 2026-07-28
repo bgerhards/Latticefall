@@ -21,6 +21,7 @@ _mcp_game_helper="*res://addons/godot_ai/runtime/game_helper.gd"
 Content="*res://scripts/content.gd"
 Audio="*res://scripts/audio_director.gd"
 Sprites="*res://scripts/sprites.gd"
+Display="*res://scripts/display_settings.gd"
 Progress="*res://scripts/progress.gd"
 Ui="*res://scripts/ui_theme.gd"
 

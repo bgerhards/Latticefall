@@ -26,6 +26,10 @@ extends Node2D
 ## is a screenshot CI can take too.
 var _shot_path: String = ""
 var _shot_at: int = 240
+## `-- --a11y <path>` writes the text inventory for the same frame `--shot` captures.
+## Same frame is the point: the analyser samples the background behind each label out of
+## the PNG, so a report taken a frame later describes a screen that was never measured.
+var _a11y_path: String = ""
 var _frame: int = 0
 var _shot_taken: bool = false
 var _autoplay: bool = false
@@ -81,6 +85,9 @@ func _setup_cli() -> void:
                     _shot_path = argv[i + 1]
                 if i + 2 < argv.size() and argv[i + 2].is_valid_int():
                     _shot_at = int(argv[i + 2])
+            "--a11y":
+                if i + 1 < argv.size():
+                    _a11y_path = argv[i + 1]
             "--anchor":
                 if i + 1 < argv.size():
                     anchor_id = argv[i + 1]
@@ -142,6 +149,10 @@ func _process(_delta: float) -> void:
         var img := get_viewport().get_texture().get_image()
         var err := img.save_png(_shot_path)
         print("SHOT %s err=%d %dx%d" % [_shot_path, err, img.get_width(), img.get_height()])
+        if _a11y_path != "":
+            A11yProbe.write(_a11y_path, A11yProbe.capture(self, get_viewport(), {
+                "scene": "game", "anchor": anchor_id, "shot": _shot_path,
+            }))
         var stats := _frame_stats(img)
         print("FRAME coverage=%.4f distinct=%d" % [stats["coverage"], stats["distinct"]])
         # What the sim actually reached by this frame. A screenshot is only evidence

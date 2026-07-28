@@ -17,12 +17,21 @@ func _ready() -> void:
 	m.blend_mode = CanvasItemMaterial.BLEND_MODE_ADD
 	material = m
 	z_index = 10
+	# Changing the glow setting has to reach the canvas: this layer only redraws when asked,
+	# so without this the option appears to do nothing until the next thing moves.
+	Display.changed.connect(queue_redraw)
 
 
 func _draw() -> void:
 	if view == null or view.sim == null or not Sprites.ok:
 		return
-	var energy: float = 0.35 if view.sim.brownout else 1.0
+	# Brownout dimming is the mechanic (decision 007); the Display factor is the player's
+	# own ceiling on top of it. The additive layer is the brightest thing on screen, so
+	# turning it down is the accommodation for light sensitivity — and at 0 the layer costs
+	# nothing to draw rather than drawing black.
+	if Display.glow <= 0.0:
+		return
+	var energy: float = (0.35 if view.sim.brownout else 1.0) * Display.glow
 	var tint := Color(1, 1, 1, energy)
 	for d in view.drawables():
 		var tex: Texture2D = Sprites.get_tex(d["sprite"], d["yaw"], "glow")

@@ -1281,3 +1281,108 @@ record a fix that a player would not feel.
 being pulled toward, and re-sweeping it risks breaking what works. Capacity and starting
 funds were pinned to their current values throughout, because those are the act's power
 tier and changing them is a decision about identity (decision 004), not a tuning knob.
+
+---
+
+## 045 — The interface is measured against WCAG 2.1 AA, and the type ladder starts at 16 px
+
+**Date.** 2026-07-28. **Status.** Adopted.
+
+The interface shipped on an 11-13 px type ladder. In the project's default 1440x810 window
+that is 8-10 physical pixels, because the 1920x1080 logical viewport is drawn at 0.75. It
+was reported as hard to read, and it was.
+
+**Measured before changed.** There is no off-the-shelf accessibility scanner for a game
+frame — axe, Lighthouse and WAVE all walk a DOM and read computed CSS, and a Godot viewport
+has neither. So the measurement is assembled from the two artefacts this project already
+produces deterministically. `scripts/a11y_probe.gd` walks the live UI tree and records every
+Label and Button with its resolved font size, resolved colour and on-screen rect;
+`tools/validate/a11y.py` pairs that with the screenshot taken on the *same frame* and
+samples the real composited background under each rect. Pairing is the point: the probe
+knows the authoritative foreground, and only the PNG knows what is behind it, because
+`C_PANEL` is 94% opaque over the clear colour and the background under every HUD label is a
+blend that exists nowhere in the source.
+
+The first run measured the game screen at **22 failures and 9 warnings** — 15 text items
+below the size floor, the smallest at 11 px — and the menu at **53 failures**, worst
+contrast 2.25:1.
+
+**What the measurement caught that reading the code did not.**
+
+- `menu.gd` set `font_color_disabled` on every locked anchor button. That is not a theme
+  item; the item is `font_disabled_color`. An override under a name the theme does not know
+  is accepted in silence and never drawn, so all sixteen locked anchors had been falling
+  back to Godot's default — a light grey at **0.5 alpha**, which composites to 2.0:1. Same
+  failure mode as a mistyped `InputEvent` under decision 042: no error, just a setting that
+  does nothing.
+- Alpha matters. The engine default for disabled text is half-transparent, so a ratio
+  computed from declared RGB scores a light grey as high-contrast when the player sees a
+  mid grey. The analyser composites before it measures.
+- A `Label` with `clip_text` and zero height still draws a full line: `clip_text` clips
+  horizontally only. At 125% the emplacement note had no room, got zero height, and drew
+  itself across the SELL and UPGRADE row.
+
+**The ladder starts at 16.** Hierarchy is carried by weight, colour and case rather than by
+size, which is why the caption and body sizes are equal — an instrument panel distinguishes
+a field label from its value by treatment, not by shrinking the label until it cannot be
+read. `C_MUTED`, `C_ALERT` and `C_DIM` were raised to 7.00:1, 5.75:1 and 4.60:1 against the
+composited panel, each solved for numerically rather than picked by eye. Both ladder and
+palette moved into `Ui`, because they are accessibility policy and policy copy-pasted
+across five scripts cannot be audited in one place or corrected in one edit.
+
+Raising the type forced the layout: the instrument column went 330 → 420 px, the threat
+panel 380 → 520 (the widest row `enemies.json` can generate is 51 monospaced characters,
+490 px at 16 px — a fact, not a judgement), and the dialog panel now starts beside the
+column instead of spanning the full width, which gives the column the full height of the
+viewport. Every fixed offset in `hud.gd` became a running cursor over measured line heights.
+
+**Result.** Game screen 22 failures → **0**. Menu 53 → **0**. Smallest text 11 px → 16 px.
+`tools/check.py` gained an `accessibility` check that runs both screens — the game at
+anchor-24 and 125%, the worst case on both axes — so this cannot silently regress.
+
+**Rejected.** *Scaling the HUD CanvasLayer instead of raising the ladder.* Scaling a layer
+whose panels are pinned to the right edge pushes them off screen, and it magnifies a
+low-contrast colour rather than fixing it — contrast is independent of size, and eight of
+the original failures were contrast.
+
+*Claiming SC 1.4.4 compliance.* The criterion asks for 200% without loss of content and
+this reaches 125%. See decision 046.
+
+---
+
+## 046 — Interface scale is capped at 125%, and the cap is measured
+
+**Date.** 2026-07-28. **Status.** Adopted. Supersedes nothing; bounds decision 045.
+
+`Display.ui_scale` sets the window's `content_scale_factor`, which multiplies the whole
+canvas and therefore *divides* the logical viewport: the project renders a fixed 1920x1080
+design space, so 125% lays the interface out in 1536x864 and 150% in 1280x720. This works
+at all only because `hud.gd` now derives its right and bottom edges from the live viewport
+rect rather than from a hardcoded 1920 — a panel pinned at x=1524 is a 12 px sliver at 125%.
+
+The instrument column needs about **847 px of height** at its most crowded: anchor-24
+unlocks nine emplacements, and the datasheet reserves eight rows for the longest weapon
+sheet. 864 clears it; 720 does not, and at 150% the SELL, UPGRADE and power controls leave
+the bottom of the screen. That is not a judgement either — `a11y.py` reports it as a
+clipping failure, which is how the ceiling was found.
+
+Two compressions buy the 125% step honestly: the build bar goes three columns wide when the
+viewport is short, and the note is the column's one elastic element and may shrink to
+nothing. Beyond that there is nothing left to give without hiding something the player
+needs.
+
+**So the offered range is 100 / 110 / 125%, and SC 1.4.4 is not met.** Stating that plainly
+is worth more than an option that silently clips the controls it is meant to help someone
+reach. The type ladder did the larger share of the work regardless — body text went from
+11-13 px to 16-18 px, a 45% increase before this control is touched — and combined with the
+cap the largest available text is roughly **1.8x** the original.
+
+**Rejected.** *Offering 150% and 200% anyway.* An accessibility setting that breaks the
+interface for the people who need it most is worse than not offering it.
+
+*Raising `content_scale_size` alongside the factor.* That keeps the logical space large by
+making the design space larger, which scales nothing and is a no-op with extra steps.
+
+**Consequence.** Reaching 200% needs an instrument column that can reflow — scroll,
+collapse the datasheet to the selected tower's rows, or move the build bar out of the
+column. That is `LF-045`, and it is a layout project rather than a settings one.

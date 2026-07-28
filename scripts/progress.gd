@@ -10,7 +10,10 @@ extends Node
 ## making a hard difficulty a prerequisite for seeing the next scene.
 
 const SAVE_PATH := "user://progress.json"
-const SAVE_VERSION := 1
+## 2 adds the display block. Bumped rather than added silently so a save written by this
+## build is identifiable; version 1 still loads, because every new field has a default and
+## an older save simply leaves them at it.
+const SAVE_VERSION := 2
 
 ## anchor id -> {difficulty: best lives remaining}
 var cleared: Dictionary = {}
@@ -143,6 +146,27 @@ func load_state() -> void:
 	difficulty = String(doc.get("difficulty", "standard"))
 	music_volume = float(doc.get("music_volume", music_volume))
 	sfx_volume = float(doc.get("sfx_volume", sfx_volume))
+	_load_display(doc.get("display", {}))
+
+
+func _load_display(d: Dictionary) -> void:
+	## Display settings live on the Display autoload, which owns applying them; Progress
+	## owns only the file. Autoload order puts Display before Progress, so the object
+	## exists by the time this runs, and Display.apply() happens in its own _ready() —
+	## after this, because Progress.load_state() is called from _ready() one node earlier.
+	if d.is_empty() or Display.settings_locked():
+		return
+	Display.window_mode = String(d.get("window_mode", Display.window_mode))
+	var res: Array = d.get("resolution", [])
+	if res.size() == 2:
+		Display.resolution = Vector2i(int(res[0]), int(res[1]))
+	Display.vsync = bool(d.get("vsync", Display.vsync))
+	Display.max_fps = int(d.get("max_fps", Display.max_fps))
+	Display.ui_scale = float(d.get("ui_scale", Display.ui_scale))
+	Display.glow = float(d.get("glow", Display.glow))
+	# Display._ready() already ran and applied the defaults; these values arrived after it,
+	# so they have to be pushed to the window here or the save is read and ignored.
+	Display.apply()
 
 
 func save_state() -> void:
@@ -156,6 +180,14 @@ func save_state() -> void:
 		"difficulty": difficulty,
 		"music_volume": music_volume,
 		"sfx_volume": sfx_volume,
+		"display": {
+			"window_mode": Display.window_mode,
+			"resolution": [Display.resolution.x, Display.resolution.y],
+			"vsync": Display.vsync,
+			"max_fps": Display.max_fps,
+			"ui_scale": Display.ui_scale,
+			"glow": Display.glow,
+		},
 	}, "  "))
 
 

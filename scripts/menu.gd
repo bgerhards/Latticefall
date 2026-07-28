@@ -19,16 +19,19 @@ const ACT_TITLES := {
 	3: "ACT III  ·  THE HOLLOW",
 }
 
-const C_VERD := Color(0.37, 0.66, 0.58)
-const C_AMBER := Color(0.91, 0.64, 0.24)
-const C_MUTED := Color(0.49, 0.56, 0.57)
-const C_DIM := Color(0.27, 0.32, 0.33)
-const C_BONE := Color(0.86, 0.89, 0.88)
-const C_PANEL := Color(0.086, 0.13, 0.145, 0.94)
+## Colours and sizes come from `Ui` — they are accessibility policy, and policy that is
+## copy-pasted into five scripts cannot be audited or corrected in one place.
+const C_VERD := Ui.C_VERD
+const C_AMBER := Ui.C_AMBER
+const C_MUTED := Ui.C_MUTED
+const C_DIM := Ui.C_DIM
+const C_BONE := Ui.C_BONE
 
 var _difficulty_buttons: Array[Button] = []
 var _grid: GridContainer
 var _detail: Label
+var _options: OptionsMenu
+var _body: Control
 
 ## `-- --shot-menu <path> [frame]` screenshots the menu and quits, so the gate can
 ## assert that the boot scene draws something. Same reasoning as main.gd's --shot: a
@@ -36,6 +39,9 @@ var _detail: Label
 var _menu_shot: String = ""
 var _menu_shot_at: int = 30
 var _menu_frame: int = 0
+## `-- --a11y <path>`, as main.gd. Written on the frame the menu screenshot is taken.
+var _a11y_path: String = ""
+var _open_options_at_boot := false
 
 
 func _ready() -> void:
@@ -64,6 +70,13 @@ func _boot_from_cli() -> bool:
 			_menu_shot = argv[i + 1]
 			if i + 2 < argv.size() and argv[i + 2].is_valid_int():
 				_menu_shot_at = int(argv[i + 2])
+		elif argv[i] == "--a11y" and i + 1 < argv.size():
+			_a11y_path = argv[i + 1]
+		elif argv[i] == "--options":
+			# Opens the options panel at boot. Same reasoning as main.gd's --paused and
+			# --select: reaching it needs a click, --fixed-fps has nobody to click, and a
+			# screen that is never screenshotted is a screen nobody has looked at.
+			_open_options_at_boot = true
 	return false
 
 
@@ -76,18 +89,28 @@ func _label(text: String, size: int, col: Color, mono := false, bold := false) -
 func _build() -> void:
 	set_anchors_preset(Control.PRESET_FULL_RECT)
 
+	# Everything except the options overlay hangs off this, so opening options can hide the
+	# title screen wholesale rather than drawing on top of it.
+	_body = Control.new()
+	_body.set_anchors_preset(Control.PRESET_FULL_RECT)
+	add_child(_body)
+
 	var col := VBoxContainer.new()
 	col.set_anchors_preset(Control.PRESET_FULL_RECT)
-	col.offset_left = 120
-	col.offset_top = 90
-	col.offset_right = -120
-	col.offset_bottom = -60
+	# Margins in proportion to the viewport rather than a fixed 120 px: the interface-scale
+	# setting shrinks the logical viewport, and a 120 px margin on each side of a 960 px
+	# design space is a quarter of the screen given to nothing.
+	var vp := get_viewport().get_visible_rect().size
+	col.offset_left = minf(120.0, vp.x * 0.0625)
+	col.offset_top = minf(90.0, vp.y * 0.083)
+	col.offset_right = -col.offset_left
+	col.offset_bottom = -minf(60.0, vp.y * 0.055)
 	col.add_theme_constant_override("separation", 10)
-	add_child(col)
+	_body.add_child(col)
 
-	col.add_child(_label("LATTICEFALL", 64, C_BONE, false, true))
+	col.add_child(_label("LATTICEFALL", Ui.SIZE_DISPLAY, C_BONE, false, true))
 	col.add_child(_label("TASK FORCE MERIDIAN  ·  SIXTY-ONE ANCHORS  ·  HOLDING ACTION",
-		15, C_MUTED))
+		Ui.SIZE_STAT, C_MUTED))
 
 	var spacer := Control.new()
 	spacer.custom_minimum_size = Vector2(0, 24)
@@ -96,12 +119,10 @@ func _build() -> void:
 	# difficulty
 	var drow := HBoxContainer.new()
 	drow.add_theme_constant_override("separation", 8)
-	drow.add_child(_label("DIFFICULTY", 13, C_MUTED))
+	drow.add_child(_label("DIFFICULTY", Ui.SIZE_BODY, C_MUTED))
 	for d in DIFFICULTIES:
-		var b := Button.new()
-		b.text = String(d).to_upper()
-		Ui.style(b, 13)
-		b.custom_minimum_size = Vector2(120, 30)
+		var b := Ui.button(String(d).to_upper(), Ui.SIZE_BODY)
+		b.custom_minimum_size = Vector2(140, 36)
 		b.pressed.connect(_on_difficulty.bind(String(d)))
 		_difficulty_buttons.append(b)
 		drow.add_child(b)
@@ -114,7 +135,7 @@ func _build() -> void:
 	# anchors, in three rows of eight — which is exactly the act structure, so the rows
 	# are labelled rather than left as an anonymous 24-cell grid.
 	for act in [1, 2, 3]:
-		col.add_child(_label(ACT_TITLES[act], 13, C_MUTED))
+		col.add_child(_label(ACT_TITLES[act], Ui.SIZE_CAPTION, C_MUTED))
 		var row := GridContainer.new()
 		row.columns = 8
 		row.add_theme_constant_override("h_separation", 10)
@@ -126,27 +147,60 @@ func _build() -> void:
 		col.add_child(gap)
 	_grid = col.get_node("Act1")
 
-	_detail = _label("", 14, C_MUTED)
-	_detail.custom_minimum_size = Vector2(0, 26)
+	_detail = _label("", Ui.SIZE_STAT, C_MUTED)
+	_detail.custom_minimum_size = Vector2(0, 30)
 	col.add_child(_detail)
 
 	var actions := HBoxContainer.new()
 	actions.add_theme_constant_override("separation", 10)
-	var cont := Button.new()
-	cont.text = "CONTINUE"
-	Ui.style(cont, 15, false, true)
-	cont.custom_minimum_size = Vector2(190, 38)
+	var cont := Ui.button("CONTINUE", Ui.SIZE_STAT, true)
+	cont.custom_minimum_size = Vector2(210, 42)
 	cont.pressed.connect(_on_continue)
 	actions.add_child(cont)
-	var quit := Button.new()
-	quit.text = "QUIT"
-	Ui.style(quit, 15, false, true)
-	quit.custom_minimum_size = Vector2(120, 38)
+	var opts := Ui.button("OPTIONS", Ui.SIZE_STAT, true)
+	opts.custom_minimum_size = Vector2(170, 42)
+	opts.pressed.connect(_open_options)
+	actions.add_child(opts)
+	var quit := Ui.button("QUIT", Ui.SIZE_STAT, true)
+	quit.custom_minimum_size = Vector2(140, 42)
 	quit.pressed.connect(func(): get_tree().quit())
 	actions.add_child(quit)
 	col.add_child(actions)
 
+	_options = OptionsMenu.new()
+	_options.visible = false
+	_options.closed.connect(_close_options)
+	add_child(_options)
+
 	_refresh()
+	if _open_options_at_boot:
+		# Cleared on use: closing options rebuilds the title screen, and a flag that
+		# survived the rebuild would reopen the panel it was just asked to close.
+		_open_options_at_boot = false
+		_open_options()
+
+
+func _open_options() -> void:
+	_body.visible = false
+	_options.visible = true
+
+
+func _close_options() -> void:
+	# The interface scale changes the size of the design space the title screen was laid
+	# out in, so it is rebuilt rather than left at the previous viewport's proportions.
+	_rebuild()
+
+
+func _rebuild() -> void:
+	## `remove_child` before `queue_free`, not `queue_free` alone: the free is deferred to
+	## the end of the frame, so a rebuild that only queues would leave the old title screen
+	## parented and visible underneath the new one for a frame.
+	for c in get_children():
+		remove_child(c)
+		c.queue_free()
+	_difficulty_buttons.clear()
+	_options = null
+	_build()
 
 
 func _refresh() -> void:
@@ -164,14 +218,18 @@ func _refresh() -> void:
 	for id in Progress.anchor_ids():
 		var doc: Dictionary = Content.anchor(id)
 		var n := int(id.substr(7))
-		var b := Button.new()
-		b.custom_minimum_size = Vector2(150, 60)
+		# `Ui.button` sets `font_disabled_color`, which is the theme item that exists. This
+		# code set `font_color_disabled` — not a theme item at all, so the override was
+		# accepted in silence and never drawn, and every locked anchor fell back to Godot's
+		# default half-transparent grey at 2.0:1 against the background.
+		var b := Ui.button("", Ui.SIZE_BODY)
+		Ui.style(b, Ui.SIZE_BODY, true)
+		b.custom_minimum_size = Vector2(172, 64)
 		b.disabled = not Progress.is_unlocked(id)
 		var mark := "HELD" if Progress.is_cleared(id) else ("LOCKED" if b.disabled else "OPEN")
 		b.text = "ANCHOR %02d\n%s" % [n, mark]
-		Ui.style(b, 13, true)
 		if b.disabled:
-			b.add_theme_color_override("font_color_disabled", C_DIM)
+			pass
 		elif Progress.is_cleared(id):
 			b.add_theme_color_override("font_color", C_VERD)
 		else:
@@ -230,6 +288,10 @@ func _process(_delta: float) -> void:
 	var img := get_viewport().get_texture().get_image()
 	var err := img.save_png(path)
 	print("MENUSHOT %s err=%d %dx%d" % [path, err, img.get_width(), img.get_height()])
+	if _a11y_path != "":
+		A11yProbe.write(_a11y_path, A11yProbe.capture(self, get_viewport(), {
+			"scene": "menu", "shot": path,
+		}))
 	var lit := 0
 	var total := 0
 	for y in range(0, img.get_height(), 4):
