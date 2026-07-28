@@ -1018,3 +1018,49 @@ from having to delete it.
 
 **Consequence.** Sourcing is filtered on machine-readable licence metadata rather than on a
 page that says "free". `LF-005` can proceed.
+
+---
+
+## 039 — The sprite library is a fixed-grid atlas, and the gate proves it is not stale
+
+**Decided.** `tools/blender/pack_atlas.py` packs the 192 renders — 24 assets × 4 yaws ×
+2 passes — into **one atlas page per pass**, 3072×2048 each, and adds an `atlas` section
+to `assets/renders/sprites.json` holding the cell size, the grid width, the page paths and
+a `name|yaw → [col, row]` index. `sprites.gd` builds an `AtlasTexture` per lookup and falls
+back to loading individual files when no atlas has been packed. LF-004.
+
+**The pack is a fixed 256 px grid and nothing is trimmed.** This is the load-bearing part.
+`render.py` raises the camera by `HEIGHT_BIAS` so tall assets clear the top of their cell,
+and `calibrate()` *measures* where world (0,0,0) actually lands — 127.5, 171.5 — writing it
+to the manifest as a single pivot for the whole library. That single pivot is only correct
+because every sprite occupies an identical cell. A rectangle packer that trimmed
+transparent margins would give each sprite its own origin and make the pivot per-asset
+again, which is exactly LF-027: a hardcoded `CELL//2` drew every sprite above its own tile.
+The grid keeps the pivot true by construction rather than by bookkeeping.
+
+**Two pages, not one.** Albedo and glow are drawn in separate passes and the glow layer is
+modulated by bus load (decision 007). A single mixed page would be bound twice per frame
+for two different purposes and save nothing.
+
+**Why the gate grew a check.** An atlas is derived output with no visible link to its
+inputs. Re-render one sprite, forget to re-pack, and the board keeps drawing the old pixels
+out of the stale page — a correct art fix that appears to do nothing, which is the same
+misdiagnosis skipping `--import` already cost this project. So `pack_atlas` records a
+SHA-256 over every render that went into the pages, and `check.py`'s `sprite atlas` check
+recomputes it. Verified by perturbing one pixel of one render: the check fails and names
+the fix.
+
+**Rejected.**
+- *Rectangle packing with trim.* Better density, and it costs the one property that makes
+  placement correct. Density was never the problem — 8.7 MB of loose PNGs became 4.0 MB of
+  atlas on the grid alone.
+- *Dropping the loose PNGs from git once the atlas exists.* Tempting, and it halves the
+  art footprint. Rejected for now because a fresh clone could then only re-pack by running
+  Blender, and because inspecting one sprite is a normal thing to want. It is a one-line
+  `.gitignore` change if the footprint ever matters.
+- *Packing before masking.* `mask_glow.py` rewrites alpha from luminance; packing first
+  would bake the unmasked opaque-alpha glow into the page and fill the board with bright
+  rectangles.
+
+**Consequence.** The art pipeline is now four steps, not three: **render → mask_glow →
+pack_atlas → --import**. `CLAUDE.md` records it and the gate enforces the last two.

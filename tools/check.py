@@ -286,6 +286,43 @@ def check_rules_parity() -> Result:
     return Result(OK, r.stdout.strip().replace("parity ok — ", ""))
 
 
+def check_sprite_atlas() -> Result:
+    """The packed atlas must still match the renders it was packed from.
+
+    An atlas is derived output with no visible link to its inputs. Re-render one sprite,
+    forget to re-pack, and the board keeps drawing the old pixels out of the stale page —
+    a correct art fix that looks like it did nothing, which is precisely the misdiagnosis
+    that skipping `--import` already cost this project once.
+    """
+    manifest = ROOT / "assets" / "renders" / "sprites.json"
+    if not manifest.exists():
+        return Result(SKIP, "no sprite manifest")
+    doc = json.loads(manifest.read_text())
+    atlas = doc.get("atlas")
+    if not atlas:
+        return Result(SKIP, "no atlas packed")
+
+    sys.path.insert(0, str(ROOT / "tools" / "blender"))
+    try:
+        import pack_atlas
+    except Exception as exc:  # noqa: BLE001
+        return Result(FAIL, f"cannot import pack_atlas: {exc}")
+
+    groups = pack_atlas.collect(doc)
+    missing = [p for g in groups.values() for (_, _, p) in g if not p.exists()]
+    if missing:
+        return Result(FAIL, f"{len(missing)} renders referenced by the manifest are gone, "
+                            f"first {missing[0].name}")
+    for pass_name, rel in atlas.get("pages", {}).items():
+        if not (ROOT / rel).exists():
+            return Result(FAIL, f"atlas page missing: {rel}")
+    if pack_atlas.source_digest(groups) != atlas.get("source_digest"):
+        return Result(FAIL, "atlas is stale — renders have changed since it was packed. "
+                            "Run tools/blender/pack_atlas.py, then --import")
+    cells = sum(len(v) for v in atlas.get("index", {}).values())
+    return Result(OK, f"{cells} cells in {len(atlas.get('pages', {}))} pages, in sync")
+
+
 CHECKS = [
     ("python syntax",     check_python_syntax),
     ("json parses",       check_json_parses),
@@ -293,6 +330,7 @@ CHECKS = [
     ("banned terms",      check_banned_terms),
     ("sfx determinism",   check_sfx_reproducible),
     ("music manifest",    check_music_manifest),
+    ("sprite atlas",      check_sprite_atlas),
     ("backlog rendered",  check_backlog_rendered),
     ("sim determinism",   check_sim),
     ("godot boots",       check_godot_boots),

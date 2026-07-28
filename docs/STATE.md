@@ -15,9 +15,9 @@ A player can launch the build, pick a difficulty, play anchor 01, and be handed 
 without touching a command line. Anchors unlock in order; progress persists in a readable
 `user://progress.json`.
 
-**What is left is polish and one performance item**, not content. See "What does not
-exist" — the honest gaps are a sprite atlas, gamepad support, twelve sourced organic SFX,
-and three internal-quality chores.
+**What is left is polish**, not content and no longer performance. There is no `high` open.
+See "What does not exist" — the honest gaps are gamepad support, one unsourced sound, and
+three internal-quality chores.
 
 ## What works
 
@@ -32,9 +32,10 @@ and three internal-quality chores.
 | **Rules** | `sim/engine.py` and `scripts/anchor_sim.gd`, diffed every commit: 864 runs identical. |
 | **Simulation** | Headless, fixed timestep, no RNG. 12 policies x 3 difficulties per anchor. |
 | **Sweeping** | `tools/sweep.py` grades a capacity x funds x weight x lives grid; `--apply` writes the best cell back. |
-| **Art** | 24 sprites. Faction reads by emissive colour: Ordinal verdigris, warden red, Sable Reach blue-white, Hollow violet. |
-| **Audio** | 14 music tracks, 35 SFX, per-player volume, brownout ducking. |
-| **Gate** | `tools/check.py` — 12 checks, 0 skipped, ~9 minutes (parity runs both sides concurrently). |
+| **Art** | 24 sprites, packed into one atlas page per pass — 192 textures became 2, 8.7 MB became 4.0 MB. Faction reads by emissive colour: Ordinal verdigris, warden red, Sable Reach blue-white, Hollow violet. Decision 039. |
+| **Audio** | 14 music tracks, 46 SFX (35 synthesized + 11 sourced CC0), per-player volume, brownout ducking. Dialog opens and closes on a radio squelch. |
+| **Sourcing** | `fetch_cc0.py` → `audition_cc0.py` → `promote_cc0.py`. Licence verified twice, auditioned by ear, cut baked into the asset, logged in `SOURCES.md`. Decision 038. |
+| **Gate** | `tools/check.py` — 13 checks, 0 skipped, ~9 minutes (parity runs both sides concurrently). |
 
 ## The three act mechanics
 
@@ -47,12 +48,8 @@ and three internal-quality chores.
 
 ## What does not exist
 
-- **Sprite atlas packing.** `LF-004`, the only remaining `high`. 206 loose PNGs.
-- **The 12 organic CC0 SFX.** `LF-005` is now unblocked — CC0-only is confirmed as the
-  owner's decision (038) and the twelve cues are enumerated in `tools/audio/fetch_cc0.py`.
-  **26 licence-verified candidates are staged** in `~/Latticefall-masters/cc0-candidates/`
-  and none has been heard. Nothing enters `assets/` until it is auditioned:
-  `.venv/bin/python tools/audio/audition_cc0.py`. `debris_settle` found nothing — `LF-043`.
+- **`debris_settle`** `LF-043` — the one cue of twelve with no CC0 candidate. The other
+  eleven shipped; `LF-005` is closed.
 - Gamepad `LF-010`. Editor preview tile textures `LF-025`. HUD/dialog authored in the
   scene rather than built in code `LF-026`.
 - **The app is still called `Defend-Claude`** `LF-042`: `project.godot` carries the repo
@@ -64,8 +61,9 @@ and three internal-quality chores.
 
 ## Next task
 
-**`LF-004`, the sprite atlas** — or `LF-005` if the user confirms CC0 sourcing. Neither
-blocks playing the game.
+**Nothing is blocking and no `high` is open.** The remaining backlog is `LF-038` (Act II
+wave density, a design smell), `LF-042` (the app is still named after the repo), `LF-043`
+(one unsourced cue), and the three low/med chores. Pick by appetite.
 
 ## Method that works — do not skip it
 
@@ -94,6 +92,10 @@ blocks playing the game.
   itself. Decision 035.
 - **The inspector describes whatever was last pointed at**, board or build bar; arming a
   build clears the board selection. Decision 036.
+- **CC0-only for sourced audio, confirmed by the owner**; the Suno music is the owner's
+  own and sits outside that rule. Decision 038.
+- **The sprite library is a fixed-grid atlas that is never trimmed** — one measured pivot
+  only stays correct while every cell is identical. Decision 039.
 - **Both sides of the trade are on screen** — the emplacement datasheet on the left, the
   wave's composition and bus theft on the right. Decision 037.
 
@@ -118,6 +120,12 @@ Full detail in `CLAUDE.md`.
   only a screenshot showed. `--select N` exists so the inspector can be one of them.
 - **A button that acts on the hover acts on the wrong thing.** Reaching it drags the cursor
   across the board. Decision 035.
+- **A stale atlas is the second way an art fix can look like it did nothing.** The first
+  is skipping `--import`. The pipeline is now render → mask_glow → pack_atlas → --import,
+  and the gate's `sprite atlas` check hashes every render so the mistake is red.
+- **A sourced sound is raw material, not an asset.** 55 s of radio noise stood in for a
+  150 ms squelch and 30 footsteps arrived in one file. The cut is baked by
+  `promote_cc0.py`; `Audio.sfx()` has no notion of length and must not grow one.
 - **A Label's line height is not its font size.** It stacks the `line_spacing` theme
   constant (3) on the face height, so 11 px mono is ~19 px. A guessed 15 drew the threat
   footer through the unit list. Read it from the font, as with the sprite pivot.
@@ -135,11 +143,9 @@ Full detail in `CLAUDE.md`.
 
 ## Open with the user
 
-- **Audition the 26 staged CC0 candidates.** This is the one task that cannot be done
-  without the owner: a licence check proves a file is safe to ship, not that it is the
-  right sound. Run `tools/audio/audition_cc0.py`, mark keep or drop, expect to drop most.
-- Nothing is blocked on a decision. CC0-only is settled (038); music provenance is
-  recorded in `assets/audio/SOURCES.md`.
+- Nothing is blocked on a decision or on the owner. CC0-only is settled (038), the
+  candidates are auditioned and promoted, and music provenance is recorded in
+  `assets/audio/SOURCES.md`.
 
 ---
 
@@ -150,20 +156,20 @@ Full detail in `CLAUDE.md`.
 ### Gate
 
 ```
-[  ok  ] python syntax           166ms  24 files
-[  ok  ] json parses              70ms  
-[  ok  ] game data               128ms  no warnings
-[  ok  ] banned terms            243ms  115 files clean
-[  ok  ] sfx determinism         123ms  ui_confirm byte-identical
+[  ok  ] python syntax           178ms  27 files
+[  ok  ] json parses              71ms  
+[  ok  ] game data               127ms  no warnings
+[  ok  ] banned terms            237ms  118 files clean
+[  ok  ] sfx determinism         130ms  ui_confirm byte-identical
 [  ok  ] music manifest            0ms  14 tracks
 [  ok  ] backlog rendered          0ms  8 open
-[  ok  ] sim determinism        3065ms  deterministic
-[  ok  ] godot boots            1400ms  main scene loads clean
-[  ok  ] game renders           1992ms  coverage 0.50, 80 tones
-[  ok  ] menu renders           1081ms  coverage 0.037, 8 anchors listed
-[  ok  ] rules parity         512842ms  864 runs identical (gdscript vs python)
+[  ok  ] sim determinism        3021ms  deterministic
+[  ok  ] godot boots            1456ms  main scene loads clean
+[  ok  ] game renders           2023ms  coverage 0.50, 80 tones
+[  ok  ] menu renders           1146ms  coverage 0.037, 8 anchors listed
+[  ok  ] rules parity         520037ms  864 runs identical (gdscript vs python)
 
-12 passed · 0 failed · 0 skipped · 521111ms
+12 passed · 0 failed · 0 skipped · 528427ms
 ```
 
 ### Inventory
@@ -172,9 +178,9 @@ Full detail in `CLAUDE.md`.
 |---|---|
 | anchors authored | 24 of 24 |
 | dialog files | 24 |
-| sfx | 35 of ~60 |
+| sfx | 46 of ~60 |
 | music tracks | 14 of 14 |
-| sprite renders | 206 |
+| sprite renders | 208 |
 | godot scripts | 16 |
 | godot scenes | 2 |
 
@@ -211,28 +217,28 @@ Full detail in `CLAUDE.md`.
 
 ### Backlog
 
-8 open · 34 closed
+8 open · 35 closed
 
 - `high` LF-004 No sprite atlas packer
-- `med` LF-005 Source the 12 organic CC0 SFX
 - `med` LF-025 Editor preview shows flat-colour tiles until the project is reloaded, because the Sprites autoload is only instantiated in-editor at startup
 - `med` LF-026 HUD and dialog build their Control widgets in code rather than being authored in the scene
 - `med` LF-038 Act II waves are thin (2-5 units per type) and lives run high (16-24) because shielded heavies and drain eat the whole difficulty budget — consider a mid-cost anti-armour emplacement or a lance/mortar draw cut so volume can come back
 - `med` LF-042 Window title and export name are "Defend-Claude" (the repo name), not LATTICEFALL — project.godot config/name reaches the player
+- `med` LF-043 debris_settle has no CC0 candidate — OpenGameArt's sound corpus has nothing whose filename reads as falling debris. Needs different queries, --commons, or a recording
 - `low` LF-010 Gamepad support deferred until content-complete
 - `low` LF-018 Unfocused Godot window is throttled — verification must use --fixed-fps
 
 ### Recent commits
 
 ```
+e7ca4d6 feat(audio): promote 11 auditioned CC0 cues, and give the radio a radio
+8f855a2 feat(audio): CC0 sourcing — confirmed policy, verified fetcher, 26 staged candidates
+89a0832 docs: regenerate STATE facts after the HUD legibility work
 ee52d48 fix(engine): state the shield tax, and stop hardcoding panel heights
 cec69ec feat(engine): threat panel — what is coming, when, and what it costs the bus
 e982685 fix(engine): picking from the build bar takes the inspector with it
 3226f4a fix(engine): the build bar fits its column instead of lying across the board
 ce81773 feat(engine): board selection and an emplacement inspector
-5475dfa feat(engine): pause menu, volume, per-wave autoplay, and slots in range
-c048141 feat(engine): menu, level select, save, sell/upgrade, and vendored fonts
-8c05a5c chore(backlog): close LF-036 — Act II art exists
 ```
 
 <!-- END AUTO -->

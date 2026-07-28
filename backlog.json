@@ -43,11 +43,11 @@
       "kind": "feature",
       "area": "art",
       "pri": "high",
-      "status": "open",
+      "status": "done",
       "why": "",
       "opened": "2026-07-26",
-      "closed": null,
-      "note": ""
+      "closed": "2026-07-27",
+      "note": "Fixed-grid atlas, one page per pass, 192 loose textures -> 2. 8.7 MB -> 4.0 MB. sprites.gd serves AtlasTexture regions and still falls back to loose files when unpacked. Gate check 'sprite atlas' hashes every render and fails on a stale page \u2014 verified by perturbing one pixel. Decision 039."
     },
     {
       "id": "LF-005",
@@ -55,11 +55,11 @@
       "kind": "chore",
       "area": "audio",
       "pri": "med",
-      "status": "open",
+      "status": "done",
       "why": "Synthesis cannot fake footsteps, debris, weather, voices.",
       "opened": "2026-07-26",
-      "closed": null,
-      "note": ""
+      "closed": "2026-07-27",
+      "note": "11 of 12 promoted. CC0-only confirmed as decision 038; twelve cues enumerated in fetch_cc0.py; 26 candidates sourced, licence-verified and auditioned by the owner (12 keep, 14 drop); promoted by promote_cc0.py with cuts baked into the assets, RMS-matched per decision 010, and logged in SOURCES.md with URL/author/licence/SHA-256. comms_squelch and comms_close are wired into dialog. debris_settle found no candidate and continues as LF-043."
     },
     {
       "id": "LF-006",

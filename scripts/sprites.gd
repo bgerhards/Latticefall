@@ -20,6 +20,16 @@ var ok: bool = false
 var _cache: Dictionary = {}      # "name|yaw|pass" -> Texture2D
 var _entries: Dictionary = {}
 
+## The library is packed into one atlas page per pass by tools/blender/pack_atlas.py.
+## 192 loose 256x256 textures were 192 separate resources for the board to bind; they are
+## now two. The pack is a fixed grid and nothing is trimmed, which is what lets a single
+## measured pivot keep serving every sprite — see that script for why trimming would
+## reintroduce LF-027.
+var _pages: Dictionary = {}      # pass -> Texture2D
+var _index: Dictionary = {}      # pass -> {"name|yNNN": [col, row]}
+var _cell: int = 256
+var atlas_ok: bool = false
+
 
 func _ready() -> void:
 	var f := FileAccess.open(MANIFEST, FileAccess.READ)
@@ -41,7 +51,24 @@ func _ready() -> void:
 		push_error("sprites: manifest tile %s but Iso is %dx%d — art and game disagree"
 			% [tile_px, int(iso.TILE_W), int(iso.TILE_H)])
 		return
+	_load_atlas(doc.get("atlas", {}))
 	ok = _entries.size() > 0
+
+
+func _load_atlas(atlas: Dictionary) -> void:
+	## Absent atlas is not an error. render.py rewrites the manifest without this section,
+	## so between a re-render and a re-pack the game simply loads individual files again.
+	if atlas.is_empty():
+		return
+	_cell = int(atlas.get("cell", 256))
+	for pass_name in atlas.get("pages", {}):
+		var path := "res://" + String(atlas["pages"][pass_name])
+		if ResourceLoader.exists(path):
+			_pages[pass_name] = load(path)
+		else:
+			push_warning("sprites: atlas page missing, falling back to loose files: %s" % path)
+	_index = atlas.get("index", {})
+	atlas_ok = _pages.size() > 0
 
 
 func has(name: String) -> bool:
@@ -52,8 +79,8 @@ func get_tex(name: String, yaw: int = 45, pass_name: String = "albedo") -> Textu
 	var key := "%s|%d|%s" % [name, yaw, pass_name]
 	if _cache.has(key):
 		return _cache[key]
-	var tex: Texture2D = null
-	if _entries.has(name):
+	var tex: Texture2D = _from_atlas(name, yaw, pass_name)
+	if tex == null and _entries.has(name):
 		var by_yaw: Dictionary = _entries[name]
 		var slot := "y%03d" % yaw
 		if by_yaw.has(slot) and by_yaw[slot].has(pass_name):
@@ -64,5 +91,25 @@ func get_tex(name: String, yaw: int = 45, pass_name: String = "albedo") -> Textu
 	return tex
 
 
+func _from_atlas(name: String, yaw: int, pass_name: String) -> Texture2D:
+	if not _pages.has(pass_name):
+		return null
+	var idx: Dictionary = _index.get(pass_name, {})
+	var key := "%s|y%03d" % [name, yaw]
+	if not idx.has(key):
+		return null
+	var cell: Array = idx[key]
+	var at := AtlasTexture.new()
+	at.atlas = _pages[pass_name]
+	at.region = Rect2(float(int(cell[0]) * _cell), float(int(cell[1]) * _cell),
+			float(_cell), float(_cell))
+	# Cells sit edge to edge, so a filtered sample at a boundary would pull in the
+	# neighbouring sprite. Clipping is what makes a grid atlas safe to filter.
+	at.filter_clip = true
+	return at
+
+
 func report() -> String:
-	return "sprites %s (%d assets)" % ["ok" if ok else "MISSING", _entries.size()]
+	return "sprites %s (%d assets, %s)" % [
+		"ok" if ok else "MISSING", _entries.size(),
+		"atlas %d pages" % _pages.size() if atlas_ok else "loose files"]

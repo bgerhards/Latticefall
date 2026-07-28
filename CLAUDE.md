@@ -66,8 +66,9 @@ docs/            STATE, BACKLOG, DECISIONS, NOMENCLATURE, STORY
 /Applications/Blender.app/Contents/MacOS/Blender -b \
   --python tools/blender/render.py -- --only pulse_turret   # render one asset
 .venv/bin/python tools/blender/mask_glow.py        # ALWAYS run after rendering
+.venv/bin/python tools/blender/pack_atlas.py       # ALWAYS run after mask_glow
 /Applications/Godot.app/Contents/MacOS/Godot --headless --path . --import
-                                                   # ALWAYS run after mask_glow
+                                                   # ALWAYS run after pack_atlas
 /Applications/Godot.app/Contents/MacOS/Godot --path . --fixed-fps 60 \
   -- --autoplay --shot /tmp/shot.png 1800          # the build screenshots itself
 ```
@@ -76,7 +77,15 @@ docs/            STATE, BACKLOG, DECISIONS, NOMENCLATURE, STORY
 reimports changed assets — it loads the cached `.ctex` in `.godot/imported/`. Only the
 editor imports. Skipping this makes a correct art fix look like it did nothing, which has
 already cost a full round of misdiagnosis. The order is always: render → `mask_glow` →
-`--import` → screenshot.
+`pack_atlas` → `--import` → screenshot.
+
+**The board draws from an atlas, not from the loose PNGs.** `pack_atlas.py` packs the 192
+renders into one page per pass, so skipping it is a second way to make a correct art fix
+look like it did nothing — the stale page keeps serving the old pixels. The gate's
+`sprite atlas` check hashes every render and fails if the page no longer matches, so this
+mistake is red rather than mysterious. The pack is a **fixed 256 px grid and never trims**:
+one measured pivot serves every sprite only because every cell is identical, and trimming
+would reintroduce LF-027.
 
 `tools/check.py` is the single gate: schema validation, data cross-references, sim
 determinism, asset manifest integrity, Python syntax. **If it fails, do not commit.**
