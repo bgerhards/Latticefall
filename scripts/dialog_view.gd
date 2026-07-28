@@ -112,7 +112,12 @@ func _process(delta: float) -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if _panel == null:
 		return                                   # not bound yet; nothing to advance
-	if event is InputEventKey and event.pressed and event.keycode == KEY_SPACE:
+	if event.is_action_pressed("lf_confirm"):
+		if _full == "" and not _panel.visible:
+			return                      # nothing to advance; let the board have the press
+		# Consumed, so the gamepad button that advances a line does not also place an
+		# emplacement on whatever the cursor happens to be over.
+		get_viewport().set_input_as_handled()
 		if _full != "" and _shown < float(_full.length()):
 			_shown = float(_full.length())
 			_text.text = _full

@@ -115,11 +115,11 @@
       "kind": "feature",
       "area": "engine",
       "pri": "low",
-      "status": "open",
+      "status": "done",
       "why": "",
       "opened": "2026-07-26",
-      "closed": null,
-      "note": ""
+      "closed": "2026-07-27",
+      "note": "Thirteen lf_* actions bound to keyboard and gamepad together, generated idempotently by tools/godot/setup_input.gd rather than hand-written into project.godot. Board cursor steps slot to slot, scored in screen space. Dialog consumes lf_confirm so one gamepad button does not both advance a line and build. Verified by screenshot with --cursor. Decision 042."
     },
     {
       "id": "LF-011",
@@ -295,11 +295,11 @@
       "kind": "chore",
       "area": "tooling",
       "pri": "med",
-      "status": "open",
+      "status": "done",
       "why": "",
       "opened": "2026-07-27",
-      "closed": null,
-      "note": ""
+      "closed": "2026-07-27",
+      "note": "anchor_view._sprite_lib() builds its own sprites.gd instance when the autoload is absent, which is the editor case. sprites.gd's manifest load moved from _ready() into load_library() so it can be called explicitly \u2014 the same fix anchor_data.gd already makes for Content. Verified standalone: 24 assets, atlas 2 pages, returns AtlasTexture with no autoload present."
     },
     {
       "id": "LF-026",

@@ -32,6 +32,16 @@ var atlas_ok: bool = false
 
 
 func _ready() -> void:
+	load_library()
+
+
+func load_library() -> void:
+	## Separate from _ready() so the in-editor board preview can build its own instance.
+	## Godot instantiates an autoload in the editor only when its script is a tool script,
+	## and only at editor startup — so a singleton that has just become `@tool` stays null
+	## until the whole project is reloaded, and the preview silently falls back to flat
+	## colour. anchor_data.gd exists for exactly this reason on the Content side; this is
+	## the same fix for sprites. LF-025.
 	var f := FileAccess.open(MANIFEST, FileAccess.READ)
 	if f == null:
 		push_warning("sprites: no manifest; falling back to placeholder drawing")

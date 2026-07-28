@@ -33,6 +33,7 @@ var _recorded: bool = false
 var _open_pause: bool = false
 var _select_nth: int = 0
 var _pick_tower: String = ""
+var _cursor_steps: int = 0
 
 const MENU_SCENE := "res://scenes/menu.tscn"
 
@@ -59,6 +60,11 @@ func _ready() -> void:
         view.selected_slot = view.sim.placed[_select_nth - 1]["slot"]
     if _pick_tower != "":
         view.select(_pick_tower)      # applied after --select, so it can be seen to win
+    for _i in range(_cursor_steps):
+        var press := InputEventAction.new()
+        press.action = "lf_right"
+        press.pressed = true
+        view._action_input(press)
     if _open_pause:
         # The shot counter lives in this node's _process, and show_menu() pauses the
         # tree — so without this the screenshot never happens and the run hangs.
@@ -98,6 +104,12 @@ func _setup_cli() -> void:
                 # when the bar is used, which is the whole of that interaction.
                 if i + 1 < argv.size():
                     _pick_tower = argv[i + 1]
+            "--cursor":
+                # Press lf_right N times at boot. Gamepad and keyboard board navigation
+                # is otherwise unscreenshottable at --fixed-fps for the same reason the
+                # pause overlay and the inspector are: it takes a real input to reach.
+                if i + 1 < argv.size() and argv[i + 1].is_valid_int():
+                    _cursor_steps = int(argv[i + 1])
             "--difficulty":
                 if i + 1 < argv.size():
                     difficulty = argv[i + 1]
@@ -178,16 +190,11 @@ func _on_state_changed() -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
-    if not (event is InputEventKey and event.pressed):
-        return
-    match event.keycode:
-        KEY_ESCAPE:
-            # Pause, rather than leave. A --shot run has no one to pause for and must
-            # still exit on its own, which is what _shot_path tests.
-            if _shot_path != "":
-                get_tree().quit()
-            else:
-                pause_menu.toggle()
-        KEY_SPACE:
-            if _shot_path == "":
-                pause_menu.toggle()
+    # Bound through the input map so a gamepad reaches the pause menu too (LF-010).
+    if event.is_action_pressed("lf_pause"):
+        # Pause, rather than leave. A --shot run has no one to pause for and must
+        # still exit on its own, which is what _shot_path tests.
+        if _shot_path != "":
+            get_tree().quit()
+        else:
+            pause_menu.toggle()

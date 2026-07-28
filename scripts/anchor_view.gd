@@ -19,6 +19,7 @@ extends Node2D
 const AnchorSimScript := preload("res://scripts/anchor_sim.gd")
 const IsoScript := preload("res://scripts/iso.gd")
 const AnchorDataScript := preload("res://scripts/anchor_data.gd")
+const SpritesScript := preload("res://scripts/sprites.gd")
 
 signal state_changed
 signal dialog_trigger(trigger: String)
@@ -161,11 +162,27 @@ func _anchor_data() -> Dictionary:
 	return Content.anchor(anchor_id)
 
 
+## One shared library for every previewed board in the editor, built on demand. Static so
+## opening four anchor scenes does not parse the manifest four times.
+static var _editor_lib: Node = null
+
+
 func _sprite_lib() -> Node:
-	## The Sprites autoload if it exists. It does not exist while editing unless the
-	## project has been reloaded since sprites.gd became a tool script, so every caller
-	## must cope with null and fall back to flat-colour drawing.
-	return get_node_or_null(^"/root/Sprites")
+	## The Sprites autoload when it exists, and a private instance when it does not.
+	##
+	## In the editor the autoload is absent until the project has been reloaded since
+	## sprites.gd became a tool script, which is why the preview used to draw flat-colour
+	## tiles for no visible reason (LF-025). Building one here removes the failure mode
+	## rather than coping with it — the same call anchor_data.gd makes for Content.
+	var lib := get_node_or_null(^"/root/Sprites")
+	if lib != null:
+		return lib
+	if not Engine.is_editor_hint():
+		return null              # at runtime a missing autoload is a real fault, not a case
+	if _editor_lib == null:
+		_editor_lib = SpritesScript.new()
+		_editor_lib.load_library()
+	return _editor_lib
 
 
 func _tex(sprite_name: String, yaw: int, pass_name: String) -> Texture2D:
@@ -289,6 +306,85 @@ func _unhandled_input(event: InputEvent) -> void:
 			_click(hovered_slot)
 		elif event.button_index == MOUSE_BUTTON_RIGHT:
 			toggle_at(hovered_slot)
+	else:
+		_action_input(event)
+
+
+func _action_input(event: InputEvent) -> void:
+	## Everything the mouse can do, without a mouse. LF-010.
+	##
+	## The cursor moves between *slots* rather than sweeping pixels: a virtual pointer on a
+	## stick is slow and imprecise, and the only tiles that can be acted on are the slots
+	## anyway. Directions are judged in screen space, because the player is looking at an
+	## isometric projection and "up" has to mean up on the screen, not -y in tile space.
+	if event.is_action_pressed("lf_up"):
+		_step_cursor(Vector2(0, -1))
+	elif event.is_action_pressed("lf_down"):
+		_step_cursor(Vector2(0, 1))
+	elif event.is_action_pressed("lf_left"):
+		_step_cursor(Vector2(-1, 0))
+	elif event.is_action_pressed("lf_right"):
+		_step_cursor(Vector2(1, 0))
+	elif event.is_action_pressed("lf_build"):
+		_click(hovered_slot)
+	elif event.is_action_pressed("lf_sell"):
+		sell_at(selected_slot)
+	elif event.is_action_pressed("lf_upgrade"):
+		upgrade_at(selected_slot)
+	elif event.is_action_pressed("lf_power"):
+		toggle_at(selected_slot)
+	elif event.is_action_pressed("lf_next"):
+		_cycle_tower(1)
+	elif event.is_action_pressed("lf_prev"):
+		_cycle_tower(-1)
+
+
+func _slot_screen(slot: Vector2i) -> Vector2:
+	return IsoScript.tile_to_screen(float(slot.x), float(slot.y))
+
+
+func _step_cursor(dir: Vector2) -> void:
+	## Nearest slot in `dir`, preferring straight ahead over far to the side. Weighting the
+	## across-axis distance is what stops a press of "right" jumping to something almost
+	## directly below simply because it happens to be closer.
+	var slots: Array = sim.anchor["slots"]
+	if slots.is_empty():
+		return
+	var all: Array[Vector2i] = []
+	for s in slots:
+		all.append(Vector2i(int(s[0]), int(s[1])))
+	if not all.has(hovered_slot):
+		hovered_slot = all[0]              # first press with no cursor lands somewhere real
+		queue_redraw()
+		return
+	var from := _slot_screen(hovered_slot)
+	var perp := Vector2(-dir.y, dir.x)
+	var best := hovered_slot
+	var best_score := INF
+	for cand in all:
+		if cand == hovered_slot:
+			continue
+		var d := _slot_screen(cand) - from
+		var along := d.dot(dir)
+		if along <= 0.0:
+			continue                       # behind the cursor
+		var score := along + absf(d.dot(perp)) * 2.0
+		if score < best_score:
+			best_score = score
+			best = cand
+	if best != hovered_slot:
+		hovered_slot = best
+		Audio.sfx("ui_hover", -12.0)
+		queue_redraw()
+
+
+func _cycle_tower(step: int) -> void:
+	var unlocked: Array = Content.unlocked_at(anchor_id)
+	if unlocked.is_empty():
+		return
+	var i := unlocked.find(selected_tower)
+	select(String(unlocked[wrapi(i + step, 0, unlocked.size())]))
+	state_changed.emit()
 
 
 func placed_index_at(slot: Vector2i) -> int:

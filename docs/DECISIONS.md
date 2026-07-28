@@ -1147,3 +1147,52 @@ six things die at once.
 **Consequence.** The bank is 36 synthesized cues and 11 sourced. Decision 009's count of
 "48 of ~60 synthesized, ~12 sourced" is superseded: the split is decided per sound by
 whether it is stochastic, not by whether it is physical.
+
+---
+
+## 042 — Input is an action map, and the board cursor moves slot to slot
+
+**Decided.** The game has an input map. Every binding was a hardcoded keycode compared
+inside `_unhandled_input`, and `project.godot` had no `[input]` section at all, so a
+gamepad could not reach a single control. Thirteen `lf_*` actions now cover pause, confirm,
+cancel, build, sell, upgrade, power, cycling the armed emplacement, and four directions —
+each bound to **both** keyboard and gamepad. LF-010.
+
+**The cursor moves between slots, not pixels.** A virtual pointer driven by a stick is slow
+and imprecise, and the only tiles that can be acted on are the slots anyway. A direction
+press picks the nearest slot in that direction, scored as `along + |across| * 2` so
+"right" prefers something to the right over something almost directly below that happens to
+be nearer. Directions are judged in **screen space**: the player is looking at an isometric
+projection, so up must mean up on the screen rather than −y in tile space.
+
+This is not only a gamepad feature. WASD and the arrow keys now drive the board too, which
+is a real gain for anyone who would rather not aim a mouse at a diamond.
+
+**Why a script generates the map.** An action's events serialize into `project.godot` as
+`Object(InputEventKey, ...)` literals with a dozen fields each. A typo there does not fail
+loudly — it produces an action that silently never fires. `tools/godot/setup_input.gd`
+declares the bindings as a table and lets Godot write the format it reads. It is
+idempotent: every action is rebuilt from the table, so changing a binding converges instead
+of accumulating duplicates. Confirmed that `ProjectSettings.save()` added the `[input]`
+section and touched nothing else — 90 insertions, no deletions.
+
+Keys are bound by `physical_keycode`, so WASD stays under the same fingers on AZERTY.
+
+**The one collision, and how it is resolved.** `lf_confirm` and `lf_build` both bind the
+gamepad's south button, because advancing dialog and placing an emplacement are the same
+gesture in two contexts. One press would otherwise fire both. `dialog_view` calls
+`set_input_as_handled()` when it consumes a confirm, and returns early when there is no
+line to advance — so the press reaches the board exactly when there is no dialog in front
+of it.
+
+**Rejected.**
+- *Reusing Godot's built-in `ui_*` actions.* The menu's Control focus navigation already
+  uses them, and overloading `ui_accept` for building would make the two fight.
+- *A free-moving virtual cursor.* Precise pointing with a stick is the thing players
+  dislike about pad-driven strategy games, and the board does not need it.
+- *Hand-editing the `[input]` block.* See above; a silent failure in a file that must
+  parse for the project to open at all.
+
+**Consequence.** `--cursor N` presses `lf_right` N times at boot so board navigation can be
+screenshotted, joining `--paused`, `--select` and `--pick` as hooks that exist because the
+state they reach needs a real input and `--fixed-fps` has nobody to supply one.
