@@ -205,6 +205,10 @@ say plainly what was left and why.
 - **Type sizes and colours come from `Ui`, never as literals.** They are accessibility
   policy: the ladder starts at `SIZE_BODY = 16` and every colour was solved for a contrast
   ratio against the real composited panel, not picked by eye. Decisions 045 and 046.
+- **A new `class_name` is invisible until the editor imports, and the symptom is a hang.**
+  Not "unknown identifier" — the global class cache has no entry, so the scene never
+  finishes loading. Run `--headless --path . --import` and confirm the name is in
+  `.godot/global_script_class_cache.cfg` before running the game.
 - **A theme override under a name the theme does not know is accepted in silence.** The
   Button item is `font_disabled_color`; `font_color_disabled` is not an item at all, and
   `menu.gd` set it on all sixteen locked anchors for several sessions. Verify a theme key

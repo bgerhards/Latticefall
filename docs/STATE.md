@@ -13,24 +13,28 @@ all grading clean, with dialog, art, audio, save, a pause menu, and full keyboar
 gamepad control. Launch it, pick a difficulty, play anchor 01, get handed anchor 02, never
 touch a command line.
 
-**The interface was rebuilt for legibility this session.** It ran on an 11-13 px type
-ladder — 8-10 physical pixels in the default window — and measured 22 failures on the game
-screen and 53 on the menu against WCAG 2.1 AA. Both are now 0. The ladder starts at 16 px,
-the palette was solved for contrast rather than picked, and there is an options screen with
-display, resolution, fullscreen, v-sync, frame cap, interface scale and glow. Decisions 045
+**The interface was rebuilt for legibility.** It ran on an 11-13 px type ladder — 8-10
+physical pixels in the default window — and measured 22 failures on the game screen and 53
+on the menu against WCAG 2.1 AA. Both are now 0. The ladder starts at 16 px, the palette was
+solved for contrast rather than picked, and there is an options screen carrying display
+mode, resolution, fullscreen, v-sync, frame cap, interface scale and glow. Decisions 045
 and 046.
 
-**A leak now costs what the unit is worth.** Decision 047, owner-approved: `leak_cost` on
-the enemy, `max(1, round(hp/130))`, so a Hollow Column costs four lives and a mote costs
-one. This was the blocker under `LF-044` — density and leak-tension used to be the same
-axis. Nine anchors stopped grading clean and were re-swept on lives alone; all 24 grade
-clean and parity holds.
+**A leak now costs what the unit is worth.** Decision 047: `leak_cost` on the enemy,
+`max(1, round(hp/130))`, so a Hollow Column costs four lives and a mote costs one. Nine
+anchors stopped grading clean and were re-swept on lives alone, content untouched. All 24
+grade clean and parity holds. **Raw life counts are not comparable across that change** —
+anchor-24 went 40 → 52 and is *tighter*, because the measure that matters is lives as a
+fraction of the wave's total `leak_cost`.
 
 **The backlog is two items,** both `med`, neither blocked on the owner. `LF-044` — Act II
-and III still run about 8 units a wave against Act I's 20 — is now mechanical: 047 made the
-density affordable, and what is left is re-authoring wave composition to spend it. `LF-045`
-— interface scale is capped at 125% because the instrument column cannot reflow. See "What
+and III run about 8 units a wave against Act I's 20 — is now mechanical: 047 made the
+density affordable and what is left is re-authoring wave composition to spend it. `LF-045` —
+interface scale is capped at 125% because the instrument column cannot reflow. See "What
 does not exist".
+
+**Two commits are unpushed** (`cdd914e`, `b7e38d3`). `main` tracks `origin/main`; the
+project's habit is branch → PR → merge, as PRs #1 and #2.
 
 If you are starting fresh: read this file, then `docs/DECISIONS.md` headings, then run the
 gate. The gate takes about nine minutes and passing it is the precondition for everything.
@@ -83,43 +87,35 @@ that can reflow, not a bigger multiplier. Decision 046.
 
 **`LF-044` — Act II and III wave density.** The other half of the backlog.
 
-Act I runs 20 units a wave on 10 lives. Act II runs 9.7 on 15.5, Act III 7.7 on 27.5. The
-finale has fewer things on screen than the tutorial.
+| | units/wave | lives | leak budget |
+|---|---|---|---|
+| Act I | 20.2 | 14.0 | 8.7% |
+| Act II | 9.7 | 17.0 | 18.0% |
+| Act III | 7.7 | 30.5 | 30.4% |
 
-Half of this was the tool's fault and is fixed: the sweep scored clean cells by distinct
-winning builds alone, so more lives always scored higher and sixteen anchors were tuned
-loose (decision 044). Correcting it recovered lives — Act III mean fell 31.8 → 27.5 — but
-density did not move.
+The finale still has fewer things on screen than the tutorial. *Leak budget* is lives as a
+fraction of the wave's total `leak_cost` — since decision 047 that is the only comparable
+tension measure, and raw life counts are not.
 
-**The explanation recorded here for that was measured on 2026-07-28 and was wrong.** It is
-kept below only because the correction is more useful than the claim.
+**The blocker is removed but not yet spent.** Decision 047 priced a leak by the unit, so
+trading one 520 hp Column for four ~130 hp units is now tension-neutral where it used to
+triple the tension along with the count. Nothing is denser yet: that trade has to be
+authored. `LF-044` now means re-author Act II and III wave composition to field more,
+lighter units in place of the bricks, holding each wave's total `leak_cost` roughly where it
+is, then re-sweep anchors 09–24. Mechanical, and not blocked on the owner.
 
-- *"The roster has no efficient answer to shielded and armoured units."* It does. Effective
-  dps/MW is ~0.52 against shielded/armoured against ~1.0 against plain — a 2x penalty, not
-  an absence. The ion lance is the answer and it works.
-- *"Higher spawn weights do not grade clean at any life count."* False. anchor-20 at weight
-  **1.50 grades clean at 72 lives** (3/11 on all three difficulties). It was never tested:
-  `sweep.py`'s default weight band is `[0.85, 1.0, 1.15]` and `--lives` defaults to the
-  anchor's current value, so neither the density nor the lives to support it was in the grid.
-  Sixth time the harness rather than the content was the thing that was wrong.
-- Throughput is not the constraint either. Doubling every weapon's damage *and* raising
-  capacity 60% — 3.2x throughput — still only reaches 1/11 at weight 1.50. Raising capacity
-  alone does nothing, which is exactly why sweeping it found nothing.
+**Three things were measured on 2026-07-28 that the previous note had wrong.** Kept because
+each one is a live trap, not for the history:
 
-**What it actually was: density and leak-tension were the same axis.** A leak cost one life
-whether it was a 40 hp mote or a 520 hp Column, so 1.5x the units needed roughly 3x the
-lives to grade clean.
-
-**That is fixed. Decision 047, owner-approved: a leak now costs `leak_cost`,** an integer on
-the enemy derived as `max(1, round(hp / 130))` — 1 up to the Breacher, 2 for the Warden
-Heavy and Hollow Vessel, 3 for the Bulwark, 4 for the Column. The divisor is set so swapping
-a Column for four ~130 hp units is tension-neutral, which is precisely the move that buys
-density and was previously a 4x tension increase.
-
-**Nothing is denser yet.** 047 made density *affordable*; spending it is the remaining work
-and it is what `LF-044` now means: re-author Act II and III wave composition to field more,
-lighter units in place of the bricks, then re-sweep anchors 09–24 behind it. No longer
-blocked on the owner.
+- *The roster is not the constraint.* Effective dps/MW is ~0.52 against shielded or armoured
+  units against ~1.0 for plain — a 2x penalty, not an absence. The ion lance is the answer
+  and it works. The proposed "mid-cost anti-armour emplacement" would not have helped.
+- *Throughput is not the constraint.* Doubling every weapon's damage **and** raising capacity
+  60% — 3.2x throughput — still reaches only 1/11 winning builds at weight 1.50 on anchor-20.
+  Capacity alone changes nothing.
+- *"Higher spawn weights do not grade clean at any life count" was false.* anchor-20 at
+  weight 1.50 grades clean at 72 lives. It had never been tested, because `sweep.py` defaults
+  to weights `[0.85, 1.0, 1.15]` and to the anchor's current life count.
 
 ## Next task
 
@@ -193,6 +189,9 @@ Newest last. Full reasoning and rejected alternatives in `docs/DECISIONS.md`.
   Both live in `Ui`, and `tools/check.py` measures the rendered result. Decision 045.
 - **Interface scale stops at 125%, and the cap is measured rather than picked.** SC 1.4.4
   is not met and the docs say so. Decision 046.
+- **A leak costs the unit's `leak_cost`, not a flat life** — `max(1, round(hp/130))`, so a
+  Column costs four and a mote costs one. This is what stops density and tension being the
+  same knob. Decision 047.
 
 ## Traps that have already cost time
 
@@ -228,6 +227,12 @@ Full detail in `CLAUDE.md`.
   `--paused`, `--select N`, `--pick <id>`, `--cursor N`, `--options` and `--ui-scale <f>`
   each reach a state that needs a real input. Add one rather than shipping a UI nobody has
   looked at.
+- **A new `class_name` is invisible until the editor imports.** Adding a script with a
+  `class_name` and running the game straight away does not fail with "unknown identifier" —
+  it **hangs**, because the global class cache has no entry and the scene never finishes
+  loading. Run `--headless --path . --import` first and confirm the name appears in
+  `.godot/global_script_class_cache.cfg`. Cost two apparently-dead runs before it was
+  recognised; the `--import` step was already mandatory for art and is mandatory here too.
 - **A theme override under a name the theme does not know is accepted in silence.** The
   Button item is `font_disabled_color`; `font_color_disabled` is not an item at all, and it
   was set on all sixteen locked anchors for several sessions. Same failure mode as a
@@ -260,22 +265,22 @@ outstanding.
 ### Gate
 
 ```
-[  ok  ] python syntax           197ms  29 files
-[  ok  ] json parses              74ms  
-[  ok  ] game data               132ms  no warnings
-[  ok  ] banned terms            247ms  124 files clean
-[  ok  ] sfx determinism         122ms  ui_confirm byte-identical
+[  ok  ] python syntax           188ms  29 files
+[  ok  ] json parses              71ms  
+[  ok  ] game data               129ms  no warnings
+[  ok  ] banned terms            239ms  124 files clean
+[  ok  ] sfx determinism         138ms  ui_confirm byte-identical
 [  ok  ] music manifest            0ms  14 tracks
-[  ok  ] sprite atlas             59ms  192 cells in 2 pages, in sync
+[  ok  ] sprite atlas             60ms  192 cells in 2 pages, in sync
 [  ok  ] backlog rendered          0ms  2 open
-[  ok  ] sim determinism        3134ms  deterministic
-[  ok  ] godot boots            1493ms  main scene loads clean
-[  ok  ] game renders           2740ms  coverage 0.56, 88 tones
-[  ok  ] menu renders           1462ms  coverage 0.052, 8 anchors listed
-[  ok  ] accessibility          7957ms  65 text items clean, worst contrast 4.68:1
-[  ok  ] rules parity         462838ms  864 runs identical (gdscript vs python)
+[  ok  ] sim determinism        3097ms  deterministic
+[  ok  ] godot boots            1482ms  main scene loads clean
+[  ok  ] game renders           2838ms  coverage 0.56, 88 tones
+[  ok  ] menu renders           1411ms  coverage 0.052, 8 anchors listed
+[  ok  ] accessibility          9387ms  65 text items clean, worst contrast 4.68:1
+[  ok  ] rules parity         465403ms  864 runs identical (gdscript vs python)
 
-14 passed · 0 failed · 0 skipped · 480455ms
+14 passed · 0 failed · 0 skipped · 484446ms
 ```
 
 ### Inventory
@@ -325,12 +330,13 @@ outstanding.
 
 2 open · 43 closed
 
-- `med` LF-044 Act II/III density is flat at ~8 units per wave against Act I's 20. Premise re-measured 2026-07-28 and the old one was wrong — see note
+- `med` LF-044 Act II/III density: decision 047 removed the blocker, now spend it — re-author Act II/III wave composition for more, lighter units at constant wave leak_cost, then re-sweep anchors 09-24
 - `med` LF-045 The instrument column cannot reflow, so interface scale is capped at 125%. content_scale_factor divides the 1920x1080 design space, and the column needs ~847px of height at anchor-24 (nine emplacements, eight reserved datasheet rows) — 150% leaves 720 and clips the SELL/UPGRADE/power controls. WCAG 2.1 SC 1.4.4 asks for 200%. Needs a column that can reflow (scroll, collapse the datasheet to the selected tower's rows, or move the build bar out of the column) rather than a larger multiplier
 
 ### Recent commits
 
 ```
+b7e38d3 feat(rules): a leak costs what the unit is worth, not a flat life
 cdd914e fix(balance): LF-044's premise was wrong — measure it, and make the sweep state its box
 13da1f0 Merge pull request #2 from bgerhards/feat/accessibility
 08d2ca8 feat(a11y): 16px type ladder, measured palette, and display options
@@ -338,7 +344,6 @@ cdd914e fix(balance): LF-044's premise was wrong — measure it, and make the sw
 7bbd118 docs: session wrap — rewrite STATE for a reader with no memory of this session
 1cfbeaa fix(balance): score robustness as a threshold, and re-sweep Act II and III
 bd6ef38 feat(engine): input action map, gamepad support, and a board cursor
-526209a fix: rename the application to Latticefall, and synthesize the last organic cue
 ```
 
 <!-- END AUTO -->
