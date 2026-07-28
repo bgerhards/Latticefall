@@ -79,19 +79,41 @@ finale has fewer things on screen than the tutorial.
 Half of this was the tool's fault and is fixed: the sweep scored clean cells by distinct
 winning builds alone, so more lives always scored higher and sixteen anchors were tuned
 loose (decision 044). Correcting it recovered lives — Act III mean fell 31.8 → 27.5 — but
-**density did not move at all**, because higher spawn weights do not grade clean at any life
-count. The roster has no efficient answer to shielded and armoured units, so volume cannot
-come back until it has one.
+density did not move.
 
-The remaining work is therefore content: a mid-cost anti-armour emplacement, or a draw cut
-on the ion lance and mortar, followed by a full re-sweep of anchors 09–24. Do not attempt it
-without budgeting for the re-sweep — every applied cell has to grade clean, and a roster
-change invalidates all sixteen existing grades.
+**The explanation recorded here for that was measured on 2026-07-28 and was wrong.** It is
+kept below only because the correction is more useful than the claim.
+
+- *"The roster has no efficient answer to shielded and armoured units."* It does. Effective
+  dps/MW is ~0.52 against shielded/armoured against ~1.0 against plain — a 2x penalty, not
+  an absence. The ion lance is the answer and it works.
+- *"Higher spawn weights do not grade clean at any life count."* False. anchor-20 at weight
+  **1.50 grades clean at 72 lives** (3/11 on all three difficulties). It was never tested:
+  `sweep.py`'s default weight band is `[0.85, 1.0, 1.15]` and `--lives` defaults to the
+  anchor's current value, so neither the density nor the lives to support it was in the grid.
+  Sixth time the harness rather than the content was the thing that was wrong.
+- Throughput is not the constraint either. Doubling every weapon's damage *and* raising
+  capacity 60% — 3.2x throughput — still only reaches 1/11 at weight 1.50. Raising capacity
+  alone does nothing, which is exactly why sweeping it found nothing.
+
+**What it actually is: density and leak-tension are the same axis.** A leak costs one life
+whether it is a 40 hp mote or a 520 hp Column, so 1.5x the units needs roughly 3x the lives
+to grade clean — and Act III becomes far more forgiving. Act I permits leaking 10% of its
+units; anchor-20 already permits 37%; weight 1.50 at 72 lives would permit 75%.
+
+So this is a decision about Act III's identity rather than a tuning pass, and it belongs to
+the owner. The structural alternative that does not spend lives is to make a leak cost
+proportional to the unit instead of a flat 1, which would let Act III field three 170 hp
+units where it now fields one 520 hp one at the same tension. That is a rules change and
+would need a parity update on both engines.
 
 ## Next task
 
-`LF-044` or `LF-045`. Nothing is blocked on the owner. `LF-044` is the larger win for the
-game; `LF-045` is the larger win for the people who cannot currently read it.
+`LF-045` — a reflowable instrument column, which unblocks interface scale above 125%.
+
+`LF-044` is now **blocked on the owner**, which it was not before: its premise was measured
+and disproved, and what is left is a decision about how forgiving Act III should be. See
+"What does not exist" and the item's note.
 
 ## Method that works — do not skip it
 
@@ -101,9 +123,14 @@ game; `LF-045` is the larger win for the people who cannot currently read it.
 - **Check the layout before the numbers** — the validator errors on slots no weapon can
   reach and warns on ones the shortest-ranged weapon cannot. There are currently **no
   warnings**: every slot on every anchor is inside the shortest weapon's range.
-- **Check the harness before the level.** Five times now the grader, the smoke test or the
-  scorer — not the content — was what was broken. Decisions 023, 024, 028, 044, and the
-  autobuild fix below.
+- **Check the harness before the level.** Six times now the grader, the smoke test, the
+  scorer or the sweep's own grid — not the content — was what was broken. Decisions 023,
+  024, 028, 044, the autobuild fix below, and `LF-044`'s disproved premise, which was a
+  conclusion drawn from a grid that spanned ±15% of the value it was trying to change.
+- **A sweep proves nothing outside its grid.** `sweep.py` defaults to weights
+  `[0.85, 1.0, 1.15]` and to the anchor's current life count. "No cell grades clean" means
+  "no cell in that box", and a question about doubling density is not answerable inside a
+  box 15% wide. Pass `--weight` and `--lives` explicitly when the question is structural.
 - **Look at UI and art in the engine, never in the source.** Every UI defect this project
   has had was invisible in the code and obvious in a screenshot.
 
@@ -197,8 +224,25 @@ Full detail in `CLAUDE.md`.
 
 ## Open with the user
 
-Nothing. CC0-only is confirmed (038), the candidates are auditioned and promoted, music
-provenance is recorded in `assets/audio/SOURCES.md`, and no decision is outstanding.
+**How forgiving should Act III be?** `LF-044` wants the finale to have more on screen than
+the tutorial. It can: anchor-20 grades clean at 1.5x density. It costs lives — 24 → 72 —
+which means Act III would tolerate leaking three quarters of its units, against Act I's one
+tenth. Three ways out, and this is the owner's call because it decides what the act *is*:
+
+1. **Accept a smaller gain.** Weight 1.25 grades clean at 36 lives, close to today's 24.
+   Roughly 10 units a wave instead of 8. Cheap, and does not change the act's character.
+2. **Buy the density with lives.** 1.5x at 72 lives. Gets closest to Act I's feel on screen
+   and furthest from it in tension — leaks stop mattering.
+3. **Make a leak cost proportional to the unit** rather than a flat 1. Act III could field
+   three 170 hp units where it fields one 520 hp one, at the same tension and three times
+   the density. Structurally the right answer and the most expensive: it is a rules change,
+   so it lands in `sim/engine.py` and `scripts/anchor_sim.gd` and needs the parity gate.
+
+Recommendation: **3**, with **1** as the interim if the parity work is not wanted now.
+
+Otherwise nothing. CC0-only is confirmed (038), the candidates are auditioned and promoted,
+music provenance is recorded in `assets/audio/SOURCES.md`, and no other decision is
+outstanding.
 
 ---
 
