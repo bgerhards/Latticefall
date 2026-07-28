@@ -48,8 +48,11 @@ and three internal-quality chores.
 ## What does not exist
 
 - **Sprite atlas packing.** `LF-004`, the only remaining `high`. 206 loose PNGs.
-- **The 12 organic CC0 SFX.** `LF-005` — and the CC0-by-default policy has still never been
-  explicitly confirmed with the user.
+- **The 12 organic CC0 SFX.** `LF-005` is now unblocked — CC0-only is confirmed as the
+  owner's decision (038) and the twelve cues are enumerated in `tools/audio/fetch_cc0.py`.
+  **26 licence-verified candidates are staged** in `~/Latticefall-masters/cc0-candidates/`
+  and none has been heard. Nothing enters `assets/` until it is auditioned:
+  `.venv/bin/python tools/audio/audition_cc0.py`. `debris_settle` found nothing — `LF-043`.
 - Gamepad `LF-010`. Editor preview tile textures `LF-025`. HUD/dialog authored in the
   scene rather than built in code `LF-026`.
 - **The app is still called `Defend-Claude`** `LF-042`: `project.godot` carries the repo
@@ -132,9 +135,11 @@ Full detail in `CLAUDE.md`.
 
 ## Open with the user
 
-- **CC0-by-default** for the 12 organic SFX — stated, never explicitly confirmed. `LF-005`
-  cannot proceed without it.
-- Nothing else is blocked on a decision.
+- **Audition the 26 staged CC0 candidates.** This is the one task that cannot be done
+  without the owner: a licence check proves a file is safe to ship, not that it is the
+  right sound. Run `tools/audio/audition_cc0.py`, mark keep or drop, expect to drop most.
+- Nothing is blocked on a decision. CC0-only is settled (038); music provenance is
+  recorded in `assets/audio/SOURCES.md`.
 
 ---
 

@@ -1,5 +1,5 @@
 {
-  "next_id": 43,
+  "next_id": 44,
   "items": [
     {
       "id": "LF-001",
@@ -498,6 +498,18 @@
       "title": "Window title and export name are \"Defend-Claude\" (the repo name), not LATTICEFALL \u2014 project.godot config/name reaches the player",
       "kind": "bug",
       "area": "engine",
+      "pri": "med",
+      "status": "open",
+      "why": "",
+      "opened": "2026-07-27",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-043",
+      "title": "debris_settle has no CC0 candidate \u2014 OpenGameArt's sound corpus has nothing whose filename reads as falling debris. Needs different queries, --commons, or a recording",
+      "kind": "chore",
+      "area": "audio",
       "pri": "med",
       "status": "open",
       "why": "",
