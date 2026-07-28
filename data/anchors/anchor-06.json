@@ -5,7 +5,7 @@
   "title": "Hard Currency",
   "capacity_mw": 104,
   "starting_funds": 820,
-  "lives": 10,
+  "lives": 14,
   "grid": {
     "w": 13,
     "h": 11

@@ -1386,3 +1386,72 @@ making the design space larger, which scales nothing and is a no-op with extra s
 **Consequence.** Reaching 200% needs an instrument column that can reflow — scroll,
 collapse the datasheet to the selected tower's rows, or move the build bar out of the
 column. That is `LF-045`, and it is a layout project rather than a settings one.
+
+---
+
+## 047 — A leak costs what the unit is worth, not a flat life
+
+**Date.** 2026-07-28. **Status.** Adopted. Owner-approved.
+
+A unit that reached the anchor cost one life whether it was a 22 hp Warden Mote or a 520 hp
+Hollow Column. That made **density and leak-tension the same axis**: replacing one Column
+with three lighter units at the same total HP tripled the tension along with the count, so
+Act III could only get more on screen by becoming proportionally more forgiving. Measured
+in the entry for `LF-044` — anchor-20 reaches 1.5x density only at 72 lives, where three
+quarters of the wave may leak, against Act I's one tenth.
+
+`leak_cost` is now an integer on the enemy, defaulting to 1, and `lives` falls by it.
+Initial values are derived rather than picked: `max(1, round(hp / 130))`.
+
+| unit | hp | leak_cost |
+|---|---|---|
+| Warden Mote … Reach Breacher | 22–160 | 1 |
+| Warden Heavy, Hollow Vessel | 220, 260 | 2 |
+| Reach Bulwark | 380 | 3 |
+| Hollow Column | 520 | 4 |
+
+The divisor is chosen so a 520 hp Column costs exactly four, which makes swapping it for
+four ~130 hp units tension-neutral. That substitution is the point: it is the move that buys
+density, and it was previously a 4x tension increase.
+
+**What it cost.** Nine of the 24 anchors stopped grading clean — anchors 03, 04, 06, 07, 08,
+16, 17, 21 and 24. Including five in **Act I**, which decision 044 had deliberately left
+alone: Warden Heavy is 220 hp and appears from anchor-03 onward, so Act I was never going to
+be insulated from a rule keyed on unit weight. All nine were re-swept on **lives only**,
+with capacity, starting funds and wave composition pinned to their existing values, so no
+anchor's content moved. All 24 grade clean; parity holds at 864 identical runs.
+
+**Raw life counts are no longer comparable across the change, and reading them as though
+they were is a trap.** The honest measure is what fraction of a wave's total `leak_cost` may
+leak. By that measure Act III got *tighter*, which is the point: 37–49% tolerable before,
+23–36% after, despite anchor-24 going 40 → 52 lives. Act I held at 7–10%.
+
+The exception was anchor-03, which the sweep moved to 20 lives — 16% tolerable, against
+7–10% for every other Act I anchor. That is not a scorer bug: robustness below the
+`ROBUST_ENOUGH` cap dominates the life penalty (decision 044), and 20 lives genuinely buys
+two more distinct brutal builds than 12 does. The scorer simply has no notion of "in family
+with the rest of the act", and it should not — that is a judgement about the act, made here.
+anchor-03 is pinned to 12, the tightest clean cell, at 9.6%.
+
+**What it does not yet do.** Nothing is denser yet. This decision only makes density
+*affordable*; spending it means re-authoring Act II and III wave composition to field more,
+lighter units in place of the bricks, and re-sweeping behind that. `LF-044` stays open for
+exactly that work and is no longer blocked on the owner.
+
+**Rejected.** *Buying density with lives (weight 1.50 at 72 lives).* It works and grades
+clean, but it makes leaks nearly meaningless in the act that is supposed to be the hardest.
+
+*Keeping the flat cost and adding a mid-cost anti-armour emplacement*, which is what
+`LF-044` originally proposed. The roster was measured and is not the constraint: effective
+dps/MW against shielded or armoured units is ~0.52 against ~1.0 for plain, a 2x penalty
+rather than an absence, and 3.2x throughput barely moves the weight-1.5 verdict.
+
+*Exempting Warden Heavy to protect Act I.* It would have kept five anchors untouched at the
+cost of making the rule a formula with a hand-placed exception, which is the kind of
+unprincipled fiddling this file exists to prevent. Re-sweeping Act I's life counts is the
+honest consequence of changing a rule that Act I is subject to.
+
+**Consequence.** `leaks` still counts bodies; it is a different question from what they
+cost, and the HUD reports both. Any future enemy needs a `leak_cost` consistent with the
+divisor, and the GDScript default of 1 must stay identical to the Python one or the parity
+gate will catch it as a divergence — which is the intended safety net.

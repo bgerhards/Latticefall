@@ -20,10 +20,17 @@ the palette was solved for contrast rather than picked, and there is an options 
 display, resolution, fullscreen, v-sync, frame cap, interface scale and glow. Decisions 045
 and 046.
 
+**A leak now costs what the unit is worth.** Decision 047, owner-approved: `leak_cost` on
+the enemy, `max(1, round(hp/130))`, so a Hollow Column costs four lives and a mote costs
+one. This was the blocker under `LF-044` — density and leak-tension used to be the same
+axis. Nine anchors stopped grading clean and were re-swept on lives alone; all 24 grade
+clean and parity holds.
+
 **The backlog is two items,** both `med`, neither blocked on the owner. `LF-044` — Act II
-and III still run about 8 units a wave against Act I's 20 — needs a content change, not a
-tuning pass. `LF-045` — interface scale is capped at 125% because the instrument column
-cannot reflow. See "What does not exist".
+and III still run about 8 units a wave against Act I's 20 — is now mechanical: 047 made the
+density affordable, and what is left is re-authoring wave composition to spend it. `LF-045`
+— interface scale is capped at 125% because the instrument column cannot reflow. See "What
+does not exist".
 
 If you are starting fresh: read this file, then `docs/DECISIONS.md` headings, then run the
 gate. The gate takes about nine minutes and passing it is the precondition for everything.
@@ -34,7 +41,7 @@ gate. The gate takes about nine minutes and passing it is the precondition for e
 |---|---|
 | **Flow** | Title → level select → anchor → debrief → next anchor. Pause overlay with volume. |
 | **Inspector** | Click a built emplacement to select it. The left panel is its full datasheet — damage, interval, derived DPS, range, draw, what it is rated to hit, the shield tax, splash, support effect, and the authored note — with the second tier shown as a `9 → 14` delta per row. Sell, upgrade and power act on that selection. Decisions 035, 036. |
-| **Threat panel** | Right edge. Current wave, a prep countdown in seconds, every unit type with count/hp/speed and `AIR`/`SHIELD`/`ARM`/`DRAIN`, the wave's total bus theft, and an alert when air is inbound with no reveal emplacement online. Decision 037. |
+| **Threat panel** | Right edge. Current wave, a prep countdown in seconds, every unit type with count/hp/speed and `AIR`/`SHIELD`/`ARM`/`DRAIN`, what each costs to leak when that is more than one life, the wave's total bus theft and total life cost, and an alert when air is inbound with no reveal emplacement online. Decisions 037, 047. |
 | **Board feedback** | Reach drawn on the ground: bone for the selection, red when it is offline, amber previewing what the armed emplacement would cover on the hovered slot. |
 | **Input** | Mouse, keyboard and gamepad. Thirteen `lf_*` actions; the board cursor steps slot to slot, scored in screen space. Decision 042. |
 | **Options** | One panel, reachable from the title screen and mid-anchor from pause. Window mode (windowed/borderless/fullscreen), resolution filtered to what fits the monitor, v-sync, frame cap, interface scale, emissive glow, and both volumes. Saved in `progress.json` under `display`. Decision 046. |
@@ -58,6 +65,9 @@ gate. The gate takes about nine minutes and passing it is the precondition for e
   **anchor damper** suppresses 60% of the drain inside its arc. Decisions 027, 029.
 - **Act III — the bus degrades.** `capacity_decay_mw` per wave, floored at 45% of rated;
   the **restorer** returns 44 MW for 10 MW drawn and a slot spent. Decision 031.
+
+Across all three: **a leak costs the unit's `leak_cost`, not a flat life** (decision 047),
+which is what stops density and tension being the same knob.
 
 ## What does not exist
 
@@ -96,24 +106,30 @@ kept below only because the correction is more useful than the claim.
   capacity 60% — 3.2x throughput — still only reaches 1/11 at weight 1.50. Raising capacity
   alone does nothing, which is exactly why sweeping it found nothing.
 
-**What it actually is: density and leak-tension are the same axis.** A leak costs one life
-whether it is a 40 hp mote or a 520 hp Column, so 1.5x the units needs roughly 3x the lives
-to grade clean — and Act III becomes far more forgiving. Act I permits leaking 10% of its
-units; anchor-20 already permits 37%; weight 1.50 at 72 lives would permit 75%.
+**What it actually was: density and leak-tension were the same axis.** A leak cost one life
+whether it was a 40 hp mote or a 520 hp Column, so 1.5x the units needed roughly 3x the
+lives to grade clean.
 
-So this is a decision about Act III's identity rather than a tuning pass, and it belongs to
-the owner. The structural alternative that does not spend lives is to make a leak cost
-proportional to the unit instead of a flat 1, which would let Act III field three 170 hp
-units where it now fields one 520 hp one at the same tension. That is a rules change and
-would need a parity update on both engines.
+**That is fixed. Decision 047, owner-approved: a leak now costs `leak_cost`,** an integer on
+the enemy derived as `max(1, round(hp / 130))` — 1 up to the Breacher, 2 for the Warden
+Heavy and Hollow Vessel, 3 for the Bulwark, 4 for the Column. The divisor is set so swapping
+a Column for four ~130 hp units is tension-neutral, which is precisely the move that buys
+density and was previously a 4x tension increase.
+
+**Nothing is denser yet.** 047 made density *affordable*; spending it is the remaining work
+and it is what `LF-044` now means: re-author Act II and III wave composition to field more,
+lighter units in place of the bricks, then re-sweep anchors 09–24 behind it. No longer
+blocked on the owner.
 
 ## Next task
 
-`LF-045` — a reflowable instrument column, which unblocks interface scale above 125%.
+`LF-044`, and it is now mechanical rather than blocked: decision 047 made density
+affordable, and what remains is to spend it. Re-author Act II and III wave composition —
+more, lighter units in place of the bricks, holding each wave's total `leak_cost` roughly
+where it is — then re-sweep anchors 09–24. Nothing is blocked on the owner.
 
-`LF-044` is now **blocked on the owner**, which it was not before: its premise was measured
-and disproved, and what is left is a decision about how forgiving Act III should be. See
-"What does not exist" and the item's note.
+`LF-045` (a reflowable instrument column, which unblocks interface scale above 125%) after
+that.
 
 ## Method that works — do not skip it
 
@@ -127,6 +143,12 @@ and disproved, and what is left is a decision about how forgiving Act III should
   scorer or the sweep's own grid — not the content — was what was broken. Decisions 023,
   024, 028, 044, the autobuild fix below, and `LF-044`'s disproved premise, which was a
   conclusion drawn from a grid that spanned ±15% of the value it was trying to change.
+- **Since decision 047, a raw life count means nothing on its own.** Compare `lives` against
+  the wave's total `leak_cost`, not against another anchor's `lives`. anchor-24 going 40 →
+  52 looks like it got easier and is in fact tighter: 46% of its leak budget tolerable
+  before, 36% after. The sweep optimises robustness and has no notion of "in family with the
+  rest of the act" — that judgement is the author's, and it is what pinned anchor-03 to 12
+  lives rather than the 20 the scorer preferred.
 - **A sweep proves nothing outside its grid.** `sweep.py` defaults to weights
   `[0.85, 1.0, 1.15]` and to the anchor's current life count. "No cell grades clean" means
   "no cell in that box", and a question about doubling density is not answerable inside a
@@ -224,24 +246,9 @@ Full detail in `CLAUDE.md`.
 
 ## Open with the user
 
-**How forgiving should Act III be?** `LF-044` wants the finale to have more on screen than
-the tutorial. It can: anchor-20 grades clean at 1.5x density. It costs lives — 24 → 72 —
-which means Act III would tolerate leaking three quarters of its units, against Act I's one
-tenth. Three ways out, and this is the owner's call because it decides what the act *is*:
-
-1. **Accept a smaller gain.** Weight 1.25 grades clean at 36 lives, close to today's 24.
-   Roughly 10 units a wave instead of 8. Cheap, and does not change the act's character.
-2. **Buy the density with lives.** 1.5x at 72 lives. Gets closest to Act I's feel on screen
-   and furthest from it in tension — leaks stop mattering.
-3. **Make a leak cost proportional to the unit** rather than a flat 1. Act III could field
-   three 170 hp units where it fields one 520 hp one, at the same tension and three times
-   the density. Structurally the right answer and the most expensive: it is a rules change,
-   so it lands in `sim/engine.py` and `scripts/anchor_sim.gd` and needs the parity gate.
-
-Recommendation: **3**, with **1** as the interim if the parity work is not wanted now.
-
-Otherwise nothing. CC0-only is confirmed (038), the candidates are auditioned and promoted,
-music provenance is recorded in `assets/audio/SOURCES.md`, and no other decision is
+Nothing. The Act III density question was decided — decision 047, leak cost priced by unit —
+and the remaining work under `LF-044` is content, not a decision. CC0-only is confirmed
+(038), music provenance is recorded in `assets/audio/SOURCES.md`, and no other decision is
 outstanding.
 
 ---
@@ -253,22 +260,22 @@ outstanding.
 ### Gate
 
 ```
-[  ok  ] python syntax           184ms  29 files
+[  ok  ] python syntax           197ms  29 files
 [  ok  ] json parses              74ms  
-[  ok  ] game data               125ms  no warnings
-[  ok  ] banned terms            244ms  124 files clean
-[  ok  ] sfx determinism         124ms  ui_confirm byte-identical
+[  ok  ] game data               132ms  no warnings
+[  ok  ] banned terms            247ms  124 files clean
+[  ok  ] sfx determinism         122ms  ui_confirm byte-identical
 [  ok  ] music manifest            0ms  14 tracks
 [  ok  ] sprite atlas             59ms  192 cells in 2 pages, in sync
 [  ok  ] backlog rendered          0ms  2 open
-[  ok  ] sim determinism        3082ms  deterministic
-[  ok  ] godot boots            1586ms  main scene loads clean
-[  ok  ] game renders           2723ms  coverage 0.56, 87 tones
-[  ok  ] menu renders           1454ms  coverage 0.052, 8 anchors listed
-[  ok  ] accessibility          8130ms  65 text items clean, worst contrast 4.68:1
-[  ok  ] rules parity         496096ms  864 runs identical (gdscript vs python)
+[  ok  ] sim determinism        3134ms  deterministic
+[  ok  ] godot boots            1493ms  main scene loads clean
+[  ok  ] game renders           2740ms  coverage 0.56, 88 tones
+[  ok  ] menu renders           1462ms  coverage 0.052, 8 anchors listed
+[  ok  ] accessibility          7957ms  65 text items clean, worst contrast 4.68:1
+[  ok  ] rules parity         462838ms  864 runs identical (gdscript vs python)
 
-14 passed · 0 failed · 0 skipped · 513882ms
+14 passed · 0 failed · 0 skipped · 480455ms
 ```
 
 ### Inventory
@@ -289,28 +296,28 @@ outstanding.
 |---|---|---|---|---|---|---|---|
 | anchor-01 | 1 | 60 MW | 6 | 2/4 | 2/4 | 1/4 | ok |
 | anchor-02 | 1 | 80 MW | 7 | 4/8 | 3/8 | 2/8 | ok |
-| anchor-03 | 1 | 92 MW | 7 | 4/9 | 3/9 | 3/8 | ok |
+| anchor-03 | 1 | 92 MW | 7 | 4/9 | 2/9 | 2/8 | ok |
 | anchor-04 | 1 | 96 MW | 8 | 4/10 | 3/10 | 2/10 | ok |
-| anchor-05 | 1 | 100 MW | 7 | 6/9 | 5/9 | 4/9 | ok |
-| anchor-06 | 1 | 104 MW | 7 | 6/12 | 5/12 | 4/12 | ok |
-| anchor-07 | 1 | 106 MW | 8 | 4/12 | 4/12 | 2/12 | ok |
-| anchor-08 | 1 | 110 MW | 9 | 3/12 | 2/12 | 2/12 | ok |
+| anchor-05 | 1 | 100 MW | 7 | 4/9 | 4/9 | 3/9 | ok |
+| anchor-06 | 1 | 104 MW | 7 | 6/12 | 5/12 | 2/12 | ok |
+| anchor-07 | 1 | 106 MW | 8 | 4/12 | 3/12 | 2/12 | ok |
+| anchor-08 | 1 | 110 MW | 9 | 3/12 | 3/12 | 3/12 | ok |
 | anchor-09 | 2 | 118 MW | 8 | 8/12 | 7/12 | 4/12 | ok |
-| anchor-10 | 2 | 134 MW | 8 | 6/12 | 3/12 | 3/12 | ok |
+| anchor-10 | 2 | 134 MW | 8 | 6/12 | 3/12 | 2/12 | ok |
 | anchor-11 | 2 | 142 MW | 8 | 4/11 | 3/11 | 2/11 | ok |
 | anchor-12 | 2 | 150 MW | 8 | 4/11 | 4/11 | 4/11 | ok |
 | anchor-13 | 2 | 158 MW | 9 | 6/12 | 5/12 | 3/12 | ok |
-| anchor-14 | 2 | 166 MW | 9 | 6/11 | 3/11 | 3/11 | ok |
-| anchor-15 | 2 | 174 MW | 9 | 6/11 | 6/11 | 4/11 | ok |
-| anchor-16 | 2 | 180 MW | 10 | 3/11 | 2/11 | 2/11 | ok |
+| anchor-14 | 2 | 166 MW | 9 | 3/11 | 3/11 | 3/11 | ok |
+| anchor-15 | 2 | 174 MW | 9 | 4/11 | 4/11 | 3/11 | ok |
+| anchor-16 | 2 | 180 MW | 10 | 5/11 | 2/11 | 2/11 | ok |
 | anchor-17 | 3 | 190 MW | 8 | 3/12 | 3/12 | 2/12 | ok |
-| anchor-18 | 3 | 200 MW | 8 | 3/12 | 3/12 | 3/12 | ok |
+| anchor-18 | 3 | 200 MW | 8 | 3/12 | 3/12 | 2/12 | ok |
 | anchor-19 | 3 | 210 MW | 8 | 3/11 | 3/11 | 3/11 | ok |
-| anchor-20 | 3 | 220 MW | 8 | 3/11 | 3/11 | 3/11 | ok |
+| anchor-20 | 3 | 220 MW | 8 | 3/11 | 2/11 | 2/11 | ok |
 | anchor-21 | 3 | 230 MW | 8 | 3/11 | 3/11 | 3/11 | ok |
-| anchor-22 | 3 | 240 MW | 9 | 3/11 | 3/11 | 3/11 | ok |
-| anchor-23 | 3 | 250 MW | 9 | 3/11 | 3/11 | 3/11 | ok |
-| anchor-24 | 3 | 260 MW | 10 | 3/11 | 3/11 | 3/11 | ok |
+| anchor-22 | 3 | 240 MW | 9 | 3/11 | 3/11 | 2/11 | ok |
+| anchor-23 | 3 | 250 MW | 9 | 3/11 | 2/11 | 2/11 | ok |
+| anchor-24 | 3 | 260 MW | 10 | 3/11 | 3/11 | 2/11 | ok |
 
 *Cells are distinct winning builds / distinct builds tried.*
 
@@ -318,20 +325,20 @@ outstanding.
 
 2 open · 43 closed
 
-- `med` LF-044 Act II/III density is still flat at ~8 units per wave — the sweep scorer fix (decision 044) recovered lives but not volume, because higher spawn weights do not grade clean at any life count. Needs a roster answer to shielded/armoured units: a mid-cost anti-armour emplacement or a lance/mortar draw cut, then a full re-sweep of anchors 09-24
+- `med` LF-044 Act II/III density is flat at ~8 units per wave against Act I's 20. Premise re-measured 2026-07-28 and the old one was wrong — see note
 - `med` LF-045 The instrument column cannot reflow, so interface scale is capped at 125%. content_scale_factor divides the 1920x1080 design space, and the column needs ~847px of height at anchor-24 (nine emplacements, eight reserved datasheet rows) — 150% leaves 720 and clips the SELL/UPGRADE/power controls. WCAG 2.1 SC 1.4.4 asks for 200%. Needs a column that can reflow (scroll, collapse the datasheet to the selected tower's rows, or move the build bar out of the column) rather than a larger multiplier
 
 ### Recent commits
 
 ```
+cdd914e fix(balance): LF-044's premise was wrong — measure it, and make the sweep state its box
+13da1f0 Merge pull request #2 from bgerhards/feat/accessibility
+08d2ca8 feat(a11y): 16px type ladder, measured palette, and display options
 63cc6c6 Merge pull request #1 from bgerhards/feat/content-complete
 7bbd118 docs: session wrap — rewrite STATE for a reader with no memory of this session
 1cfbeaa fix(balance): score robustness as a threshold, and re-sweep Act II and III
 bd6ef38 feat(engine): input action map, gamepad support, and a board cursor
 526209a fix: rename the application to Latticefall, and synthesize the last organic cue
-644074b feat(art): pack the sprite library into a fixed-grid atlas, and gate its staleness
-e7ca4d6 feat(audio): promote 11 auditioned CC0 cues, and give the radio a radio
-8f855a2 feat(audio): CC0 sourcing — confirmed policy, verified fetcher, 26 staged candidates
 ```
 
 <!-- END AUTO -->

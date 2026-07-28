@@ -5,7 +5,7 @@
   "title": "Nothing Answers",
   "capacity_mw": 92,
   "starting_funds": 560,
-  "lives": 10,
+  "lives": 12,
   "grid": {
     "w": 16,
     "h": 12

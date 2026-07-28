@@ -23,6 +23,8 @@
           "shielded": {"type": "boolean"},
           "drains_mw": {"type": "number", "minimum": 0,
                         "description": "MW stolen from the bus while alive. Act II+."},
+          "leak_cost": {"type": "integer", "minimum": 1,
+                        "description": "Lives lost when this unit reaches the anchor. Defaults to 1. A leak used to cost one life whether it was a 40 hp mote or a 520 hp Column, which made density and leak-tension the same axis. Pricing the leak by the unit decouples them. Decision 047."},
           "note": {"type": "string"}
         }
       }
