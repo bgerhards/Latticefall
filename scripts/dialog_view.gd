@@ -19,7 +19,11 @@ var _shown: float = 0.0
 var _hold: float = 0.0
 
 
-func _ready() -> void:
+func bind(v: Node2D) -> void:
+	## Built on an explicit call from main.gd rather than in _ready() — see hud.gd.
+	## The opening brief is fired by view.start(), which main.gd calls only after every
+	## listener is bound, so no line can be emitted before this node can hear it.
+	view = v
 	var root := Control.new()
 	root.set_anchors_preset(Control.PRESET_FULL_RECT)
 	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -32,20 +36,19 @@ func _ready() -> void:
 	root.add_child(_panel)
 
 	_who = Label.new()
-	_who.add_theme_font_size_override("font_size", 12)
+	Ui.style(_who, 12, false, true)
 	_who.add_theme_color_override("font_color", C_VERD)
 	root.add_child(_who)
 
 	_text = Label.new()
-	_text.add_theme_font_size_override("font_size", 16)
+	Ui.style(_text, 16)
 	_text.add_theme_color_override("font_color", C_BONE)
 	_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	root.add_child(_text)
 
 	_layout()
 	get_viewport().size_changed.connect(_layout)
-	if view:
-		view.dialog_trigger.connect(on_trigger)
+	view.dialog_trigger.connect(on_trigger)
 
 
 func _layout() -> void:
@@ -68,12 +71,17 @@ func on_trigger(trigger: String) -> void:
 
 func _next() -> void:
 	if _queue.is_empty():
+		if _panel.visible:
+			Audio.sfx("comms_close", -9.0)     # the channel closes once, not once per line
 		_panel.visible = false
 		_who.text = ""
 		_text.text = ""
 		_full = ""
 		return
 	var line: Dictionary = _queue.pop_front()
+	# The radio opens before anyone speaks. Every line used to be announced by ui_hover,
+	# the quietest menu tick in the bank — a UI sound doing a soldier's job.
+	Audio.sfx("comms_squelch", -7.0)
 	_full = String(line.get("text", ""))
 	_who.text = String(line.get("speaker", "")).to_upper()
 	_who.add_theme_color_override("font_color",
@@ -92,7 +100,9 @@ func _process(delta: float) -> void:
 		if _text.text.length() != n:
 			_text.text = _full.substr(0, n)
 			if n % 3 == 0:
-				Audio.sfx("ui_hover", -18.0)
+				# Kept as the typing texture, dropped 4 dB now that the squelch carries
+				# the transition — two cues competing for one moment read as one mess.
+				Audio.sfx("ui_hover", -22.0)
 	else:
 		_hold += delta
 		if _hold > 2.6:
@@ -100,7 +110,14 @@ func _process(delta: float) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if event is InputEventKey and event.pressed and event.keycode == KEY_SPACE:
+	if _panel == null:
+		return                                   # not bound yet; nothing to advance
+	if event.is_action_pressed("lf_confirm"):
+		if _full == "" and not _panel.visible:
+			return                      # nothing to advance; let the board have the press
+		# Consumed, so the gamepad button that advances a line does not also place an
+		# emplacement on whatever the cursor happens to be over.
+		get_viewport().set_input_as_handled()
 		if _full != "" and _shown < float(_full.length()):
 			_shown = float(_full.length())
 			_text.text = _full

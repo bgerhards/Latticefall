@@ -1,0 +1,63 @@
+{
+  "schema": "dialog",
+  "anchor": "anchor-14",
+  "lines": [
+    { "trigger": "brief", "speaker": "control",
+      "text": "Anchor thirty-eight. A hundred and sixty-six megawatts. Recovery of documents is a stated objective on this one." },
+    { "trigger": "brief", "speaker": "vasquez",
+      "text": "Documents." },
+    { "trigger": "brief", "speaker": "control",
+      "text": "Sable Reach keeps a paper copy of its contract at every worked site. Insurance requirement. Bring it back." },
+    { "trigger": "brief", "speaker": "okonkwo",
+      "text": "Their heavies are coming in screened and plated. A turret is landing a quarter of its damage and then paying armour out of that — which is to say, nothing. Lance or mortar or don't bother." },
+    { "trigger": "brief", "speaker": "vasquez",
+      "text": "Understood. Everyone else keeps the lane clear so the heavy guns have something to shoot at." },
+
+    { "trigger": "wave-start:1", "speaker": "control",
+      "text": "Contact. They came ready this time." },
+
+    { "trigger": "wave-clear:3", "speaker": "okonkwo", "critical": false,
+      "text": "I have the contract. It's four pages and a signature block." },
+    { "trigger": "wave-clear:3", "speaker": "vasquez", "critical": false,
+      "text": "Whose." },
+    { "trigger": "wave-clear:3", "speaker": "okonkwo", "critical": false,
+      "text": "Give me a minute. I want to be right about this." },
+
+    { "trigger": "wave-clear:5", "speaker": "okonkwo", "critical": false,
+      "text": "Vasquez. The signatory is on our own tasking order. Same office. Same reference number format." },
+    { "trigger": "wave-clear:5", "speaker": "vasquez", "critical": false,
+      "text": "Read it again." },
+    { "trigger": "wave-clear:5", "speaker": "okonkwo", "critical": false,
+      "text": "I read it three times before I said it." },
+
+    { "trigger": "wave-clear:7", "speaker": "control", "critical": false,
+      "text": "Field lead, Actual requests you cease transmission on the document." },
+    { "trigger": "wave-clear:7", "speaker": "vasquez", "critical": false,
+      "text": "Requests." },
+    { "trigger": "wave-clear:7", "speaker": "control", "critical": false,
+      "text": "Requests." },
+
+    { "trigger": "brownout", "speaker": "okonkwo", "critical": false,
+      "text": "Bus is over. Their plate walks slower than the drain does, so this one costs you the whole time it's alive." },
+
+    { "trigger": "first-leak", "speaker": "vasquez", "critical": false,
+      "text": "One past. Keep the guns on the plated ones." },
+
+    { "trigger": "low-lives", "speaker": "control", "critical": false,
+      "text": "Field lead, your margin is thin and you are holding for paper." },
+
+    { "trigger": "debrief", "speaker": "vasquez",
+      "text": "Anchor's held. I have the contract." },
+    { "trigger": "debrief", "speaker": "ferrar",
+      "text": "Then you know I'm subcontracted, Captain. I've been subcontracted the whole time." },
+    { "trigger": "debrief", "speaker": "vasquez",
+      "text": "By the people who sent me." },
+    { "trigger": "debrief", "speaker": "ferrar",
+      "text": "By an office that sent us both. I'd stop treating that as a difference.",
+      "beat": "the act's turn: the two sides were bought by the same signature" },
+    { "trigger": "debrief", "speaker": "control",
+      "text": "Meridian Actual acknowledges. Return the document to Actual on arrival." },
+    { "trigger": "debrief", "speaker": "okonkwo",
+      "text": "I photographed it. Twice. In case the document doesn't arrive." }
+  ]
+}

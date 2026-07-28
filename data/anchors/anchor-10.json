@@ -1,0 +1,273 @@
+{
+  "schema": "anchor",
+  "id": "anchor-10",
+  "act": 2,
+  "title": "Right of Way",
+  "capacity_mw": 134,
+  "starting_funds": 1000,
+  "lives": 12,
+  "grid": {
+    "w": 17,
+    "h": 14
+  },
+  "path": [
+    [
+      0,
+      3
+    ],
+    [
+      13,
+      3
+    ],
+    [
+      13,
+      7
+    ],
+    [
+      5,
+      7
+    ],
+    [
+      5,
+      11
+    ],
+    [
+      16,
+      11
+    ]
+  ],
+  "slots": [
+    [
+      1,
+      1
+    ],
+    [
+      10,
+      1
+    ],
+    [
+      2,
+      5
+    ],
+    [
+      6,
+      5
+    ],
+    [
+      10,
+      5
+    ],
+    [
+      15,
+      5
+    ],
+    [
+      3,
+      9
+    ],
+    [
+      8,
+      9
+    ],
+    [
+      11,
+      9
+    ],
+    [
+      15,
+      9
+    ],
+    [
+      7,
+      13
+    ],
+    [
+      12,
+      13
+    ]
+  ],
+  "waves": [
+    {
+      "lead_in": 22,
+      "spawns": [
+        {
+          "enemy": "warden-drone",
+          "count": 4,
+          "interval": 1.25
+        },
+        {
+          "enemy": "reach-sapper",
+          "count": 1,
+          "interval": 3.5,
+          "delay": 8
+        }
+      ]
+    },
+    {
+      "lead_in": 18,
+      "spawns": [
+        {
+          "enemy": "warden-drone",
+          "count": 4,
+          "interval": 1.2
+        },
+        {
+          "enemy": "reach-sapper",
+          "count": 2,
+          "interval": 3.0,
+          "delay": 7
+        }
+      ]
+    },
+    {
+      "lead_in": 17,
+      "spawns": [
+        {
+          "enemy": "warden-drone",
+          "count": 4,
+          "interval": 1.15
+        },
+        {
+          "enemy": "reach-skiff",
+          "count": 1,
+          "interval": 2.4,
+          "delay": 6
+        },
+        {
+          "enemy": "reach-sapper",
+          "count": 2,
+          "interval": 3.0,
+          "delay": 8
+        }
+      ]
+    },
+    {
+      "lead_in": 16,
+      "spawns": [
+        {
+          "enemy": "warden-drone",
+          "count": 5,
+          "interval": 1.1
+        },
+        {
+          "enemy": "warden-mote",
+          "count": 2,
+          "interval": 1.7,
+          "delay": 5
+        },
+        {
+          "enemy": "reach-sapper",
+          "count": 3,
+          "interval": 2.8,
+          "delay": 7
+        }
+      ]
+    },
+    {
+      "lead_in": 16,
+      "spawns": [
+        {
+          "enemy": "warden-drone",
+          "count": 5,
+          "interval": 1.1
+        },
+        {
+          "enemy": "reach-skiff",
+          "count": 2,
+          "interval": 2.2,
+          "delay": 5
+        },
+        {
+          "enemy": "reach-sapper",
+          "count": 3,
+          "interval": 2.6,
+          "delay": 7
+        }
+      ]
+    },
+    {
+      "lead_in": 15,
+      "spawns": [
+        {
+          "enemy": "warden-drone",
+          "count": 6,
+          "interval": 1.05
+        },
+        {
+          "enemy": "warden-mote",
+          "count": 3,
+          "interval": 1.5,
+          "delay": 4
+        },
+        {
+          "enemy": "reach-skiff",
+          "count": 2,
+          "interval": 2.0,
+          "delay": 6
+        },
+        {
+          "enemy": "reach-sapper",
+          "count": 4,
+          "interval": 2.4,
+          "delay": 7
+        }
+      ]
+    },
+    {
+      "lead_in": 14,
+      "spawns": [
+        {
+          "enemy": "warden-drone",
+          "count": 6,
+          "interval": 1.0
+        },
+        {
+          "enemy": "warden-heavy",
+          "count": 1,
+          "interval": 4.5,
+          "delay": 6
+        },
+        {
+          "enemy": "reach-skiff",
+          "count": 3,
+          "interval": 1.9,
+          "delay": 5
+        },
+        {
+          "enemy": "reach-sapper",
+          "count": 4,
+          "interval": 2.2,
+          "delay": 7
+        }
+      ]
+    },
+    {
+      "lead_in": 13,
+      "spawns": [
+        {
+          "enemy": "warden-drone",
+          "count": 6,
+          "interval": 0.95
+        },
+        {
+          "enemy": "warden-heavy",
+          "count": 1,
+          "interval": 4.0,
+          "delay": 6
+        },
+        {
+          "enemy": "reach-skiff",
+          "count": 3,
+          "interval": 1.8,
+          "delay": 5
+        },
+        {
+          "enemy": "reach-sapper",
+          "count": 4,
+          "interval": 2.0,
+          "delay": 7
+        }
+      ]
+    }
+  ]
+}

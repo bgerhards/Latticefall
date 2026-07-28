@@ -1,0 +1,55 @@
+{
+  "schema": "dialog",
+  "anchor": "anchor-08",
+  "lines": [
+    { "trigger": "brief", "speaker": "control",
+      "text": "Anchor forty-four. A hundred and ten megawatts — that's everything this reactor has." },
+    { "trigger": "brief", "speaker": "okonkwo",
+      "text": "It's the eighth one we've powered up. I've been keeping the list." },
+    { "trigger": "brief", "speaker": "vasquez",
+      "text": "The quarantine list." },
+    { "trigger": "brief", "speaker": "okonkwo",
+      "text": "The same list, yes. Eight of sixty-one now read as open on their side of it.",
+      "beat": "the act's cost, stated as bookkeeping" },
+    { "trigger": "brief", "speaker": "control",
+      "text": "Hold the anchor, Meridian." },
+
+    { "trigger": "wave-start:1", "speaker": "control",
+      "text": "Contact. Heavy. They're committing everything." },
+
+    { "trigger": "wave-clear:3", "speaker": "vasquez", "critical": false,
+      "text": "Eleven years these things ran on their own and we've spent a month taking them apart." },
+    { "trigger": "wave-clear:3", "speaker": "okonkwo", "critical": false,
+      "text": "Eleven years of nothing happening. That was them working." },
+
+    { "trigger": "wave-clear:6", "speaker": "okonkwo", "critical": false,
+      "text": "Vasquez. The wave that just spawned isn't routing to us." },
+    { "trigger": "wave-clear:6", "speaker": "vasquez", "critical": false,
+      "text": "Say again?" },
+    { "trigger": "wave-clear:6", "speaker": "okonkwo", "critical": false,
+      "text": "They've turned. They're facing the ring. They are not interested in you at all." },
+
+    { "trigger": "brownout", "speaker": "okonkwo", "critical": false,
+      "text": "Over. Whatever you're running, it costs more than it's returning right now." },
+
+    { "trigger": "first-leak", "speaker": "control", "critical": false,
+      "text": "One through. Keep the ring." },
+
+    { "trigger": "low-lives", "speaker": "vasquez", "critical": false,
+      "text": "Hold. We do not lose this one." },
+
+    { "trigger": "debrief", "speaker": "vasquez",
+      "text": "Clear. Okonkwo — the last two waves never engaged us." },
+    { "trigger": "debrief", "speaker": "okonkwo",
+      "text": "No. They formed up on the ring and they held. We shot them in the back for four minutes." },
+    { "trigger": "debrief", "speaker": "vasquez",
+      "text": "Facing what?" },
+    { "trigger": "debrief", "speaker": "okonkwo",
+      "text": "The instruments say the ring is drawing about nine megawatts that isn't going anywhere I can find.",
+      "beat": "the Hollow only ever as an instrument reading — never described" },
+    { "trigger": "debrief", "speaker": "vasquez",
+      "text": "Control, we need somebody senior on this channel." },
+    { "trigger": "debrief", "speaker": "control",
+      "text": "Acknowledged. Proceed to anchor forty-nine." }
+  ]
+}

@@ -10,10 +10,17 @@
       "range": 3.2,
       "fire_interval": 0.75,
       "targets": [
-        "ground"
+        "ground",
+        "air"
       ],
       "unlocked_at": "anchor-01",
-      "note": "Baseline. Cheap to run \u2014 the one you leave online during a brownout."
+      "note": "Baseline. Cheap to run \u2014 the one you leave online during a brownout. Engages air, but only what a scan relay is revealing, so on anchor-02 cutting the relay blinds every gun on the board rather than disarming them.",
+      "upgrade": {
+        "cost": 90,
+        "draw_mw": 18,
+        "damage": 14,
+        "range": 3.5
+      }
     },
     {
       "id": "arc-node",
@@ -28,7 +35,13 @@
         "air"
       ],
       "unlocked_at": "anchor-03",
-      "note": "Chains. Draw is high enough that two of them force a real decision."
+      "note": "Chains. Draw is high enough that two of them force a real decision.",
+      "upgrade": {
+        "cost": 160,
+        "draw_mw": 38,
+        "damage": 9,
+        "fire_interval": 0.36
+      }
     },
     {
       "id": "ion-lance",
@@ -43,24 +56,38 @@
         "shielded"
       ],
       "unlocked_at": "anchor-06",
-      "note": "Only reliable answer to shielded units. Cannot be left running casually."
+      "note": "Only reliable answer to shielded units. Cannot be left running casually.",
+      "upgrade": {
+        "cost": 280,
+        "draw_mw": 48,
+        "damage": 72,
+        "range": 6.0
+      }
     },
     {
       "id": "shield-wall",
       "name": "Shield Wall",
       "cost": 240,
-      "draw_mw": 40,
+      "draw_mw": 26,
       "damage": 0,
-      "range": 2.0,
+      "range": 3.6,
       "fire_interval": 1.0,
       "targets": [
         "ground"
       ],
       "unlocked_at": "anchor-04",
-      "note": "Blocks leaks. The single biggest draw in Act I \u2014 bringing it up browns out a small bus.",
+      "note": "Slows hard over a wide arc and shoots nothing. Ties the arc node as the biggest draw in Act I, so it is the emplacement most likely to push a tuned bus into overdraw \u2014 which is the point. At 40 MW with a 0.45x slow in radius 2.0 it was never worth building (LF-032): a 42% overdraw bought a slow across two tiles of a forty-tile path.",
       "effect": {
         "type": "slow",
-        "value": 0.45
+        "value": 0.28
+      },
+      "upgrade": {
+        "cost": 200,
+        "draw_mw": 36,
+        "effect": {
+          "type": "slow",
+          "value": 0.2
+        }
       }
     },
     {
@@ -78,6 +105,108 @@
       "note": "Reveals air and shielded units. First thing players learn to cut mid-wave.",
       "effect": {
         "type": "reveal"
+      },
+      "upgrade": {
+        "cost": 70,
+        "draw_mw": 12,
+        "range": 8.0
+      }
+    },
+    {
+      "id": "flak-array",
+      "name": "Flak Array",
+      "cost": 230,
+      "draw_mw": 22,
+      "damage": 8,
+      "range": 3.8,
+      "fire_interval": 0.55,
+      "splash": 0.9,
+      "targets": [
+        "air",
+        "ground"
+      ],
+      "unlocked_at": "anchor-09",
+      "note": "Act II. Bursts over a lane rather than hitting one unit, so it answers the skiff-and-drone packs Sable Reach leads with. Still needs a relay to see air \u2014 splash does not find what the board cannot see.",
+      "upgrade": {
+        "cost": 190,
+        "draw_mw": 32,
+        "damage": 12,
+        "splash": 1.2
+      }
+    },
+    {
+      "id": "anchor-damper",
+      "name": "Anchor Damper",
+      "cost": 270,
+      "draw_mw": 18,
+      "damage": 0,
+      "range": 4.5,
+      "fire_interval": 1.0,
+      "targets": [
+        "ground"
+      ],
+      "unlocked_at": "anchor-10",
+      "note": "Act II. Suppresses most of the bus drain of anything in range \u2014 a fixed 18 MW spent to deny a variable theft. Worth building exactly when the wave carries more drain than the damper costs, which is the decision Act II is made of.",
+      "effect": {
+        "type": "damp",
+        "value": 0.6
+      },
+      "upgrade": {
+        "cost": 230,
+        "draw_mw": 26,
+        "range": 5.4,
+        "effect": {
+          "type": "damp",
+          "value": 0.8
+        }
+      }
+    },
+    {
+      "id": "mortar-emplacement",
+      "name": "Mortar Emplacement",
+      "cost": 340,
+      "draw_mw": 30,
+      "damage": 26,
+      "range": 6.5,
+      "fire_interval": 2.0,
+      "splash": 1.5,
+      "targets": [
+        "ground",
+        "shielded"
+      ],
+      "unlocked_at": "anchor-13",
+      "note": "Act II. Long reach and a wide burst, but slow and blind to air. Reaches across a board the lance cannot cover twice.",
+      "upgrade": {
+        "cost": 290,
+        "draw_mw": 42,
+        "damage": 38,
+        "splash": 1.9
+      }
+    },
+    {
+      "id": "restorer",
+      "name": "Restorer",
+      "cost": 380,
+      "draw_mw": 10,
+      "damage": 0,
+      "range": 1.0,
+      "fire_interval": 1.0,
+      "targets": [
+        "ground"
+      ],
+      "unlocked_at": "anchor-17",
+      "note": "Act III. The only thing in the game that gives capacity back: 44 MW returned for 10 MW drawn, a slot spent, and 380 up front. It shoots nothing, so every restorer is a gun the board does not have \u2014 which is the Act III decision.",
+      "effect": {
+        "type": "restore",
+        "value": 44
+      },
+      "upgrade": {
+        "cost": 320,
+        "draw_mw": 16,
+        "effect": {
+          "type": "restore",
+          "value": 70
+        }
       }
     }
   ]

@@ -1,0 +1,49 @@
+{
+  "schema": "dialog",
+  "anchor": "anchor-03",
+  "lines": [
+    { "trigger": "brief", "speaker": "control",
+      "text": "Anchor nine. Ninety-two megawatts, and the arc node's cleared for field use as of this morning." },
+    { "trigger": "brief", "speaker": "okonkwo",
+      "text": "It cycles fast. It will not get through plate — you want fewer, harder hits for that, not more of them.",
+      "beat": "prices the armour lesson before the player pays for it" },
+    { "trigger": "brief", "speaker": "vasquez",
+      "text": "So the new one is for the small fast ones and the old one is for the big slow ones." },
+    { "trigger": "brief", "speaker": "okonkwo",
+      "text": "That's the whole of it, yes." },
+    { "trigger": "brief", "speaker": "vasquez",
+      "text": "Control, survey said this one was occupied." },
+    { "trigger": "brief", "speaker": "control",
+      "text": "Survey said it was occupied eleven years ago. Proceed." },
+
+    { "trigger": "wave-start:1", "speaker": "vasquez",
+      "text": "There's remains on the gantry. Ordinal. Nobody moved them." },
+
+    { "trigger": "wave-clear:2", "speaker": "okonkwo", "critical": false,
+      "text": "Vasquez. They're at their stations. All of them, still at their stations." },
+    { "trigger": "wave-clear:2", "speaker": "vasquez", "critical": false,
+      "text": "Then they held." },
+
+    { "trigger": "wave-start:3", "speaker": "control", "critical": false,
+      "text": "Heavier profile inbound. Plated. Your rate of fire is going to matter less than you'd like." },
+
+    { "trigger": "brownout", "speaker": "okonkwo", "critical": false,
+      "text": "Over budget. The arc nodes are the expensive ones — that's where the megawatts went." },
+
+    { "trigger": "first-leak", "speaker": "control", "critical": false,
+      "text": "One through. Ring's holding." },
+
+    { "trigger": "low-lives", "speaker": "vasquez", "critical": false,
+      "text": "We're thin. Take something offline and mean it." },
+
+    { "trigger": "debrief", "speaker": "vasquez",
+      "text": "Okonkwo. The bodies on the gantry. Which way were they facing?" },
+    { "trigger": "debrief", "speaker": "okonkwo",
+      "text": "Inward. Every one of them. Their guns are pointed at the ring.",
+      "beat": "the act's turn, delivered as a survey detail" },
+    { "trigger": "debrief", "speaker": "vasquez",
+      "text": "Say that again." },
+    { "trigger": "debrief", "speaker": "okonkwo",
+      "text": "They weren't defending the anchor. They were watching it. I'd like to stop now and I'm going to keep going." }
+  ]
+}

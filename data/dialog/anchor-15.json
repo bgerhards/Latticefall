@@ -1,0 +1,59 @@
+{
+  "schema": "dialog",
+  "anchor": "anchor-15",
+  "lines": [
+    { "trigger": "brief", "speaker": "control",
+      "text": "Anchor forty-one. A hundred and seventy-four megawatts. Sable Reach is designated hostile as of oh-four hundred." },
+    { "trigger": "brief", "speaker": "vasquez",
+      "text": "Say the reason, Control." },
+    { "trigger": "brief", "speaker": "control",
+      "text": "The designation is in effect. The reason is not in the packet." },
+    { "trigger": "brief", "speaker": "okonkwo",
+      "text": "It's in the packet. It's the contract we brought back. Somebody upstairs would rather Ferrar were shot than deposed." },
+    { "trigger": "brief", "speaker": "vasquez",
+      "text": "Ferrar. Anything to say?" },
+    { "trigger": "brief", "speaker": "okonkwo",
+      "text": "Channel's open on his end. Carrier's up. He isn't talking.",
+      "beat": "Ferrar has no lines this level, and the absence is the point" },
+
+    { "trigger": "wave-start:1", "speaker": "control",
+      "text": "Contact. Full Reach order of battle — plate, screens, taps, all of it." },
+
+    { "trigger": "wave-clear:2", "speaker": "vasquez", "critical": false,
+      "text": "Still nothing from him?" },
+    { "trigger": "wave-clear:2", "speaker": "okonkwo", "critical": false,
+      "text": "Carrier's still up. He's listening." },
+
+    { "trigger": "wave-clear:4", "speaker": "okonkwo", "critical": false,
+      "text": "These aren't his usual crews. The plate's newer than anything they've fielded and the tactics are worse." },
+    { "trigger": "wave-clear:4", "speaker": "vasquez", "critical": false,
+      "text": "Meaning he isn't running this." },
+    { "trigger": "wave-clear:4", "speaker": "okonkwo", "critical": false,
+      "text": "Meaning somebody bought his people out from under him. Same as they bought him." },
+
+    { "trigger": "wave-clear:6", "speaker": "control", "critical": false,
+      "text": "Field lead, Actual advises that surrenders are not to be accepted at this anchor." },
+    { "trigger": "wave-clear:6", "speaker": "vasquez", "critical": false,
+      "text": "Log my acknowledgement and log that I asked you to repeat it." },
+    { "trigger": "wave-clear:6", "speaker": "control", "critical": false,
+      "text": "Surrenders are not to be accepted at this anchor. Logged twice." },
+
+    { "trigger": "brownout", "speaker": "okonkwo", "critical": false,
+      "text": "Over. They're taking more off the bus than we're spending on the guns." },
+
+    { "trigger": "first-leak", "speaker": "control", "critical": false,
+      "text": "One through the line." },
+
+    { "trigger": "low-lives", "speaker": "vasquez", "critical": false,
+      "text": "Everything we have on the ring. Nothing clever." },
+
+    { "trigger": "debrief", "speaker": "okonkwo",
+      "text": "Anchor's held. Their carrier dropped about a minute before the last wave broke." },
+    { "trigger": "debrief", "speaker": "vasquez",
+      "text": "He listened to the whole thing." },
+    { "trigger": "debrief", "speaker": "okonkwo",
+      "text": "He listened to us kill about sixty people he hired. Yes." },
+    { "trigger": "debrief", "speaker": "control",
+      "text": "Anchor is held. Stand by for tasking to anchor forty-four." }
+  ]
+}

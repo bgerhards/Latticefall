@@ -5,10 +5,14 @@ extends Node2D
 ## dims every emissive element in the game by changing one number, and the albedo
 ## underneath is untouched.
 
+## Authored as a child of AnchorView in scenes/main.tscn, so it takes its subject from
+## its parent rather than being handed one — there is no arrangement in which this layer
+## draws for a node other than the one it hangs under.
 var view: Node2D
 
 
 func _ready() -> void:
+	view = get_parent() as Node2D
 	var m := CanvasItemMaterial.new()
 	m.blend_mode = CanvasItemMaterial.BLEND_MODE_ADD
 	material = m

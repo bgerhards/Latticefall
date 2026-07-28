@@ -1,0 +1,58 @@
+{
+  "schema": "dialog",
+  "anchor": "anchor-22",
+  "lines": [
+    { "trigger": "brief", "speaker": "control",
+      "text": "Two hundred and forty megawatts. This is Meridian Actual's own anchor. You are defending the room I am sitting in." },
+    { "trigger": "brief", "speaker": "vasquez",
+      "text": "How did it get here?" },
+    { "trigger": "brief", "speaker": "control",
+      "text": "Through the ring, forty minutes ago, on a bind key this office sold." },
+    { "trigger": "brief", "speaker": "okonkwo",
+      "text": "The fourth key." },
+    { "trigger": "brief", "speaker": "control",
+      "text": "The fourth key. Non-essential personnel are evacuating through the secondary. Essential personnel are me." },
+
+    { "trigger": "wave-start:1", "speaker": "control",
+      "text": "Contact at the threshold. Engaging is your call, Captain, this is your board." },
+
+    { "trigger": "wave-clear:2", "speaker": "okonkwo", "critical": false,
+      "text": "Control, are you reading the capacity trend on your side?" },
+    { "trigger": "wave-clear:2", "speaker": "control", "critical": false,
+      "text": "Twelve a wave. The building is on the same bus you are." },
+
+    { "trigger": "wave-clear:4", "speaker": "control", "critical": false,
+      "text": "Advisory: lighting has failed on levels two through five. This does not affect your tasking." },
+
+    { "trigger": "wave-clear:6", "speaker": "vasquez", "critical": false,
+      "text": "Control, get out of the room." },
+    { "trigger": "wave-clear:6", "speaker": "control", "critical": false,
+      "text": "Negative. Somebody has to hold the — " },
+    { "trigger": "wave-clear:6", "speaker": "control", "critical": false,
+      "text": "Yolanda, it's Dahl. I've been Control for eleven months and I never once — ",
+      "beat": "the only time in the game Control breaks procedure, and it is cut off mid-sentence" },
+    { "trigger": "wave-clear:6", "speaker": "control", "critical": false,
+      "text": "Meridian Actual. Say again your last, field lead." },
+
+    { "trigger": "wave-clear:8", "speaker": "okonkwo", "critical": false,
+      "text": "That's a different duty officer." },
+    { "trigger": "wave-clear:8", "speaker": "vasquez", "critical": false,
+      "text": "I know." },
+
+    { "trigger": "brownout", "speaker": "okonkwo", "critical": false,
+      "text": "Over capacity — and this bus runs the building. Shed carefully." },
+
+    { "trigger": "first-leak", "speaker": "control", "critical": false,
+      "text": "One through the ring and into the building." },
+
+    { "trigger": "low-lives", "speaker": "vasquez", "critical": false,
+      "text": "Hold the ring. Everything else is furniture." },
+
+    { "trigger": "debrief", "speaker": "control",
+      "text": "Anchor is held. Meridian Actual is operational." },
+    { "trigger": "debrief", "speaker": "vasquez",
+      "text": "Control, what's your name?" },
+    { "trigger": "debrief", "speaker": "control",
+      "text": "Duty officer, Meridian Actual. Stand by for tasking." }
+  ]
+}

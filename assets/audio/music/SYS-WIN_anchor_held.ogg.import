@@ -12,7 +12,7 @@ dest_files=["res://.godot/imported/SYS-WIN_anchor_held.ogg-227c387cef1c4bb0bf8d1
 
 [params]
 
-loop=false
+loop=true
 loop_offset=0
 bpm=0
 beat_count=0

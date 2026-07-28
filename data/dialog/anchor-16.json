@@ -1,0 +1,69 @@
+{
+  "schema": "dialog",
+  "anchor": "anchor-16",
+  "lines": [
+    { "trigger": "brief", "speaker": "control",
+      "text": "Anchor forty-four. A hundred and eighty megawatts. Sable Reach holds the deck and the ring is engaged from the far side." },
+    { "trigger": "brief", "speaker": "okonkwo",
+      "text": "Engaged from the far side. Somebody opened this one and did not close it, and it has been open for eleven hours." },
+    { "trigger": "brief", "speaker": "ferrar",
+      "text": "Yolanda. I'm going to talk fast and you're going to let me, because I've spent everything I had getting to this deck first." },
+    { "trigger": "brief", "speaker": "vasquez",
+      "text": "Talk." },
+    { "trigger": "brief", "speaker": "ferrar",
+      "text": "I sold four keys. Three went to mining consortia. The fourth went to the office that briefed you, and they have opened it, and I want it shut." },
+    { "trigger": "brief", "speaker": "okonkwo",
+      "text": "Shut it with what? You need the bindstone and a live bus and about six hours." },
+    { "trigger": "brief", "speaker": "ferrar",
+      "text": "I need the ring to stay powered and everything coming through it to die on the deck. That's your whole job, Captain. I'm not even asking you to change it." },
+
+    { "trigger": "wave-start:1", "speaker": "control",
+      "text": "Contact. Reach elements — and they are firing away from you." },
+
+    { "trigger": "wave-clear:2", "speaker": "vasquez", "critical": false,
+      "text": "His people are on our line." },
+    { "trigger": "wave-clear:2", "speaker": "okonkwo", "critical": false,
+      "text": "Some of his people. The rest are the ones the office bought. They're shooting at each other and at us and it is very hard to score." },
+
+    { "trigger": "wave-clear:4", "speaker": "ferrar", "critical": false,
+      "text": "Keep the bus up. Whatever else you do, Captain, keep the bus up — if the ring drops while it's engaged the far side doesn't close, it *stays*." },
+
+    { "trigger": "wave-clear:6", "speaker": "okonkwo", "critical": false,
+      "text": "He's right. I hate it, but the arithmetic is his." },
+    { "trigger": "wave-clear:6", "speaker": "vasquez", "critical": false,
+      "text": "Then we hold the bus and we hold the deck." },
+
+    { "trigger": "wave-clear:8", "speaker": "okonkwo", "critical": false,
+      "text": "Vasquez — the far side is drawing on us. Not the crews. The anchor itself is reading load we aren't spending." },
+    { "trigger": "wave-clear:8", "speaker": "vasquez", "critical": false,
+      "text": "How much?" },
+    { "trigger": "wave-clear:8", "speaker": "okonkwo", "critical": false,
+      "text": "It's rising.",
+      "beat": "first appearance of Act III's mechanic, one act early, with no explanation" },
+
+    { "trigger": "brownout", "speaker": "okonkwo", "critical": false,
+      "text": "Over capacity. Shed something now — if the ring browns out with a threshold up we do not get to try again." },
+
+    { "trigger": "first-leak", "speaker": "control", "critical": false,
+      "text": "One through. Ring is holding." },
+
+    { "trigger": "low-lives", "speaker": "ferrar", "critical": false,
+      "text": "Captain. If you're going to lose this, tell me now while I can still do something stupid." },
+
+    { "trigger": "debrief", "speaker": "control",
+      "text": "Deck is clear. Ring remains engaged." },
+    { "trigger": "debrief", "speaker": "okonkwo",
+      "text": "Ferrar's at the bindstone. He's been at it since the eighth wave." },
+    { "trigger": "debrief", "speaker": "vasquez",
+      "text": "Ferrar. Can you shut it?" },
+    { "trigger": "debrief", "speaker": "ferrar",
+      "text": "No. It's not bound to anywhere I can name. It isn't a door any more — it's an opening.",
+      "beat": "he fails, and he is the one who understood it first" },
+    { "trigger": "debrief", "speaker": "okonkwo",
+      "text": "Control, log this. The far side of anchor forty-four has no bind key and it is drawing power." },
+    { "trigger": "debrief", "speaker": "control",
+      "text": "Logged. Meridian Actual has no guidance at this time." },
+    { "trigger": "debrief", "speaker": "vasquez",
+      "text": "No. I don't imagine it does." }
+  ]
+}

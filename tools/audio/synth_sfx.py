@@ -341,6 +341,38 @@ def warden_death(g):
     return normalize(saturate(tail(s, 0.26, 0.22, g), 1.7), rms=0.17)
 
 
+def debris_settle(g):
+    """Small rubble and dust falling after a construct dies.
+
+    Sourced rather than synthesized was the plan (decision 009 listed debris among the
+    twelve organic cues), and the CC0 corpus turned out to hold nothing for it — the two
+    nearest items were a shovel and a "sand spell". That is a better outcome than it
+    sounds, because the premise was wrong: granular debris is a *cloud of tiny impacts*,
+    which is stochastic in exactly the way synthesis is good at. A voice is not; a
+    hundred pebbles landing at decaying density is.
+
+    Grains are scattered by the name-seeded generator, so this stays a pure function of
+    its own name like every other cue in the bank. Decision 041.
+    """
+    dur = 1.10
+    out = np.zeros(int(round(SR * dur)))
+    # Density falls off as the pile settles: early grains crowd, late ones are isolated.
+    count = 190
+    for i in range(count):
+        # Cube-biased toward zero, so most grains land in the first third.
+        at = float(g.random() ** 3.0) * dur * 0.92
+        grain_dur = 0.006 + 0.010 * float(g.random())
+        grain = bandpass(noise(grain_dur, g), 700.0 + 2600.0 * float(g.random()), 0.6)
+        grain *= env_ad(grain_dur, 0.0003, 26) * (0.10 + 0.55 * float(g.random()))
+        start = int(at * SR)
+        end = min(start + len(grain), len(out))
+        out[start:end] += grain[: end - start]
+    # Dust under the grains — the body of the fall rather than its individual stones.
+    dust = lowpass(noise(dur, g), 900) * np.exp(-3.2 * t(dur)) * 0.22
+    dust *= (0.45 + 0.55 * g.random(len(dust)))
+    return normalize(saturate(mix(out, dust), 1.25), rms=0.11)
+
+
 def ui_hover(g):
     s = sine(1320, 0.022) * env_ad(0.022, 0.0008, 34) * 0.5
     air = bandpass(noise(0.014, g), 6200, 0.4) * env_ad(0.014, 0.0003, 40) * 0.3
@@ -566,6 +598,7 @@ BANK = {
     "warden_spawn":        (warden_spawn,        "Ordinal construct wakes — tritone"),
     "drone_hover_loop":    (drone_hover_loop,    "Drone rotors — 1.5 s seamless loop"),
     "heavy_stomp":         (heavy_stomp,         "Heavy unit footfall"),
+    "debris_settle":       (debris_settle,       "Rubble settling after a construct dies"),
 }
 
 

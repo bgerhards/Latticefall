@@ -191,6 +191,84 @@ def check_godot_boots() -> Result:
     return Result(OK, "main scene loads clean")
 
 
+def check_game_renders() -> Result:
+    """Run the real renderer and assert the frame is not blank.
+
+    `check_godot_boots` runs headless and only greps for script errors, so it passes
+    happily on a scene that draws nothing at all — which is how scenes/main.tscn stayed
+    a childless Node2D for several sessions while the gate stayed green. The build
+    reports `FRAME coverage=… distinct=…` alongside its self-screenshot; measured here,
+    a healthy anchor-01 frame is ~0.39 coverage and a board that failed to load is
+    ~0.03, so the bar sits between them with room on both sides.
+
+    This needs a real window: GL Compatibility headless renders nothing to read back.
+    """
+    godot = "/Applications/Godot.app/Contents/MacOS/Godot"
+    if not Path(godot).exists():
+        return Result(SKIP, "godot not installed")
+
+    MIN_COVERAGE, MIN_DISTINCT = 0.15, 12
+    shot = ROOT / ".godot" / "gate-frame.png"
+    shot.parent.mkdir(parents=True, exist_ok=True)
+    r = run(godot, "--path", str(ROOT), "--fixed-fps", "60",
+            "--", "--shot", str(shot), "120")
+    blob = r.stdout + r.stderr
+
+    line = next((l for l in blob.splitlines() if l.startswith("FRAME ")), "")
+    if not line:
+        return Result(FAIL, "build never reported a frame — it did not reach the shot:\n"
+                            + blob.strip()[-800:])
+    try:
+        coverage = float(line.split("coverage=")[1].split()[0])
+        distinct = int(line.split("distinct=")[1].split()[0])
+    except (IndexError, ValueError):
+        return Result(FAIL, f"could not parse frame stats: {line!r}")
+
+    if coverage < MIN_COVERAGE or distinct < MIN_DISTINCT:
+        return Result(FAIL,
+                      f"frame is effectively blank: coverage={coverage:.4f} "
+                      f"(min {MIN_COVERAGE}), distinct={distinct} (min {MIN_DISTINCT})")
+    shot.unlink(missing_ok=True)
+    return Result(OK, f"coverage {coverage:.2f}, {distinct} tones")
+
+
+def check_menu_renders() -> Result:
+    """The boot scene is the menu now, and it is built entirely in code.
+
+    `game renders` passes `--shot`, which the menu treats as "go straight to the game" —
+    so without this check nothing looks at the screen the player actually sees first, and
+    a menu that drew nothing (or listed no anchors) would ship green.
+    """
+    godot = "/Applications/Godot.app/Contents/MacOS/Godot"
+    if not Path(godot).exists():
+        return Result(SKIP, "godot not installed")
+
+    MIN_COVERAGE, WANT_BUTTONS = 0.015, 8
+    shot = ROOT / ".godot" / "gate-menu.png"
+    shot.parent.mkdir(parents=True, exist_ok=True)
+    r = run(godot, "--path", str(ROOT), "--fixed-fps", "60",
+            "--", "--shot-menu", str(shot), "40")
+    blob = r.stdout + r.stderr
+
+    line = next((l for l in blob.splitlines() if l.startswith("MENUFRAME ")), "")
+    if not line:
+        return Result(FAIL, "menu never reported a frame:\n" + blob.strip()[-800:])
+    try:
+        coverage = float(line.split("coverage=")[1].split()[0])
+        buttons = int(line.split("buttons=")[1].split()[0])
+    except (IndexError, ValueError):
+        return Result(FAIL, f"could not parse menu stats: {line!r}")
+
+    # The menu is mostly dark by design, so the coverage bar is low; the anchor count is
+    # the real assertion. Act I is eight anchors and the grid is per-act.
+    if coverage < MIN_COVERAGE:
+        return Result(FAIL, f"menu is blank: coverage={coverage:.4f} (min {MIN_COVERAGE})")
+    if buttons != WANT_BUTTONS:
+        return Result(FAIL, f"menu listed {buttons} act-I anchors, expected {WANT_BUTTONS}")
+    shot.unlink(missing_ok=True)
+    return Result(OK, f"coverage {coverage:.3f}, {buttons} anchors listed")
+
+
 def check_rules_parity() -> Result:
     """The rules exist twice, in Python and GDScript. Prove they agree.
 
@@ -208,6 +286,43 @@ def check_rules_parity() -> Result:
     return Result(OK, r.stdout.strip().replace("parity ok — ", ""))
 
 
+def check_sprite_atlas() -> Result:
+    """The packed atlas must still match the renders it was packed from.
+
+    An atlas is derived output with no visible link to its inputs. Re-render one sprite,
+    forget to re-pack, and the board keeps drawing the old pixels out of the stale page —
+    a correct art fix that looks like it did nothing, which is precisely the misdiagnosis
+    that skipping `--import` already cost this project once.
+    """
+    manifest = ROOT / "assets" / "renders" / "sprites.json"
+    if not manifest.exists():
+        return Result(SKIP, "no sprite manifest")
+    doc = json.loads(manifest.read_text())
+    atlas = doc.get("atlas")
+    if not atlas:
+        return Result(SKIP, "no atlas packed")
+
+    sys.path.insert(0, str(ROOT / "tools" / "blender"))
+    try:
+        import pack_atlas
+    except Exception as exc:  # noqa: BLE001
+        return Result(FAIL, f"cannot import pack_atlas: {exc}")
+
+    groups = pack_atlas.collect(doc)
+    missing = [p for g in groups.values() for (_, _, p) in g if not p.exists()]
+    if missing:
+        return Result(FAIL, f"{len(missing)} renders referenced by the manifest are gone, "
+                            f"first {missing[0].name}")
+    for pass_name, rel in atlas.get("pages", {}).items():
+        if not (ROOT / rel).exists():
+            return Result(FAIL, f"atlas page missing: {rel}")
+    if pack_atlas.source_digest(groups) != atlas.get("source_digest"):
+        return Result(FAIL, "atlas is stale — renders have changed since it was packed. "
+                            "Run tools/blender/pack_atlas.py, then --import")
+    cells = sum(len(v) for v in atlas.get("index", {}).values())
+    return Result(OK, f"{cells} cells in {len(atlas.get('pages', {}))} pages, in sync")
+
+
 CHECKS = [
     ("python syntax",     check_python_syntax),
     ("json parses",       check_json_parses),
@@ -215,9 +330,12 @@ CHECKS = [
     ("banned terms",      check_banned_terms),
     ("sfx determinism",   check_sfx_reproducible),
     ("music manifest",    check_music_manifest),
+    ("sprite atlas",      check_sprite_atlas),
     ("backlog rendered",  check_backlog_rendered),
     ("sim determinism",   check_sim),
     ("godot boots",       check_godot_boots),
+    ("game renders",      check_game_renders),
+    ("menu renders",      check_menu_renders),
     ("rules parity",      check_rules_parity),
 ]
 

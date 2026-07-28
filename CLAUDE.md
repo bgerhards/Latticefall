@@ -12,7 +12,10 @@ how to work; that file says where we are.
 
 - You hold transit anchors on a precursor network humanity did not build and cannot switch off.
 - Emplacements cost money to build and **draw continuous power** to run. Power is the real currency.
-- Exceeding reactor capacity browns the whole bus out: −40% fire rate, not a blocked build.
+- Exceeding reactor capacity browns the whole bus out — never a blocked build. The penalty
+  is **priced by how far over you are**, `min(0.70, (load/cap − 1) × 1.5)`, so a small
+  overdraw is cheap and a large one is ruinous. Decision 022; a flat −40% made "never
+  exceed capacity" unconditionally correct and the currency was really a wall.
 - 24 anchors, 3 acts. Each act introduces one antagonist, one biome, one power tier, and one
   mechanic that invalidates the previous act's dominant strategy.
 - Grounded military sci-fi. Professionals doing dangerous technical work. Dry, not heroic.
@@ -63,7 +66,26 @@ docs/            STATE, BACKLOG, DECISIONS, NOMENCLATURE, STORY
 /Applications/Blender.app/Contents/MacOS/Blender -b \
   --python tools/blender/render.py -- --only pulse_turret   # render one asset
 .venv/bin/python tools/blender/mask_glow.py        # ALWAYS run after rendering
+.venv/bin/python tools/blender/pack_atlas.py       # ALWAYS run after mask_glow
+/Applications/Godot.app/Contents/MacOS/Godot --headless --path . --import
+                                                   # ALWAYS run after pack_atlas
+/Applications/Godot.app/Contents/MacOS/Godot --path . --fixed-fps 60 \
+  -- --autoplay --shot /tmp/shot.png 1800          # the build screenshots itself
 ```
+
+**A re-render is invisible to the game until you re-import.** Godot's *game* mode never
+reimports changed assets — it loads the cached `.ctex` in `.godot/imported/`. Only the
+editor imports. Skipping this makes a correct art fix look like it did nothing, which has
+already cost a full round of misdiagnosis. The order is always: render → `mask_glow` →
+`pack_atlas` → `--import` → screenshot.
+
+**The board draws from an atlas, not from the loose PNGs.** `pack_atlas.py` packs the 192
+renders into one page per pass, so skipping it is a second way to make a correct art fix
+look like it did nothing — the stale page keeps serving the old pixels. The gate's
+`sprite atlas` check hashes every render and fails if the page no longer matches, so this
+mistake is red rather than mysterious. The pack is a **fixed 256 px grid and never trims**:
+one measured pivot serves every sprite only because every cell is identical, and trimming
+would reintroduce LF-027.
 
 `tools/check.py` is the single gate: schema validation, data cross-references, sim
 determinism, asset manifest integrity, Python syntax. **If it fails, do not commit.**
@@ -92,6 +114,21 @@ whole frame, so an unmasked glow drawn additively lifts the entire 256px cell an
 board fills with bright rectangles. `tools/blender/mask_glow.py` rewrites alpha from
 luminance; it is idempotent and must run after every render.
 
+**Colours are authored in sRGB and linearised by `mat()`.** Blender's colour inputs are
+scene-linear and `view_transform='Standard'` encodes back to sRGB on write — probed here,
+an emission of 0.5 is stored as 188/255. Writing a palette as though it were a display
+value renders it roughly three times too light, which is what made the board a light grey
+slab and turned every emitter pale (LF-023/020/022). Never put linear values in the palette.
+
+**The sprite pivot is measured, not assumed.** The render camera is raised by
+`HEIGHT_BIAS` so tall assets clear the top of the cell, which puts world (0,0,0) ~43px
+below the canvas centre. `calibrate()` measures where it actually lands and writes that to
+the manifest. A hardcoded `CELL//2` made every sprite draw above its own tile (LF-027).
+
+**A self-screenshot is at 0.75 scale.** The project renders a 1920x1080 logical viewport
+into a 1440x810 window with `stretch/mode="canvas_items"`. Comparing screenshot pixels
+against tile maths needs the *logical* viewport size, not the image size.
+
 **Glow is never baked into a sprite.** Each asset renders twice: albedo with compositing
 *off*, glow with compositing *on* through Glare on the Emission pass. Godot draws the glow
 layer additively and modulates it by bus load — so brownout visibly dims every emissive
@@ -114,6 +151,17 @@ element in the game. A baked glow cannot dim, and bleeds past the alpha silhouet
 
 ## Working agreement
 
+**One recommendation, never a menu.** Do not present options and ask which. Pick the best
+course, say what it is in a line, and do it. If a choice turns out wrong, correct it and
+keep going. Only stop for something genuinely needed from the user.
+
+**Keep working.** Do not stop after a task to check in. Finish it, pick the next thing,
+and start. Stop only when out of work or explicitly told to.
+
+**Be concise.** Sacrifice grammar for concision. Fragments are fine. No preamble, no
+recap of what was just read, no summary of what is about to be done. The user asks if
+they need more.
+
 **Backlog before work.** Anything discovered mid-task that isn't part of the current task
 goes in the backlog, not into the current change. `tools/backlog.py add`.
 
@@ -128,6 +176,12 @@ keep it current, and write it for someone with no memory of the conversation.
 **Report faithfully.** If a check fails, say so with the output. If something was skipped,
 say it was skipped. Half the value of the tooling here is that it makes claims falsifiable.
 
+**Killing `check.py` does not kill its Godot.** The parity check spawns a headless Godot
+that survives `pkill -f check.py`, gets reparented to init, and keeps a core at 100%. The
+next gate run then takes nearly twice as long for no visible reason. Kill the Godot too,
+and confirm with `ps` that nothing is left — the same class of mistake as the background
+load-test loops recorded in `docs/STATE.md`.
+
 **Scope discipline.** Finish the whole task; if part is blocked, finish everything else and
 say plainly what was left and why.
 
@@ -136,6 +190,10 @@ say plainly what was left and why.
 - Python: stdlib + numpy/soundfile only, type hints on function signatures, module
   docstring explaining *why* the file exists. Scripts are idempotent and safe to re-run.
 - GDScript: `snake_case` members, `PascalCase` classes, typed vars, signals over polling.
+- Input goes through the action map, never a raw keycode. Actions are `lf_*` and are
+  generated by `tools/godot/setup_input.gd` — **do not hand-edit `[input]` in
+  `project.godot`**, because a typo in a serialized `InputEvent` produces an action that
+  silently never fires rather than an error. Decision 042.
 - Data: `snake_case` keys, IDs are `kebab-case`, every file has `"schema"` naming its schema.
 - Commits: conventional prefix, subject under 72 chars, body explains *why* and lists any
   API traps discovered so the next session does not rediscover them.

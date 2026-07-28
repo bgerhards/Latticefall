@@ -276,3 +276,1008 @@ pitch page and this log, because it was written down once from memory and then t
 render pipeline now asserts the 128x64 tile measurement on every run rather than trusting a
 constant — see `tools/blender/render.py`. This is why the project rule is to verify against
 the installed tool, and it is the rule I broke.
+
+---
+
+## 018 — The scene tree is authored, and the gate asserts the game renders
+
+**Decided.** `scenes/main.tscn` authors its nodes — `AnchorView` (with a `GlowLayer`
+child), `Hud`, `DialogView` — instead of constructing them in `_ready()`. `anchor_view.gd`
+is a `@tool` script that draws the board in the editor. `tools/check.py` gains a
+**game renders** check that asserts the frame is not blank.
+
+**Context.** The scene file was a bare `Node2D` with one script and zero children;
+every node was built in code at `_ready()`. The game ran correctly — but opening the
+project showed an empty grey viewport and a scene dock revealing nothing, so a level
+could not be seen, inspected, or judged without pressing Run. It was reported as "the
+game does not work"; the game was fine, the editor was blind.
+
+The gate did not catch it because `check_godot_boots` runs `--headless` and greps only
+for script errors. A scene that renders nothing passes that perfectly. Measured on the
+real renderer: a healthy anchor-01 frame is **0.395** coverage / 79 tones, a board that
+failed to load is **0.031** / 29, and the old bare scene is **0.0000** / 1. The bar sits
+at 0.15 with room on both sides.
+
+**Rejected.**
+- *Leave it; the game runs.* The editor is where levels get authored. 23 anchors remain,
+  and laying out paths and slots against an invisible board is not workable.
+- *An `EditorPlugin` gizmo.* More machinery than a `@tool` `_draw()`, and it would live
+  outside the code that draws the real board — the two would drift.
+- *Route the preview through the `Content` autoload.* Godot instantiates an autoload in
+  the editor only when its script is `@tool`, and only at editor startup, so a
+  freshly-tool-ified singleton stays null until the project is reloaded and the preview
+  silently draws nothing. `scripts/anchor_data.gd` reads the JSON directly instead;
+  `Content` remains the single loader for actual play (decision 008).
+- *Decode the PNG in Python to measure coverage.* No Pillow here, and hand-rolling a
+  PNG un-filter is more code than having the renderer report its own statistic.
+
+**Consequence.** Children now `_ready()` before `Main` does, so the anchor cannot be
+chosen inside their `_ready()`. Setup is explicit: `view.boot()`, then `hud.bind()` and
+`dialog.bind()`, then `view.start()`. The editor preview also draws an authoring overlay
+— path direction arrows, IN/OUT markers, numbered slots — and `anchor_id` is a dropdown
+of the levels that exist. Runtime output is unchanged: the self-screenshot before and
+after the restructure is pixel-identical.
+
+---
+
+## 019 — The Pulse Turret engages air; the Scan Relay gates sight, not firepower
+
+**Decided.** `pulse-turret` targets `["ground", "air"]`. Air units still require reveal
+coverage to be targetable, so a Scan Relay is what makes them shootable — not a different
+gun.
+
+**Context.** Anchor-02 is "Line of Sight" and its beat is that cutting the relay to afford
+a volley is the first real power decision. That was not buildable. The only emplacements
+unlocked at anchor-02 are the Pulse Turret (`ground` only) and the Scan Relay (0 damage),
+so `warden-mote` was literally unkillable and the anchor graded unwinnable by every policy.
+The next air-capable weapon, the Arc Node, does not unlock until anchor-03.
+
+**Rejected.**
+- *Move the Arc Node to anchor-02.* Makes the anchor teach two new things at once — air
+  units and a new emplacement — and spends anchor-03's unlock a level early.
+- *Give the Scan Relay damage.* It stops being a support emplacement, and the interesting
+  question ("is sight worth 8 MW") collapses into "is this gun worth 8 MW".
+- *Have motes leak by design and pay for it in lives.* An unavoidable loss is not a
+  decision, and the level would teach that the relay is mandatory rather than a trade.
+
+**Consequence.** The relay is a sight gate over guns the player already understands, which
+is what the level's title says it is. Cutting it blinds every gun on the board rather than
+disarming them. The Arc Node keeps its anchor-03 unlock and its own identity — a much
+higher fire rate at more than twice the draw. Graded clean at all three difficulties:
+`intel-first` finishes anchor-02 with 10 lives against `cheap-mass`'s 3 on an identical
+final board, because it lights the relay before the first motes arrive rather than after,
+so the anchor rewards *when* you buy sight, not just whether.
+
+---
+
+## 020 — Grading policies carry a per-emplacement build cap
+
+**Decided.** `Policy` takes a `caps` dict limiting how many of a given emplacement it will
+build. Support emplacements are capped in every policy that leads with one. Mirrored in
+`scripts/test/parity.gd`, which reimplements the policy loop for the parity gate.
+
+**Context.** `_try_build` spends greedily in preference order, which is fine for weapons
+and degenerate for support. `intel-first` built **four Scan Relays and no guns** and lost
+on wave 1 — and no policy in the set could express one relay plus turrets, the only
+sensible board for anchor-02. The grader was reporting the level unwinnable for a reason
+that had nothing to do with the level.
+
+**Rejected.**
+- *Leave it and design around the harness.* Every anchor from 02 on has a support
+  emplacement available; anchors 04+ add the Shield Wall. The gap would only widen.
+- *Search for the optimal build.* Explicitly rejected by the existing design of the
+  grader: an optimiser answers "is this winnable at all", not "does more than one
+  sensible approach work". Caps keep policies legible as playstyles.
+
+**Consequence.** Support emplacements now need a *count* in a policy, not just a rank. A
+new `screened` policy (two relays) exists so the grader can distinguish over-investing in
+sight from investing correctly — on anchor-02 brutal it loses, which is the intended
+shape. This also unblocks `LF-014`: the question of whether overdrawing the bus is ever
+rational cannot be asked until builds can contain a high-draw support emplacement, which
+is exactly what the Shield Wall is at anchor-04.
+
+---
+
+## 021 — Brownout is still not a trade at anchor-04. LF-014 measured, hypothesis refused
+
+**Not a decision — a measurement, recorded so the open question stops being open.**
+`docs/STATE.md` said to test `LF-014` as soon as the Shield Wall unlocked, and to treat a
+negative result as evidence that decision 003's hook is weaker than assumed. It is
+negative. Reproduce with `.venv/bin/python tools/analysis_lf014.py`.
+
+anchor-04, 96 MW bus, Shield Wall drawing 40 MW (42% of the bus), wall on the slot
+nearest the path, played to the end at every difficulty:
+
+| difficulty | no wall (7 guns + relay) | wall always on | wall toggled, raised ~33% of ticks |
+|---|---|---|---|
+| standard | **won, 10 lives** | won, 6 | won, 10 |
+| hard | **won, 9 lives** | won, 2 | won, 7 |
+| brutal | **won, 6 lives** | lost on wave 8 | won, 5 |
+
+Not building the wall is the best line at every difficulty. Raising it only when
+something is in its radius — the optimal version of the play STATE.md hypothesised — is
+never better than not owning it, though it is much better than leaving it running. So the
+toggle mechanic works; the economics behind it do not.
+
+**Why it fails.** Brownout is a flat −40% fire rate across the entire board. The wall's
+benefit is a 0.45x slow inside radius 2.0 — a couple of tiles of a 41-tile path. Trading
+40% of every gun's output for a local slow is structurally bad no matter how it is timed.
+The deeper mismatch is that **the wall's benefit is sustained-value while brownout's cost
+structure only pays for burst-value.** A cost you take in a spike is worth it for an effect
+that resolves a moment; it is never worth it for an effect that merely accrues.
+
+**Not fixed here.** Three routes exist and choosing between them is a change to the core
+hook (decision 003), which is the user's call, not this session's:
+1. Make the brownout penalty scale with the size of the overdraw instead of a flat cliff,
+   so a small brief overdraw is cheap and a large sustained one is ruinous.
+2. Give the high-draw emplacement a burst effect worth a spike — a wall that stops leaks
+   outright for a few seconds, rather than a slow field.
+3. Leave brownout as a punishment and stop describing it as a trade, which would mean
+   editing decision 003 rather than the draw table.
+
+`LF-014` stays open and now carries the numbers instead of a suspicion.
+
+---
+
+## 022 — Brownout is priced by how far over the bus is, superseding the flat penalty in 003
+
+**Decided.** The brownout fire-rate penalty scales with the size of the overdraw:
+`penalty = min(0.70, (load / capacity - 1) * 1.5)`. It replaces the flat 40% of
+decision 003. Written twice — `sim/engine.py` and `scripts/anchor_sim.gd` — and
+parity-gated like every other rule. Reproduce with `tools/analysis_overdraw.py`.
+
+**Context.** Decision 021 measured the flat rule and found overdrawing never paid, at any
+difficulty, on any build, including a briefly-raised shield wall. The cause was the shape
+of the cost, not its size: 2 MW over cost exactly what 40 MW over cost, so "never exceed
+capacity" was unconditionally correct. That makes the power budget a **wall**, while
+`CLAUDE.md` describes it as the game's **currency**. A currency is something you can spend
+at a price.
+
+The slope is chosen so one emplacement past capacity lands near break-even. `N+1` towers
+at `(1 - k/N)` output versus `N` at full rate is a coin flip around `k ≈ N/(N+1)`, and
+Act I boards run 5–8 emplacements. Verified: 8 pulse turrets (96 MW, exactly at capacity)
+score 8.00 effective; a 9th at 108 MW takes 18.8% and scores 7.31.
+
+**Result — overdrawing is now rational at the margin.** anchor-04, boards played to the
+end:
+
+| board | draw | penalty | standard | hard | brutal |
+|---|---|---|---|---|---|
+| 7 guns + relay | 92 MW | none | won, 10 | won, 9 | won, 6 |
+| 8 guns at capacity, no relay | 96 MW | none | lost w4 | lost w4 | lost w4 |
+| **8 guns + relay** | **104 MW** | **12.5%** | **won, 10** | **won, 9** | **won, 7** |
+| 9 guns + relay | 116 MW | 31.2% | won, 10 | won, 5 | lost w8 |
+
+The live decision is now "drop a gun to stay inside the budget, or take 12.5% off
+everything to keep both the gun and the relay" — and taking the hit is correct. Going
+further is not. That is a real optimum with a real cost on either side of it, which is
+what decision 003 always claimed and never had.
+
+**Rejected.**
+- *Give the Shield Wall a burst effect instead.* Fixes one emplacement and leaves the
+  economy broken for every high-draw emplacement after it, and needs a new effect type in
+  the rules core, written twice.
+- *Accept brownout as a punishment and amend 003's framing.* Cheapest, and it abandons the
+  hook the whole game is sold on.
+
+**Consequence.** All four authored anchors still grade clean with no retuning, so this is
+not paid for in rebalancing. The HUD now reports the live percentage rather than a fixed
+"-40%", because the number is the decision. Act II's `drains_mw` enemies become a
+graduated bite rather than a coin flip, and Act III's degrading capacity becomes a slope
+rather than a cliff.
+
+This does **not** rescue the Shield Wall, and that was never the same problem: 40 MW on a
+96 MW bus is a 42% overdraw and now prices at 62.5%. The wall is simply overpriced in draw
+for a 0.45x slow across two tiles of a forty-tile path. Filed separately.
+
+---
+
+## 023 — Correcting decision 021's shield-wall measurement
+
+**Correction, not a new decision.** Decision 021's shield-wall figures were measured with
+a confound and should not be cited as a clean reading of the wall's cost.
+
+Both experiments behind 021 pinned the wall into the slot **nearest the path**. That is the
+slot `_slot_priority()` hands out first, so the wall took the best position on the board
+and every gun was pushed one place further from the path. The resulting damage loss was
+attributed to the wall's power draw when a large part of it was simply the displaced guns.
+Re-run with the wall in the third slot, even the original 40 MW / 0.45 slow beats the
+no-wall baseline.
+
+**What still stands from 021:** the headline. Under the flat brownout penalty, overdrawing
+never paid on any board at any difficulty — that comparison was between boards that did and
+did not overdraw, and the slot ordering was identical on both sides, so it is unaffected.
+Decision 022 rests on that and is unchanged.
+
+**What does not stand:** the specific claim that the wall is unbuildable, and the size of
+the gap in 021's table. Read those as an upper bound on the wall's cost. The wall was
+re-costed to 26 MW / range 3.6 / 0.28 slow against the corrected harness — see LF-032 and
+`tools/analysis_shield_wall.py`.
+
+**The lesson worth keeping.** A fixed-board harness silently encodes a placement policy.
+`pin()` assigns slots in path-proximity order, so the *order of the spec list* is a
+confounding variable in every experiment that uses it. Any future analysis built on it has
+to hold slot assignment constant across the boards being compared, or say plainly which
+positions each board got.
+
+---
+
+## 024 — An emplacement's worth is reach x output, not damage per megawatt
+
+**Correction to my own analysis, recorded because it nearly cost a rebalance of the
+tower table.**
+
+While anchor-06 refused to grade clean, I measured damage per megawatt against armour and
+concluded the ion lance was strictly dominated: 18.3 dps on 34 MW (0.54/MW) against the
+pulse turret's 6.7 dps on 12 MW (0.56/MW) — the designated anti-armour unlock, worse at
+armour than the starter gun, at three times the funds and draw. That was filed as LF-033
+and I was about to raise its damage from 48 to 66.
+
+**The arithmetic was right and the metric was wrong.** Damage per megawatt ignores how much
+path an emplacement can *reach*, and reach is the ion lance's entire identity — 5.5 against
+the pulse turret's 3.2. My first anchor-06 was a sprawling 34-tile path with slots strung
+along it, where no emplacement could cover more than one stretch, so the only thing that
+mattered was how many guns you could afford. That board is won by whoever buys the most
+emplacements, which is always the cheapest one. Expensive towers lost on every setting
+swept, at every capacity, at every wave weight.
+
+Rebuilt as a compact serpentine — four lanes three tiles apart inside a 13x11 grid — a
+central slot reaches two lanes with a 3.2 range and **all four** with the lance's 5.5. With
+the lance's stats **completely unchanged**, every configuration swept graded clean, 3–5
+distinct winning builds at every difficulty, and the lance-led `burst` policy wins standard
+and hard. LF-033 dropped, not fixed: there was nothing wrong with the lance.
+
+**The rule to author by.** Path shape decides which stat matters. A long, thin, spread-out
+path rewards cheap mass and makes every premium emplacement bad regardless of its numbers.
+A folded path with lanes inside a long weapon's radius is what makes range worth paying
+for. Before concluding an emplacement is mis-costed, check whether any level in the game
+lets it use the thing it is expensive for.
+
+Related: decision 023, where a different harness artefact produced a different wrong
+conclusion about the shield wall. Both times the level, not the tower, was the variable.
+
+---
+
+## 025 — The albedo pass renders with emission off, making decision 007 true
+
+**Decided.** `render_pair()` zeroes every material's Emission Strength for the albedo
+render and restores it for the glow render.
+
+**Context.** Decision 007 says glow is never baked into a sprite. It was, and nobody had
+checked. Principled emission contributes to the beauty render regardless of compositing,
+so the albedo PNG carried a saturated emissive core *and* the glow PNG carried the same
+light again, and `glow_layer.gd` sums them additively in game. Neither PNG clipped on its
+own — measured 0% white pixels in all twelve glow sprites — but the sum did, and every
+strong emitter resolved to a featureless white ball on the board. Four arc nodes on
+anchor-08 were four white orbs with no hue at all (LF-031).
+
+**Consequence.** The albedo is now pure surface, the glow layer supplies all the emissive
+light, and the arc node reads as the cyan-green it was authored as. This also restores the
+actual point of decision 007: a brownout dims emissive elements because the glow layer is
+modulated, and that only works if the glow layer is carrying the light rather than half of
+it. Verified end to end — clipped-white pixels in the summed result fell from a solid core
+to 50 px at the very centre of the brightest emitter, which is what a light source should
+look like.
+
+**The lesson.** "Compositing off" is not the same as "emission off". A rule recorded in
+this log is not self-enforcing; this one had been false since the sprite pipeline was
+written and every render since had baked in the thing the decision forbids.
+
+---
+
+## 026 — Anchors are balanced by sweeping the simulator, never by intuition
+
+**Decided.** An anchor is authored, then **swept** — capacity x starting funds x wave
+weight — against `sim/run.py` until a configuration grades clean. Hand-tuning is not an
+acceptable substitute, and a level is not finished because it looks reasonable.
+
+**Context.** All eight Act I anchors were built this way, and **every one of them failed
+its first cut.** Not narrowly:
+
+| anchor | first cut | why it failed |
+|---|---|---|
+| 02 | unwinnable at every difficulty | air units were unkillable; no policy could express the intended board |
+| 03 | unwinnable on brutal at 88-100 MW | 7404 HP of waves; 5436 was the ceiling |
+| 04 | single-solution | the shield wall ate 80 of 96 MW and left one gun |
+| 06 | unwinnable at *every* setting swept | layout, not weight — see decision 024 |
+| 08 | clean only at 116 MW | would have broken the act's stated 60-110 tier |
+
+Intuition was wrong about the direction as often as the magnitude. On anchor-06 three
+rounds of wave-weight sweeping were spent on a level whose actual defect was geometry.
+
+**Rejected.** *Tune by feel and check once at the end.* That is how anchor-06 consumed most
+of an afternoon, and it is how anchor-08 would have quietly broken the power tier the story
+depends on.
+
+**Consequence — the order that works:**
+1. **Layout first.** Slots within ~2 tiles of the path; `validate_data.py` now errors on
+   slots no weapon can reach and warns on ones the shortest-ranged weapon cannot.
+   Path *shape* still needs judgement: a long thin path rewards cheap mass and makes every
+   premium emplacement bad regardless of its stats (decision 024).
+2. **Then sweep**, and take the *hardest* configuration that still grades clean — except
+   where the beat says otherwise. anchor-05 is the act's quiet one and deliberately took a
+   generous setting instead.
+3. **Then dialog**, once the level's real shape is known.
+
+A sweep is cheap — a few minutes of simulator — and it is the only reason all eight
+anchors are winnable at three difficulties by more than one build.
+
+---
+
+## 027 — The anchor damper suppresses drain in an arc, and is the Act II counterplay
+
+**Decided.** Act II's `drains_mw` units are answered by the **anchor damper**: a support
+emplacement with `effect: {type: damp, value: 0.6}` that removes 60% of the bus drain of
+any unit inside its radius. Drain is therefore a *contested* quantity rather than a flat
+tax, and the damper is a fixed 18 MW spent to deny a variable theft.
+
+**Why a suppressor and not a bigger reactor.** Simply raising Act II capacity to absorb
+the drain converts the act's mechanic into a number the player never interacts with. With
+the damper the question is live every wave: this wave carries three sappers at 8 MW each,
+the damper costs 18 MW and covers one lane — build it or shoot faster? Under three
+drainers in the damper's arc it is a losing trade, which is the shape a good decision has.
+
+**Rejected.**
+- *Drain as a flat per-wave penalty.* Nothing to play against; identical to lowering
+  capacity, which decision 022 already showed makes the currency a wall.
+- *A one-shot "purge" ability.* Meridian has no ability bar and adding one to serve a
+  single act is a bigger change than the act is worth.
+
+**Consequence.** `effect.type` gains `damp` in the schema, `Sim.bus_load()` and
+`AnchorSim.bus_load()` both scale each unit's drain by its damper coverage, and the parity
+gate covers it. Measured on anchor-10: two dampers on the ingress lane hold about two
+thirds of the tap.
+
+---
+
+## 028 — Grading policies carry a power reserve, because from Act II the bus is contested
+
+**Decided.** `Policy` gains `reserve`, a fraction of capacity it refuses to build into.
+`suppression` reserves 20%, `flak-screen` 15%, `reserved-mass` 30%. Act I policies keep a
+reserve of 0 and their grades are unchanged.
+
+**Context.** The first Act II sweep graded **every** cell unwinnable — 36 of 36 on
+anchor-09, at capacities up to 190 MW, which is above the act's whole power tier. The
+cause was not the level. Every policy spends the bus to the last megawatt, which is
+correct in Act I where nothing else draws on it; from Act II an enemy does, so the board
+was in brownout from the first sapper, killed nothing, accumulated drainers, and browned
+out harder. A death spiral, produced entirely by the harness playing in a way no player
+would.
+
+**This is the third time the harness was the variable** — see decision 023 (a fixed board
+encoding a placement policy) and decision 024 (the level, not the tower). Before
+concluding that Act II content is too hard, check that the grader can express the play the
+act is built around.
+
+**Rejected.** *Give every policy a reserve.* It would silently re-grade all eight Act I
+anchors to make a point about Act II. New behaviour goes in new policies.
+
+**Consequence.** Three policies model leaving headroom. anchor-09 went from 0 winning
+builds at any swept capacity to 7/6/3 at 118 MW — inside the act's tier, with no change to
+the level's numbers.
+
+---
+
+## 029 — Shielding taxes damage, it does not block it
+
+**Decided.** A shielded unit takes `SHIELD_LEAK` = 25% damage from weapons without
+`shielded` in their `targets`, rather than being immune to them. The ion lance and the
+mortar emplacement remain the efficient answers; they are no longer the only ones.
+
+**Context.** anchor-11 graded unwinnable at every capacity and weight swept, and the
+detail run showed every policy dying on the wave the first breacher arrived. With
+immunity, one shielded unit per wave is an unanswerable leak for any board without a
+lance — and a lance-led board cannot afford enough guns to cover a 40-tile path, because
+three lances are 102 MW of a 142 MW bus. The level was not the problem: **a hard gate on
+one emplacement makes every anchor carrying that enemy a single-solution level**, which
+decision 013 defines as a defect.
+
+This is the same argument as decision 019, which established that the scan relay gates
+*sight* and not firepower. Extending it: no unit trait should make an emplacement
+mandatory.
+
+**Rejected.**
+- *Unlock the mortar earlier so two answers exist.* Two mandatory-ish answers instead of
+  one; the boards would still be forced.
+- *Drop breachers from anchors 11-12.* Postpones the problem to 13 and thins the act's
+  antagonist to a drain gimmick.
+- *Cut the lance's draw so lance boards can also carry guns.* Re-costs a tower that
+  decision 024 already settled, to fix a problem the tower did not cause.
+
+**Consequence.** Order matters: **armour is subtracted first, and the shield tax applies to
+what got through.** The other order was tried and reproduced the original bug one tier up
+— against the bulwark at 8 armour, a pulse turret's 9 damage taxed to 2.25 never clears
+armour at all, so the bulwark was immune to everything but the lance and anchor-14 graded
+unwinnable at every capacity, funds and weight swept. Armour-first leaves mass fire a
+slow, bad, *existent* answer. The bulwark was also softened to 380 HP / 5 armour.
+
+Act I is unaffected — no Act I enemy is shielded — and all eight Act I anchors re-graded
+clean unchanged.
+
+---
+
+## 030 — The rules work in float64 and compare squared distances
+
+**Decided.** `AnchorSim` holds path geometry in `PackedFloat64Array`, not
+`PackedVector2Array`, and **every range test in both engines compares squared distances**
+rather than taking a square root. `point_at()` still returns a `Vector2` for drawing;
+`point_at_xy()` is what the rules use.
+
+**Context.** Parity failed on exactly one run of 528: anchor-14, `reserved-mass`,
+standard — same build, same spend, same peak load, but Python leaked 14 and GDScript
+leaked 8. Two causes, both invisible for the whole of Act I:
+
+1. **Godot's `Vector2` is float32.** Every position the GDScript sim derived from one was
+   a rounded copy of the float64 the reference computed.
+2. **`math.hypot` is not `sqrt(dx*dx + dy*dy)`.** Python's is correctly rounded; Godot's
+   `distance_to` is not. Against a range like the scan relay's 6.0 — a value a grid
+   distance can hit exactly — the two can land on opposite sides of `<=`.
+
+Act I tolerated both because coverage only gated slow and reveal, where one tick of
+difference changes nothing. Act II made coverage decide **bus load**: a damper's radius
+now determines drain, which determines brownout, which determines fire rate for the whole
+board. A sub-ulp position difference became six leaks.
+
+**Rejected.** *Widen the parity tolerance.* The tolerance exists for accumulated float
+drift in reported aggregates, not for discrete outcomes. Leaks and lives are exact fields
+precisely so that a divergence like this one cannot be waved through.
+
+**Consequence.** No square root is taken anywhere in either rules implementation. The
+comparison is `dx*dx + dy*dy <= r*r` on both sides, so the two runtimes execute the same
+IEEE-754 double operations in the same order. 528 runs identical.
+
+---
+
+## 031 — Act III degrades capacity per wave, and the restorer buys it back
+
+**Decided.** An anchor may declare `capacity_decay_mw`: megawatts the bus loses at the
+start of **every wave after the first**, floored at `CAPACITY_FLOOR` = 45% of rated
+capacity. The counterplay is the **restorer** — 44 MW returned for 10 MW drawn, 380 up
+front, and a slot that will therefore never hold a gun.
+
+**Why per wave and not per second.** The loss has to land on a beat the player can see
+coming and build against. Continuous decay makes the board a timer and the correct play
+becomes "build nothing early", which is not a decision, it is a delay. Per-wave decay
+means the prep phase is where the act happens: the build that was exactly right on wave
+one is over capacity by wave five and something has to be switched off.
+
+**Why a floor.** Without one the bus reaches zero and the level resolves itself. At 45%
+the player always has a board — a small one, made entirely of choices about what already
+failed. anchor-21 "Attrition" is authored at 17 MW a wave specifically to reach that floor
+by wave six.
+
+**Rejected.**
+- *Decay driven by Hollow units on the board.* Indistinguishable from the Act II drain
+  mechanic, which would make Act III louder rather than different.
+- *A restorer with no draw of its own.* Then it is free capacity and every board opens
+  with two. The 10 MW and the slot are what make it a trade.
+
+**Consequence.** `Sim.capacity_now()` and `AnchorSim.capacity()` replace every direct read
+of `capacity_mw`, including the build budget, the shed loop and the brownout test, on both
+sides of the parity gate. `AnchorSim.begin_wave()` is called from the view and the parity
+runner before each prep phase. The `restore-first` policy joins the grading set. All 24
+anchors grade clean.
+
+---
+
+## 032 — The menu is the boot scene, and progress is a readable JSON save
+
+**Decided.** `scenes/menu.tscn` is the project's main scene. It lists all 24 anchors in
+three labelled act rows, carries the difficulty choice, and hands the selection to the
+game through the `Progress` autoload. Progress is stored at `user://progress.json` as
+plain readable JSON: a version, a `cleared` map of anchor -> difficulty -> best lives
+remaining, and the chosen difficulty.
+
+**Anchors unlock in order**, and clearing on *any* difficulty unlocks the next one — a
+hard clear should not be a prerequisite for seeing the next scene, because the story is
+the reason the order exists.
+
+**The CLI still wins.** `-- --anchor anchor-17` or `-- --shot …` skips the menu entirely
+and boots straight into the game. Verification runs the real game rather than a menu, and
+the gate's self-screenshot would otherwise be a screenshot of a title card. This is why
+the CLI parsing moved into `menu.gd` — it is the boot scene now, so it has to be the thing
+that reads `argv`.
+
+**Rejected.**
+- *Keep `main.tscn` as the boot scene and load the menu from it.* Inverted: the menu would
+  be a child of the thing it launches, and every launch would build a board first.
+- *A binary or `ConfigFile` save.* Nothing in the save is load-bearing for the rules —
+  losing it costs unlocks, not correctness — so it should be a file a bug report can paste.
+
+**Consequence.** A new gate check, `menu renders`, screenshots the boot scene via
+`--shot-menu` and asserts it is not blank and lists eight Act I anchors. Without it
+nothing in the gate ever looks at the first screen the player sees, because `game
+renders` passes `--shot`, which the menu deliberately treats as "go straight to the
+game". The HUD gained an end-of-anchor banner — it is the only place the game tells the
+player how to leave a finished level.
+
+---
+
+## 033 — Sell and upgrade exist for the player and not for the grader
+
+**Decided.** An emplacement can be **sold** for `SELL_REFUND` = 60% of everything paid for
+it, and **upgraded** once in place into a second tier declared in `towers.json` under
+`upgrade`. Both live only in `AnchorSim` — the GDScript rules the game runs. Neither is
+implemented in `sim/engine.py`, and no grading policy uses either.
+
+**Why the asymmetry is correct rather than a gap.** A grading policy builds once, at the
+start of a wave, and never revises. That is what makes a grade a *floor*: "this anchor is
+winnable by four distinct builds that were planned before the first unit spawned". A
+player who can sell and upgrade can only do better than that floor. Teaching the policies
+to sell would make every grade a claim about a much larger search space, and the sweep
+that balanced 24 anchors would have to be redone against a harness whose optimum nobody
+can characterise.
+
+Parity is unaffected because the parity runner drives the same build/shed loop as the
+Python reference and never calls `sell()` or `upgrade()`.
+
+**Numbers.** 60% refund: below about half, selling is a punishment and no player ever does
+it; at full price the board can be rebuilt free every wave and the build stops being a
+decision. Every second tier costs **more draw** as well as money — an upgraded pulse
+turret is 18 MW against 12 — so upgrading is the same trade as building, made on a board
+that has already run out of slots.
+
+**Rejected.**
+- *Upgrades as a free stat bump.* Then the only question is money, and the game's currency
+  is power.
+- *Teaching the policies to sell.* See above; it would invalidate every existing grade for
+  no gain in confidence.
+
+**Consequence.** `docs/STATE.md` and this entry both record that the anchor grades describe
+a plan-once player. If a future change makes the grader revise its boards mid-level, every
+anchor needs re-sweeping.
+
+---
+
+## 034 — Esc pauses; the game is stoppable, and volume lives where it is noticed
+
+**Decided.** `scenes/main.tscn` carries a `PauseMenu` layer. Esc or Space opens it, the
+tree pauses, and the overlay offers Resume, Restart Anchor, Operations and Quit, plus
+music and effects sliders. The `Audio` autoload and the overlay both run with
+`PROCESS_MODE_ALWAYS`, so sound keeps playing while paused — a volume slider you cannot
+hear while dragging is not a volume slider.
+
+**Why volume here and not only in the main menu.** The moment a player wants to change the
+volume is the moment it is too loud, and that moment is mid-anchor. Putting it only on the
+title screen means quitting the level to fix it.
+
+**Consequence.** Volume is stored in the save as 0..1 linear and converted with
+`linear_to_db` in one place; every cue's own `volume_db` is a level *relative* to that.
+`--paused` opens the overlay at boot so it can be screenshotted — it is the one screen
+that cannot be reached by playing at `--fixed-fps`, because reaching it needs a key press.
+That screenshot immediately showed the QUIT button hanging out of the bottom of the panel.
+
+Esc no longer leaves the anchor. A `--shot` run still exits on Esc, because it has nobody
+to pause for.
+
+---
+
+## 035 — The board has a selection, and the interface explains what an emplacement does
+
+**Decided.** Left-clicking a built emplacement selects it. `AnchorView.selected_slot` holds
+that selection, and **sell, upgrade and the power toggle all act on it** rather than on
+`hovered_slot`. A left-click on a free slot builds and selects what it just built; a
+left-click on bare ground puts the selection down. Right-click still toggles power where
+the cursor is, because that acts where it is aimed and never travels.
+
+The HUD's left column gains an **inspector panel** that describes whichever emplacement the
+player is thinking about — the selected one, or failing that the one armed in the build bar
+— with damage, fire interval, derived DPS, range, draw, what it is rated to hit, splash and
+support effect, plus the authored note. Where a second tier exists its values are shown as
+a `9 → 14` delta on each row, so "is this upgrade worth $160" is answerable without buying
+it. The board draws the selection's reach as a ring, and previews the armed emplacement's
+reach on the hovered free slot.
+
+**Why this supersedes the hover-targeted version.** `hud.gd` previously carried the note
+that a selection model "would need a second concept of selected alongside the build cursor,
+and the board already highlights the hovered slot". That reasoning is wrong for a reason
+that is only visible in a running build: pressing the SELL button requires moving the
+cursor from the emplacement to the button, and the panel sits at the left edge while the
+board is centred — so the cursor crosses other slots on the way and the button retargets or
+disables itself under the hand that is reaching for it. The feature existed and was
+documented in decision 033 and was, in practice, unusable.
+
+**Why the datasheet is not optional.** Range, fire interval, air/shielded rating and the
+support effects were readable only in `data/towers.json`. Nothing on screen distinguished a
+Scan Relay from an Anchor Damper, and the game's whole hook is a power trade the player
+cannot price without knowing what the megawatts buy. The panel is generated from the tower
+record, so a new emplacement documents itself and decision 008 still holds — no content
+in code.
+
+**Numbers are computed, never authored twice.** DPS is `damage / fire_interval`, the sell
+figure is `SELL_REFUND` applied to everything paid, and the power button names the exact MW
+it frees. A hand-written stat block in the data would be a second source of truth that
+drifts from the one the sim reads.
+
+**Rejected.**
+- *Tooltips on hover.* Same defect as hover-targeted buttons — the information vanishes at
+  the moment the player moves toward acting on it, and it cannot show a delta against what
+  is already built.
+- *A modal detail screen.* Reading the datasheet is something a player does while deciding,
+  which is mid-prep with the wave timer running. It must not stop the clock or hide the board.
+- *Leaving power on right-click only.* An undiscoverable verb is not a mechanic. It is now
+  a named button that says what it frees.
+
+**Consequence.** `--select N` points the inspector at the Nth built emplacement so a
+`--shot` run can capture the populated panel; like `--paused` in decision 034, the state is
+otherwise unreachable at `--fixed-fps` because reaching it needs a click. Both screenshots
+were taken and both defects it fixed were found by looking at them.
+
+---
+
+## 036 — Arming a build clears the board selection, refining 035
+
+**Decided.** `AnchorView.select()` sets `selected_slot` back to `NO_SLOT`. Clicking a
+button in the build bar therefore takes the inspector with it: the panel switches from
+describing the emplacement standing on the board to describing the one a click would place.
+
+**Why.** Decision 035 gave the inspector two sources — the board selection, and the armed
+build button as a fallback — and made the board selection win. That is right when the
+player selects on the board and wrong when they pick from the bar, because picking from the
+bar *is* the question "what is this thing". Reported from play: the bar highlighted Ion
+Lance while the panel went on describing an Anchor Damper that happened to still be
+selected. Two controls claimed to be showing the same thing and disagreed.
+
+The rule is now simply **the panel describes whatever the player last pointed at**, and both
+controls are ways of pointing. Selecting on the board still wins over a previously armed
+button, because that click came later.
+
+**Rejected.**
+- *Showing both, split down the panel.* Halves the space for a datasheet that already needs
+  eight rows and a note, to serve a comparison the player did not ask for.
+- *Leaving the board selection up and only recolouring the bar.* That is the state that was
+  reported as wrong. A highlight that does not drive the panel is a highlight that lies.
+
+**Consequence.** Building still selects what was just built, so the panel flips to
+EMPLACEMENT after a placement while the bar stays armed for the next one. That is the same
+"last thing pointed at" rule. `--pick <tower-id>` arms a button from the CLI so that
+`--select N --pick X` screenshots this interaction; without it the fix is unverifiable at
+`--fixed-fps`, exactly as with `--paused` in 034 and `--select` in 035.
+
+---
+
+## 037 — The threat panel: what is coming, when, and what it will cost the bus
+
+**Decided.** A panel on the right edge, opposite the instrument column, showing the current
+wave: its number, a **countdown in seconds** during prep, and every unit type in it with
+count, HP, speed and the traits that change a build — `AIR`, `SHIELD`, `ARM n`, `DRAIN n`.
+Under a rule it totals the units and, when any of them steal capacity, **how many MW the
+wave takes off the bus while it is alive**. When the wave contains air and no reveal
+emplacement is online it says so in alert red.
+
+**Why.** Decision 035 fixed the player not knowing what their own emplacements do. The
+mirror of that gap was still open: nothing on screen said what was about to arrive. The
+wave composition was in the anchor JSON and reached the player as a number, `wave 1 / 9`.
+Every decision the game asks for depends on what is in the wave — whether air is coming
+decides if a scan relay is worth 8 MW, whether the wave is shielded decides between a lance
+and an arc node, and from Act II the wave's own drain *is* the power decision. Asking the
+player to price a trade while hiding both sides of it is not difficulty, it is a missing
+readout.
+
+The prep countdown is the same defect in miniature. `_lead_left` was already running and
+only the sim could see it, so "do I have time to save for a mortar" was unanswerable.
+
+**Why the air line is stated outright.** `revealed = kind != "air" or _covered_by("reveal")`
+in both rule sets: a pulse turret is *rated* for air and still cannot touch it with no relay
+online. That is an invisible rule that silently costs the anchor. The alert fires only when
+no reveal emplacement is online at all — the strictly-true case — rather than trying to
+second-guess whether a particular relay's radius will cover a particular spawn.
+
+**Rejected.**
+- *Showing the next wave during combat instead of the current one.* The player is watching
+  the current one; a preview of the next while the present one is on the board is a second
+  thing to track. The panel switches to a live count of what is still up.
+- *A full enemy datasheet like the emplacement inspector.* The unit list is a briefing read
+  in fifteen seconds of prep, not a reference. Count, HP, speed and the four traits that
+  change a build; the authored notes stay in the data.
+
+**Consequence.** The panel is sized at bind time from the busiest wave the anchor ever
+fields, so anchor-01's single unit type does not sit in a box built for anchor-13's six.
+Line height is read from the font — a Label stacks its `line_spacing` constant on the face
+height, so 11 px mono is about 19, and the guessed 15 drew the footer through the last two
+rows of the list. Measured, not assumed, same as the sprite pivot.
+
+---
+
+## 038 — CC0-only is confirmed, and the music is Suno under the author's subscription
+
+**Decided.** The CC0-only sourcing rule asserted in decision 009 is **confirmed by the
+project owner**. It was written into 009 by an earlier session and had never actually been
+agreed; `docs/STATE.md` had carried it as an open question since. It is now settled:
+
+- Every non-synthesized **sound effect** entering this repo must be **CC0**. Not CC-BY, not
+  CC-BY-SA, not "free for commercial use" under a bespoke site licence. Public-domain marks
+  are not accepted either, because "PD in the source country" is a claim that needs a
+  jurisdiction argument and CC0 does not.
+- Each file is logged in `assets/audio/SOURCES.md` with source URL, author, licence and
+  SHA-256 **before** it is committed.
+
+**Why CC0 rather than CC-BY, restated now that it is a real choice.** The twelve sounds
+still needed are mundane physical textures — wind, grit underfoot, debris, structural
+creak. CC0 pools cover that class completely, so the quality cost of excluding CC-BY is
+about zero. What CC-BY would add is a permanent obligation: a credits screen that must stay
+correct across every future asset change, on a project with one maintainer. One missed
+credit is a licence breach. Paying that ongoing cost for no audible gain is a bad trade.
+
+**Music is a separate matter and is not CC0.** The fourteen tracks were generated by the
+project owner with a **paid Suno subscription**, and the owner states they hold the rights
+to ship them in this game. That provenance had never been written down anywhere — the
+manifest records SHA-256 and loudness but said nothing about where the audio came from or
+under what right it is used. It is now recorded in `SOURCES.md`. Recording it is the point:
+a repository that cannot say why it is allowed to contain a file is one bad question away
+from having to delete it.
+
+**Rejected.**
+- *Treating "Public domain" Wikimedia entries as equivalent to CC0.* They frequently are
+  fine, but the tag covers term-expiry and US-government-work cases whose status varies by
+  jurisdiction. CC0 is an explicit, worldwide, irrevocable waiver by the author. When the
+  filter is free, take the unambiguous one.
+- *Pixabay, despite the reputation.* Its content has not been CC0 since 2019; it ships
+  under a bespoke site licence that restricts redistributing unmodified files — which is
+  exactly what committing an asset to a public repo does.
+
+**Consequence.** Sourcing is filtered on machine-readable licence metadata rather than on a
+page that says "free". `LF-005` can proceed.
+
+---
+
+## 039 — The sprite library is a fixed-grid atlas, and the gate proves it is not stale
+
+**Decided.** `tools/blender/pack_atlas.py` packs the 192 renders — 24 assets × 4 yaws ×
+2 passes — into **one atlas page per pass**, 3072×2048 each, and adds an `atlas` section
+to `assets/renders/sprites.json` holding the cell size, the grid width, the page paths and
+a `name|yaw → [col, row]` index. `sprites.gd` builds an `AtlasTexture` per lookup and falls
+back to loading individual files when no atlas has been packed. LF-004.
+
+**The pack is a fixed 256 px grid and nothing is trimmed.** This is the load-bearing part.
+`render.py` raises the camera by `HEIGHT_BIAS` so tall assets clear the top of their cell,
+and `calibrate()` *measures* where world (0,0,0) actually lands — 127.5, 171.5 — writing it
+to the manifest as a single pivot for the whole library. That single pivot is only correct
+because every sprite occupies an identical cell. A rectangle packer that trimmed
+transparent margins would give each sprite its own origin and make the pivot per-asset
+again, which is exactly LF-027: a hardcoded `CELL//2` drew every sprite above its own tile.
+The grid keeps the pivot true by construction rather than by bookkeeping.
+
+**Two pages, not one.** Albedo and glow are drawn in separate passes and the glow layer is
+modulated by bus load (decision 007). A single mixed page would be bound twice per frame
+for two different purposes and save nothing.
+
+**Why the gate grew a check.** An atlas is derived output with no visible link to its
+inputs. Re-render one sprite, forget to re-pack, and the board keeps drawing the old pixels
+out of the stale page — a correct art fix that appears to do nothing, which is the same
+misdiagnosis skipping `--import` already cost this project. So `pack_atlas` records a
+SHA-256 over every render that went into the pages, and `check.py`'s `sprite atlas` check
+recomputes it. Verified by perturbing one pixel of one render: the check fails and names
+the fix.
+
+**Rejected.**
+- *Rectangle packing with trim.* Better density, and it costs the one property that makes
+  placement correct. Density was never the problem — 8.7 MB of loose PNGs became 4.0 MB of
+  atlas on the grid alone.
+- *Dropping the loose PNGs from git once the atlas exists.* Tempting, and it halves the
+  art footprint. Rejected for now because a fresh clone could then only re-pack by running
+  Blender, and because inspecting one sprite is a normal thing to want. It is a one-line
+  `.gitignore` change if the footprint ever matters.
+- *Packing before masking.* `mask_glow.py` rewrites alpha from luminance; packing first
+  would bake the unmasked opaque-alpha glow into the page and fill the board with bright
+  rectangles.
+
+**Consequence.** The art pipeline is now four steps, not three: **render → mask_glow →
+pack_atlas → --import**. `CLAUDE.md` records it and the gate enforces the last two.
+
+---
+
+## 040 — The application is called Latticefall, and the old save is adopted rather than lost
+
+**Decided.** `project.godot` carries `config/name="Latticefall"`. It carried
+`"Defend-Claude"` — the name of the directory the repository happens to sit in — and that
+string is not internal: Godot uses it for the window title and for the name of an exported
+binary. The game has been called LATTICEFALL since decision 006 established the
+nomenclature; the window said otherwise.
+
+**Why this needed more than a one-line rename.** Godot derives `user://` from the
+application name, so renaming moves the save. Every existing player's progress would have
+become a file the game no longer looks at — present on disk, invisible to the menu, and
+indistinguishable from "new player" to anyone debugging it. `Progress.load_state()` now
+falls back to `_adopt_legacy_save()`, which reads the pre-rename file, copies it to the new
+location and returns a handle. It runs once, because the copy is what makes the next boot
+find the save normally.
+
+Both `Defend-Claude` and `defend-claude` are probed. The on-disk directory was lowercase
+because it predated an earlier rename, and macOS resolved the mismatch case-insensitively
+where a case-sensitive filesystem would not have. Probing both is what makes the migration
+work on either.
+
+**Verified against a real save**, not a synthetic one: a progress file with anchor-01
+cleared at ten lives was adopted on first boot, the clear survived, the second boot did not
+re-adopt, and the case-mismatch warning that had appeared on every startup is gone.
+
+**Rejected.**
+- *`custom_user_dir_name` pinned to the old directory.* Keeps the save in place with no
+  migration code, at the cost of a save directory permanently named after a repository
+  nobody ships. It trades a visible one-time migration for a permanent invisible oddity.
+- *Leaving the rename until export.* The window title is wrong every time the game is run,
+  and a rename done later has exactly the same save problem with more saves to lose.
+- *Migrating silently.* It prints the path it adopted. A save moving between directories
+  is the kind of thing that must be greppable when someone reports lost progress.
+
+**Consequence.** `LF-041` was dropped earlier this session as "local state, not a repo
+defect" — that diagnosis was right, and this rename resolves the symptom anyway by
+creating the directory fresh under a name that matches its casing.
+
+---
+
+## 041 — Debris is synthesized after all, correcting decision 009's list
+
+**Decided.** `debris_settle` joins the synthesized bank in `tools/audio/synth_sfx.py`
+rather than being sourced. Decision 009 listed it among the twelve organic cues that
+"synthesis cannot fake"; that premise was wrong for this one sound, and the CC0 search is
+what exposed it.
+
+**What the search found.** `LF-043` opened because eleven of the twelve cues found CC0
+candidates and debris found none. Widening the queries to `dirt`, `gravel`, `sand` and
+`stone falling` returned three items in total across the whole CC0 sound corpus: a shovel,
+a water splash, and a "sand spell". There is no CC0 recording of falling rubble to have.
+
+**Why that is a better outcome than it looks.** Falling debris is a *cloud of tiny
+impacts* — a stochastic process with a decaying event density. That is precisely the shape
+synthesis handles well, and precisely unlike the cues that genuinely resist it. A human
+voice has formant structure no amount of filtered noise reproduces; a hundred pebbles
+landing do not. Decision 009's real boundary is not "organic versus synthetic", it is
+"structured versus stochastic", and debris was filed on the wrong side of it.
+
+**How it is built.** 190 grains, each 6-16 ms of band-passed noise between 700 and 3300 Hz
+under a fast attack-decay, scattered across 1.1 s with their start times biased by a cube
+curve so most land in the first third and the tail thins out. A low-passed dust bed decays
+underneath. Everything is drawn from `rng_for("debris_settle")`, so the cue remains a pure
+function of its own name and rebuilds byte-identical — verified, not assumed.
+
+**Where it plays.** Under `warden_death`, but only for units with 150 HP or more. Every
+construct dying in a cloud of rubble turns a wave of drones into gravel; reserving it for
+heavies makes it read as mass rather than as a death sound, and keeps the mix clear when
+six things die at once.
+
+**Rejected.**
+- *Shipping the shovel.* It is CC0 and it is granular, and it is a shovel. Sourcing
+  something that nearly fits, because the plan said "sourced", is letting a plan outrank
+  the result.
+- *Leaving `LF-043` open indefinitely.* The gap was real but the conclusion — that this
+  sound must be a recording — was not.
+
+**Consequence.** The bank is 36 synthesized cues and 11 sourced. Decision 009's count of
+"48 of ~60 synthesized, ~12 sourced" is superseded: the split is decided per sound by
+whether it is stochastic, not by whether it is physical.
+
+---
+
+## 042 — Input is an action map, and the board cursor moves slot to slot
+
+**Decided.** The game has an input map. Every binding was a hardcoded keycode compared
+inside `_unhandled_input`, and `project.godot` had no `[input]` section at all, so a
+gamepad could not reach a single control. Thirteen `lf_*` actions now cover pause, confirm,
+cancel, build, sell, upgrade, power, cycling the armed emplacement, and four directions —
+each bound to **both** keyboard and gamepad. LF-010.
+
+**The cursor moves between slots, not pixels.** A virtual pointer driven by a stick is slow
+and imprecise, and the only tiles that can be acted on are the slots anyway. A direction
+press picks the nearest slot in that direction, scored as `along + |across| * 2` so
+"right" prefers something to the right over something almost directly below that happens to
+be nearer. Directions are judged in **screen space**: the player is looking at an isometric
+projection, so up must mean up on the screen rather than −y in tile space.
+
+This is not only a gamepad feature. WASD and the arrow keys now drive the board too, which
+is a real gain for anyone who would rather not aim a mouse at a diamond.
+
+**Why a script generates the map.** An action's events serialize into `project.godot` as
+`Object(InputEventKey, ...)` literals with a dozen fields each. A typo there does not fail
+loudly — it produces an action that silently never fires. `tools/godot/setup_input.gd`
+declares the bindings as a table and lets Godot write the format it reads. It is
+idempotent: every action is rebuilt from the table, so changing a binding converges instead
+of accumulating duplicates. Confirmed that `ProjectSettings.save()` added the `[input]`
+section and touched nothing else — 90 insertions, no deletions.
+
+Keys are bound by `physical_keycode`, so WASD stays under the same fingers on AZERTY.
+
+**The one collision, and how it is resolved.** `lf_confirm` and `lf_build` both bind the
+gamepad's south button, because advancing dialog and placing an emplacement are the same
+gesture in two contexts. One press would otherwise fire both. `dialog_view` calls
+`set_input_as_handled()` when it consumes a confirm, and returns early when there is no
+line to advance — so the press reaches the board exactly when there is no dialog in front
+of it.
+
+**Rejected.**
+- *Reusing Godot's built-in `ui_*` actions.* The menu's Control focus navigation already
+  uses them, and overloading `ui_accept` for building would make the two fight.
+- *A free-moving virtual cursor.* Precise pointing with a stick is the thing players
+  dislike about pad-driven strategy games, and the board does not need it.
+- *Hand-editing the `[input]` block.* See above; a silent failure in a file that must
+  parse for the project to open at all.
+
+**Consequence.** `--cursor N` presses `lf_right` N times at boot so board navigation can be
+screenshotted, joining `--paused`, `--select` and `--pick` as hooks that exist because the
+state they reach needs a real input and `--fixed-fps` has nobody to supply one.
+
+---
+
+## 043 — The HUD stays built in code, and the throttling note is documentation
+
+**Decided.** Two backlog items are closed by judgment rather than by work, because doing
+them would make the project worse.
+
+**`LF-026` — "HUD and dialog build their Control widgets in code rather than being authored
+in the scene".** It was filed with no recorded rationale, and the reasoning that would have
+supported it — the same reasoning that correctly moved `main.tscn`'s children into the
+scene, so opening the project shows structure rather than one childless node — no longer
+applies to this HUD.
+
+Every panel in it is now sized from **content**, not from constants. The build grid's
+height comes from how many emplacements the anchor unlocks. The inspector's comes from the
+tallest datasheet any of those emplacements renders, measured against the font's own line
+height. The threat panel's comes from the busiest wave the anchor fields. Each of those
+replaced a hardcoded offset that had already been wrong for some anchor — decisions 035
+through 037 record all three.
+
+A `.tscn` can hold static nodes at static positions. It cannot express "as tall as the
+tallest datasheet this anchor can show", so authoring the HUD would mean keeping every line
+of the layout code *and* adding a scene that disagrees with it the moment an anchor unlocks
+a ninth emplacement. Two sources of truth for one geometry is the defect, not the fix.
+
+*Rejected middle ground:* author the static furniture — the reactor panel, its labels —
+and leave the dynamic panels in code. It works, and it puts the seam between "authored" and
+"computed" in a place nobody can see from either side. A reader would have to check both to
+know where a widget comes from.
+
+**`LF-018` — "Unfocused Godot window is throttled".** This is a fact about the platform,
+not a task. It cannot be fixed here; it can only be known. It is recorded in `CLAUDE.md`,
+in `docs/STATE.md`'s trap list, and enforced in practice by every verification command in
+the repo passing `--fixed-fps`. Leaving it open implied someone would one day close it,
+which nobody can. A permanent hazard belongs in the documentation that is read, not in the
+queue of things to do.
+
+**Consequence.** If a future session wants the HUD in a scene, the argument to beat is the
+one above: show how a scene expresses a height that depends on the anchor's content without
+duplicating the code that computes it.
+
+---
+
+## 044 — Robustness is a threshold, not a quantity, in the sweep's scorer
+
+**Decided.** `tools/sweep.py` scored a clean cell as
+`standard_distinct_wins + brutal_distinct_wins`. Lives and spawn density were not in the
+score at all. More lives means more boards survive, which means more distinct winning
+builds — so **the loosest cell always scored highest**, and sixteen anchors were tuned by
+that scorer. The result is visible in the content: Act I runs 20 units a wave on 10 lives,
+Act III ran 8 on 32, and the finale had fewer things on screen than the tutorial. `LF-038`
+filed that as a design smell without identifying the cause; the cause was the tool.
+
+The original intent was right and is preserved. Its comment — a level grading clean on a
+knife edge will not survive the next tower stat change — is a real concern. It was simply
+being paid for with lives. Build count now pays up to `ROBUST_ENOUGH = 8` and stops; beyond
+that, density and tightness decide. Lives are weighted above density, because a player
+feels "a leak barely matters" long before they feel "this wave is thin". Ties break toward
+the tighter level, then the denser one, never by list order.
+
+The guard demonstrably still works: on anchor-14, lives 10 scores *lower* than lives 12,
+because dropping to 10 pushes the win count below the cap. That is the knife-edge
+protection refusing a cell, not being bypassed.
+
+**What it fixed, and what it did not.** Seven anchors tightened — anchor-18 and 19 from 30
+lives to 22, anchor-22 from 32 to 26, anchor-24 from 44 to 40. Act III mean lives fell from
+31.8 to 27.5. **Density barely moved**: units per wave went from 7.7 to 7.7 in Act III and
+9.6 to 9.7 in Act II, because higher weights do not grade clean at any life count. Only
+anchor-14 got denser, and only to 6.9.
+
+So `LF-038` is half solved and stays open, re-scoped. The remaining half is what its
+original note guessed: the Act II and III roster has no efficient answer to shielded and
+armoured units, so volume cannot come back without one. That is a content change — a
+mid-cost anti-armour emplacement, or a draw cut on the lance and mortar — and it belongs to
+a session that can re-sweep and re-grade all sixteen anchors behind it.
+
+**Rejected.** *Closing `LF-038` because the numbers improved.* They improved on the axis
+the tool was biasing and not on the axis the note was actually about. Closing it would
+record a fix that a player would not feel.
+
+**Consequence.** Act I is deliberately untouched: it is already the shape the others are
+being pulled toward, and re-sweeping it risks breaking what works. Capacity and starting
+funds were pinned to their current values throughout, because those are the act's power
+tier and changing them is a decision about identity (decision 004), not a tuning knob.

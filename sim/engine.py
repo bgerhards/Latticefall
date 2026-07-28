@@ -10,7 +10,8 @@ The design decision that makes this possible is that power is a scalar over time
 (see docs/DECISIONS.md 003). An anchor resolves without rendering a frame.
 
 What is modelled:
-  - continuous power draw, capacity, and brownout (-40% fire rate across the board)
+  - continuous power draw, capacity, and brownout (a board-wide fire-rate penalty
+    scaled by how far over capacity the bus is — decision 022)
   - enemies that drain the bus while alive (Act II onward)
   - slow fields and reveal coverage, so zero-damage emplacements have a real role
   - armour as flat reduction, shielding as a targeting gate
@@ -28,7 +29,38 @@ from dataclasses import dataclass, field
 from .content import Anchor, Enemy, Tower
 
 DT = 1.0 / 30.0
-BROWNOUT_FIRE_PENALTY = 0.40      # decision 003
+# Brownout is priced by how far over capacity the bus is, not as a flat cliff.
+# Decision 022, superseding the flat 0.40 of decision 003.
+#
+# A flat penalty made the power budget a wall rather than a currency: 2 MW over cost
+# exactly what 40 MW over cost, so "never exceed capacity" was always correct and the
+# mechanic collapsed into a build constraint. LF-014 measured that and found no build,
+# at any difficulty, where overdrawing paid — including a briefly-raised shield wall.
+#
+# The slope is set so that adding one emplacement past capacity lands near break-even:
+# N+1 towers at (1 - k/N) effective output versus N at full rate is a coin-flip at
+# k ~ N/(N+1), and boards in Act I run 5-8 emplacements. It is therefore a judgement
+# call — worth it when the extra gun covers path the others cannot reach — rather than
+# an obvious yes or an obvious no.
+BROWNOUT_SLOPE = 1.5
+BROWNOUT_MAX_PENALTY = 0.70
+
+# Fraction of damage a weapon without "shielded" in its targets still lands on a shielded
+# unit. Shielding is a tax, not a gate — decision 029. At 0.0 the ion lance was the only
+# answer in the game, so every anchor carrying breachers graded unwinnable or
+# single-solution, which is the defect the grader exists to catch.
+SHIELD_LEAK = 0.25
+
+# Act III capacity decay never takes the bus below this fraction of its rated capacity.
+CAPACITY_FLOOR = 0.45
+
+
+def brownout_penalty(load_mw: float, capacity_mw: float) -> float:
+    """Fire-rate penalty in [0, BROWNOUT_MAX_PENALTY]. 0 when at or under capacity."""
+    if capacity_mw <= 0.0 or load_mw <= capacity_mw:
+        return 0.0
+    over = load_mw / capacity_mw - 1.0
+    return min(BROWNOUT_MAX_PENALTY, over * BROWNOUT_SLOPE)
 MAX_SIM_SECONDS = 3600.0
 
 # name -> (enemy hp multiplier, bounty multiplier)
@@ -94,10 +126,23 @@ class Policy:
     winning policy is a puzzle with one answer, which the design treats as a defect.
     """
 
-    def __init__(self, name: str, preference: list[str], allow_overdraw: bool = False):
+    def __init__(self, name: str, preference: list[str], allow_overdraw: bool = False,
+                 caps: dict[str, int] | None = None, reserve: float = 0.0):
         self.name = name
         self.preference = preference
         self.allow_overdraw = allow_overdraw
+        # Fraction of capacity left unbuilt. Act I policies spend the bus to the last
+        # megawatt because nothing else draws on it; from Act II an enemy does, so a
+        # policy with no reserve is browned out from the first sapper and every anchor
+        # in the act grades unwinnable for a reason that is the harness, not the level.
+        # A player leaves headroom; the grader has to be able to express that.
+        self.reserve = reserve
+        # Per-emplacement build limit. Without it a policy that leads with a support
+        # emplacement fills every slot with it — "intel-first" built four scan relays
+        # and no guns, and no policy could express the one sensible board for
+        # anchor-02: a single relay plus turrets. Support towers need a count, not
+        # just a rank, or every anchor from 02 on is ungradeable.
+        self.caps = caps or {}
 
     def rank(self, tower_id: str) -> int:
         return self.preference.index(tower_id) if tower_id in self.preference else 99
@@ -115,9 +160,14 @@ class Sim:
         self.difficulty = difficulty
         self.hp_mult, self.bounty_mult = DIFFICULTIES[difficulty]
 
+        # Tie-broken by id, not by insertion order. Emplacements the policy does not
+        # rank all share rank 99, and Python's stable sort would then hand back
+        # towers.json's file order while the GDScript port hands back alphabetical —
+        # a parity failure that stayed hidden until Act II added three towers whose
+        # file order and alphabetical order finally disagreed.
         self.buildable = sorted(
             (t for t in towers.values() if t.unlocked_at <= anchor.id),
-            key=lambda t: policy.rank(t.id),
+            key=lambda t: (policy.rank(t.id), t.id),
         )
         self.funds = anchor.starting_funds
         self.spend = 0
@@ -131,12 +181,40 @@ class Sim:
         self._load_integral = 0.0
         self._brownout_time = 0.0
         self.peak_load = 0.0
+        # Waves begun. Act III capacity decay is priced off this, not off elapsed time,
+        # so the loss lands on a beat the player can see coming and build against.
+        self.wave_index = 0
+
+    def capacity_now(self) -> float:
+        """Capacity this wave. Fixed in Acts I and II; falls per wave in Act III.
+
+        Floored at CAPACITY_FLOOR of the anchor's rated capacity — a bus that decays to
+        nothing is not a decision, it is a timer, and the act is supposed to be about
+        choosing what fails first."""
+        base = self.a.capacity_mw
+        if self.a.capacity_decay_mw > 0.0:
+            lost = self.a.capacity_decay_mw * self.wave_index
+            base = max(self.a.capacity_mw * CAPACITY_FLOOR, self.a.capacity_mw - lost)
+        # Restorers add capacity back. They are the only thing in the game that does,
+        # and they pay for it with a slot and a draw of their own — decision 031.
+        for p in self.placed:
+            if p.online and p.tower.effect_type == "restore":
+                base += p.tower.effect_value
+        return base
 
     # ───────────────────────────────────────────────────────────── power ──
 
     def bus_load(self) -> float:
         load = sum(p.tower.draw_mw for p in self.placed if p.online)
-        load += sum(u.kind.drains_mw for u in self.units if u.alive)
+        # A drain is suppressed where a damper covers the unit doing it. The damper
+        # spends a fixed draw to deny a variable one, so it pays only on waves that
+        # actually carry drain — which is the whole Act II decision (decision 027).
+        for u in self.units:
+            if not u.alive or u.kind.drains_mw <= 0.0:
+                continue
+            x, y = self.a.point_at(u.dist)
+            damp = min(1.0, self._covered_by("damp", x, y))
+            load += u.kind.drains_mw * (1.0 - damp)
         return load
 
     def _online_draw(self) -> float:
@@ -145,15 +223,21 @@ class Sim:
     # ────────────────────────────────────────────────────────────── build ──
 
     def _slot_priority(self) -> list[tuple[int, int]]:
-        """Slots nearest the path first — a slot covering nothing is worth nothing."""
-        def d(slot):
-            best = 1e9
+        """Slots nearest the path first — a slot covering nothing is worth nothing.
+
+        Ranked by *squared* distance. Every range test in both engines compares squares
+        rather than calling a square root, so the two runtimes do identical IEEE-754
+        double arithmetic instead of comparing a `hypot` against a `sqrt` and disagreeing
+        in the last bit. See decision 030."""
+        def d2(slot):
+            best = 1e18
             steps = max(2, int(self.a.path_length))
             for i in range(steps + 1):
                 px, py = self.a.point_at(self.a.path_length * i / steps)
-                best = min(best, math.hypot(px - slot[0], py - slot[1]))
+                dx, dy = px - slot[0], py - slot[1]
+                best = min(best, dx * dx + dy * dy)
             return best
-        return sorted(self.free_slots, key=lambda s: (d(s), s))
+        return sorted(self.free_slots, key=lambda s: (d2(s), s))
 
     def _try_build(self) -> None:
         """Spend down in preference order while funds and capacity allow."""
@@ -162,8 +246,13 @@ class Sim:
             for tower in self.buildable:
                 if tower.cost > self.funds:
                     continue
+                cap = self.policy.caps.get(tower.id)
+                if cap is not None and sum(1 for p in self.placed
+                                           if p.tower.id == tower.id) >= cap:
+                    continue
                 projected = self._online_draw() + tower.draw_mw
-                if not self.policy.allow_overdraw and projected > self.a.capacity_mw:
+                budget = self.capacity_now() * (1.0 - self.policy.reserve)
+                if not self.policy.allow_overdraw and projected > budget:
                     continue
                 slot = slot_order[0]
                 self.placed.append(Placed(tower=tower, slot=slot))
@@ -178,7 +267,7 @@ class Sim:
         """Under a strict policy, take the least-preferred emplacement offline."""
         if self.policy.allow_overdraw:
             return
-        while self._online_draw() > self.a.capacity_mw:
+        while self._online_draw() > self.capacity_now():
             live = [p for p in self.placed if p.online]
             if not live:
                 return
@@ -193,21 +282,28 @@ class Sim:
         for p in self.placed:
             if not p.online or p.tower.effect_type != effect:
                 continue
-            if math.hypot(p.slot[0] - x, p.slot[1] - y) <= p.tower.range:
+            dx, dy = p.slot[0] - x, p.slot[1] - y
+            if dx * dx + dy * dy <= p.tower.range * p.tower.range:
                 best = max(best, p.tower.effect_value or 1.0)
         return best
 
     def _can_target(self, tower: Tower, u: Unit, revealed: bool) -> bool:
         if u.kind.kind == "air":
             return "air" in tower.targets and revealed
-        if u.kind.shielded:
-            return "shielded" in tower.targets
         return "ground" in tower.targets
+
+    @staticmethod
+    def _shield_scale(tower: Tower, u: Unit) -> float:
+        """Multiplier for shielding. 1.0 unless the unit is shielded and the weapon is
+        not rated for it, in which case it still lands SHIELD_LEAK of its damage."""
+        if u.kind.shielded and "shielded" not in tower.targets:
+            return SHIELD_LEAK
+        return 1.0
 
     # ───────────────────────────────────────────────────────────── tick ──
 
-    def _step(self, brownout: bool) -> None:
-        rate = 1.0 - BROWNOUT_FIRE_PENALTY if brownout else 1.0
+    def _step(self, penalty: float) -> None:
+        rate = 1.0 - penalty
 
         # move
         for u in self.units:
@@ -234,7 +330,8 @@ class Sim:
                 if not u.alive:
                     continue
                 x, y = self.a.point_at(u.dist)
-                if math.hypot(p.slot[0] - x, p.slot[1] - y) > p.tower.range:
+                dx, dy = p.slot[0] - x, p.slot[1] - y
+                if dx * dx + dy * dy > p.tower.range * p.tower.range:
                     continue
                 revealed = u.kind.kind != "air" or self._covered_by("reveal", x, y) > 0
                 if not self._can_target(p.tower, u, revealed):
@@ -250,12 +347,18 @@ class Sim:
                     if u is target or not u.alive:
                         continue
                     ux, uy = self.a.point_at(u.dist)
-                    if math.hypot(ux - tx, uy - ty) <= p.tower.splash:
+                    dx, dy = ux - tx, uy - ty
+                    if dx * dx + dy * dy <= p.tower.splash * p.tower.splash:
                         self._damage(u, p.tower, scale=0.5)
             p.cooldown = p.tower.fire_interval
 
     def _damage(self, u: Unit, tower: Tower, scale: float = 1.0) -> None:
-        u.hp -= max(0.0, tower.damage * scale - u.kind.armour)
+        # Armour first, then the shield tax on what got through. The other order makes
+        # a shielded armoured unit immune rather than expensive — 9 damage taxed to 3.15
+        # never clears 5 armour, so the bulwark could only be killed by the lance and
+        # anchor-14 graded unwinnable at every setting swept.
+        after_armour = max(0.0, tower.damage * scale - u.kind.armour)
+        u.hp -= after_armour * self._shield_scale(tower, u)
         if u.hp <= 0:
             u.alive = False
             self.funds += int(u.kind.bounty * self.bounty_mult)
@@ -267,6 +370,9 @@ class Sim:
         died_on: int | None = None
 
         for wi, wave in enumerate(self.a.waves, start=1):
+            # The bus loses its Act III decay *before* the prep phase, so the player
+            # builds against the capacity this wave will actually run at.
+            self.wave_index = wi - 1
             # prep phase: build, then shed anything that overdraws
             self._try_build()
             self._shed_load()
@@ -315,13 +421,13 @@ class Sim:
 
     def _tick_once(self) -> None:
         load = self.bus_load()
-        brownout = load > self.a.capacity_mw
+        penalty = brownout_penalty(load, self.capacity_now())
         self.peak_load = max(self.peak_load, load)
         self._load_integral += load * DT
-        if brownout:
+        if penalty > 0.0:
             self._brownout_time += DT
         self.t += DT
-        self._step(brownout)
+        self._step(penalty)
 
     def _advance(self, seconds: float) -> None:
         for _ in range(int(seconds / DT)):
@@ -340,12 +446,40 @@ def standard_policies(tower_ids: list[str]) -> list[Policy]:
 
     rest = lambda first: first + [t for t in tower_ids if t not in first]
 
+    # Support emplacements are capped. They deal no damage, so an uncapped preference
+    # for one produces a board with no guns on it — which grades a level as unwinnable
+    # for a reason that has nothing to do with the level.
     out = [
         Policy("cheap-mass",   rest(has("pulse-turret"))),
         Policy("burst",        rest(has("ion-lance") + has("pulse-turret"))),
         Policy("rapid",        rest(has("arc-node") + has("pulse-turret"))),
-        Policy("control",      rest(has("shield-wall") + has("pulse-turret"))),
-        Policy("intel-first",  rest(has("scan-relay") + has("pulse-turret"))),
+        Policy("control",      rest(has("shield-wall") + has("pulse-turret")),
+               caps={"shield-wall": 2, "scan-relay": 1}),
+        Policy("intel-first",  rest(has("scan-relay") + has("pulse-turret")),
+               caps={"scan-relay": 1, "shield-wall": 1}),
+        Policy("screened",     rest(has("scan-relay") + has("pulse-turret")),
+               caps={"scan-relay": 2, "shield-wall": 1}),
         Policy("greedy-overdraw", rest(has("ion-lance") + has("arc-node")), allow_overdraw=True),
+        # Act II. The damper is support, so it needs a cap for the same reason the relay
+        # does — uncapped it fills the board with emplacements that shoot nothing.
+        Policy("suppression", rest(has("anchor-damper") + has("pulse-turret")),
+               caps={"anchor-damper": 2, "scan-relay": 1, "shield-wall": 1},
+               reserve=0.20),
+        Policy("flak-screen", rest(has("flak-array") + has("scan-relay")),
+               caps={"scan-relay": 1, "anchor-damper": 1}, reserve=0.15),
+        Policy("reserved-mass", rest(has("pulse-turret") + has("scan-relay")),
+               caps={"scan-relay": 1, "shield-wall": 1, "anchor-damper": 1},
+               reserve=0.30),
+        # Shielded units are answered only by the lance and (from anchor-13) the mortar,
+        # so a board facing them must lead with one. Without this policy every anchor
+        # carrying breachers grades unwinnable — not because it is, but because the two
+        # lance-leading policies in the set both spend the bus flat and brown out.
+        Policy("anti-armour",
+               rest(has("ion-lance") + has("mortar-emplacement") + has("pulse-turret")),
+               caps={"scan-relay": 1, "anchor-damper": 1}, reserve=0.20),
+        # Act III. Buys capacity back before building into it. Capped at two restorers:
+        # uncapped, a board that only restores capacity has nothing to spend it on.
+        Policy("restore-first", rest(has("restorer") + has("pulse-turret")),
+               caps={"restorer": 2, "scan-relay": 1, "anchor-damper": 1}, reserve=0.10),
     ]
     return out

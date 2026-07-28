@@ -1,3 +1,4 @@
+@tool
 extends Node2D
 ## Playable anchor. Owns an AnchorSim and renders it.
 ##
@@ -5,22 +6,50 @@ extends Node2D
 ## is parity-tested against it on every commit. Nothing in this file may decide a
 ## rule — it drives the clock, draws the result, and turns clicks into calls.
 ##
-## Art is placeholder geometry. Sprites arrive as albedo + glow pairs (decision 007);
-## the glow layer will be modulated by bus load so brownout visibly dims the board.
+## Sprites are albedo + glow pairs (decision 007); the glow child layer is modulated
+## by bus load so a brownout visibly dims the board.
+##
+## `@tool` so the board draws in the editor. Before this, scenes/main.tscn was a bare
+## Node2D that built every node in _ready(), which meant opening the project showed an
+## empty grey viewport and a scene dock with one childless node — the level could not
+## be seen or judged without pressing Run. The editor path reads the anchor JSON and
+## draws tiles, path and slots only; it never constructs a sim, never touches Audio,
+## and never runs the clock.
 
 const AnchorSimScript := preload("res://scripts/anchor_sim.gd")
 const IsoScript := preload("res://scripts/iso.gd")
+const AnchorDataScript := preload("res://scripts/anchor_data.gd")
+const SpritesScript := preload("res://scripts/sprites.gd")
 
 signal state_changed
 signal dialog_trigger(trigger: String)
 signal wave_state(index: int, total: int, phase: String)
 
-@export var anchor_id: String = "anchor-01"
+@export var anchor_id: String = "anchor-01":
+	set(value):
+		anchor_id = value
+		if Engine.is_editor_hint():
+			_editor_refresh()
 @export var difficulty: String = "standard"
+
+
+func _validate_property(property: Dictionary) -> void:
+	## Turn anchor_id into a dropdown of the levels that actually exist, so switching
+	## the previewed anchor in the inspector cannot be misspelled.
+	if property.name == "anchor_id":
+		property.hint = PROPERTY_HINT_ENUM
+		property.hint_string = ",".join(AnchorDataScript.anchor_ids())
+
+const NO_SLOT := Vector2i(-999, -999)
 
 var sim
 var selected_tower: String = ""
-var hovered_slot: Vector2i = Vector2i(-999, -999)
+var hovered_slot: Vector2i = NO_SLOT
+## The emplacement the inspector is pointed at. Distinct from `hovered_slot` on purpose:
+## sell, upgrade and the power toggle used to act on whatever the cursor was over, and
+## reaching those buttons means dragging the cursor off the board and across every tile
+## in between — which silently retargeted them. Decision 035.
+var selected_slot: Vector2i = NO_SLOT
 
 var _accum: float = 0.0
 var _wave_index: int = -1
@@ -31,10 +60,29 @@ var _lead_left: float = 0.0
 var _phase: String = "idle"      # idle | prep | combat | done | lost
 var _fired_triggers: Dictionary = {}
 var _origin: Vector2 = Vector2.ZERO
+var _sim_t: float = 0.0          # total simulated seconds, for reproducibility checks
 var glow_layer: Node2D
 
 
 func _ready() -> void:
+	glow_layer = get_node_or_null("GlowLayer")
+	set_process(false)
+	if Engine.is_editor_hint():
+		# A tool script would otherwise tick and take input inside the editor.
+		set_process_unhandled_input(false)
+		_editor_refresh()
+		return
+	set_process_unhandled_input(true)
+
+
+func boot(aid: String, diff: String) -> void:
+	## Called by main.gd after the CLI has been parsed, not from _ready().
+	##
+	## The scene now authors this node as a child of Main, so _ready() here runs
+	## *before* Main._ready() and therefore before `--anchor` has been read. Doing
+	## setup on an explicit call keeps the CLI able to choose the level.
+	anchor_id = aid
+	difficulty = diff
 	var anchor: Dictionary = Content.anchor(anchor_id)
 	if anchor.is_empty():
 		push_error("anchor_view: no data for %s" % anchor_id)
@@ -42,20 +90,44 @@ func _ready() -> void:
 	sim = AnchorSimScript.new()
 	sim.setup(anchor, Content.towers, Content.enemies, difficulty)
 	sim.brownout_changed.connect(_on_brownout)
-	sim.unit_killed.connect(func(_u): Audio.sfx("warden_death"))
+	sim.unit_killed.connect(_on_unit_killed)
 	sim.unit_leaked.connect(func(_u): Audio.sfx("ui_deny"))
 
 	var unlocked: Array = Content.unlocked_at(anchor_id)
 	selected_tower = String(unlocked[0]) if unlocked.size() > 0 else ""
 
 	_centre()
-	set_process(false)
-	set_process_unhandled_input(true)
+	queue_redraw()
+
+
+func _editor_refresh() -> void:
+	## Editor-only. No sim, no audio, no clock — just re-centre and repaint.
+	if not is_inside_tree():
+		return
+	_centre()
+	queue_redraw()
+	if glow_layer:
+		glow_layer.queue_redraw()
+
+
+var _autobuild := false
 
 
 func autobuild() -> void:
-	## Debug/smoke aid: fill slots the way the 'cheap-mass' policy would, so combat can
-	## be exercised without a human. Never called during normal play.
+	## Debug/smoke aid: build the way the 'cheap-mass' policy would, so combat can be
+	## exercised without a human. Never called during normal play.
+	##
+	## It re-runs at the start of every wave, which is what the grading policies do —
+	## they spend bounty income between waves. Building only once, before wave one, is a
+	## different (and much worse) player: on anchor-01 it can afford three turrets out of
+	## 300 starting funds and loses, while the policy that graded the level buys five
+	## across six waves and clears it with all ten lives. A smoke test that plays a
+	## strictly worse game than the one that was balanced is not evidence of anything.
+	_autobuild = true
+	_autobuild_step()
+
+
+func _autobuild_step() -> void:
 	var unlocked: Array = Content.unlocked_at(anchor_id)
 	while sim.free_slots.size() > 0:
 		var placed_one := false
@@ -80,24 +152,71 @@ func start() -> void:
 	set_process(true)
 
 
+func _anchor_data() -> Dictionary:
+	## The level, whether or not a sim exists. The editor preview has no sim, and no
+	## autoloads either, so it reads the file directly rather than through Content.
+	if sim != null:
+		return sim.anchor
+	if Engine.is_editor_hint():
+		return AnchorDataScript.anchor(anchor_id)
+	return Content.anchor(anchor_id)
+
+
+## One shared library for every previewed board in the editor, built on demand. Static so
+## opening four anchor scenes does not parse the manifest four times.
+static var _editor_lib: Node = null
+
+
+func _sprite_lib() -> Node:
+	## The Sprites autoload when it exists, and a private instance when it does not.
+	##
+	## In the editor the autoload is absent until the project has been reloaded since
+	## sprites.gd became a tool script, which is why the preview used to draw flat-colour
+	## tiles for no visible reason (LF-025). Building one here removes the failure mode
+	## rather than coping with it — the same call anchor_data.gd makes for Content.
+	var lib := get_node_or_null(^"/root/Sprites")
+	if lib != null:
+		return lib
+	if not Engine.is_editor_hint():
+		return null              # at runtime a missing autoload is a real fault, not a case
+	if _editor_lib == null:
+		_editor_lib = SpritesScript.new()
+		_editor_lib.load_library()
+	return _editor_lib
+
+
+func _tex(sprite_name: String, yaw: int, pass_name: String) -> Texture2D:
+	var lib := _sprite_lib()
+	if lib == null or not lib.ok:
+		return null
+	return lib.get_tex(sprite_name, yaw, pass_name)
+
+
 func _centre() -> void:
 	## Centre the board so the whole diamond fits the viewport.
-	var grid: Dictionary = Content.anchor(anchor_id).get("grid", {"w": 12, "h": 10})
+	var grid: Dictionary = _anchor_data().get("grid", {"w": 12, "h": 10})
 	var w: int = int(grid["w"])
 	var h: int = int(grid["h"])
-	var vp := get_viewport_rect().size
 	var mid := IsoScript.tile_to_screen(float(w) * 0.5, float(h) * 0.5)
+	if Engine.is_editor_hint():
+		# There is no game viewport while editing, and get_viewport_rect() would
+		# return the editor's. Hang the board off this node's own origin instead,
+		# so it is centred on wherever the node sits in the scene.
+		_origin = -mid
+		return
+	var vp := get_viewport_rect().size
 	_origin = Vector2(vp.x * 0.5, vp.y * 0.42) - mid
 
 
 # ─────────────────────────────────────────────────────────────── clock ──
 
 func _process(delta: float) -> void:
-	if _phase in ["done", "lost"]:
+	if sim == null or _phase in ["done", "lost"]:
 		return
 	_accum += minf(delta, 0.25)      # clamp so a stall cannot fast-forward the level
 	while _accum >= AnchorSimScript.DT:
 		_accum -= AnchorSimScript.DT
+		_sim_t += AnchorSimScript.DT
 		_advance()
 	queue_redraw()
 
@@ -139,12 +258,24 @@ func _advance() -> void:
 
 func _begin_wave(index: int) -> void:
 	_wave_index = index
+	sim.begin_wave(index)          # Act III: the bus loses its decay before the prep phase
+	if _autobuild:
+		_autobuild_step()
 	_queue = sim.wave_queue(index)
 	_qi = 0
 	_wave_t = 0.0
 	_lead_left = float(sim.anchor["waves"][index].get("lead_in", 20.0))
 	_phase = "prep"
 	wave_state.emit(index + 1, sim.anchor["waves"].size(), _phase)
+
+
+func _on_unit_killed(u: Dictionary) -> void:
+	## Debris only under the big ones. Every construct dying in a cloud of rubble turns a
+	## wave of drones into gravel; reserving it for heavies makes it read as mass rather
+	## than as a death sound, and keeps it out of the way when six things die at once.
+	Audio.sfx("warden_death")
+	if float(u["kind"].get("hp", 0.0)) >= 150.0:
+		Audio.sfx("debris_settle", -5.0)
 
 
 func _on_brownout(active: bool) -> void:
@@ -174,23 +305,149 @@ func _unhandled_input(event: InputEvent) -> void:
 		if event.button_index == MOUSE_BUTTON_LEFT:
 			_click(hovered_slot)
 		elif event.button_index == MOUSE_BUTTON_RIGHT:
-			_toggle(hovered_slot)
+			toggle_at(hovered_slot)
+	else:
+		_action_input(event)
+
+
+func _action_input(event: InputEvent) -> void:
+	## Everything the mouse can do, without a mouse. LF-010.
+	##
+	## The cursor moves between *slots* rather than sweeping pixels: a virtual pointer on a
+	## stick is slow and imprecise, and the only tiles that can be acted on are the slots
+	## anyway. Directions are judged in screen space, because the player is looking at an
+	## isometric projection and "up" has to mean up on the screen, not -y in tile space.
+	if event.is_action_pressed("lf_up"):
+		_step_cursor(Vector2(0, -1))
+	elif event.is_action_pressed("lf_down"):
+		_step_cursor(Vector2(0, 1))
+	elif event.is_action_pressed("lf_left"):
+		_step_cursor(Vector2(-1, 0))
+	elif event.is_action_pressed("lf_right"):
+		_step_cursor(Vector2(1, 0))
+	elif event.is_action_pressed("lf_build"):
+		_click(hovered_slot)
+	elif event.is_action_pressed("lf_sell"):
+		sell_at(selected_slot)
+	elif event.is_action_pressed("lf_upgrade"):
+		upgrade_at(selected_slot)
+	elif event.is_action_pressed("lf_power"):
+		toggle_at(selected_slot)
+	elif event.is_action_pressed("lf_next"):
+		_cycle_tower(1)
+	elif event.is_action_pressed("lf_prev"):
+		_cycle_tower(-1)
+
+
+func _slot_screen(slot: Vector2i) -> Vector2:
+	return IsoScript.tile_to_screen(float(slot.x), float(slot.y))
+
+
+func _step_cursor(dir: Vector2) -> void:
+	## Nearest slot in `dir`, preferring straight ahead over far to the side. Weighting the
+	## across-axis distance is what stops a press of "right" jumping to something almost
+	## directly below simply because it happens to be closer.
+	var slots: Array = sim.anchor["slots"]
+	if slots.is_empty():
+		return
+	var all: Array[Vector2i] = []
+	for s in slots:
+		all.append(Vector2i(int(s[0]), int(s[1])))
+	if not all.has(hovered_slot):
+		hovered_slot = all[0]              # first press with no cursor lands somewhere real
+		queue_redraw()
+		return
+	var from := _slot_screen(hovered_slot)
+	var perp := Vector2(-dir.y, dir.x)
+	var best := hovered_slot
+	var best_score := INF
+	for cand in all:
+		if cand == hovered_slot:
+			continue
+		var d := _slot_screen(cand) - from
+		var along := d.dot(dir)
+		if along <= 0.0:
+			continue                       # behind the cursor
+		var score := along + absf(d.dot(perp)) * 2.0
+		if score < best_score:
+			best_score = score
+			best = cand
+	if best != hovered_slot:
+		hovered_slot = best
+		Audio.sfx("ui_hover", -12.0)
+		queue_redraw()
+
+
+func _cycle_tower(step: int) -> void:
+	var unlocked: Array = Content.unlocked_at(anchor_id)
+	if unlocked.is_empty():
+		return
+	var i := unlocked.find(selected_tower)
+	select(String(unlocked[wrapi(i + step, 0, unlocked.size())]))
+	state_changed.emit()
+
+
+func placed_index_at(slot: Vector2i) -> int:
+	for i in range(sim.placed.size()):
+		if sim.placed[i]["slot"] == slot:
+			return i
+	return -1
+
+
+func sell_at(slot: Vector2i) -> void:
+	var i := placed_index_at(slot)
+	if i < 0:
+		Audio.sfx("ui_deny")
+		return
+	sim.sell(i)
+	if selected_slot == slot:
+		selected_slot = NO_SLOT      # the inspector was pointed at something that is gone
+	Audio.sfx("ui_sell")
+	state_changed.emit()
+	queue_redraw()
+
+
+func upgrade_at(slot: Vector2i) -> void:
+	var i := placed_index_at(slot)
+	if i < 0 or not sim.upgrade(i):
+		Audio.sfx("ui_deny")
+		return
+	Audio.sfx("ui_upgrade")
+	Audio.sfx("power_online")
+	state_changed.emit()
+	queue_redraw()
 
 
 func _click(slot: Vector2i) -> void:
-	if selected_tower == "" or not sim.free_slots.has(slot):
-		Audio.sfx("ui_deny")
+	## One click, three outcomes, in this order: point the inspector at an emplacement that
+	## is already there, build on a free slot, or put the inspector down. Selecting is
+	## checked first because a built slot is never a free slot, so the two can never race.
+	if placed_index_at(slot) >= 0:
+		selected_slot = slot
+		Audio.sfx("ui_click")
+		state_changed.emit()
+		queue_redraw()
 		return
-	if not sim.can_afford(selected_tower):
+	if not sim.free_slots.has(slot):
+		# Bare ground. Deselecting is a deliberate act, not a failed one — no deny cue.
+		selected_slot = NO_SLOT
+		state_changed.emit()
+		queue_redraw()
+		return
+	if selected_tower == "" or not sim.can_afford(selected_tower):
 		Audio.sfx("ui_deny")
 		return
 	if sim.build_at(selected_tower, slot):
+		selected_slot = slot         # inspect and upgrade what was just built, without a hunt
 		Audio.sfx("place_emplacement")
 		Audio.sfx("power_online")
 		state_changed.emit()
+		queue_redraw()
 
 
-func _toggle(slot: Vector2i) -> void:
+func toggle_at(slot: Vector2i) -> void:
+	## Shed an emplacement's load without losing it. Right-click does this where the cursor
+	## is; the inspector does it to the selection.
 	for i in range(sim.placed.size()):
 		if sim.placed[i]["slot"] == slot:
 			var now: bool = not sim.placed[i]["online"]
@@ -202,8 +459,15 @@ func _toggle(slot: Vector2i) -> void:
 
 
 func select(tower_id: String) -> void:
+	## Arming something to build puts the board selection down. The inspector can only
+	## describe one emplacement, and picking from the build bar is the player asking about
+	## the one they just picked — leaving the board selection up left the panel describing a
+	## turret on the board while the bar highlighted a different one the player was reading
+	## about, which is the panel answering a question nobody asked.
 	selected_tower = tower_id
+	selected_slot = NO_SLOT
 	Audio.sfx("ui_click")
+	queue_redraw()
 
 
 # ──────────────────────────────────────────────────────────────── draw ──
@@ -215,6 +479,8 @@ const C_SLOT := Color(0.20, 0.34, 0.31)
 const C_VERD := Color(0.37, 0.66, 0.58)
 const C_AMBER := Color(0.91, 0.64, 0.24)
 const C_ALERT := Color(0.82, 0.33, 0.25)
+const C_SHADOW := Color(0.0, 0.0, 0.0, 0.34)
+const C_BONE := Color(0.86, 0.89, 0.88)
 
 
 func drawables() -> Array:
@@ -249,11 +515,24 @@ func drawables() -> Array:
 
 
 func _draw() -> void:
-	if sim == null:
+	var anchor: Dictionary = _anchor_data()
+	if anchor.is_empty():
 		return
-	var anchor: Dictionary = sim.anchor
+	_draw_board(anchor)
+	if sim == null:
+		_draw_editor_overlay(anchor)     # no sim means we are previewing, not playing
+		return
+	_draw_reach()
+	_draw_hover()
+	_draw_entities()
+	_draw_selection()
+
+
+func _draw_board(anchor: Dictionary) -> void:
+	## The static level: ground, path and slot tiles. Shared by the running game and
+	## the editor preview so the two can never disagree about what a level looks like.
 	var grid: Dictionary = anchor["grid"]
-	var path_tiles := _path_tiles()
+	var path_tiles := _path_tiles(anchor)
 
 	var slot_set := {}
 	for slot in anchor["slots"]:
@@ -272,9 +551,9 @@ func _draw() -> void:
 				kind = "tile_path"
 			elif slot_set.has(cell):
 				kind = "tile_slot"
-			var tex: Texture2D = Sprites.get_tex(kind, 45, "albedo") if Sprites.ok else null
+			var tex: Texture2D = _tex(kind, 45, "albedo")
 			if tex != null:
-				draw_texture(tex, c - Sprites.pivot)
+				draw_texture(tex, c - _sprite_lib().pivot)
 			else:
 				var col := C_TILE if (x + y) % 2 == 0 else C_TILE_ALT
 				if path_tiles.has(cell):
@@ -283,25 +562,140 @@ func _draw() -> void:
 					col = C_SLOT
 				draw_colored_polygon(IsoScript.diamond(c, 0.98), col)
 
-	if slot_set.has(hovered_slot) and sim.free_slots.has(hovered_slot):
-		var hc := IsoScript.tile_to_screen(float(hovered_slot.x), float(hovered_slot.y)) + _origin
-		var ring := IsoScript.diamond(hc, 0.92)
-		draw_polyline(ring + PackedVector2Array([ring[0]]), C_AMBER, 2.0)
 
+func _draw_hover() -> void:
+	var anchor: Dictionary = sim.anchor
+	var is_slot := false
+	for slot in anchor["slots"]:
+		if Vector2i(int(slot[0]), int(slot[1])) == hovered_slot:
+			is_slot = true
+			break
+	if not is_slot or not sim.free_slots.has(hovered_slot):
+		return
+	var hc := IsoScript.tile_to_screen(float(hovered_slot.x), float(hovered_slot.y)) + _origin
+	var ring := IsoScript.diamond(hc, 0.92)
+	draw_polyline(ring + PackedVector2Array([ring[0]]), C_AMBER, 2.0)
+
+
+func _draw_reach() -> void:
+	## Range, drawn on the ground, because "3.2 tiles" in the inspector does not answer the
+	## only question that matters: does this gun cover that corner. Bone is what the selected
+	## emplacement covers now — red if it is offline and covering nothing. Amber is what the
+	## armed emplacement in the build bar *would* cover if it were built on the hovered slot.
+	var i := placed_index_at(selected_slot)
+	if i >= 0:
+		var p: Dictionary = sim.placed[i]
+		_draw_range(Vector2(selected_slot), float(p["tower"]["range"]),
+				Color(C_BONE if p["online"] else C_ALERT, 0.5))
+	if selected_tower != "" and sim.free_slots.has(hovered_slot) and hovered_slot != selected_slot:
+		var tw: Dictionary = Content.tower(selected_tower)
+		if not tw.is_empty():
+			_draw_range(Vector2(hovered_slot), float(tw["range"]), Color(C_AMBER, 0.4))
+
+
+func _draw_selection() -> void:
+	## Drawn after the sprites, unlike the hover ring: the emplacement stands on its own
+	## tile and covers most of it, so a ring drawn on the ground under a 256px sprite is
+	## four white specks around its base and reads as nothing at all.
+	if placed_index_at(selected_slot) < 0:
+		return
+	var c := IsoScript.tile_to_screen(float(selected_slot.x), float(selected_slot.y)) + _origin
+	var ring := IsoScript.diamond(c, 1.0)
+	draw_polyline(ring + PackedVector2Array([ring[0]]), Color(C_BONE, 0.85), 2.0)
+	# Corner ticks, so the selection is legible against a bright tile as well as a dark one.
+	for corner in ring:
+		draw_circle(corner, 3.0, C_BONE)
+
+
+func _draw_range(centre: Vector2, r: float, col: Color) -> void:
+	## The rules compare distance in *tile* space (decision 030), so reach is a circle there
+	## and a 2:1 ellipse once projected — the same ratio as the tile, for the same reason.
+	## Sampling the tile-space circle and projecting each point draws exactly the set the
+	## weapon can reach, and stays correct if the projection ever changes.
+	const SEGMENTS := 48
+	var pts := PackedVector2Array()
+	for i in range(SEGMENTS):
+		var a := TAU * float(i) / float(SEGMENTS)
+		pts.append(IsoScript.tile_to_screen(centre.x + cos(a) * r, centre.y + sin(a) * r) + _origin)
+	pts.append(pts[0])
+	draw_polyline(pts, col, 2.0)
+
+
+func _draw_contact_shadow(at: Vector2, radius: float) -> void:
+	## Without this a sprite reads as floating over the board rather than standing on
+	## it (LF-024). Drawn in engine rather than baked into the sprite: a baked shadow
+	## would be part of the albedo silhouette and could not sit under the *neighbouring*
+	## tile, which is exactly where a contact shadow has to fall. The ellipse is 2:1
+	## because the tile is (decision 017).
+	var pts := PackedVector2Array()
+	for i in range(16):
+		var a := TAU * float(i) / 16.0
+		pts.append(at + Vector2(cos(a) * radius, sin(a) * radius * 0.5))
+	draw_colored_polygon(pts, C_SHADOW)
+
+
+func _draw_entities() -> void:
 	var dim: float = 0.6 if sim.brownout else 1.0
+	# Every shadow first, so a nearer sprite's shadow cannot land on top of a farther
+	# sprite that has already been drawn.
 	for d in drawables():
-		var tex: Texture2D = Sprites.get_tex(d["sprite"], d["yaw"], "albedo") if Sprites.ok else null
+		_draw_contact_shadow(d["at"], 27.0 if d["kind"] == "tower" else 15.0)
+	for d in drawables():
+		var tex: Texture2D = _tex(d["sprite"], d["yaw"], "albedo")
 		if tex != null:
 			var tint := Color(1, 1, 1)
 			if d["kind"] == "tower" and not d["online"]:
 				tint = Color(0.45, 0.48, 0.5)      # offline reads as cold, not just unlit
-			draw_texture(tex, d["at"] - Sprites.pivot, tint)
+			draw_texture(tex, d["at"] - _sprite_lib().pivot, tint)
 			if d["kind"] == "unit":
 				_draw_health(d["ref"], d["at"])
 		elif d["kind"] == "tower":
 			_draw_tower(d["ref"], dim)
 		else:
 			_draw_unit(d["ref"])
+
+
+func _draw_editor_overlay(anchor: Dictionary) -> void:
+	## Authoring aid, editor only. Shows the things a level is actually made of —
+	## where units enter and leave, which way the path runs, and which tiles are
+	## buildable — so an anchor can be judged without running it.
+	var pts: Array = anchor.get("path", [])
+	if pts.size() >= 2:
+		var line := PackedVector2Array()
+		for p in pts:
+			line.append(IsoScript.tile_to_screen(float(p[0]), float(p[1])) + _origin)
+		draw_polyline(line, Color(C_AMBER, 0.55), 3.0)
+		for i in range(pts.size() - 1):
+			_draw_arrow(line[i], line[i + 1])
+		_draw_marker(line[0], C_VERD, "IN")
+		_draw_marker(line[line.size() - 1], C_ALERT, "OUT")
+
+	for i in range(anchor.get("slots", []).size()):
+		var slot: Array = anchor["slots"][i]
+		var c := IsoScript.tile_to_screen(float(slot[0]), float(slot[1])) + _origin
+		var ring := IsoScript.diamond(c, 0.88)
+		draw_polyline(ring + PackedVector2Array([ring[0]]), Color(C_VERD, 0.9), 2.0)
+		_label(c + Vector2(0, 4), str(i + 1), Color(C_VERD, 0.9))
+
+
+func _draw_arrow(a: Vector2, b: Vector2) -> void:
+	var mid := (a + b) * 0.5
+	var dir := (b - a).normalized()
+	var perp := Vector2(-dir.y, dir.x)
+	draw_colored_polygon(PackedVector2Array([
+		mid + dir * 9.0, mid - dir * 5.0 + perp * 5.0, mid - dir * 5.0 - perp * 5.0,
+	]), Color(C_AMBER, 0.85))
+
+
+func _draw_marker(c: Vector2, col: Color, text: String) -> void:
+	draw_circle(c, 9.0, Color(col, 0.85))
+	_label(c + Vector2(0, -16), text, col)
+
+
+func _label(c: Vector2, text: String, col: Color) -> void:
+	var font := ThemeDB.fallback_font
+	var w := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x
+	draw_string(font, c - Vector2(w * 0.5, 0), text, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, col)
 
 
 func _draw_tower(p: Dictionary, dim: float) -> void:
@@ -339,9 +733,9 @@ func _draw_unit(u: Dictionary) -> void:
 	draw_rect(Rect2(c + Vector2(-10, -24), Vector2(20.0 * frac, 3)), C_VERD)
 
 
-func _path_tiles() -> Dictionary:
+func _path_tiles(anchor: Dictionary) -> Dictionary:
 	var out := {}
-	var pts: Array = sim.anchor["path"]
+	var pts: Array = anchor["path"]
 	for i in range(pts.size() - 1):
 		var a := Vector2i(int(pts[i][0]), int(pts[i][1]))
 		var b := Vector2i(int(pts[i + 1][0]), int(pts[i + 1][1]))
@@ -360,3 +754,14 @@ func phase() -> String:
 
 func wave_number() -> int:
 	return _wave_index + 1
+
+
+func lead_left() -> float:
+	## Seconds of prep remaining before the current wave spawns. The clock was already
+	## running and only the sim could see it, so a player in prep had no idea whether they
+	## had twenty seconds to spend a bounty or two.
+	return maxf(_lead_left, 0.0)
+
+
+func sim_time() -> float:
+	return _sim_t

@@ -12,7 +12,7 @@ dest_files=["res://.godot/imported/TTL-01_latticefall.ogg-345c04ff30ec4fd05fcfe0
 
 [params]
 
-loop=false
+loop=true
 loop_offset=0
 bpm=0
 beat_count=0

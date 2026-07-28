@@ -1,0 +1,68 @@
+{
+  "schema": "dialog",
+  "anchor": "anchor-11",
+  "lines": [
+    { "trigger": "brief", "speaker": "control",
+      "text": "Anchor twenty-six. A hundred and forty-two megawatts. Sable Reach requested a channel before you arrived. Meridian Actual has authorised you to take it." },
+    { "trigger": "brief", "speaker": "vasquez",
+      "text": "Authorised. Not ordered." },
+    { "trigger": "brief", "speaker": "control",
+      "text": "Correct." },
+    { "trigger": "brief", "speaker": "ferrar",
+      "text": "Yolanda. May I? — Two things, and one of them is true whether or not you like me. The Ordinal did not lose a war here." },
+    { "trigger": "brief", "speaker": "okonkwo",
+      "text": "Go on." },
+    { "trigger": "brief", "speaker": "ferrar",
+      "text": "They wrote the order, they lit sixty-one anchors, and they stayed at the posts. You've read it. You know it isn't a defence order." },
+    { "trigger": "brief", "speaker": "okonkwo",
+      "text": "How do you have the order.",
+      "beat": "not a question — Okonkwo already knows the only ways he could" },
+    { "trigger": "brief", "speaker": "ferrar",
+      "text": "Second thing. My crews come through in twenty minutes either way. I'd rather they walked past you than through you." },
+
+    { "trigger": "wave-start:1", "speaker": "vasquez",
+      "text": "Twenty minutes was generous of him." },
+
+    { "trigger": "wave-clear:2", "speaker": "okonkwo", "critical": false,
+      "text": "Their heavies are screened. Anything not rated for it is landing a quarter of what it should." },
+    { "trigger": "wave-clear:2", "speaker": "vasquez", "critical": false,
+      "text": "A quarter still kills." },
+    { "trigger": "wave-clear:2", "speaker": "okonkwo", "critical": false,
+      "text": "Eventually. The lance does it now." },
+
+    { "trigger": "wave-clear:4", "speaker": "ferrar", "critical": false,
+      "text": "You're holding well. I want you to understand that I'd have taken you at anchor nineteen if I'd wanted a fight." },
+    { "trigger": "wave-clear:4", "speaker": "vasquez", "critical": false,
+      "text": "And this is what?" },
+    { "trigger": "wave-clear:4", "speaker": "ferrar", "critical": false,
+      "text": "A demonstration. For a third party. I'm sorry about that part." },
+
+    { "trigger": "wave-clear:6", "speaker": "okonkwo", "critical": false,
+      "text": "Vasquez. He's routing his people past the seam, not at the ring. They aren't trying to take the anchor." },
+    { "trigger": "wave-clear:6", "speaker": "vasquez", "critical": false,
+      "text": "Then what are we losing men to?" },
+    { "trigger": "wave-clear:6", "speaker": "okonkwo", "critical": false,
+      "text": "An invoice, I think." },
+
+    { "trigger": "brownout", "speaker": "okonkwo", "critical": false,
+      "text": "Over capacity. He can hear that, by the way — the whole ring drops a tone." },
+
+    { "trigger": "first-leak", "speaker": "control", "critical": false,
+      "text": "One through. No transit — it walked past the ring." },
+
+    { "trigger": "low-lives", "speaker": "vasquez", "critical": false,
+      "text": "Everything on the ring. Let the rest of it walk." },
+
+    { "trigger": "debrief", "speaker": "ferrar",
+      "text": "Thank you, Captain. That was exactly the number I needed." },
+    { "trigger": "debrief", "speaker": "vasquez",
+      "text": "What number." },
+    { "trigger": "debrief", "speaker": "ferrar",
+      "text": "What it costs to hold one of these against a serious effort. Somebody's buying that answer.",
+      "beat": "the level was a measurement, and Meridian was the instrument" },
+    { "trigger": "debrief", "speaker": "okonkwo",
+      "text": "Control, log the whole channel. Every word he said about the order was accurate." },
+    { "trigger": "debrief", "speaker": "control",
+      "text": "Logged. That is noted with concern." }
+  ]
+}

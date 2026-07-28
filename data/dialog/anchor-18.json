@@ -1,0 +1,57 @@
+{
+  "schema": "dialog",
+  "anchor": "anchor-18",
+  "lines": [
+    { "trigger": "brief", "speaker": "control",
+      "text": "Two hundred megawatts. Okonkwo has requested the brief. Actual has approved it." },
+    { "trigger": "brief", "speaker": "okonkwo",
+      "text": "I finished the order. All of it, not the operative clauses. I want to say it once before the shooting starts because I will not want to say it afterwards." },
+    { "trigger": "brief", "speaker": "vasquez",
+      "text": "Go." },
+    { "trigger": "brief", "speaker": "okonkwo",
+      "text": "The Ordinal were not losing. Sixty-one anchors, full capacity, no casualties in the record. They had the network and they had the power and they had time." },
+    { "trigger": "brief", "speaker": "okonkwo",
+      "text": "They calculated that the only way to contain it was to hold every anchor powered, permanently, with nobody leaving. So they did that. Until there was nobody left to do it." },
+    { "trigger": "brief", "speaker": "vasquez",
+      "text": "They chose it." },
+    { "trigger": "brief", "speaker": "okonkwo",
+      "text": "It's an arithmetic document, Vasquez. There isn't a sentence of grief in it. They worked out what holding cost and they paid it in order.",
+      "beat": "the act's central reveal, delivered as a filing summary" },
+
+    { "trigger": "wave-start:1", "speaker": "control",
+      "text": "Contact." },
+
+    { "trigger": "wave-clear:3", "speaker": "vasquez", "critical": false,
+      "text": "Sixty-one anchors." },
+    { "trigger": "wave-clear:3", "speaker": "okonkwo", "critical": false,
+      "text": "Sixty-one. I know what you're going to say and I would rather you didn't yet." },
+
+    { "trigger": "wave-clear:5", "speaker": "control", "critical": false,
+      "text": "Field lead, your capacity trend is on Actual's board and they are asking whether the reactor is faulty." },
+    { "trigger": "wave-clear:5", "speaker": "okonkwo", "critical": false,
+      "text": "Tell them the reactor is in excellent condition and something is drinking out of it." },
+
+    { "trigger": "wave-clear:7", "speaker": "vasquez", "critical": false,
+      "text": "How long could they hold one? With everything working." },
+    { "trigger": "wave-clear:7", "speaker": "okonkwo", "critical": false,
+      "text": "Indefinitely. That was the point. It's us who have a clock." },
+
+    { "trigger": "brownout", "speaker": "okonkwo", "critical": false,
+      "text": "The ceiling moved again. This is what the order is about — it isn't a war, it's an overdraft." },
+
+    { "trigger": "first-leak", "speaker": "control", "critical": false,
+      "text": "One through." },
+
+    { "trigger": "low-lives", "speaker": "vasquez", "critical": false,
+      "text": "Everything on the ring." },
+
+    { "trigger": "debrief", "speaker": "control",
+      "text": "Anchor is held." },
+    { "trigger": "debrief", "speaker": "vasquez",
+      "text": "Okonkwo. File the full translation to Actual. Every clause." },
+    { "trigger": "debrief", "speaker": "okonkwo",
+      "text": "They'll classify it." },
+    { "trigger": "debrief", "speaker": "vasquez",
+      "text": "File it anyway. I want it to exist somewhere that isn't your head." }
+  ]
+}

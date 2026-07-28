@@ -1,0 +1,57 @@
+{
+  "schema": "dialog",
+  "anchor": "anchor-19",
+  "lines": [
+    { "trigger": "brief", "speaker": "control",
+      "text": "Two hundred and ten megawatts. Task Force Meridian personnel currently deployed: sixty-one." },
+    { "trigger": "brief", "speaker": "vasquez",
+      "text": "Say that number again, Control." },
+    { "trigger": "brief", "speaker": "control",
+      "text": "Sixty-one. That figure includes the four we lost at thirty-four and their replacements." },
+    { "trigger": "brief", "speaker": "okonkwo",
+      "text": "It's a coincidence." },
+    { "trigger": "brief", "speaker": "vasquez",
+      "text": "I didn't ask." },
+    { "trigger": "brief", "speaker": "okonkwo",
+      "text": "I'm aware. It's still a coincidence.",
+      "beat": "he says it twice across the level, unprompted both times" },
+
+    { "trigger": "wave-start:1", "speaker": "control",
+      "text": "Contact on the low lane." },
+
+    { "trigger": "wave-clear:2", "speaker": "okonkwo", "critical": false,
+      "text": "Sixty-one sigils, sixty-one anchors. It's a base. It's how they counted. You'd expect it everywhere in their work and it is." },
+
+    { "trigger": "wave-clear:4", "speaker": "vasquez", "critical": false,
+      "text": "How many of us were there when we shipped?" },
+    { "trigger": "wave-clear:4", "speaker": "control", "critical": false,
+      "text": "Sixty-one, Captain." },
+    { "trigger": "wave-clear:4", "speaker": "vasquez", "critical": false,
+      "text": "Who set that number?" },
+    { "trigger": "wave-clear:4", "speaker": "control", "critical": false,
+      "text": "The tasking office." },
+
+    { "trigger": "wave-clear:6", "speaker": "okonkwo", "critical": false,
+      "text": "The tasking office that signed Ferrar's contract." },
+    { "trigger": "wave-clear:6", "speaker": "vasquez", "critical": false,
+      "text": "Still a coincidence?" },
+    { "trigger": "wave-clear:6", "speaker": "okonkwo", "critical": false,
+      "text": "It's a coincidence." },
+
+    { "trigger": "brownout", "speaker": "okonkwo", "critical": false,
+      "text": "Over capacity. Same eight a wave, like it's reading off a schedule." },
+
+    { "trigger": "first-leak", "speaker": "control", "critical": false,
+      "text": "One through. Sixty-one holding." },
+
+    { "trigger": "low-lives", "speaker": "vasquez", "critical": false,
+      "text": "Ring first. Always the ring." },
+
+    { "trigger": "debrief", "speaker": "control",
+      "text": "Anchor is held. No losses." },
+    { "trigger": "debrief", "speaker": "vasquez",
+      "text": "Sixty-one." },
+    { "trigger": "debrief", "speaker": "control",
+      "text": "Sixty-one, Captain." }
+  ]
+}

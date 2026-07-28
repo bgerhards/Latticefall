@@ -1,5 +1,5 @@
 {
-  "next_id": 25,
+  "next_id": 45,
   "items": [
     {
       "id": "LF-001",
@@ -43,11 +43,11 @@
       "kind": "feature",
       "area": "art",
       "pri": "high",
-      "status": "open",
+      "status": "done",
       "why": "",
       "opened": "2026-07-26",
-      "closed": null,
-      "note": ""
+      "closed": "2026-07-27",
+      "note": "Fixed-grid atlas, one page per pass, 192 loose textures -> 2. 8.7 MB -> 4.0 MB. sprites.gd serves AtlasTexture regions and still falls back to loose files when unpacked. Gate check 'sprite atlas' hashes every render and fails on a stale page \u2014 verified by perturbing one pixel. Decision 039."
     },
     {
       "id": "LF-005",
@@ -55,11 +55,11 @@
       "kind": "chore",
       "area": "audio",
       "pri": "med",
-      "status": "open",
+      "status": "done",
       "why": "Synthesis cannot fake footsteps, debris, weather, voices.",
       "opened": "2026-07-26",
-      "closed": null,
-      "note": ""
+      "closed": "2026-07-27",
+      "note": "11 of 12 promoted. CC0-only confirmed as decision 038; twelve cues enumerated in fetch_cc0.py; 26 candidates sourced, licence-verified and auditioned by the owner (12 keep, 14 drop); promoted by promote_cc0.py with cuts baked into the assets, RMS-matched per decision 010, and logged in SOURCES.md with URL/author/licence/SHA-256. comms_squelch and comms_close are wired into dialog. debris_settle found no candidate and continues as LF-043."
     },
     {
       "id": "LF-006",
@@ -67,10 +67,10 @@
       "kind": "feature",
       "area": "story",
       "pri": "high",
-      "status": "open",
+      "status": "dropped",
       "why": "Nomenclature bible now exists, so writing is unblocked.",
       "opened": "2026-07-26",
-      "closed": null,
+      "closed": "2026-07-27",
       "note": ""
     },
     {
@@ -79,11 +79,11 @@
       "kind": "chore",
       "area": "audio",
       "pri": "med",
-      "status": "open",
+      "status": "done",
       "why": "",
       "opened": "2026-07-26",
-      "closed": null,
-      "note": ""
+      "closed": "2026-07-27",
+      "note": "closed at 8c05a5c"
     },
     {
       "id": "LF-008",
@@ -91,11 +91,11 @@
       "kind": "chore",
       "area": "build",
       "pri": "med",
-      "status": "open",
+      "status": "done",
       "why": "OFL, redistributable. UI depends on it.",
       "opened": "2026-07-26",
-      "closed": null,
-      "note": ""
+      "closed": "2026-07-27",
+      "note": "closed at 8c05a5c"
     },
     {
       "id": "LF-009",
@@ -103,11 +103,11 @@
       "kind": "feature",
       "area": "engine",
       "pri": "med",
-      "status": "open",
+      "status": "done",
       "why": "",
       "opened": "2026-07-26",
-      "closed": null,
-      "note": ""
+      "closed": "2026-07-27",
+      "note": "closed at 8c05a5c"
     },
     {
       "id": "LF-010",
@@ -115,11 +115,11 @@
       "kind": "feature",
       "area": "engine",
       "pri": "low",
-      "status": "open",
+      "status": "done",
       "why": "",
       "opened": "2026-07-26",
-      "closed": null,
-      "note": ""
+      "closed": "2026-07-27",
+      "note": "Thirteen lf_* actions bound to keyboard and gamepad together, generated idempotently by tools/godot/setup_input.gd rather than hand-written into project.godot. Board cursor steps slot to slot, scored in screen space. Dialog consumes lf_confirm so one gamepad button does not both advance a line and build. Verified by screenshot with --cursor. Decision 042."
     },
     {
       "id": "LF-011",
@@ -163,11 +163,11 @@
       "kind": "question",
       "area": "design",
       "pri": "high",
-      "status": "open",
+      "status": "done",
       "why": "N towers at 60% fire rate = 0.6N effective; with a slot-limited board that is always worse than running capacity/draw at full rate. Brownout only becomes a tradeoff with heterogeneous draws (e.g. briefly raising a 40MW shield wall). Verify this holds once anchor-04 unlocks shield-wall.",
       "opened": "2026-07-26",
-      "closed": null,
-      "note": ""
+      "closed": "2026-07-27",
+      "note": "closed at 8cbe408"
     },
     {
       "id": "LF-015",
@@ -175,11 +175,11 @@
       "kind": "chore",
       "area": "design",
       "pri": "med",
-      "status": "open",
+      "status": "done",
       "why": "Only anchor-01 has been graded. brutal=1.55 was tuned against one level.",
       "opened": "2026-07-26",
-      "closed": null,
-      "note": ""
+      "closed": "2026-07-27",
+      "note": "closed at c048141"
     },
     {
       "id": "LF-016",
@@ -199,11 +199,11 @@
       "kind": "feature",
       "area": "engine",
       "pri": "high",
-      "status": "open",
+      "status": "done",
       "why": "",
       "opened": "2026-07-26",
-      "closed": null,
-      "note": ""
+      "closed": "2026-07-27",
+      "note": "closed at 8c05a5c"
     },
     {
       "id": "LF-018",
@@ -211,11 +211,11 @@
       "kind": "risk",
       "area": "tooling",
       "pri": "low",
-      "status": "open",
+      "status": "dropped",
       "why": "A wall-clock screenshot showed 'prep' 15s after combat should have started. Same class of bug as rAF freezing in a background browser tab.",
       "opened": "2026-07-26",
-      "closed": null,
-      "note": ""
+      "closed": "2026-07-27",
+      "note": "Superseded by decision 043. A platform fact, not a task: it cannot be fixed, only known. Recorded in CLAUDE.md and STATE's trap list, and enforced by every verification command passing --fixed-fps."
     },
     {
       "id": "LF-019",
@@ -223,11 +223,11 @@
       "kind": "feature",
       "area": "engine",
       "pri": "med",
-      "status": "open",
+      "status": "done",
       "why": "",
       "opened": "2026-07-26",
-      "closed": null,
-      "note": ""
+      "closed": "2026-07-27",
+      "note": "closed at c048141"
     },
     {
       "id": "LF-020",
@@ -235,11 +235,11 @@
       "kind": "polish",
       "area": "art",
       "pri": "med",
-      "status": "open",
+      "status": "done",
       "why": "",
       "opened": "2026-07-27",
-      "closed": null,
-      "note": ""
+      "closed": "2026-07-27",
+      "note": "closed at 7ced6e6"
     },
     {
       "id": "LF-021",
@@ -247,11 +247,11 @@
       "kind": "polish",
       "area": "art",
       "pri": "med",
-      "status": "open",
+      "status": "done",
       "why": "They read at contact-sheet size; not verified at in-game size on both light and dark tiles.",
       "opened": "2026-07-27",
-      "closed": null,
-      "note": ""
+      "closed": "2026-07-27",
+      "note": "closed at c048141"
     },
     {
       "id": "LF-022",
@@ -259,11 +259,11 @@
       "kind": "polish",
       "area": "art",
       "pri": "med",
-      "status": "open",
+      "status": "done",
       "why": "Amber (1.0,0.62,0.15) at any strength >1 clips the red channel. Needs a desaturated emissive colour, not a lower strength.",
       "opened": "2026-07-27",
-      "closed": null,
-      "note": ""
+      "closed": "2026-07-27",
+      "note": "closed at 7ced6e6"
     },
     {
       "id": "LF-023",
@@ -271,11 +271,11 @@
       "kind": "polish",
       "area": "art",
       "pri": "med",
-      "status": "open",
+      "status": "done",
       "why": "",
       "opened": "2026-07-27",
-      "closed": null,
-      "note": ""
+      "closed": "2026-07-27",
+      "note": "closed at 7ced6e6"
     },
     {
       "id": "LF-024",
@@ -283,8 +283,248 @@
       "kind": "polish",
       "area": "art",
       "pri": "med",
-      "status": "open",
+      "status": "done",
       "why": "Nothing is grounded; units look like they float over the board.",
+      "opened": "2026-07-27",
+      "closed": "2026-07-27",
+      "note": "closed at 7ced6e6"
+    },
+    {
+      "id": "LF-025",
+      "title": "Editor preview shows flat-colour tiles until the project is reloaded, because the Sprites autoload is only instantiated in-editor at startup",
+      "kind": "chore",
+      "area": "tooling",
+      "pri": "med",
+      "status": "done",
+      "why": "",
+      "opened": "2026-07-27",
+      "closed": "2026-07-27",
+      "note": "anchor_view._sprite_lib() builds its own sprites.gd instance when the autoload is absent, which is the editor case. sprites.gd's manifest load moved from _ready() into load_library() so it can be called explicitly \u2014 the same fix anchor_data.gd already makes for Content. Verified standalone: 24 assets, atlas 2 pages, returns AtlasTexture with no autoload present."
+    },
+    {
+      "id": "LF-026",
+      "title": "HUD and dialog build their Control widgets in code rather than being authored in the scene",
+      "kind": "chore",
+      "area": "engine",
+      "pri": "med",
+      "status": "dropped",
+      "why": "",
+      "opened": "2026-07-27",
+      "closed": "2026-07-27",
+      "note": "Superseded by decision 043. Every HUD panel is now sized from content \u2014 build grid from the unlock count, inspector from the tallest datasheet measured against the font's line height, threat panel from the busiest wave. A .tscn cannot express those heights, so authoring it would mean keeping all the layout code and adding a scene that disagrees with it. Two sources of truth for one geometry."
+    },
+    {
+      "id": "LF-027",
+      "title": "Sprite pivot ignores the render camera height_bias, so every sprite draws ~48px above its tile",
+      "kind": "bug",
+      "area": "art",
+      "pri": "high",
+      "status": "done",
+      "why": "Hover highlight and turrets sit off their slot rings. Manifest pivot is (128,128); measured tile silhouette centre is (127.5,176.5). render_pair uses height_bias=0.55 but _measure_tile calibrates at 0.0, so the bias never reaches the pivot",
+      "opened": "2026-07-27",
+      "closed": "2026-07-27",
+      "note": "closed at 7ced6e6"
+    },
+    {
+      "id": "LF-028",
+      "title": "Frame pacing not reproducible under --fixed-fps",
+      "kind": "bug",
+      "area": "tooling",
+      "pri": "high",
+      "status": "dropped",
+      "why": "Two identical --autoplay runs reached different sim states at frame 1800 (coverage 0.306 vs 0.394, wave 6 vs wave 1). Makes screenshot-based art review unreliable; suspect the minf(delta,0.25) clamp absorbing a long first frame",
+      "opened": "2026-07-27",
+      "closed": "2026-07-27",
+      "note": ""
+    },
+    {
+      "id": "LF-029",
+      "title": "Sim state diverged twice at a fixed frame while the sprite import cache was stale",
+      "kind": "risk",
+      "area": "tooling",
+      "pri": "low",
+      "status": "done",
+      "why": "Observed twice (wave 6 vs wave 1 at frame 1800) in runs made after re-rendering but before 'Godot --headless --path . --import'. NOT reproducible since: 12/12 runs now identical, including under CPU load. main.gd now prints STATE frame/sim_t/wave/phase on every --shot, so a recurrence is self-evident rather than inferred from pixels. Reopen only with a STATE line showing sim_t != frame/60",
+      "opened": "2026-07-27",
+      "closed": "2026-07-27",
+      "note": "closed at 9d9ff55"
+    },
+    {
+      "id": "LF-030",
+      "title": "No sprites for scan-relay, shield-wall or ion-lance \u2014 they draw as placeholder polygons",
+      "kind": "bug",
+      "area": "art",
+      "pri": "high",
+      "status": "done",
+      "why": "scan-relay is visible from anchor-02, shield-wall from 04, ion-lance from 06. The sprite manifest has 9 assets and none of them are these three, so three of the five emplacements render as grey diamonds",
+      "opened": "2026-07-27",
+      "closed": "2026-07-27",
+      "note": "closed at 8a9ec0a"
+    },
+    {
+      "id": "LF-031",
+      "title": "Arc node and anchor ring emissives saturate to white in the additive glow layer",
+      "kind": "polish",
+      "area": "art",
+      "pri": "med",
+      "status": "done",
+      "why": "Emission colour is correct in the sprite (cyan-green) but the additive glow pass stacks over the albedo core and clips. Same class as LF-020/022 but in the engine blend, not the render",
+      "opened": "2026-07-27",
+      "closed": "2026-07-27",
+      "note": "closed at ccf0e4e"
+    },
+    {
+      "id": "LF-032",
+      "title": "Shield wall is overpriced: 40 MW for a 0.45x slow in radius 2.0 is never worth building",
+      "kind": "bug",
+      "area": "design",
+      "pri": "high",
+      "status": "done",
+      "why": "Measured under decision 022 at anchor-04: no-wall wins 10/9/6 lives, wall-always-on loses hard and brutal, optimally-toggled wall loses brutal. Its 40 MW is a 42% overdraw pricing at 62.5%. Either the draw comes down or the effect becomes decisive",
+      "opened": "2026-07-27",
+      "closed": "2026-07-27",
+      "note": "closed at 5f13193"
+    },
+    {
+      "id": "LF-033",
+      "title": "Ion lance is strictly dominated: worse damage per megawatt than the pulse turret even against armour",
+      "kind": "bug",
+      "area": "design",
+      "pri": "high",
+      "status": "dropped",
+      "why": "Measured: vs plate-4 the lance does 18.3 dps on 34 MW (0.54 per MW), the pulse turret 6.7 dps on 12 MW (0.56 per MW). The designated anti-armour unlock is worse at armour than the starter gun, while costing 3x the funds and draw so it buys fewer emplacements covering less path. Same class as LF-032. Raising damage to 66 fixes brutal but hard still grades single-solution",
+      "opened": "2026-07-27",
+      "closed": "2026-07-27",
+      "note": ""
+    },
+    {
+      "id": "LF-034",
+      "title": "anchor-06 Hard Currency is authored but does not grade clean \u2014 parked",
+      "kind": "chore",
+      "area": "data",
+      "pri": "high",
+      "status": "done",
+      "why": "Layout is good (path 34 tiles, all 10 slots within 2.0 of the path; WIP JSON kept out of data/ deliberately). Blocked on LF-033: with the lance dominated, cheap-mass is the only build that clears hard, so the level grades single-solution at every weight swept. Fix the lance first, then re-sweep",
+      "opened": "2026-07-27",
+      "closed": "2026-07-27",
+      "note": "closed at 6c78fc1"
+    },
+    {
+      "id": "LF-035",
+      "title": "Write dialog for anchors 09-24",
+      "kind": "feature",
+      "area": "story",
+      "pri": "high",
+      "status": "done",
+      "why": "Act I (01-08) is written and validated. Acts II and III are 16 anchors with no dialog. Beats are in docs/STORY.md; writing rules and the trigger vocabulary are enforced by data/schema/dialog.schema.json",
+      "opened": "2026-07-27",
+      "closed": "2026-07-27",
+      "note": "closed at 8c05a5c"
+    },
+    {
+      "id": "LF-036",
+      "title": "No Sable Reach emplacement or sprite exists for Act II",
+      "kind": "feature",
+      "area": "art",
+      "pri": "high",
+      "status": "done",
+      "why": "Act II's antagonist is human and its mechanic is drains_mw capacity theft. reach-breacher exists in data/enemies.json and has never been used or rendered; there is no Sable Reach emplacement at all. Act II cannot be authored without both",
+      "opened": "2026-07-27",
+      "closed": "2026-07-27",
+      "note": "closed at 3d01481"
+    },
+    {
+      "id": "LF-037",
+      "title": "Four build slots sit just outside the shortest weapon's range on anchors 03/04/05",
+      "kind": "polish",
+      "area": "data",
+      "pri": "low",
+      "status": "done",
+      "why": "The new validator flags them: anchor-03 [3,10] at 3.0, anchor-04 [15,7] at 3.0, anchor-05 [2,5] at 2.8 and [1,11] at 3.0, against the arc node's 2.6. All three anchors grade clean so these are warnings not errors \u2014 a scan relay or longer-ranged gun still reaches. Moving them one tile would need a re-sweep, so it is deliberately not done at wrap",
+      "opened": "2026-07-27",
+      "closed": "2026-07-27",
+      "note": "closed at c048141"
+    },
+    {
+      "id": "LF-038",
+      "title": "Act II waves are thin (2-5 units per type) and lives run high (16-24) because shielded heavies and drain eat the whole difficulty budget \u2014 consider a mid-cost anti-armour emplacement or a lance/mortar draw cut so volume can come back",
+      "kind": "polish",
+      "area": "design",
+      "pri": "med",
+      "status": "done",
+      "why": "",
+      "opened": "2026-07-27",
+      "closed": "2026-07-27",
+      "note": "Half solved by decision 044: the cause was the sweep's scorer, not the content. It scored clean cells by distinct winning builds alone, so more lives always scored higher and the loosest cell always won. Robustness is now a threshold (ROBUST_ENOUGH=8), with density and tightness deciding beyond it. Seven anchors tightened \u2014 18/19 from 30 lives to 22, 22 from 32 to 26, 24 from 44 to 40; Act III mean 31.8 -> 27.5. Density did NOT move and continues as LF-044."
+    },
+    {
+      "id": "LF-039",
+      "title": "Between-anchor flow is menu-only: no post-debrief 'next anchor' button, no act transition screen, no way to replay from the debrief",
+      "kind": "feature",
+      "area": "engine",
+      "pri": "med",
+      "status": "done",
+      "why": "",
+      "opened": "2026-07-27",
+      "closed": "2026-07-27",
+      "note": "closed at c048141"
+    },
+    {
+      "id": "LF-040",
+      "title": "Build bar overflows the left column and covers board slots from Act II on \u2014 9 unlocked emplacements is 1182px of buttons across a 1920px viewport",
+      "kind": "polish",
+      "area": "engine",
+      "pri": "med",
+      "status": "done",
+      "why": "",
+      "opened": "2026-07-27",
+      "closed": "2026-07-27",
+      "note": "Build bar is a two-column grid inside the 330px instrument column; the inspector is placed against the bar's measured height, so it tracks 1 row on anchor-01 and 5 on anchor-24. Verified by screenshot at both extremes."
+    },
+    {
+      "id": "LF-041",
+      "title": "Godot warns on every boot that user://progress.json is opened as Defend-Claude but stored as defend-claude \u2014 a case mismatch that will not open on a case-sensitive export target",
+      "kind": "bug",
+      "area": "engine",
+      "pri": "med",
+      "status": "dropped",
+      "why": "",
+      "opened": "2026-07-27",
+      "closed": "2026-07-27",
+      "note": "Not a repo defect. project.godot is config/name=\"Defend-Claude\"; the on-disk user dir is lowercase because it was created under an earlier name, and macOS resolves it case-insensitively. A fresh machine or a case-sensitive export creates Defend-Claude and never mismatches. Local artifact only."
+    },
+    {
+      "id": "LF-042",
+      "title": "Window title and export name are \"Defend-Claude\" (the repo name), not LATTICEFALL \u2014 project.godot config/name reaches the player",
+      "kind": "bug",
+      "area": "engine",
+      "pri": "med",
+      "status": "done",
+      "why": "",
+      "opened": "2026-07-27",
+      "closed": "2026-07-27",
+      "note": "config/name is Latticefall. Godot derives user:// from it, so Progress.load_state() adopts a pre-rename save once and prints the path it took. Verified against a real save with anchor-01 cleared: clear survived, second boot did not re-adopt, case-mismatch warning gone. Decision 040."
+    },
+    {
+      "id": "LF-043",
+      "title": "debris_settle has no CC0 candidate \u2014 OpenGameArt's sound corpus has nothing whose filename reads as falling debris. Needs different queries, --commons, or a recording",
+      "kind": "chore",
+      "area": "audio",
+      "pri": "med",
+      "status": "done",
+      "why": "",
+      "opened": "2026-07-27",
+      "closed": "2026-07-27",
+      "note": "Not sourceable: the entire CC0 sound corpus offers a shovel, a splash and a sand spell for this. Synthesized instead \u2014 debris is a stochastic cloud of tiny impacts, which is what synthesis is good at, so decision 009 had it on the wrong side of its own boundary. Rebuilds byte-identical. Plays under warden_death for units of 150 HP or more. Decision 041."
+    },
+    {
+      "id": "LF-044",
+      "title": "Act II/III density is still flat at ~8 units per wave \u2014 the sweep scorer fix (decision 044) recovered lives but not volume, because higher spawn weights do not grade clean at any life count. Needs a roster answer to shielded/armoured units: a mid-cost anti-armour emplacement or a lance/mortar draw cut, then a full re-sweep of anchors 09-24",
+      "kind": "polish",
+      "area": "design",
+      "pri": "med",
+      "status": "open",
+      "why": "",
       "opened": "2026-07-27",
       "closed": null,
       "note": ""

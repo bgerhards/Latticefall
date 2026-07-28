@@ -1,8 +1,14 @@
+@tool
 extends Node
 ## Autoload `Content`. Loads game data from res://data/.
 ##
 ## Code reads data; code never contains content (decision 008). Adding an
 ## emplacement must never require touching a script.
+##
+## `@tool` because Godot only instantiates an autoload in the editor when its script
+## is a tool script. Without it the `Content` singleton simply does not exist while
+## editing, and the in-editor board preview in anchor_view.gd cannot read a level.
+## Nothing here touches the scene tree or the renderer, so running in-editor is inert.
 
 var towers: Dictionary = {}      # id -> Dictionary
 var enemies: Dictionary = {}     # id -> Dictionary

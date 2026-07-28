@@ -85,6 +85,11 @@ class Anchor:
     slots: tuple[tuple[int, int], ...]
     waves: tuple[Wave, ...]
     tutorial: bool = False
+    # Act III: MW the bus loses at the start of every wave after the first. The reactor
+    # is not failing — something else is drawing on it. A build that is exactly right on
+    # wave one is over capacity by wave five, so the player's mastery of the power system
+    # is what stops working. Decision 031.
+    capacity_decay_mw: float = 0.0
     # derived
     seg_len: tuple[float, ...] = field(default=())
     cum_len: tuple[float, ...] = field(default=())
@@ -154,6 +159,7 @@ def load_anchor(anchor_id: str) -> Anchor:
         capacity_mw=doc["capacity_mw"], starting_funds=doc["starting_funds"],
         lives=doc.get("lives", 10),
         tutorial=doc.get("tutorial", False),
+        capacity_decay_mw=doc.get("capacity_decay_mw", 0.0),
         grid=(doc["grid"]["w"], doc["grid"]["h"]),
         waypoints=tuple((float(x), float(y)) for x, y in doc["path"]),
         slots=tuple((int(x), int(y)) for x, y in doc["slots"]),

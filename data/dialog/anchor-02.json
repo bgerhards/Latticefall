@@ -1,0 +1,48 @@
+{
+  "schema": "dialog",
+  "anchor": "anchor-02",
+  "lines": [
+    { "trigger": "brief", "speaker": "control",
+      "text": "Anchor five. Same reactor architecture, eighty megawatts. Survey flagged movement above the deck." },
+    { "trigger": "brief", "speaker": "vasquez",
+      "text": "Above it. Not on it." },
+    { "trigger": "brief", "speaker": "okonkwo",
+      "text": "Motes. They run cold and they don't reflect — your guns will not see them without a relay lit.",
+      "beat": "states the mechanic as equipment limitation, not as a rule" },
+    { "trigger": "brief", "speaker": "vasquez",
+      "text": "Eight megawatts to see. That's most of a turret.",
+      "beat": "the anchor's whole decision, priced, in one line" },
+    { "trigger": "brief", "speaker": "okonkwo",
+      "text": "It is. Run it blind if you'd rather have the gun. I'd not, but it's your board." },
+
+    { "trigger": "wave-start:1", "speaker": "control",
+      "text": "Ground contact first. Nothing in the air yet." },
+
+    { "trigger": "wave-start:2", "speaker": "okonkwo", "critical": false,
+      "text": "There. That's the rest of them." },
+
+    { "trigger": "wave-clear:3", "speaker": "vasquez", "critical": false,
+      "text": "They come in under the guns and over them. Same order, two heights." },
+    { "trigger": "wave-clear:3", "speaker": "okonkwo", "critical": false,
+      "text": "It's one order. The order doesn't care which way up you are." },
+
+    { "trigger": "brownout", "speaker": "okonkwo", "critical": false,
+      "text": "Bus is over. If you drop the relay you'll get the megawatts back and lose the sky." },
+
+    { "trigger": "first-leak", "speaker": "control", "critical": false,
+      "text": "One past you. Couldn't tell you what it was." },
+
+    { "trigger": "low-lives", "speaker": "vasquez", "critical": false,
+      "text": "Ring's taking it. Cut something you like." },
+
+    { "trigger": "debrief", "speaker": "vasquez",
+      "text": "Held. Okonkwo — eleven years, and they still fly a pattern." },
+    { "trigger": "debrief", "speaker": "okonkwo",
+      "text": "They fly a search. Wide, then narrow, then wide again. Nobody searches a place they built.",
+      "beat": "the act's real question, said as an observation about flight paths" },
+    { "trigger": "debrief", "speaker": "vasquez",
+      "text": "Then what are they looking for." },
+    { "trigger": "debrief", "speaker": "okonkwo",
+      "text": "Not us. We'd have been found." }
+  ]
+}

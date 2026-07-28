@@ -1,0 +1,53 @@
+{
+  "schema": "dialog",
+  "anchor": "anchor-17",
+  "lines": [
+    { "trigger": "brief", "speaker": "control",
+      "text": "This anchor has no number. It is not on the containment order and it is not on any survey we hold. A hundred and ninety megawatts." },
+    { "trigger": "brief", "speaker": "okonkwo",
+      "text": "It has no bind key either. We came through it from the far side of forty-four, which means the far side of forty-four is here." },
+    { "trigger": "brief", "speaker": "vasquez",
+      "text": "Deep lattice." },
+    { "trigger": "brief", "speaker": "okonkwo",
+      "text": "Deep lattice. Also: the bus reading falls about six megawatts a wave and I cannot find where it goes. Nothing on this deck is drawing it." },
+    { "trigger": "brief", "speaker": "control",
+      "text": "Restorer is cleared to your board. Forty-four megawatts back for ten drawn and a slot spent." },
+    { "trigger": "brief", "speaker": "vasquez",
+      "text": "So we buy the bus back a piece at a time." },
+    { "trigger": "brief", "speaker": "okonkwo",
+      "text": "You buy it back with slots that would otherwise be guns. That's the whole trade and it doesn't get better." },
+
+    { "trigger": "wave-start:1", "speaker": "control",
+      "text": "Contact. Classification — I don't have one. Reads as pressure." },
+
+    { "trigger": "wave-clear:2", "speaker": "vasquez", "critical": false,
+      "text": "Okonkwo, what are we shooting at?" },
+    { "trigger": "wave-clear:2", "speaker": "okonkwo", "critical": false,
+      "text": "Instruments say a temperature gradient walking at one and a fifth tiles a second. I'd rather not improve on that description." },
+
+    { "trigger": "wave-clear:4", "speaker": "okonkwo", "critical": false,
+      "text": "Capacity's down eighteen since we started. Same six a wave, no variance. It isn't damage — something is *metering* us." },
+
+    { "trigger": "wave-clear:6", "speaker": "vasquez", "critical": false,
+      "text": "The wardens spent eleven thousand years standing in front of this." },
+    { "trigger": "wave-clear:6", "speaker": "okonkwo", "critical": false,
+      "text": "Facing inward. Yes. I've stopped thinking of them as the enemy, if that's what you're asking." },
+
+    { "trigger": "brownout", "speaker": "okonkwo", "critical": false,
+      "text": "Over — and the ceiling is lower than it was when you built. Shed something or put a restorer up." },
+
+    { "trigger": "first-leak", "speaker": "control", "critical": false,
+      "text": "One through. No reading on it after it passed the ring." },
+
+    { "trigger": "low-lives", "speaker": "vasquez", "critical": false,
+      "text": "Hold what's left. We are not losing an anchor nobody knows exists." },
+
+    { "trigger": "debrief", "speaker": "control",
+      "text": "Anchor is held. Bus reads a hundred and forty-eight of a hundred and ninety." },
+    { "trigger": "debrief", "speaker": "vasquez",
+      "text": "Does it come back?" },
+    { "trigger": "debrief", "speaker": "okonkwo",
+      "text": "It came back to a hundred and eighty-one while I was packing the survey gear. So: mostly.",
+      "beat": "the loss is not permanent, but it is not fully reversible either, and nobody says so" }
+  ]
+}

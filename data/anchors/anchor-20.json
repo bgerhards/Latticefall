@@ -1,0 +1,302 @@
+{
+  "schema": "anchor",
+  "id": "anchor-20",
+  "act": 3,
+  "title": "The Long Silence",
+  "capacity_mw": 220,
+  "capacity_decay_mw": 9,
+  "starting_funds": 2500,
+  "lives": 24,
+  "grid": {
+    "w": 17,
+    "h": 13
+  },
+  "path": [
+    [
+      8,
+      0
+    ],
+    [
+      8,
+      4
+    ],
+    [
+      14,
+      4
+    ],
+    [
+      14,
+      8
+    ],
+    [
+      3,
+      8
+    ],
+    [
+      3,
+      11
+    ],
+    [
+      15,
+      11
+    ]
+  ],
+  "slots": [
+    [
+      6,
+      2
+    ],
+    [
+      11,
+      2
+    ],
+    [
+      5,
+      6
+    ],
+    [
+      11,
+      6
+    ],
+    [
+      16,
+      6
+    ],
+    [
+      2,
+      6
+    ],
+    [
+      6,
+      10
+    ],
+    [
+      10,
+      10
+    ],
+    [
+      13,
+      10
+    ],
+    [
+      10,
+      6
+    ],
+    [
+      7,
+      12
+    ],
+    [
+      12,
+      12
+    ]
+  ],
+  "waves": [
+    {
+      "lead_in": 22,
+      "spawns": [
+        {
+          "enemy": "hollow-echo",
+          "count": 2,
+          "interval": 1.9
+        },
+        {
+          "enemy": "hollow-drift",
+          "count": 1,
+          "interval": 2.0,
+          "delay": 5
+        },
+        {
+          "enemy": "hollow-vessel",
+          "count": 1,
+          "interval": 3.6,
+          "delay": 7
+        }
+      ]
+    },
+    {
+      "lead_in": 21,
+      "spawns": [
+        {
+          "enemy": "hollow-echo",
+          "count": 3,
+          "interval": 1.84
+        },
+        {
+          "enemy": "hollow-drift",
+          "count": 1,
+          "interval": 1.94,
+          "delay": 5
+        },
+        {
+          "enemy": "hollow-vessel",
+          "count": 1,
+          "interval": 3.49,
+          "delay": 7
+        }
+      ]
+    },
+    {
+      "lead_in": 20,
+      "spawns": [
+        {
+          "enemy": "hollow-echo",
+          "count": 3,
+          "interval": 1.79
+        },
+        {
+          "enemy": "hollow-drift",
+          "count": 2,
+          "interval": 1.88,
+          "delay": 5
+        },
+        {
+          "enemy": "hollow-vessel",
+          "count": 1,
+          "interval": 3.38,
+          "delay": 7
+        }
+      ]
+    },
+    {
+      "lead_in": 19,
+      "spawns": [
+        {
+          "enemy": "hollow-echo",
+          "count": 4,
+          "interval": 1.73
+        },
+        {
+          "enemy": "hollow-drift",
+          "count": 2,
+          "interval": 1.82,
+          "delay": 5
+        },
+        {
+          "enemy": "hollow-vessel",
+          "count": 1,
+          "interval": 3.28,
+          "delay": 7
+        },
+        {
+          "enemy": "hollow-column",
+          "count": 1,
+          "interval": 5.46,
+          "delay": 11
+        }
+      ]
+    },
+    {
+      "lead_in": 18,
+      "spawns": [
+        {
+          "enemy": "hollow-echo",
+          "count": 4,
+          "interval": 1.67
+        },
+        {
+          "enemy": "hollow-drift",
+          "count": 2,
+          "interval": 1.76,
+          "delay": 5
+        },
+        {
+          "enemy": "hollow-vessel",
+          "count": 2,
+          "interval": 3.17,
+          "delay": 7
+        },
+        {
+          "enemy": "hollow-column",
+          "count": 1,
+          "interval": 5.28,
+          "delay": 11
+        }
+      ]
+    },
+    {
+      "lead_in": 17,
+      "spawns": [
+        {
+          "enemy": "hollow-echo",
+          "count": 4,
+          "interval": 1.61
+        },
+        {
+          "enemy": "hollow-drift",
+          "count": 2,
+          "interval": 1.7,
+          "delay": 5
+        },
+        {
+          "enemy": "hollow-vessel",
+          "count": 2,
+          "interval": 3.06,
+          "delay": 7
+        },
+        {
+          "enemy": "hollow-column",
+          "count": 1,
+          "interval": 5.1,
+          "delay": 11
+        }
+      ]
+    },
+    {
+      "lead_in": 16,
+      "spawns": [
+        {
+          "enemy": "hollow-echo",
+          "count": 5,
+          "interval": 1.56
+        },
+        {
+          "enemy": "hollow-drift",
+          "count": 3,
+          "interval": 1.64,
+          "delay": 5
+        },
+        {
+          "enemy": "hollow-vessel",
+          "count": 2,
+          "interval": 2.95,
+          "delay": 7
+        },
+        {
+          "enemy": "hollow-column",
+          "count": 1,
+          "interval": 4.92,
+          "delay": 11
+        }
+      ]
+    },
+    {
+      "lead_in": 15,
+      "spawns": [
+        {
+          "enemy": "hollow-echo",
+          "count": 5,
+          "interval": 1.5
+        },
+        {
+          "enemy": "hollow-drift",
+          "count": 4,
+          "interval": 1.58,
+          "delay": 5
+        },
+        {
+          "enemy": "hollow-vessel",
+          "count": 2,
+          "interval": 2.84,
+          "delay": 7
+        },
+        {
+          "enemy": "hollow-column",
+          "count": 1,
+          "interval": 4.74,
+          "delay": 11
+        }
+      ]
+    }
+  ]
+}

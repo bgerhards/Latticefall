@@ -1,6 +1,30 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene load_steps=7 format=3]
 
 [ext_resource type="Script" path="res://scripts/main.gd" id="1_main"]
+[ext_resource type="Script" path="res://scripts/anchor_view.gd" id="2_view"]
+[ext_resource type="Script" path="res://scripts/glow_layer.gd" id="3_glow"]
+[ext_resource type="Script" path="res://scripts/hud.gd" id="4_hud"]
+[ext_resource type="Script" path="res://scripts/dialog_view.gd" id="5_dialog"]
+[ext_resource type="Script" path="res://scripts/pause_menu.gd" id="6_pause"]
 
 [node name="Main" type="Node2D"]
 script = ExtResource("1_main")
+
+[node name="AnchorView" type="Node2D" parent="."]
+script = ExtResource("2_view")
+anchor_id = "anchor-01"
+difficulty = "standard"
+
+[node name="GlowLayer" type="Node2D" parent="AnchorView"]
+z_index = 10
+script = ExtResource("3_glow")
+
+[node name="Hud" type="CanvasLayer" parent="."]
+script = ExtResource("4_hud")
+
+[node name="DialogView" type="CanvasLayer" parent="."]
+script = ExtResource("5_dialog")
+
+[node name="PauseMenu" type="CanvasLayer" parent="."]
+layer = 2
+script = ExtResource("6_pause")

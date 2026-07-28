@@ -1,0 +1,233 @@
+{
+  "schema": "anchor",
+  "id": "anchor-06",
+  "act": 1,
+  "title": "Hard Currency",
+  "capacity_mw": 104,
+  "starting_funds": 820,
+  "lives": 10,
+  "grid": {
+    "w": 13,
+    "h": 11
+  },
+  "path": [
+    [
+      0,
+      1
+    ],
+    [
+      10,
+      1
+    ],
+    [
+      10,
+      4
+    ],
+    [
+      2,
+      4
+    ],
+    [
+      2,
+      7
+    ],
+    [
+      10,
+      7
+    ],
+    [
+      10,
+      10
+    ],
+    [
+      12,
+      10
+    ]
+  ],
+  "slots": [
+    [
+      4,
+      2
+    ],
+    [
+      7,
+      2
+    ],
+    [
+      4,
+      5
+    ],
+    [
+      7,
+      5
+    ],
+    [
+      4,
+      8
+    ],
+    [
+      7,
+      8
+    ],
+    [
+      11,
+      2
+    ],
+    [
+      11,
+      5
+    ],
+    [
+      11,
+      8
+    ],
+    [
+      0,
+      8
+    ]
+  ],
+  "waves": [
+    {
+      "lead_in": 24,
+      "spawns": [
+        {
+          "enemy": "warden-drone",
+          "count": 10,
+          "interval": 1.45
+        }
+      ]
+    },
+    {
+      "lead_in": 20,
+      "spawns": [
+        {
+          "enemy": "warden-drone",
+          "count": 11,
+          "interval": 1.3
+        },
+        {
+          "enemy": "warden-mote",
+          "count": 4,
+          "interval": 1.9,
+          "delay": 6
+        },
+        {
+          "enemy": "warden-heavy",
+          "count": 1,
+          "interval": 6.0,
+          "delay": 9
+        }
+      ]
+    },
+    {
+      "lead_in": 18,
+      "spawns": [
+        {
+          "enemy": "warden-drone",
+          "count": 12,
+          "interval": 1.25
+        },
+        {
+          "enemy": "warden-mote",
+          "count": 5,
+          "interval": 1.8,
+          "delay": 5
+        },
+        {
+          "enemy": "warden-heavy",
+          "count": 2,
+          "interval": 5.5,
+          "delay": 8
+        }
+      ]
+    },
+    {
+      "lead_in": 18,
+      "spawns": [
+        {
+          "enemy": "warden-drone",
+          "count": 13,
+          "interval": 1.2
+        },
+        {
+          "enemy": "warden-mote",
+          "count": 7,
+          "interval": 1.6,
+          "delay": 5
+        },
+        {
+          "enemy": "warden-heavy",
+          "count": 2,
+          "interval": 5.0,
+          "delay": 7
+        }
+      ]
+    },
+    {
+      "lead_in": 16,
+      "spawns": [
+        {
+          "enemy": "warden-drone",
+          "count": 14,
+          "interval": 1.1
+        },
+        {
+          "enemy": "warden-mote",
+          "count": 9,
+          "interval": 1.4,
+          "delay": 4
+        },
+        {
+          "enemy": "warden-heavy",
+          "count": 3,
+          "interval": 4.5,
+          "delay": 7
+        }
+      ]
+    },
+    {
+      "lead_in": 15,
+      "spawns": [
+        {
+          "enemy": "warden-drone",
+          "count": 16,
+          "interval": 1.05
+        },
+        {
+          "enemy": "warden-mote",
+          "count": 11,
+          "interval": 1.3,
+          "delay": 4
+        },
+        {
+          "enemy": "warden-heavy",
+          "count": 4,
+          "interval": 4.0,
+          "delay": 6
+        }
+      ]
+    },
+    {
+      "lead_in": 13,
+      "spawns": [
+        {
+          "enemy": "warden-drone",
+          "count": 18,
+          "interval": 1.0
+        },
+        {
+          "enemy": "warden-mote",
+          "count": 13,
+          "interval": 1.2,
+          "delay": 3
+        },
+        {
+          "enemy": "warden-heavy",
+          "count": 5,
+          "interval": 3.5,
+          "delay": 5
+        }
+      ]
+    }
+  ]
+}

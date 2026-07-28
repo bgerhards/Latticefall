@@ -62,7 +62,8 @@ func _init() -> void:
 
 func _policies(ids: Array) -> Array:
 	## Mirrors standard_policies() in sim/engine.py, including order.
-	var mk := func(name: String, first: Array, overdraw: bool) -> Dictionary:
+	var mk := func(name: String, first: Array, overdraw: bool, caps: Dictionary,
+			reserve: float = 0.0) -> Dictionary:
 		var pref: Array = []
 		for i in first:
 			if ids.has(i):
@@ -70,14 +71,29 @@ func _policies(ids: Array) -> Array:
 		for i in ids:
 			if not pref.has(i):
 				pref.append(i)
-		return {"name": name, "pref": pref, "overdraw": overdraw}
+		return {"name": name, "pref": pref, "overdraw": overdraw, "caps": caps,
+			"reserve": reserve}
 	return [
-		mk.call("cheap-mass", ["pulse-turret"], false),
-		mk.call("burst", ["ion-lance", "pulse-turret"], false),
-		mk.call("rapid", ["arc-node", "pulse-turret"], false),
-		mk.call("control", ["shield-wall", "pulse-turret"], false),
-		mk.call("intel-first", ["scan-relay", "pulse-turret"], false),
-		mk.call("greedy-overdraw", ["ion-lance", "arc-node"], true),
+		mk.call("cheap-mass", ["pulse-turret"], false, {}),
+		mk.call("burst", ["ion-lance", "pulse-turret"], false, {}),
+		mk.call("rapid", ["arc-node", "pulse-turret"], false, {}),
+		mk.call("control", ["shield-wall", "pulse-turret"], false,
+			{"shield-wall": 2, "scan-relay": 1}),
+		mk.call("intel-first", ["scan-relay", "pulse-turret"], false,
+			{"scan-relay": 1, "shield-wall": 1}),
+		mk.call("screened", ["scan-relay", "pulse-turret"], false,
+			{"scan-relay": 2, "shield-wall": 1}),
+		mk.call("greedy-overdraw", ["ion-lance", "arc-node"], true, {}),
+		mk.call("suppression", ["anchor-damper", "pulse-turret"], false,
+			{"anchor-damper": 2, "scan-relay": 1, "shield-wall": 1}, 0.20),
+		mk.call("flak-screen", ["flak-array", "scan-relay"], false,
+			{"scan-relay": 1, "anchor-damper": 1}, 0.15),
+		mk.call("reserved-mass", ["pulse-turret", "scan-relay"], false,
+			{"scan-relay": 1, "shield-wall": 1, "anchor-damper": 1}, 0.30),
+		mk.call("anti-armour", ["ion-lance", "mortar-emplacement", "pulse-turret"], false,
+			{"scan-relay": 1, "anchor-damper": 1}, 0.20),
+		mk.call("restore-first", ["restorer", "pulse-turret"], false,
+			{"restorer": 2, "scan-relay": 1, "anchor-damper": 1}, 0.10),
 	]
 
 
@@ -94,12 +110,18 @@ func _run(anchor: Dictionary, towers: Dictionary, enemies: Dictionary,
 	s.setup(anchor, towers, enemies, diff)
 
 	var buildable: Array = policy["pref"].duplicate()
-	buildable.sort_custom(func(a, b): return _rank(policy, a) < _rank(policy, b))
+	# (rank, id) — id breaks the tie between everything the policy does not rank, which
+	# sort_custom would otherwise resolve arbitrarily. Mirrors Sim.buildable.
+	buildable.sort_custom(func(a, b):
+		var ra := _rank(policy, a)
+		var rb := _rank(policy, b)
+		return ra < rb if ra != rb else a < b)
 
 	var waves_cleared := 0
 	var died_on: int = -1
 
 	for wi in range(anchor["waves"].size()):
+		s.begin_wave(wi)
 		_try_build(s, policy, buildable)
 		_shed(s, policy)
 		var lead := float(anchor["waves"][wi].get("lead_in", 20.0))
@@ -150,13 +172,16 @@ func _run(anchor: Dictionary, towers: Dictionary, enemies: Dictionary,
 func _slot_priority(s) -> Array:
 	## Same metric as engine.py: distance from the slot to the nearest sampled point
 	## on the path, sampled at the same resolution so both pick the same slot.
+	## Squared distances in float64, matching Sim._slot_priority(). Decision 030.
 	var steps: int = maxi(2, int(s.path_length))
 	var scored: Array = []
 	for slot in s.free_slots:
-		var best := 1e9
+		var best := 1e18
 		for i in range(steps + 1):
-			var p: Vector2 = s.point_at(s.path_length * float(i) / float(steps))
-			best = minf(best, Vector2(slot).distance_to(p))
+			var p: PackedFloat64Array = s.point_at_xy(s.path_length * float(i) / float(steps))
+			var dx: float = p[0] - float(slot.x)
+			var dy: float = p[1] - float(slot.y)
+			best = minf(best, dx * dx + dy * dy)
 		scored.append([best, slot.x, slot.y, slot])
 	scored.sort_custom(func(a, b):
 		if a[0] != b[0]: return a[0] < b[0]
@@ -176,8 +201,18 @@ func _try_build(s, policy: Dictionary, buildable: Array) -> void:
 			var tw: Dictionary = s.towers[tid]
 			if int(tw["cost"]) > s.funds:
 				continue
+			# Mirrors Policy.caps in sim/engine.py — see the note there.
+			if policy["caps"].has(tid):
+				var built := 0
+				for p in s.placed:
+					if String(p["tower"]["id"]) == tid:
+						built += 1
+				if built >= int(policy["caps"][tid]):
+					continue
 			var projected: float = s.online_draw() + float(tw["draw_mw"])
-			if not policy["overdraw"] and projected > s.capacity():
+			# Mirrors Policy.reserve in sim/engine.py: headroom left for enemy drain.
+			var budget: float = s.capacity() * (1.0 - float(policy.get("reserve", 0.0)))
+			if not policy["overdraw"] and projected > budget:
 				continue
 			s.build_at(tid, order[0])
 			placed_one = true

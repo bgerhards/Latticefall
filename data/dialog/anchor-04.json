@@ -1,0 +1,48 @@
+{
+  "schema": "dialog",
+  "anchor": "anchor-04",
+  "lines": [
+    { "trigger": "brief", "speaker": "control",
+      "text": "Anchor fourteen. Ninety-six megawatts. Shield wall's signed off — forty of those ninety-six if you raise it." },
+    { "trigger": "brief", "speaker": "vasquez",
+      "text": "Forty. For a screen that doesn't shoot." },
+    { "trigger": "brief", "speaker": "okonkwo",
+      "text": "It buys you time in one place. Whether that's worth browning out everything else is arithmetic, and I'd do the arithmetic first.",
+      "beat": "flags the trade honestly — it is currently a bad one, and LF-014 is open on exactly that" },
+    { "trigger": "brief", "speaker": "vasquez",
+      "text": "Noted. Okonkwo, you've been quiet since nine." },
+    { "trigger": "brief", "speaker": "okonkwo",
+      "text": "I've had the order about half out. I'd rather finish before I say anything." },
+
+    { "trigger": "wave-start:1", "speaker": "control",
+      "text": "Contact. Same profile as nine." },
+
+    { "trigger": "wave-clear:2", "speaker": "okonkwo", "critical": false,
+      "text": "Vasquez. The verb's wrong." },
+    { "trigger": "wave-clear:2", "speaker": "vasquez", "critical": false,
+      "text": "Which verb." },
+    { "trigger": "wave-clear:2", "speaker": "okonkwo", "critical": false,
+      "text": "The one I read as hold. It isn't hold. It's closer to seal." },
+
+    { "trigger": "brownout", "speaker": "okonkwo", "critical": false,
+      "text": "That's the wall. It's pulling more than the bus has and everything else is paying for it." },
+
+    { "trigger": "first-leak", "speaker": "control", "critical": false,
+      "text": "One through." },
+
+    { "trigger": "low-lives", "speaker": "vasquez", "critical": false,
+      "text": "Ring's thin. Whatever you're running that isn't shooting — drop it." },
+
+    { "trigger": "debrief", "speaker": "okonkwo",
+      "text": "It's finished. It's not a defence order. Nobody was told to hold this network." },
+    { "trigger": "debrief", "speaker": "vasquez",
+      "text": "Then what were they told." },
+    { "trigger": "debrief", "speaker": "okonkwo",
+      "text": "To keep it shut. It's a quarantine order, Vasquez. Sixty-one doors and a list of which ones were still closed.",
+      "beat": "the act's reveal, delivered as a correction to a translation" },
+    { "trigger": "debrief", "speaker": "vasquez",
+      "text": "We've opened four." },
+    { "trigger": "debrief", "speaker": "okonkwo",
+      "text": "We've opened four." }
+  ]
+}
