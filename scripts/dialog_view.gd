@@ -71,12 +71,17 @@ func on_trigger(trigger: String) -> void:
 
 func _next() -> void:
 	if _queue.is_empty():
+		if _panel.visible:
+			Audio.sfx("comms_close", -9.0)     # the channel closes once, not once per line
 		_panel.visible = false
 		_who.text = ""
 		_text.text = ""
 		_full = ""
 		return
 	var line: Dictionary = _queue.pop_front()
+	# The radio opens before anyone speaks. Every line used to be announced by ui_hover,
+	# the quietest menu tick in the bank — a UI sound doing a soldier's job.
+	Audio.sfx("comms_squelch", -7.0)
 	_full = String(line.get("text", ""))
 	_who.text = String(line.get("speaker", "")).to_upper()
 	_who.add_theme_color_override("font_color",
@@ -95,7 +100,9 @@ func _process(delta: float) -> void:
 		if _text.text.length() != n:
 			_text.text = _full.substr(0, n)
 			if n % 3 == 0:
-				Audio.sfx("ui_hover", -18.0)
+				# Kept as the typing texture, dropped 4 dB now that the squelch carries
+				# the transition — two cues competing for one moment read as one mess.
+				Audio.sfx("ui_hover", -22.0)
 	else:
 		_hold += delta
 		if _hold > 2.6:
