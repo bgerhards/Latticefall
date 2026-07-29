@@ -1,5 +1,5 @@
 {
-  "next_id": 62,
+  "next_id": 63,
   "items": [
     {
       "id": "LF-001",
@@ -725,6 +725,18 @@
       "id": "LF-061",
       "title": "The game renders gate check took 2,187,910 ms (36 min) on one run and then PASSED, against 2,493 ms on another run of the same tree the same day. CAUSE, observed by the owner: the three rendered checks launch a REAL Godot window (GL Compatibility reads back nothing headlessly), and macOS throttles a window it considers occluded \u2014 cover it, background it, or just keep working in front of it and the frame loop stalls, so main.gd's 'await RenderingServer.frame_post_draw' never resolves. The run does not fail, it waits until the window is visible again and then passes, which is why the gate stayed green. Two mitigations are in: tools/check.py bounds every subprocess (DEFAULT_TIMEOUT 300s, PARITY_TIMEOUT 1800s) and reaps grandchildren on timeout, so a stall is now a red run naming the check; and --no-window skips the three windowed checks so the gate is usable while someone is at the machine. Neither is a fix. A real fix makes the capture independent of the compositor presenting frames \u2014 candidates: RenderingServer.force_draw() instead of awaiting frame_post_draw, or rendering the shot through a SubViewport. Both need probing against Godot 4.7.1 on this machine, and the occlusion stall has to be reproduced on purpose first (cover the window during a --shot run) or there is no way to tell a fix from a coincidence",
       "kind": "bug",
+      "area": "tooling",
+      "pri": "med",
+      "status": "open",
+      "why": "",
+      "opened": "2026-07-29",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-062",
+      "title": "The subagent model pin has two holes the agent models gate check cannot see. (1) Built-in agents \u2014 Explore, Plan, general-purpose \u2014 have no .claude/agents/*.md frontmatter to carry model: sonnet, so they inherit the parent (Opus) unless the model is passed at each call site. Nothing enforces that; it is discipline, and discipline is what failed the first time. (2) The SessionEnd reap hook does not fire when the CLI is killed outright rather than exiting cleanly, so the wrap-skill step is the only real belt and it depends on someone running the wrap. Both are cheap to narrow: a wrapper or documented default for built-in agent calls, and a launchd/login reap or a stale-process check at session start (the start skill now runs reap.py, which covers the common case one session later rather than immediately). Filed because the whole point of decision 051 was replacing remembered rules with mechanical ones, and these two are still remembered rules",
+      "kind": "chore",
       "area": "tooling",
       "pri": "med",
       "status": "open",

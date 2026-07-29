@@ -13,6 +13,8 @@ owned by whoever is working.
 
     .venv/bin/python tools/session.py            # rewrite the block in STATE.md
     .venv/bin/python tools/session.py --print    # just show it
+    .venv/bin/python tools/session.py --no-window            # skip the windowed checks
+    .venv/bin/python tools/session.py --gate-from gate.txt   # reuse the wrap's gate run
 """
 
 from __future__ import annotations
@@ -35,11 +37,40 @@ def sh(*args: str) -> str:
     return r.stdout.strip()
 
 
-def gate() -> tuple[str, list[str]]:
-    r = subprocess.run([sys.executable, str(ROOT / "tools" / "check.py")],
-                       capture_output=True, text=True, cwd=str(ROOT))
-    lines = [l for l in r.stdout.splitlines() if l.startswith("[")]
-    summary = next((l for l in r.stdout.splitlines() if "passed" in l), "unknown")
+def _parse_gate(out: str) -> tuple[str, list[str]]:
+    lines = [l for l in out.splitlines() if l.startswith("[")]
+    summary = next((l for l in out.splitlines() if "passed" in l), "unknown")
+    return summary, lines
+
+
+def gate(no_window: bool = False, gate_from: Path | None = None) -> tuple[str, list[str]]:
+    """The gate's per-check lines for the STATE block, run now or read from a saved run.
+
+    `gate_from` exists because the wrap procedure runs the gate and *then* runs this script,
+    which re-ran the whole gate to build the block — paying for the eleven-minute parity
+    check twice per wrap, and opening the rendered checks' Godot windows twice. Save the
+    gate's output and hand it over instead. Pipe it through `python -u`, or the block
+    buffering on a redirected stdout means the file is empty until the run ends.
+
+    `no_window` forwards `--no-window`, which is not cosmetic: three checks open a real
+    Godot window on whoever's desktop this runs on, and macOS stalls a window it thinks is
+    occluded — so regenerating STATE while somebody is using the machine both interrupts
+    them and can wedge for half an hour (decision 051, LF-061). Either way the skipped lines
+    stay in the block as `skip`, so the record says what did not run rather than implying
+    18 green.
+    """
+    if gate_from is not None:
+        out = gate_from.read_text()
+        summary, lines = _parse_gate(out)
+        return summary + f"   (from {gate_from.name}, not re-run)", lines
+
+    cmd = [sys.executable, "-u", str(ROOT / "tools" / "check.py")]
+    if no_window:
+        cmd.append("--no-window")
+    r = subprocess.run(cmd, capture_output=True, text=True, cwd=str(ROOT))
+    summary, lines = _parse_gate(r.stdout)
+    if no_window:
+        summary += "   (--no-window: the three rendered checks did not run)"
     return summary, lines
 
 
@@ -56,7 +87,10 @@ def backlog() -> dict:
 
 
 def anchors() -> list[dict]:
-    r = subprocess.run([sys.executable, str(ROOT / "sim" / "run.py"), "--json"],
+    ## `--jobs 0` is one worker per core. The sim has no RNG and no shared state, so the
+    ## parallel run returns the same cells in the same order (CLAUDE.md) — grading 24 anchors
+    ## serially here was costing about three and a half minutes of every wrap for nothing.
+    r = subprocess.run([sys.executable, str(ROOT / "sim" / "run.py"), "--json", "--jobs", "0"],
                        capture_output=True, text=True, cwd=str(ROOT))
     try:
         return json.loads(r.stdout)
@@ -79,8 +113,8 @@ def inventory() -> dict:
     }
 
 
-def build() -> str:
-    summary, lines = gate()
+def build(no_window: bool = False, gate_from: Path | None = None) -> str:
+    summary, lines = gate(no_window, gate_from)
     bl = backlog()
     inv = inventory()
     ancs = anchors()
@@ -132,9 +166,14 @@ def build() -> str:
 def main() -> int:
     ap = argparse.ArgumentParser(description="Regenerate the auto block in STATE.md.")
     ap.add_argument("--print", action="store_true", dest="show")
+    ap.add_argument("--gate-from", type=Path, metavar="FILE",
+                    help="read a saved gate run instead of re-running it. The wrap runs the "
+                         "gate already; without this the block costs a second parity run.")
+    ap.add_argument("--no-window", action="store_true",
+                    help="forward --no-window to the gate: skip the three checks that\nopen a real Godot window. Use when somebody is working on this machine.")
     args = ap.parse_args()
 
-    block = build()
+    block = build(args.no_window, args.gate_from)
     if args.show:
         print(block)
         return 0

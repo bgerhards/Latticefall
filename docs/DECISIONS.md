@@ -1753,3 +1753,75 @@ cannot be read as filing the teeth off it.
 **Consequence.** Any new HUD panel is a scroll region with its controls outside it, and any
 new text has to fit its column's inner width — `a11y.py` now measures that, and the gate
 runs the game at 100% and 200%, the menu at 200% and the options panel at 200%.
+
+---
+
+## 051 — Every process the tooling starts is bounded and reaped, and subagents run on Sonnet
+
+**Date.** 2026-07-29. **Status.** Adopted.
+
+**Decided.** Process lifetime is a mechanical guarantee, not a documented promise:
+`tools/reap.py` is the reaper, the gate bounds every subprocess it starts, the gate asserts
+subagents are pinned to `sonnet`, and both session skills plus a `SessionEnd` hook run the
+reaper without anyone remembering to.
+
+**Context.** A session declared wrapped left processes running for more than thirty minutes
+and pushed the owner past their subscription into paid credits. The cost is not the idle
+core, which is what the existing note in `CLAUDE.md` implied: **a background process the
+agent harness still tracks re-invokes the model when it finally exits or emits**, so a
+forgotten child bills turns against a session everybody believed was over.
+
+That note is the point of this entry. `CLAUDE.md` had recorded the specific trap — the
+parity check's headless Godot reparents to init and survives `pkill -f check.py` — for
+several sessions, and it kept happening, because the mitigation was "remember to run `ps`".
+A trap written down is not a trap controlled. Three survivors are now covered: that Godot,
+`tools/audio/serve.py` (`serve_forever()`, no exit condition at all), and the `--jobs`
+worker pools of `sim/run.py` and `tools/sweep.py` when their parent dies.
+
+**Subagents were inheriting Opus.** All five definitions in `.claude/agents/` carried no
+`model:` key, which means the parent model, so a five-way fan-out silently cost five Opus
+contexts — the most expensive thing this project could do by accident. They are pinned to
+`sonnet`, and the `agent models` gate check fails if that regresses. Built-in agents have no
+frontmatter to hold the pin, so the model is passed at the call site instead.
+
+**Why the gate could hang for 36 minutes and still report ok.** Measured the same day on the
+same tree: `game renders` took **2,187,910 ms** on one run and **2,298 ms** on another, and
+passed both times. The three rendered checks launch a *real* Godot window, because GL
+Compatibility reads back nothing headlessly — and **macOS throttles a window it considers
+occluded**. Cover it, background it, or simply keep working in front of it, and the frame
+loop stalls, so `await RenderingServer.frame_post_draw` in `main.gd` never resolves. The
+check does not fail; it waits until the window is visible again and then succeeds. Diagnosed
+by the owner watching it happen, not from the logs — there is no error in them to find.
+
+Two mitigations, and neither is a fix. Every gate subprocess is bounded (`DEFAULT_TIMEOUT`
+300 s, `PARITY_TIMEOUT` 1800 s for the 864-run parity harness), and the timeout path calls
+the reaper rather than trusting `subprocess.run`'s kill, which ends the direct child only —
+the grandchild that outlives it is the entire problem. And `--no-window` skips the three
+windowed checks so the gate is usable while someone is at the machine. The real fix makes
+the capture independent of the compositor presenting frames; `LF-061` carries the candidates.
+
+**Rejected.**
+- *A `Stop` hook that reaps after every turn.* It would kill a deliberately backgrounded
+  gate mid-run. `SessionEnd` plus an explicit wrap step is the correct pair, and the wrap
+  step is the belt — a hook does not fire when the CLI is killed outright.
+- *A reaper that matches on process name.* `pkill -f godot` would kill an editor the owner
+  had open by hand. Godot is a candidate only with `--headless` or `--fixed-fps`, Python only
+  with both the repo path and one of our tool names, Blender only with `-b`; `blender-mcp`
+  and `godot-ai` are excluded by name because the harness owns them and killing one breaks
+  the session mid-flight.
+- *Killing by default.* `reap.py` reports and takes `--kill` as a verb, so that reading the
+  situation is never the thing that changes it.
+- *One timeout for the whole gate.* Parity legitimately needs eleven minutes; a ceiling
+  generous enough for it would let a wedged 2.5-second check sit for a third of an hour.
+  Per-call, with parity carrying its own.
+- *Making `--no-window` the default.* The rendered checks are the only ones that have ever
+  caught a UI defect — every one this project has had was invisible in the code and obvious
+  in a screenshot. Skipping them is a choice a human makes about one run, announced in the
+  summary, never a default that quietly weakens the gate.
+- *Raising the render base so zoom could exceed 1.0.* Unrelated to this entry; noted only
+  because `LF-052` was started and stopped this session. It remains unstarted.
+
+**Consequence.** The gate is 18 checks. `--no-window` reports SKIP for three of them and the
+summary distinguishes "skipped by the flag" from "subsystem absent", because those are
+different claims and a skip is never a pass. Ask before running the full gate when the owner
+is at the machine.
