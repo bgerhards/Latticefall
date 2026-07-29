@@ -3,7 +3,7 @@
   "anchor": "anchor-20",
   "lines": [
     { "trigger": "brief", "speaker": "control",
-      "text": "Two hundred and twenty megawatts. Be advised there is warden activity on the deck already." },
+      "text": "Two hundred and ninety megawatts. Be advised there is warden activity on the deck already." },
     { "trigger": "brief", "speaker": "vasquez",
       "text": "How many?" },
     { "trigger": "brief", "speaker": "control",

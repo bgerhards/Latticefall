@@ -3,9 +3,9 @@
   "id": "anchor-12",
   "act": 2,
   "title": "Asset Recovery",
-  "capacity_mw": 150,
+  "capacity_mw": 200,
   "starting_funds": 1250,
-  "lives": 12,
+  "lives": 19,
   "grid": {
     "w": 16,
     "h": 12
@@ -87,6 +87,11 @@
       "lead_in": 20,
       "spawns": [
         {
+          "enemy": "reach-picket",
+          "count": 4,
+          "interval": 0.7
+        },
+        {
           "enemy": "warden-drone",
           "count": 4,
           "interval": 1.15
@@ -102,6 +107,11 @@
     {
       "lead_in": 17,
       "spawns": [
+        {
+          "enemy": "reach-picket",
+          "count": 6,
+          "interval": 0.7
+        },
         {
           "enemy": "warden-drone",
           "count": 4,
@@ -124,6 +134,11 @@
     {
       "lead_in": 16,
       "spawns": [
+        {
+          "enemy": "reach-picket",
+          "count": 6,
+          "interval": 0.7
+        },
         {
           "enemy": "warden-mote",
           "count": 2,
@@ -153,6 +168,11 @@
       "lead_in": 16,
       "spawns": [
         {
+          "enemy": "reach-picket",
+          "count": 8,
+          "interval": 0.7
+        },
+        {
           "enemy": "warden-drone",
           "count": 4,
           "interval": 1.05
@@ -181,6 +201,11 @@
       "lead_in": 15,
       "spawns": [
         {
+          "enemy": "reach-picket",
+          "count": 8,
+          "interval": 0.7
+        },
+        {
           "enemy": "warden-drone",
           "count": 5,
           "interval": 1.0
@@ -208,6 +233,11 @@
     {
       "lead_in": 15,
       "spawns": [
+        {
+          "enemy": "reach-picket",
+          "count": 13,
+          "interval": 0.7
+        },
         {
           "enemy": "warden-drone",
           "count": 5,
@@ -243,6 +273,11 @@
       "lead_in": 14,
       "spawns": [
         {
+          "enemy": "reach-picket",
+          "count": 12,
+          "interval": 0.7
+        },
+        {
           "enemy": "warden-drone",
           "count": 5,
           "interval": 0.95
@@ -276,6 +311,11 @@
     {
       "lead_in": 13,
       "spawns": [
+        {
+          "enemy": "reach-picket",
+          "count": 11,
+          "interval": 0.7
+        },
         {
           "enemy": "warden-drone",
           "count": 5,

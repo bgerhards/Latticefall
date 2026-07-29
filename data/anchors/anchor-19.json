@@ -3,10 +3,10 @@
   "id": "anchor-19",
   "act": 3,
   "title": "Sixty-One",
-  "capacity_mw": 210,
+  "capacity_mw": 290,
   "capacity_decay_mw": 8,
-  "starting_funds": 2400,
-  "lives": 22,
+  "starting_funds": 3120,
+  "lives": 26,
   "grid": {
     "w": 16,
     "h": 14
@@ -92,6 +92,11 @@
       "lead_in": 22,
       "spawns": [
         {
+          "enemy": "hollow-shard",
+          "count": 2,
+          "interval": 0.8
+        },
+        {
           "enemy": "hollow-echo",
           "count": 2,
           "interval": 1.9
@@ -113,6 +118,11 @@
     {
       "lead_in": 21,
       "spawns": [
+        {
+          "enemy": "hollow-shard",
+          "count": 2,
+          "interval": 0.8
+        },
         {
           "enemy": "hollow-echo",
           "count": 2,
@@ -136,6 +146,11 @@
       "lead_in": 20,
       "spawns": [
         {
+          "enemy": "hollow-shard",
+          "count": 2,
+          "interval": 0.8
+        },
+        {
           "enemy": "hollow-echo",
           "count": 2,
           "interval": 1.79
@@ -157,6 +172,11 @@
     {
       "lead_in": 19,
       "spawns": [
+        {
+          "enemy": "hollow-shard",
+          "count": 4,
+          "interval": 0.8
+        },
         {
           "enemy": "hollow-echo",
           "count": 3,
@@ -186,6 +206,11 @@
       "lead_in": 18,
       "spawns": [
         {
+          "enemy": "hollow-shard",
+          "count": 5,
+          "interval": 0.8
+        },
+        {
           "enemy": "hollow-echo",
           "count": 3,
           "interval": 1.67
@@ -213,6 +238,11 @@
     {
       "lead_in": 17,
       "spawns": [
+        {
+          "enemy": "hollow-shard",
+          "count": 5,
+          "interval": 0.8
+        },
         {
           "enemy": "hollow-echo",
           "count": 4,
@@ -242,8 +272,13 @@
       "lead_in": 16,
       "spawns": [
         {
+          "enemy": "hollow-shard",
+          "count": 10,
+          "interval": 0.8
+        },
+        {
           "enemy": "hollow-echo",
-          "count": 4,
+          "count": 3,
           "interval": 1.56
         },
         {
@@ -270,8 +305,13 @@
       "lead_in": 15,
       "spawns": [
         {
+          "enemy": "hollow-shard",
+          "count": 10,
+          "interval": 0.8
+        },
+        {
           "enemy": "hollow-echo",
-          "count": 4,
+          "count": 3,
           "interval": 1.5
         },
         {

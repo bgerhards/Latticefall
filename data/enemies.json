@@ -46,6 +46,17 @@
       "note": "Act II. Drains the bus while alive \u2014 the enemy attacks your economy directly."
     },
     {
+      "id": "reach-picket",
+      "name": "Reach Picket",
+      "faction": "sable-reach",
+      "hp": 45,
+      "speed": 1.7,
+      "bounty": 9,
+      "kind": "ground",
+      "drains_mw": 1,
+      "note": "Act II escort. Carries no tap \u2014 it is hired to walk in front of the units that do. Cheap, quick, and unscreened, so the pulse turret earns its slot again."
+    },
+    {
       "id": "reach-sapper",
       "name": "Reach Sapper",
       "faction": "sable-reach",
@@ -91,6 +102,17 @@
       "kind": "air",
       "drains_mw": 6,
       "note": "Act III air. Reads on instruments as a pressure gradient, not an object."
+    },
+    {
+      "id": "hollow-shard",
+      "name": "Hollow Shard",
+      "faction": "hollow",
+      "hp": 35,
+      "speed": 1.35,
+      "bounty": 8,
+      "kind": "ground",
+      "drains_mw": 0,
+      "note": "Act III escort. A piece of something larger, moving on its own. Barely touches the bus \u2014 it is debris under its own momentum, not a vessel carrying anything, which is what makes it affordable to send in numbers."
     },
     {
       "id": "hollow-echo",

@@ -3,7 +3,7 @@
   "anchor": "anchor-17",
   "lines": [
     { "trigger": "brief", "speaker": "control",
-      "text": "This anchor has no number. It is not on the containment order and it is not on any survey we hold. A hundred and ninety megawatts." },
+      "text": "This anchor has no number. It is not on the containment order and it is not on any survey we hold. Two hundred and ninety megawatts." },
     { "trigger": "brief", "speaker": "okonkwo",
       "text": "It has no bind key either. We came through it from the far side of forty-four, which means the far side of forty-four is here." },
     { "trigger": "brief", "speaker": "vasquez",
@@ -19,6 +19,13 @@
 
     { "trigger": "wave-start:1", "speaker": "control",
       "text": "Contact. Classification — I don't have one. Reads as pressure." },
+
+    { "trigger": "wave-clear:1", "speaker": "okonkwo", "critical": false,
+      "text": "Most of that was fragments. Same material as the large ones, a fraction of the mass, and they hardly touch the bus at all." },
+    { "trigger": "wave-clear:1", "speaker": "vasquez", "critical": false,
+      "text": "So they're cheap to send." },
+    { "trigger": "wave-clear:1", "speaker": "okonkwo", "critical": false,
+      "text": "Nothing here is being sent, Captain. It's shedding." },
 
     { "trigger": "wave-clear:2", "speaker": "vasquez", "critical": false,
       "text": "Okonkwo, what are we shooting at?" },

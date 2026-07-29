@@ -60,6 +60,10 @@ docs/            STATE, BACKLOG, DECISIONS, NOMENCLATURE, STORY
 .venv/bin/python tools/check.py                    # the gate. run before every commit.
 .venv/bin/python tools/backlog.py add "..." --kind bug --area audio
 .venv/bin/python tools/validate/validate_data.py   # schemas + cross-references
+.venv/bin/python tools/density.py                  # units, leak, hp, drain and screen
+                                                   # presence per anchor and per act
+.venv/bin/python tools/sweep.py anchor-20 --jobs 8 # grade a grid, one cell per core
+.venv/bin/python -m sim.run --jobs 8               # grade every anchor, one per core
 .venv/bin/python tools/validate/a11y.py <report.json> --shot <frame.png> --all
                                                    # WCAG AA contrast + text size audit
 .venv/bin/python tools/audio/synth_sfx.py          # rebuild SFX bank
@@ -101,6 +105,15 @@ would reintroduce LF-027.
 
 `tools/check.py` is the single gate: schema validation, data cross-references, sim
 determinism, asset manifest integrity, Python syntax. **If it fails, do not commit.**
+
+**Grading is parallel; nothing else about it changed.** The sim has no RNG and no shared
+state, so `--jobs` on `sim/run.py` and `tools/sweep.py` buys wall-clock and returns the
+same cells in the same order. Grading 24 anchors was 3.5 minutes serially, and a balance
+question usually needs the box widened two or three times before it answers.
+
+**A wave's unit count is not its screen presence.** A Column at 0.5 tiles/sec holds the
+board four times as long as a Shard, so `tools/density.py` reports peak units in flight
+alongside the per-wave count, and the gate's `wave density` check compares acts on that.
 
 ---
 

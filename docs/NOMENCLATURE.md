@@ -86,6 +86,28 @@ seven-symbol address motif, and any nine-glyph or eight-glyph address mechanic.
 `pulse turret` · `arc node` · `ion lance` · `mortar emplacement` · `flak array` ·
 `shield wall` · `scan relay` · `anchor damper` · `restorer`
 
+### Enemy units
+
+One row per unit in `data/enemies.json`. Ordinal constructs are *wardens*; Sable Reach
+sends plain trade nouns, because they are contractors and their kit is rented; the Hollow
+gets abstract nouns only, since nothing in the game ever says what it is.
+
+| Unit | Faction | Role |
+|---|---|---|
+| **Warden Drone** | Ordinal | Act I baseline. |
+| **Warden Mote** | Ordinal | Act I air. Unseen without a scan relay. |
+| **Warden Heavy** | Ordinal | Act I armour. |
+| **Reach Picket** | Sable Reach | Act II escort. The one Reach unit carrying no tap. |
+| **Reach Sapper** | Sable Reach | Act II. The largest single drain in the act. |
+| **Reach Skiff** | Sable Reach | Act II air. |
+| **Reach Breacher** | Sable Reach | Act II. Screened. |
+| **Reach Bulwark** | Sable Reach | Act II heavy. Screened and plated. |
+| **Hollow Shard** | the Hollow | Act III escort. One piece of an Echo, travelling alone. |
+| **Hollow Drift** | the Hollow | Act III air. |
+| **Hollow Echo** | the Hollow | Act III baseline. Screened. |
+| **Hollow Vessel** | the Hollow | Act III mid. Carries most of the act's drain. |
+| **Hollow Column** | the Hollow | Act III heavy. The largest draw in the game. |
+
 ### Cast
 
 | Name | Role | Voice |

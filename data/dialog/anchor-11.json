@@ -3,7 +3,7 @@
   "anchor": "anchor-11",
   "lines": [
     { "trigger": "brief", "speaker": "control",
-      "text": "Anchor twenty-six. A hundred and forty-two megawatts. Sable Reach requested a channel before you arrived. Meridian Actual has authorised you to take it." },
+      "text": "Anchor twenty-six. Two hundred megawatts. Sable Reach requested a channel before you arrived. Meridian Actual has authorised you to take it." },
     { "trigger": "brief", "speaker": "vasquez",
       "text": "Authorised. Not ordered." },
     { "trigger": "brief", "speaker": "control",

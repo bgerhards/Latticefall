@@ -1455,3 +1455,116 @@ honest consequence of changing a rule that Act I is subject to.
 cost, and the HUD reports both. Any future enemy needs a `leak_cost` consistent with the
 divisor, and the GDScript default of 1 must stay identical to the Python one or the parity
 gate will catch it as a divergence — which is the intended safety net.
+
+---
+
+## 048 — Act II and Act III field escorts, and each act is budgeted against the resource that limits it
+
+**Date.** 2026-07-28. **Status.** Adopted.
+
+Two cheap units join the roster: **Reach Picket** (55 hp, 1 MW, Act II) and **Hollow
+Shard** (60 hp, 2 MW, Act III). No armour, no screen, worth one life if they land. They are
+spent into Act II and III wave tables by `tools/densify.py`, which **replaces** authored
+mass rather than adding to it — and the two acts are re-authored against **different**
+resources: Act II against hp, Act III against `leak_cost`.
+
+**Why the acts had nothing on them.** `LF-044` said the finale put fewer things on screen
+than the tutorial, and `tools/density.py` confirms it: 20.2 units a wave in Act I, 9.7 in
+Act II, 7.7 in Act III. The cause was structural, not timid authoring. From Act II every
+unit in the game drains the bus while it walks, so **unit count and bus theft were literally
+the same number** — eighteen Hollow Echoes is 144 MW of theft against a bus that has decayed
+to 157 MW. The roster simply had no cheap unit: the lightest thing in Act III drained 8 MW.
+Decision 047 made density affordable in lives; it did not make it affordable in megawatts,
+and this is the other half.
+
+**Two wrong cuts, recorded because both are the obvious move.**
+
+*Escorts on top of the authored waves.* Leaving the existing spawns alone put Act III at
+2668 hp a wave against 1562, and all eight Act III anchors graded unwinnable. A level does
+not absorb a 70% rise in work because it has more silhouettes on it. Escorts replace mass.
+
+*One budget for both acts — hold total HP constant and buy escorts out of the heavies.*
+That works for Act II and fails for Act III. Measured: anchor-20 re-authored against an HP
+budget needed 38 lives at 250 MW to grade clean, a **28% leak budget against the 26% it
+started at**. Density improved and tension did not, which is exactly the trade decision 047
+exists to prevent — because Act III units are worth 2–4 lives each now, buying escorts with
+HP raises the wave's total `leak_cost` and the anchor has to be made more forgiving to pay
+for it.
+
+**What shipped.** Each wave gets an **allowance** in the resource its act is limited by, and
+escorts fill whatever the authored units do not spend.
+
+| act | limited by | measured in | allowance | why |
+|---|---|---|---|---|
+| II | drain | hp | 1.70x | fields *less* work than Act I — 740 hp/wave against 950 — and was thin only because a Sapper costs 8 MW to put on the board and a Picket costs 1. It is growing into headroom it always had. |
+| III | leak | `leak_cost` | 1.90x | already carries the most work in the game, and its units are worth 2–4 lives each, so leak is the currency that binds. Lives are then set as a *fraction* of that larger total, which is what makes the act tighter rather than merely bigger. |
+
+At these allowances the solver does not need to cut the authored spawns at all, and the
+composition survives intact — which is the whole point, and was learned the hard way twice.
+
+**The wave table is content, and a transform that is free to cut it will destroy it.** With
+the allowance set tight (1.45x on leak) the target unit count is simply unreachable — no
+amount of anything buys 20 units out of 17 leak — so the scale factor floors and every
+authored spawn lands on its own floor of 1. Measured: **251 of 252 Act III spawn entries came
+out at `count: 1`**, and every wave of the last three anchors of the game became "N Shards
+and one of each", ramp gone. That is not a thinner wave, it is the loss of the authored
+content. Hence `KEEP_FLOOR = 0.5` and, more importantly, allowances generous enough that the
+floor rarely binds. **Undershooting a density target is a tuning miss; flattening composition
+is a content loss, and they are not the same severity.**
+
+**The allowance is capped at 1.6x the anchor's mean wave.** Per-wave, the ramp multiplier and
+the budget multiplier compound on the last wave of an act: anchor-16's finale came out at
+3796 hp against the anchor's own 1173 hp mean — twice the next hardest wave in the game — and
+the anchor then graded clean only at 56 lives, a 25% leak budget.
+
+**And the solver's own algebra was wrong.** From `f*units + (allowance - f*mass)/escort = target`
+the scale factor is `(allowance/escort - target) / (mass/escort - units)`; it was written with
+the denominator as `allowance/escort - mass/escort`, a different quantity. The escort residual
+absorbed most of the error, so the tables looked plausible while the target was quietly missed
+by a fifth on every Act III anchor. Recorded because of *how* it hid: a derived quantity that
+another term compensates for does not announce itself, and the only thing that caught it was
+re-deriving the algebra from the docstring rather than reading the code.
+
+**Density is not paid for with reactor capacity.** The heavier waves grade clean if the bus
+is allowed to grow, and a sweep will happily buy exactly that — so the first re-sweep put
+Act III at 300-420 MW, and anchor-24 at **103% of what would run every slot at maximum
+draw**. Every anchor still graded clean. The five heaviest levels in the game had quietly
+stopped containing a power decision at all, which is the one thing the game is about
+(decision 003). Act I sits at 29-38% of that saturation figure; Act II and III now run
+against a sweep grid **bounded at 70%** of it, and the shortfall is paid in cheaper escorts
+and a smaller allowance rather than in megawatts. `validate_data.py` now errors at
+saturation instead of warning, and warns from 80% — because the hook does not switch off at
+the boundary, it fades towards it, and nothing said a word until the last anchor tipped over.
+
+**A second measurement correction.** Units-per-wave is not an honest reading of "how much is
+on screen": a Column at 0.5 tiles/sec occupies the board four times as long as a Shard, so a
+table with fewer, slower units can be busier than one with more. `density.py` now also
+reports **peak concurrent units in flight** — an upper bound, assuming the board kills
+nothing, which is what makes it comparable across acts whose emplacements differ — and that
+is the number `tools/check.py` gates on.
+
+**Rejected.**
+
+- *Cut `drains_mw` across the existing roster so the current units get affordable.* It
+  makes density arrive by weakening the act mechanic itself. The bus being contested **is**
+  Act II (decisions 027 and 028); a Sapper that costs 3 MW is not a Sapper.
+- *Raise reactor capacity to pay for more units.* Already disproved and not worth
+  re-running: doubling every weapon's damage **and** raising capacity 60% — 3.2x throughput
+  — reached 1 of 11 winning builds at weight 1.50 on anchor-20. Capacity alone changes
+  nothing, because the constraint is what the wave steals, not what the board is given.
+- *Scale spawn counts with `sweep.py --weight`.* It scales every spawn in the table,
+  heavies included, so it multiplies drain and leak along with the count. That is the exact
+  knob `LF-044` was already stuck on for sixteen anchors.
+- *Give the escorts zero drain.* Cleaner arithmetic, and it puts a unit on an Act II/III
+  board that is not connected to the act's economy at all. 1–2 MW keeps every unit in the
+  act honest to the mechanic and is still cheap enough to field in numbers.
+- *Give the Act III escort the 80 hp the first cut used.* Any 20-unit Act III wave then
+  carries at least 1600 hp of chaff alone — more than the whole wave carried before. 60 hp
+  is what makes the count reachable.
+
+**Consequence.** `densify.py` is **one-shot**: unlike `sweep.py` it rewrites authored
+composition rather than a knob, so running it twice scales the same tables twice. It refuses
+any anchor that already carries its act's escort; `--force` is for deliberately re-deriving
+from a re-authored base. Every anchor it touches must be re-swept on lives and re-graded
+behind it. The density gate in `check.py` exists because this is undoable in silence — a
+later sweep or a hand-edited wave table can quietly put the finale back below the tutorial.

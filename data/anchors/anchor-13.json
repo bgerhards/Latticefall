@@ -3,9 +3,9 @@
   "id": "anchor-13",
   "act": 2,
   "title": "Duty of Care",
-  "capacity_mw": 158,
-  "starting_funds": 1500,
-  "lives": 14,
+  "capacity_mw": 250,
+  "starting_funds": 1950,
+  "lives": 13,
   "grid": {
     "w": 17,
     "h": 13
@@ -91,6 +91,11 @@
       "lead_in": 20,
       "spawns": [
         {
+          "enemy": "reach-picket",
+          "count": 4,
+          "interval": 0.7
+        },
+        {
           "enemy": "warden-drone",
           "count": 2,
           "interval": 1.1
@@ -112,6 +117,11 @@
     {
       "lead_in": 17,
       "spawns": [
+        {
+          "enemy": "reach-picket",
+          "count": 5,
+          "interval": 0.7
+        },
         {
           "enemy": "warden-drone",
           "count": 2,
@@ -141,8 +151,13 @@
       "lead_in": 16,
       "spawns": [
         {
+          "enemy": "reach-picket",
+          "count": 5,
+          "interval": 0.7
+        },
+        {
           "enemy": "warden-drone",
-          "count": 3,
+          "count": 2,
           "interval": 1.05
         },
         {
@@ -168,6 +183,11 @@
     {
       "lead_in": 16,
       "spawns": [
+        {
+          "enemy": "reach-picket",
+          "count": 6,
+          "interval": 0.7
+        },
         {
           "enemy": "warden-drone",
           "count": 3,
@@ -196,6 +216,11 @@
     {
       "lead_in": 15,
       "spawns": [
+        {
+          "enemy": "reach-picket",
+          "count": 8,
+          "interval": 0.7
+        },
         {
           "enemy": "warden-drone",
           "count": 3,
@@ -231,6 +256,11 @@
       "lead_in": 15,
       "spawns": [
         {
+          "enemy": "reach-picket",
+          "count": 7,
+          "interval": 0.7
+        },
+        {
           "enemy": "warden-drone",
           "count": 3,
           "interval": 0.95
@@ -258,6 +288,11 @@
     {
       "lead_in": 14,
       "spawns": [
+        {
+          "enemy": "reach-picket",
+          "count": 11,
+          "interval": 0.7
+        },
         {
           "enemy": "warden-drone",
           "count": 4,
@@ -299,6 +334,11 @@
       "lead_in": 13,
       "spawns": [
         {
+          "enemy": "reach-picket",
+          "count": 11,
+          "interval": 0.7
+        },
+        {
           "enemy": "warden-drone",
           "count": 4,
           "interval": 0.9
@@ -332,6 +372,11 @@
     {
       "lead_in": 13,
       "spawns": [
+        {
+          "enemy": "reach-picket",
+          "count": 12,
+          "interval": 0.7
+        },
         {
           "enemy": "warden-drone",
           "count": 4,

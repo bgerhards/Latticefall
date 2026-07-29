@@ -3,10 +3,10 @@
   "id": "anchor-24",
   "act": 3,
   "title": "Close It From This Side",
-  "capacity_mw": 260,
-  "capacity_decay_mw": 16,
-  "starting_funds": 3100,
-  "lives": 52,
+  "capacity_mw": 290,
+  "capacity_decay_mw": 12,
+  "starting_funds": 4030,
+  "lives": 48,
   "grid": {
     "w": 18,
     "h": 15
@@ -92,6 +92,11 @@
       "lead_in": 22,
       "spawns": [
         {
+          "enemy": "hollow-shard",
+          "count": 1,
+          "interval": 0.8
+        },
+        {
           "enemy": "hollow-echo",
           "count": 2,
           "interval": 1.9
@@ -120,13 +125,18 @@
       "lead_in": 21,
       "spawns": [
         {
+          "enemy": "hollow-shard",
+          "count": 8,
+          "interval": 0.8
+        },
+        {
           "enemy": "hollow-echo",
-          "count": 2,
+          "count": 1,
           "interval": 1.84
         },
         {
           "enemy": "hollow-drift",
-          "count": 2,
+          "count": 1,
           "interval": 1.94,
           "delay": 5
         },
@@ -147,6 +157,11 @@
     {
       "lead_in": 20,
       "spawns": [
+        {
+          "enemy": "hollow-shard",
+          "count": 1,
+          "interval": 0.8
+        },
         {
           "enemy": "hollow-echo",
           "count": 2,
@@ -176,19 +191,24 @@
       "lead_in": 19,
       "spawns": [
         {
+          "enemy": "hollow-shard",
+          "count": 15,
+          "interval": 0.8
+        },
+        {
           "enemy": "hollow-echo",
-          "count": 3,
+          "count": 2,
           "interval": 1.73
         },
         {
           "enemy": "hollow-drift",
-          "count": 2,
+          "count": 1,
           "interval": 1.82,
           "delay": 5
         },
         {
           "enemy": "hollow-vessel",
-          "count": 2,
+          "count": 1,
           "interval": 3.28,
           "delay": 7
         },
@@ -204,19 +224,24 @@
       "lead_in": 18,
       "spawns": [
         {
+          "enemy": "hollow-shard",
+          "count": 15,
+          "interval": 0.8
+        },
+        {
           "enemy": "hollow-echo",
-          "count": 3,
+          "count": 2,
           "interval": 1.67
         },
         {
           "enemy": "hollow-drift",
-          "count": 2,
+          "count": 1,
           "interval": 1.76,
           "delay": 5
         },
         {
           "enemy": "hollow-vessel",
-          "count": 2,
+          "count": 1,
           "interval": 3.17,
           "delay": 7
         },
@@ -232,19 +257,24 @@
       "lead_in": 17,
       "spawns": [
         {
+          "enemy": "hollow-shard",
+          "count": 15,
+          "interval": 0.8
+        },
+        {
           "enemy": "hollow-echo",
-          "count": 3,
+          "count": 2,
           "interval": 1.61
         },
         {
           "enemy": "hollow-drift",
-          "count": 2,
+          "count": 1,
           "interval": 1.7,
           "delay": 5
         },
         {
           "enemy": "hollow-vessel",
-          "count": 2,
+          "count": 1,
           "interval": 3.06,
           "delay": 7
         },
@@ -260,19 +290,24 @@
       "lead_in": 16,
       "spawns": [
         {
+          "enemy": "hollow-shard",
+          "count": 15,
+          "interval": 0.8
+        },
+        {
           "enemy": "hollow-echo",
-          "count": 4,
+          "count": 3,
           "interval": 1.56
         },
         {
           "enemy": "hollow-drift",
-          "count": 2,
+          "count": 1,
           "interval": 1.64,
           "delay": 5
         },
         {
           "enemy": "hollow-vessel",
-          "count": 2,
+          "count": 1,
           "interval": 2.95,
           "delay": 7
         },
@@ -288,19 +323,24 @@
       "lead_in": 15,
       "spawns": [
         {
+          "enemy": "hollow-shard",
+          "count": 15,
+          "interval": 0.8
+        },
+        {
           "enemy": "hollow-echo",
-          "count": 4,
+          "count": 3,
           "interval": 1.5
         },
         {
           "enemy": "hollow-drift",
-          "count": 3,
+          "count": 2,
           "interval": 1.58,
           "delay": 5
         },
         {
           "enemy": "hollow-vessel",
-          "count": 3,
+          "count": 2,
           "interval": 2.84,
           "delay": 7
         },
@@ -316,19 +356,24 @@
       "lead_in": 14,
       "spawns": [
         {
+          "enemy": "hollow-shard",
+          "count": 15,
+          "interval": 0.8
+        },
+        {
           "enemy": "hollow-echo",
-          "count": 4,
+          "count": 3,
           "interval": 1.44
         },
         {
           "enemy": "hollow-drift",
-          "count": 3,
+          "count": 2,
           "interval": 1.52,
           "delay": 5
         },
         {
           "enemy": "hollow-vessel",
-          "count": 3,
+          "count": 2,
           "interval": 2.74,
           "delay": 7
         },
@@ -344,19 +389,24 @@
       "lead_in": 13,
       "spawns": [
         {
+          "enemy": "hollow-shard",
+          "count": 15,
+          "interval": 0.8
+        },
+        {
           "enemy": "hollow-echo",
-          "count": 4,
+          "count": 3,
           "interval": 1.39
         },
         {
           "enemy": "hollow-drift",
-          "count": 3,
+          "count": 2,
           "interval": 1.46,
           "delay": 5
         },
         {
           "enemy": "hollow-vessel",
-          "count": 3,
+          "count": 2,
           "interval": 2.63,
           "delay": 7
         },
