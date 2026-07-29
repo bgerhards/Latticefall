@@ -559,11 +559,11 @@
       "kind": "bug",
       "area": "engine",
       "pri": "med",
-      "status": "open",
+      "status": "done",
       "why": "",
       "opened": "2026-07-28",
-      "closed": null,
-      "note": ""
+      "closed": "2026-07-28",
+      "note": "threat panel now scales hp by sim.hp_mult; verified by screenshot on standard vs brutal"
     },
     {
       "id": "LF-048",
