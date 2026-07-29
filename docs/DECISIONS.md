@@ -1643,3 +1643,113 @@ faked isometric board.
 collapse is now visible in game and worth fixing. `--facings` prints the yaw of every
 drawable on the frame `--shot` captures, because which of four near-identical sprites is on
 screen cannot be read reliably out of a 1440x810 PNG.
+## 050 — The instrument panels scroll, so the interface scale reaches 200%
+
+**Date.** 2026-07-28. **Status.** Adopted. **Supersedes decision 046**, which capped the
+interface scale at 125% because the instrument column could not reflow.
+
+`content_scale_factor` divides the logical viewport, so the design space is 1536x864 at
+125%, 1280x720 at 150% and **960x540 at 200%**. Decision 046 measured the instrument column
+at ~847 px and concluded that 720 clips the SELL, UPGRADE and power controls. That was
+right, and it understated the problem. Measured on anchor-24 at 200%: the column's content
+is **893 px** and its pinned verbs another 98, against 540 px of viewport; the threat panel
+is **455** beside it. The two panels are 656,000 px² of instrument in a 518,000 px²
+viewport, so they do not fit *tiled perfectly*, let alone as laid out. No arrangement of
+fixed panels reaches 200%. Two compressions bought the 125% step (a three-column build bar,
+a note allowed to shrink to nothing) and there was nothing left.
+
+**So the panels reflow, and the reflow is scrolling in one axis with the controls pinned
+outside it.** Both instrument panels are `ScrollContainer`s. The column's three verbs —
+SELL, UPGRADE and the power switch — sit in their own panel flush *below* the scroll
+region, so the controls can never be the thing that leaves the screen. That is the whole
+inversion: before, the readout was fixed and the controls were pushed off; now the readout
+is what moves and the controls are nailed down.
+
+Measured on anchor-24, the worst case on both axes:
+
+| scale | viewport | column content | column visible | threat content | threat visible | fails |
+|---|---|---|---|---|---|---|
+| 100% | 1920x1080 | 1009 | 950 | 455 | 455 | 0 |
+| 125% | 1536x864 | 893 | 734 | 455 | 455 | 0 |
+| 150% | 1280x720 | 893 | 590 | 455 | 455 | 0 |
+| 175% | 1097x617 | 893 | 487 | 455 | 455 | 0 |
+| 200% | 960x540 | 893 | 434 | 455 | 419 | 0 |
+
+Every number is read out of the probe's own clip rects, not computed here. The column's
+content drops 1009 → 893 below 950 px of viewport because the build bar goes three across;
+that compression predates this change and is kept. *Fails* is `tools/validate/a11y.py`
+against the screenshot from the same frame — it was **3 at 150% and 4 at 200%** before this,
+and the three verbs were among them at both.
+
+**Scrolling is what SC 1.4.4 is written to allow, and the analyser now knows the
+difference.** Text pushed off the viewport by a layout that cannot reflow is lost; text
+below the fold of a region that scrolls is one wheel notch away. That distinction cannot be
+made from a rect, so `a11y_probe.gd` now reports each item's nearest clipping ancestor and
+its scroll axes, and `a11y.py` judges three things that are still failures inside a
+scroller: scrolling in **both** axes (SC 1.4.10 Reflow forbids it), text cut off along an
+axis the region does **not** scroll, and a scroll region that is itself off screen. The
+check got stronger, not weaker — it immediately caught a defect that had been shipping at
+every scale: `funds $3100      lives 52      leaks 0` is 411 px of 18 px monospace in a
+388 px column. A string padded with spaces is a layout made of character counts. It is
+three positioned fields now.
+
+**Three other screens broke at 200% and are fixed here**, because an accessibility setting
+that is only honest on one screen is not honest:
+
+- The **options panel** — which carries this very control — put MUSIC, EFFECTS and BACK off
+  the bottom. Its rows scroll now, bounded by the viewport it is sitting in.
+- The **title screen** forced itself 1446 px wide, because a `GridContainer` of eight
+  172 px anchor buttons does not wrap, it widens its parent. The column count is solved
+  from the live viewport width (four at 200%) and the screen scrolls.
+- The **outer margin** was a fixed 16 px on each side. At 520 + 420 + three 16 px margins
+  that is 972 px in a 960 px design space, so at 200% the panels overlapped by 12 px and the
+  right column of the build bar was drawn under the threat list. The threat panel is 528
+  now — it gained the 8 px scrollbar gutter, and its widest row is a measured 490 px that
+  cannot be given up — so `Ui.gutter()` derives the margin from the viewport instead and
+  squeezes it to 4 px only when there is nothing else to give.
+
+**Reachability, which is the part that is easy to skip.** A scroll region a keyboard or
+gamepad player cannot move is still loss of content. The menu and options panels navigate
+by focus, so `follow_focus` scrolls them for free. The HUD's panels have no focus chain —
+their verbs are bound to board actions — so `lf_panel_up` / `lf_panel_down` (PageUp,
+PageDown, right stick Y) scroll both together, generated through
+`tools/godot/setup_input.gd` like every other action. `-- --scroll N` reaches the scrolled
+state for a screenshot, because a scroll region nobody has screenshotted scrolled is a
+scroll region nobody has looked at.
+
+**The offered range is 100 / 110 / 125 / 150 / 175 / 200%, and SC 1.4.4 is met.** Combined
+with the 16-18 px type ladder from decision 045, the largest available body text is about
+**2.9x** the 11-13 px the interface shipped with.
+
+**What it costs.** At 100% on anchor-24 the column scrolls by 59 px. That is not a
+regression to hide: the note is now reserved at its *measured* height — six wrapped lines
+for the longest — where decision 045's elastic note capped at five and cut the shield wall's
+last line mid-sentence. Losing 75 px to a scrollbar on the busiest anchor is a better trade
+than silently truncating prose, and the same fold exists at every scale rather than being a
+special case at the top of the range. At 200% the two panels cover nearly the whole board;
+that is inherent to enlarging a 1920x1080 interface fourfold in area, and the board is still
+playable through the keyboard and gamepad cursor.
+
+**Rejected.** *A bigger multiplier over the same layout* — decision 046's own conclusion,
+and the arithmetic above says why: 1480 px of panel does not fit in 540 whatever the
+multiplier is.
+
+*Moving the build bar out of the column, and collapsing the datasheet to the selected
+tower's rows.* Both were the backlog item's other suggestions and both were measured: the
+bar is 168 px and the datasheet collapse saves at most 73 (three of the eight reserved rows,
+at 24.4 px each), against a 451 px deficit at 200%. Together they would have bought 175% and
+no further, and the collapse makes the panel jump every time the pointer crosses a different
+emplacement.
+
+*Letting the whole column scroll, verbs included.* The verbs would be reachable, but a
+control you have to go looking for has clipped as far as the player is concerned — and they
+are exactly the controls decision 046 named as the thing that broke.
+
+*Leaving `a11y.py` alone and accepting the clipping failures as expected.* A gate that is
+argued with rather than satisfied stops being a gate. The check was taught the distinction
+the criterion actually makes, and made stricter in three ways at the same time so the change
+cannot be read as filing the teeth off it.
+
+**Consequence.** Any new HUD panel is a scroll region with its controls outside it, and any
+new text has to fit its column's inner width — `a11y.py` now measures that, and the gate
+runs the game at 100% and 200%, the menu at 200% and the options panel at 200%.

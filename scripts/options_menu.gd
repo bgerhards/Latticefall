@@ -19,10 +19,16 @@ class_name OptionsMenu
 signal closed
 
 const FPS_CAPS: Array[int] = [0, 60, 120, 144, 240]
+## The panel's own inner padding, and what it leaves around itself on screen. Named because
+## `_bound()` has to subtract both to know how much height the scroll region may have, and
+## a literal repeated in two places is a literal that will disagree with itself.
+const PANEL_PAD := 28.0
+const MARGIN := 16.0
 
 var _rows: Array = []
 var _panel: PanelContainer
 var _col: VBoxContainer
+var _scroll: ScrollContainer
 
 
 func _ready() -> void:
@@ -36,6 +42,9 @@ func _ready() -> void:
 	get_viewport().size_changed.connect(_fit)
 	_build()
 	_refresh()
+	# After _build, because the height the scroll region may have is measured from the rows
+	# it now contains rather than assumed.
+	_bound()
 
 
 func _fit() -> void:
@@ -46,6 +55,23 @@ func _fit() -> void:
 		return
 	position = Vector2.ZERO
 	size = get_viewport().get_visible_rect().size
+	_bound()
+
+
+func _bound() -> void:
+	## Cap the panel at what the viewport can hold and let the rest scroll.
+	##
+	## The panel is fourteen rows tall and the viewport it sits in is decided by the very
+	## setting it carries: at 200% interface scale the design space is 960x540 and the rows
+	## want about 610 px, so MUSIC, EFFECTS and BACK left the bottom of the screen — the
+	## accessibility panel being the thing that breaks first at the top of its own range.
+	## A CenterContainer centres a child at its minimum size, and a ScrollContainer has
+	## almost none of its own, so the height has to be handed to it explicitly.
+	if _scroll == null or _col == null:
+		return
+	var want := _col.get_combined_minimum_size()
+	var room := size.y - MARGIN * 2.0 - PANEL_PAD * 2.0
+	_scroll.custom_minimum_size = Vector2(want.x + Ui.SCROLL_GUTTER, minf(want.y, room))
 
 
 func _build() -> void:
@@ -65,13 +91,19 @@ func _build() -> void:
 	sb.bg_color = Ui.C_OVERLAY
 	sb.border_color = Color(Ui.C_MUTED, 0.25)
 	sb.set_border_width_all(1)
-	sb.set_content_margin_all(28)
+	sb.set_content_margin_all(int(PANEL_PAD))
 	_panel.add_theme_stylebox_override("panel", sb)
 	centre.add_child(_panel)
 
+	# `follow_focus` is what makes the scrolled rows reachable without a mouse: every row
+	# here is a Button and the panel is already navigable with the engine's `ui_*` focus
+	# actions, so stepping onto BACK scrolls it into view on its own.
+	_scroll = Ui.scroller()
+	_panel.add_child(_scroll)
+
 	_col = VBoxContainer.new()
 	_col.add_theme_constant_override("separation", 10)
-	_panel.add_child(_col)
+	_scroll.add_child(_col)
 
 	_col.add_child(Ui.label("OPTIONS", Ui.SIZE_LEAD, Ui.C_BONE, false, true))
 	_col.add_child(Ui.label("display, legibility and volume", Ui.SIZE_BODY, Ui.C_MUTED))

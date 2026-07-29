@@ -439,10 +439,18 @@ def check_accessibility() -> Result:
     the real composited background under every label. See that module for what is measured
     and why the thresholds are what they are.
 
-    The game is checked at anchor-24 and at 125% interface scale — the worst case on both
-    axes. Anchor-24 unlocks nine emplacements and fields the widest threat rows, and 125%
-    is the smallest logical viewport the interface is offered in. A layout that survives
-    both survives everything between them.
+    The game is checked at anchor-24 and at **200%** interface scale — the worst case on
+    both axes. Anchor-24 unlocks nine emplacements and fields the widest threat rows, and
+    200% is the smallest logical viewport the interface is offered in: 960x540, into which
+    the instrument column wants 893 px of readout plus 98 px of pinned controls and the
+    threat panel another 455 beside it. It is also checked at
+    100%, because the reflow is conditional and a rule that only fires at the top of the
+    range can break the bottom of it.
+
+    The menu and the options panel are checked at 200% as well. The options panel carries
+    the interface-scale control itself, so it is the one screen that absolutely must survive
+    the top of its own range — it did not, before decision 048: MUSIC, EFFECTS and BACK were
+    off the bottom of the screen.
 
     This exists because every one of these defects was invisible in the source and obvious
     in a measurement: an 11 px ladder that read as 8 px in the default window, an alert
@@ -459,9 +467,12 @@ def check_accessibility() -> Result:
     out = ROOT / ".godot"
     out.mkdir(parents=True, exist_ok=True)
     cases = [
-        ("game", ["--autoplay", "--anchor", "anchor-24", "--select", "1",
-                  "--ui-scale", "1.25"], "--shot", "300"),
-        ("menu", [], "--shot-menu", "40"),
+        ("game-100", ["--autoplay", "--anchor", "anchor-24", "--select", "1",
+                      "--ui-scale", "1.0"], "--shot", "300"),
+        ("game-200", ["--autoplay", "--anchor", "anchor-24", "--select", "1",
+                      "--ui-scale", "2.0"], "--shot", "300"),
+        ("menu", ["--ui-scale", "2.0"], "--shot-menu", "40"),
+        ("options", ["--options", "--ui-scale", "2.0"], "--shot-menu", "40"),
     ]
 
     totals, worst = [], []

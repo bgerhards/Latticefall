@@ -40,6 +40,7 @@ var _open_pause: bool = false
 var _select_nth: int = 0
 var _pick_tower: String = ""
 var _cursor_steps: int = 0
+var _scroll_steps: int = 0
 
 const MENU_SCENE := "res://scenes/menu.tscn"
 
@@ -66,6 +67,8 @@ func _ready() -> void:
         view.selected_slot = view.sim.placed[_select_nth - 1]["slot"]
     if _pick_tower != "":
         view.select(_pick_tower)      # applied after --select, so it can be seen to win
+    if _scroll_steps != 0:
+        hud.scroll_panels(_scroll_steps)
     for _i in range(_cursor_steps):
         var press := InputEventAction.new()
         press.action = "lf_right"
@@ -120,6 +123,13 @@ func _setup_cli() -> void:
                 # when the bar is used, which is the whole of that interaction.
                 if i + 1 < argv.size():
                     _pick_tower = argv[i + 1]
+            "--scroll":
+                # Scroll the instrument panels N steps, exactly as lf_panel_down does.
+                # Above 125% interface scale both panels hold more than fits, and the
+                # scrolled state is unreachable at --fixed-fps for the same reason the
+                # pause overlay and the inspector are: it takes a real key press.
+                if i + 1 < argv.size() and argv[i + 1].is_valid_int():
+                    _scroll_steps = int(argv[i + 1])
             "--cursor":
                 # Press lf_right N times at boot. Gamepad and keyboard board navigation
                 # is otherwise unscreenshottable at --fixed-fps for the same reason the

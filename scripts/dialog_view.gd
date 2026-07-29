@@ -52,21 +52,20 @@ func bind(v: Node2D) -> void:
 
 
 func _layout() -> void:
-	var vp := get_viewport().get_visible_rect().size
-	# Measured from the type it holds — a speaker line, then two wrapped lines of dialog —
-	# rather than the fixed 96 that was chosen when the body text was 4 px smaller.
+	# Where the panel goes is decided in one place, `Ui.dialog_rect`, because the threat
+	# panel has to reserve the same band: this node is on a later CanvasLayer and draws over
+	# whatever it lands on, and at 960x540 what it lands on is the wave's air warning.
+	# The panel starts where the instrument column ends rather than at the left edge —
+	# spanning the full width put a bar under the column, and the column needs the height
+	# more than the dialog needs the extra 428 px of line.
+	var r := Ui.dialog_rect(get_viewport().get_visible_rect().size)
 	var who_h := Ui.line_h(Ui.SIZE_CAPTION, false)
 	var body_h := 2.0 * Ui.line_h(Ui.SIZE_STAT, false)
-	var h := who_h + body_h + 26.0
-	# Starts where the instrument column ends rather than at the left edge. Spanning the
-	# full width put a bar under the column, and the column needs the height more than the
-	# dialog needs the extra 428 px of line.
-	var x := Ui.COL_X + Ui.COL_W + 8.0
-	_panel.position = Vector2(x, vp.y - h - 16)
-	_panel.size = Vector2(maxf(vp.x - x - 16.0, 200.0), h)
-	_who.position = _panel.position + Vector2(16, 8)
-	_text.position = _panel.position + Vector2(16, 8 + who_h + 4.0)
-	_text.size = Vector2(_panel.size.x - 32, body_h)
+	_panel.position = r.position
+	_panel.size = r.size
+	_who.position = r.position + Vector2(16, 8)
+	_text.position = r.position + Vector2(16, 8 + who_h + 4.0)
+	_text.size = Vector2(r.size.x - 32, body_h)
 
 
 func on_trigger(trigger: String) -> void:

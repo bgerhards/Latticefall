@@ -27,8 +27,11 @@ What is checked
 
 `clipping`  SC 1.4.4 Resize Text, level AA, requires text to survive 200% enlargement
             without loss of content. Run the probe at a raised UI scale and this check
-            proves it: any label pushed outside the viewport, or overlapping a neighbour it
-            did not overlap before, is loss of content.
+            proves it: any label pushed outside the viewport is loss of content — unless it
+            sits inside a region that scrolls, in which case it is one wheel notch away and
+            the criterion is satisfied. Scrolling in *two* axes is a failure in its own
+            right (SC 1.4.10 Reflow), as is text cut off along an axis its region does not
+            scroll. See `clipping()`.
 
 Reported severities are `fail` (violates a criterion) and `warn` (inside the margin).
 Exit code is non-zero only when `--strict` is passed, so the gate can adopt this
@@ -217,6 +220,58 @@ class Finding:
     detail: str
 
 
+def clipping(item: dict, label: str, rect: tuple[float, float, float, float],
+             vw: float, vh: float) -> list[Finding]:
+    """Is this text lost, or merely below the fold?
+
+    SC 1.4.4 asks for 200% enlargement without loss of *content*. Text that has been pushed
+    off the viewport by a layout that cannot reflow is lost. Text below the fold of a region
+    that scrolls is not — it is one wheel notch, PageDown or focus step away, and scrolling
+    in a single axis is the reflow answer the criterion is written to permit.
+
+    The distinction cannot be made from a rect alone, which is why `scripts/a11y_probe.gd`
+    reports the nearest clipping ancestor and its scroll modes. Three things are still
+    failures inside a scroll region, and the first two are the ways a scroller is usually
+    got wrong:
+
+    * scrolling in **both** axes — SC 1.4.10 Reflow exists to forbid exactly that, because
+      reading a line then means scrolling back and forth for every line of it;
+    * text cut off along an axis the region does **not** scroll — a 490 px monospaced row in
+      a 488 px region is not reachable by any amount of scrolling;
+    * a scroll region that is itself outside the viewport, which is loss of content with an
+      extra step in front of it.
+    """
+    rx, ry, rw, rh = rect
+    clip = item.get("clip") or None
+    if not clip:
+        if rx < -1.0 or ry < -1.0 or rx + rw > vw + 1.0 or ry + rh > vh + 1.0:
+            return [Finding("fail", "clipping", item["path"], label,
+                            f"rect {rx:.0f},{ry:.0f} {rw:.0f}x{rh:.0f} leaves the "
+                            f"{vw:.0f}x{vh:.0f} viewport")]
+        return []
+
+    cx, cy, cw, ch = (float(v) for v in clip["rect"])
+    out: list[Finding] = []
+    if cx < -1.0 or cy < -1.0 or cx + cw > vw + 1.0 or cy + ch > vh + 1.0:
+        out.append(Finding("fail", "clipping", item["path"], label,
+                           f"its scroll region {clip['path']} "
+                           f"({cx:.0f},{cy:.0f} {cw:.0f}x{ch:.0f}) leaves the "
+                           f"{vw:.0f}x{vh:.0f} viewport"))
+    if clip["scroll_v"] and clip["scroll_h"]:
+        out.append(Finding("fail", "clipping", item["path"], label,
+                           f"{clip['path']} scrolls in both axes (SC 1.4.10 Reflow "
+                           f"allows one)"))
+    if not clip["scroll_h"] and (rx < cx - 1.0 or rx + rw > cx + cw + 1.0):
+        out.append(Finding("fail", "clipping", item["path"], label,
+                           f"rect {rx:.0f}..{rx + rw:.0f} is cut off by {clip['path']} "
+                           f"({cx:.0f}..{cx + cw:.0f}), which does not scroll sideways"))
+    if not clip["scroll_v"] and (ry < cy - 1.0 or ry + rh > cy + ch + 1.0):
+        out.append(Finding("fail", "clipping", item["path"], label,
+                           f"rect {ry:.0f}..{ry + rh:.0f} is cut off by {clip['path']} "
+                           f"({cy:.0f}..{cy + ch:.0f}), which does not scroll vertically"))
+    return out
+
+
 def audit(report: Path, shot: Path | None) -> tuple[list[Finding], dict]:
     doc = json.loads(report.read_text())
     vw = float(doc["viewport"]["width"])
@@ -278,12 +333,8 @@ def audit(report: Path, shot: Path | None) -> tuple[list[Finding], dict]:
                         f"{ratio:.2f}:1 — {_hex(drawn)}{alpha_note} on "
                         f"{_hex(s.background)} (AA {need}:1, AAA 7:1)"))
 
-        # ── clipping (SC 1.4.4) ──
-        if rx < -1.0 or ry < -1.0 or rx + rw > vw + 1.0 or ry + rh > vh + 1.0:
-            findings.append(Finding(
-                "fail", "clipping", it["path"], label,
-                f"rect {rx:.0f},{ry:.0f} {rw:.0f}x{rh:.0f} leaves the "
-                f"{vw:.0f}x{vh:.0f} viewport"))
+        # ── clipping (SC 1.4.4 / 1.4.10) ──
+        findings.extend(clipping(it, label, (rx, ry, rw, rh), vw, vh))
 
         measured.append({"path": it["path"], "text": label, "size": size,
                          "contrast": ratio, "disabled": bool(it.get("disabled"))})

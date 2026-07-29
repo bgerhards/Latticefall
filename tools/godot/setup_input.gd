@@ -38,6 +38,13 @@ const ACTIONS := {
 					"axis": [JOY_AXIS_LEFT_X, -1.0]},
 	"lf_right":    {"keys": [KEY_D, KEY_RIGHT], "buttons": [JOY_BUTTON_DPAD_RIGHT],
 					"axis": [JOY_AXIS_LEFT_X, 1.0]},
+	## The instrument panels scroll once the interface scale shrinks the logical viewport
+	## below what they need — 150% and above. Mouse wheel reaches them for free, but a
+	## keyboard or gamepad player would otherwise be unable to read what is below the fold,
+	## and unreadable-by-one-input-method is loss of content under SC 1.4.4. The right stick
+	## is otherwise unused for anything but its click (lf_power).
+	"lf_panel_up":   {"keys": [KEY_PAGEUP], "axis": [JOY_AXIS_RIGHT_Y, -1.0]},
+	"lf_panel_down": {"keys": [KEY_PAGEDOWN], "axis": [JOY_AXIS_RIGHT_Y, 1.0]},
 }
 
 

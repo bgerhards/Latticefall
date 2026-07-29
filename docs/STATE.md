@@ -17,8 +17,8 @@ touch a command line.
 physical pixels in the default window — and measured 22 failures on the game screen and 53
 on the menu against WCAG 2.1 AA. Both are now 0. The ladder starts at 16 px, the palette was
 solved for contrast rather than picked, and there is an options screen carrying display
-mode, resolution, fullscreen, v-sync, frame cap, interface scale and glow. Decisions 045
-and 046.
+mode, resolution, fullscreen, v-sync, frame cap, interface scale and glow. Decisions 045,
+046 and 048.
 
 **A leak now costs what the unit is worth.** Decision 047: `leak_cost` on the enemy,
 `max(1, round(hp/130))`, so a Hollow Column costs four lives and a mote costs one. Nine
@@ -27,14 +27,20 @@ grade clean and parity holds. **Raw life counts are not comparable across that c
 anchor-24 went 40 → 52 and is *tighter*, because the measure that matters is lives as a
 fraction of the wave's total `leak_cost`.
 
-**The backlog is two items,** both `med`, neither blocked on the owner. `LF-044` — Act II
-and III run about 8 units a wave against Act I's 20 — is now mechanical: 047 made the
-density affordable and what is left is re-authoring wave composition to spend it. `LF-045` —
-interface scale is capped at 125% because the instrument column cannot reflow. See "What
-does not exist".
+**The interface scale reaches 200% and SC 1.4.4 is met.** Decision 048 superseded 046: both
+instrument panels are scroll regions with their controls pinned outside them, so the column
+can hold more than the viewport has. 150 / 175 / 200% all measure 0 WCAG failures on
+anchor-24, against 3 and 4 before. `LF-045` is closed.
 
-**Two commits are unpushed** (`cdd914e`, `b7e38d3`). `main` tracks `origin/main`; the
-project's habit is branch → PR → merge, as PRs #1 and #2.
+**The open backlog is `LF-044` (`med`) plus three `low` items** noted while doing the 200%
+work — panels covering the board at 200%, a boot-time anchor warning, and `main.gd`'s
+indentation. None is blocked on the owner. `LF-044` — Act II and III run about 8 units a
+wave against Act I's 20 — is now mechanical: 047 made the density affordable and what is
+left is re-authoring wave composition to spend it.
+
+**Two commits are unpushed on `main`** (`cdd914e`, `b7e38d3`), and decision 048's work sits
+on its own branch. `main` tracks `origin/main`; the project's habit is branch → PR → merge,
+as PRs #1 and #2.
 
 If you are starting fresh: read this file, then `docs/DECISIONS.md` headings, then run the
 gate. The gate takes about nine minutes and passing it is the precondition for everything.
@@ -47,9 +53,10 @@ gate. The gate takes about nine minutes and passing it is the precondition for e
 | **Inspector** | Click a built emplacement to select it. The left panel is its full datasheet — damage, interval, derived DPS, range, draw, what it is rated to hit, the shield tax, splash, support effect, and the authored note — with the second tier shown as a `9 → 14` delta per row. Sell, upgrade and power act on that selection. Decisions 035, 036. |
 | **Threat panel** | Right edge. Current wave, a prep countdown in seconds, every unit type with count/hp/speed and `AIR`/`SHIELD`/`ARM`/`DRAIN`, what each costs to leak when that is more than one life, the wave's total bus theft and total life cost, and an alert when air is inbound with no reveal emplacement online. Decisions 037, 047. |
 | **Board feedback** | Reach drawn on the ground: bone for the selection, red when it is offline, amber previewing what the armed emplacement would cover on the hovered slot. |
-| **Input** | Mouse, keyboard and gamepad. Thirteen `lf_*` actions; the board cursor steps slot to slot, scored in screen space. Decision 042. |
-| **Options** | One panel, reachable from the title screen and mid-anchor from pause. Window mode (windowed/borderless/fullscreen), resolution filtered to what fits the monitor, v-sync, frame cap, interface scale, emissive glow, and both volumes. Saved in `progress.json` under `display`. Decision 046. |
+| **Input** | Mouse, keyboard and gamepad. Fifteen `lf_*` actions; the board cursor steps slot to slot, scored in screen space. Decisions 042, 048. |
+| **Options** | One panel, reachable from the title screen and mid-anchor from pause. Window mode (windowed/borderless/fullscreen), resolution filtered to what fits the monitor, v-sync, frame cap, interface scale, emissive glow, and both volumes. Saved in `progress.json` under `display`. Decisions 046, 048. |
 | **Legibility** | Type ladder starts at 16 px and every colour clears WCAG 2.1 AA against the real composited panel. Game screen and menu both measure 0 failures. Decision 045. |
+| **Interface scale** | 100 / 110 / 125 / 150 / 175 / 200%. Both instrument panels scroll, with SELL, UPGRADE and the power switch pinned below the column's scroll region so no control can leave the screen. `lf_panel_up`/`lf_panel_down` (PageUp/PageDown, right stick) scroll them without a mouse; `-- --scroll N` reaches that state for a screenshot. Decision 048. |
 | **Content** | 24 anchors, 24 dialog files, 9 emplacements, 11 enemies across 4 factions. |
 | **Progress** | `user://progress.json` — cleared map, difficulty, volumes. Anchors unlock in order. A pre-rename save is adopted once. Decision 040. |
 | **Rules** | `sim/engine.py` and `scripts/anchor_sim.gd`, diffed every commit: 864 runs identical. |
@@ -59,7 +66,7 @@ gate. The gate takes about nine minutes and passing it is the precondition for e
 | **Audio** | 14 music tracks, 47 SFX (36 synthesized + 11 sourced CC0), per-player volume, brownout ducking. Dialog opens and closes on a radio squelch. |
 | **Sourcing** | `fetch_cc0.py` → `audition_cc0.py` → `promote_cc0.py`. Licence verified twice, auditioned by ear, cut baked into the asset, logged in `SOURCES.md`. Decision 038. |
 | **Gate** | `tools/check.py` — 14 checks, 0 skipped, ~9 minutes (parity runs both sides concurrently). |
-| **A11y audit** | `scripts/a11y_probe.gd` dumps the live UI tree; `tools/validate/a11y.py` pairs it with the same-frame screenshot and measures WCAG contrast against the sampled background. Gated at anchor-24 and 125% — the worst case on both axes. |
+| **A11y audit** | `scripts/a11y_probe.gd` dumps the live UI tree with each item's clip region and scroll axes; `tools/validate/a11y.py` pairs it with the same-frame screenshot and measures WCAG contrast against the sampled background. Gated on four screens: the game at 100% and at anchor-24 / 200% — the worst case on both axes — plus the menu and the options panel at 200%. |
 
 ## The three act mechanics
 
@@ -75,17 +82,7 @@ which is what stops density and tension being the same knob.
 
 ## What does not exist
 
-**`LF-045` — interface scale above 125%.** `content_scale_factor` divides the 1920x1080
-design space, so 150% lays the interface out in 1280x720, and the instrument column needs
-about 847 px of height at anchor-24 — nine emplacements, eight reserved datasheet rows. The
-SELL, UPGRADE and power controls clip, and `a11y.py` reports it. Two compressions already
-buy the 125% step (the build bar goes three columns wide when the viewport is short, and
-the note may shrink to nothing); beyond that there is nothing left to give. WCAG 2.1 SC
-1.4.4 asks for 200%, so **the game does not meet it** — say so rather than shipping a
-setting that clips the controls it exists to help someone reach. Fixing it means a column
-that can reflow, not a bigger multiplier. Decision 046.
-
-**`LF-044` — Act II and III wave density.** The other half of the backlog.
+**`LF-044` — Act II and III wave density.** The only `med` item left.
 
 | | units/wave | lives | leak budget |
 |---|---|---|---|
@@ -123,9 +120,6 @@ each one is a live trap, not for the history:
 affordable, and what remains is to spend it. Re-author Act II and III wave composition —
 more, lighter units in place of the bricks, holding each wave's total `leak_cost` roughly
 where it is — then re-sweep anchors 09–24. Nothing is blocked on the owner.
-
-`LF-045` (a reflowable instrument column, which unblocks interface scale above 125%) after
-that.
 
 ## Method that works — do not skip it
 
@@ -188,10 +182,14 @@ Newest last. Full reasoning and rejected alternatives in `docs/DECISIONS.md`.
 - **The type ladder starts at 16 px and the palette is solved for contrast, not chosen.**
   Both live in `Ui`, and `tools/check.py` measures the rendered result. Decision 045.
 - **Interface scale stops at 125%, and the cap is measured rather than picked.** SC 1.4.4
-  is not met and the docs say so. Decision 046.
+  is not met and the docs say so. Decision 046 — **superseded by 048**.
 - **A leak costs the unit's `leak_cost`, not a flat life** — `max(1, round(hp/130))`, so a
   Column costs four and a mote costs one. This is what stops density and tension being the
   same knob. Decision 047.
+- **A panel that cannot hold its content scrolls, and its controls sit outside the scroll
+  region.** That is what took the interface scale to 200% and SC 1.4.4 from unmet to met;
+  a bigger multiplier over a fixed layout was never going to, because at 960x540 the two
+  instrument panels are 656,000 px² of instrument in a 518,000 px² viewport. Decision 048.
 
 ## Traps that have already cost time
 
@@ -239,6 +237,13 @@ Full detail in `CLAUDE.md`.
   mistyped `InputEvent`. Check the key against `ThemeDB` before trusting it.
 - **`Label.clip_text` clips horizontally only** — a zero-height label still draws a line,
   over whatever is under it. That put the emplacement note across the SELL button at 125%.
+  The note is reserved at its measured wrapped height now (`Ui.wrapped_lines`) and does not
+  clip at all.
+- **A string padded with spaces is a layout made of character counts.**
+  `"funds $%d      lives %d      leaks %d"` is 411 px of 18 px monospace in a 388 px
+  column, and it had been overrunning the panel at every scale. Nothing caught it until the
+  column started clipping and `a11y.py` learned to measure a rect against its clip region.
+  Three positioned fields now. Decision 048.
 - **A contrast ratio cannot be read out of the source.** The panel is 94% opaque over the
   clear colour, so the background under a label exists only once it is drawn; and Godot's
   default disabled text is 50% alpha, which halves the ratio a declared colour implies.
@@ -265,22 +270,22 @@ outstanding.
 ### Gate
 
 ```
-[  ok  ] python syntax           188ms  29 files
-[  ok  ] json parses              71ms  
-[  ok  ] game data               129ms  no warnings
-[  ok  ] banned terms            239ms  124 files clean
-[  ok  ] sfx determinism         138ms  ui_confirm byte-identical
-[  ok  ] music manifest            0ms  14 tracks
-[  ok  ] sprite atlas             60ms  192 cells in 2 pages, in sync
-[  ok  ] backlog rendered          0ms  2 open
-[  ok  ] sim determinism        3097ms  deterministic
-[  ok  ] godot boots            1482ms  main scene loads clean
-[  ok  ] game renders           2838ms  coverage 0.56, 88 tones
-[  ok  ] menu renders           1411ms  coverage 0.052, 8 anchors listed
-[  ok  ] accessibility          9387ms  65 text items clean, worst contrast 4.68:1
-[  ok  ] rules parity         465403ms  864 runs identical (gdscript vs python)
+[  ok  ] python syntax            60ms  29 files
+[  ok  ] json parses              10ms  
+[  ok  ] game data               136ms  no warnings
+[  ok  ] banned terms             39ms  124 files clean
+[  ok  ] sfx determinism         132ms  ui_confirm byte-identical
+[  ok  ] music manifest            1ms  14 tracks
+[  ok  ] sprite atlas             52ms  192 cells in 2 pages, in sync
+[  ok  ] backlog rendered          0ms  4 open
+[  ok  ] sim determinism        3241ms  deterministic
+[  ok  ] godot boots            1237ms  main scene loads clean
+[  ok  ] game renders           2215ms  coverage 0.56, 84 tones
+[  ok  ] menu renders           1290ms  coverage 0.051, 8 anchors listed
+[  ok  ] accessibility         15783ms  131 text items clean, worst contrast 4.63:1
+[  ok  ] rules parity         585538ms  864 runs identical (gdscript vs python)
 
-14 passed · 0 failed · 0 skipped · 484446ms
+14 passed · 0 failed · 0 skipped · 609736ms
 ```
 
 ### Inventory
@@ -328,22 +333,24 @@ outstanding.
 
 ### Backlog
 
-2 open · 43 closed
+4 open · 44 closed
 
 - `med` LF-044 Act II/III density: decision 047 removed the blocker, now spend it — re-author Act II/III wave composition for more, lighter units at constant wave leak_cost, then re-sweep anchors 09-24
-- `med` LF-045 The instrument column cannot reflow, so interface scale is capped at 125%. content_scale_factor divides the 1920x1080 design space, and the column needs ~847px of height at anchor-24 (nine emplacements, eight reserved datasheet rows) — 150% leaves 720 and clips the SELL/UPGRADE/power controls. WCAG 2.1 SC 1.4.4 asks for 200%. Needs a column that can reflow (scroll, collapse the datasheet to the selected tower's rows, or move the build bar out of the column) rather than a larger multiplier
+- `med` LF-046 At 200% interface scale the two instrument panels cover nearly the whole board (420+528 of a 960px design space), so the anchor is playable but barely watchable. Consider a hide-panels toggle or a compact threat panel below ~1100px of viewport width
+- `med` LF-047 options_menu.gd _fit() sets size on a node with full-rect anchors, which Godot warns about on every boot: 'Nodes with non-equal opposite anchors will have their size overridden after _ready()'. Harmless but it is noise in every run log
+- `med` LF-048 scripts/main.gd is indented with 4 spaces while every other .gd file uses tabs. Cosmetic, but it makes a whole-file diff out of any tool that normalises indentation
 
 ### Recent commits
 
 ```
+d443c85 Merge pull request #3 from bgerhards/fix/leak-cost-and-density-diagnosis
+0be8408 docs: session wrap — rewrite STATE, and record the class_name import trap
 b7e38d3 feat(rules): a leak costs what the unit is worth, not a flat life
 cdd914e fix(balance): LF-044's premise was wrong — measure it, and make the sweep state its box
 13da1f0 Merge pull request #2 from bgerhards/feat/accessibility
 08d2ca8 feat(a11y): 16px type ladder, measured palette, and display options
 63cc6c6 Merge pull request #1 from bgerhards/feat/content-complete
 7bbd118 docs: session wrap — rewrite STATE for a reader with no memory of this session
-1cfbeaa fix(balance): score robustness as a threshold, and re-sweep Act II and III
-bd6ef38 feat(engine): input action map, gamepad support, and a board cursor
 ```
 
 <!-- END AUTO -->

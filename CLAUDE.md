@@ -78,12 +78,12 @@ docs/            STATE, BACKLOG, DECISIONS, NOMENCLATURE, STORY
 /Applications/Godot.app/Contents/MacOS/Godot --path . --fixed-fps 60 \
   -- --autoplay --shot /tmp/shot.png 1800          # the build screenshots itself
 /Applications/Godot.app/Contents/MacOS/Godot --path . --fixed-fps 60 \
-  -- --autoplay --anchor anchor-24 --ui-scale 1.25 \
+  -- --autoplay --anchor anchor-24 --ui-scale 2.0 \
      --shot /tmp/s.png 300 --a11y /tmp/s.json      # frame + its text inventory
 ```
 
 **Verification hooks, because `--fixed-fps` has nobody to press a key.** `--paused`,
-`--select N`, `--pick <id>`, `--cursor N`, `--options`, `--ui-scale <f>` and
+`--select N`, `--pick <id>`, `--cursor N`, `--scroll N`, `--options`, `--ui-scale <f>` and
 `--display-defaults` each reach a state that otherwise needs a real input. Add one rather
 than shipping a screen nobody has looked at. `--facings` is the same idea for something a
 screenshot *shows* but cannot settle: it prints the yaw every drawable was drawn at, on the
@@ -91,6 +91,11 @@ frame `--shot` captured, because four yaws of one turret differ by which side th
 on and 40 px of height. Decision 049. `--a11y <path>` must be paired with the
 `--shot` on the *same frame*: the analyser samples the background out of that PNG, so a
 report taken a frame later describes a screen that was never measured.
+
+**The interface scale goes to 200% and the worst case is `--anchor anchor-24 --ui-scale
+2.0`** — a 960x540 logical viewport, into which the two instrument panels want about
+1480 px of stacked height. Both panels scroll vertically with their controls pinned outside
+the scroll region; `--scroll N` reaches the scrolled state. Decision 048.
 
 **A re-render is invisible to the game until you re-import.** Godot's *game* mode never
 reimports changed assets — it loads the cached `.ctex` in `.godot/imported/`. Only the

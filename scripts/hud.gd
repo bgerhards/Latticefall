@@ -20,7 +20,14 @@ var view: Node2D
 var _gauge: ColorRect
 var _fill: ColorRect
 var _load_label: Label
-var _stat: Label
+## Three fields, not one padded string. "funds $3100      lives 52      leaks 0" is 411 px
+## of 18 px monospace in a 388 px column: it ran past the panel at every interface scale,
+## and it only surfaced once the column started clipping its contents and `a11y.py` learned
+## to measure a rect against its clip region. A string padded with spaces is a layout made
+## of character counts, which is the same mistake as a hardcoded offset.
+var _stat_funds: Label
+var _stat_lives: Label
+var _stat_leaks: Label
 var _wave: Label
 var _fault: Label
 var _outcome: Label
@@ -57,15 +64,19 @@ const BUTTON_H := 52.0
 ## 1920 wide: the interface-scale setting divides the design space by the scale factor, and
 ## the resolution setting allows aspects other than 16:9. A hardcoded right edge is off
 ## screen at 125% and leaves a gap at 4:3.
-## 520 = the widest row the data can produce, plus padding. The threat list is monospaced,
-## so its width is a fact rather than a judgement: the longest trait row any enemy in
-## enemies.json can generate is 51 characters ("520 hp · 0.50 spd · SHIELD · ARM 6 ·
-## DRAIN 12", indented), which is 490 px at 16 px IBM Plex Mono. At 470 that row ran 44 px
-## past the right edge of the screen at anchor-24.
-const THREAT_W := 520.0
+const THREAT_W := Ui.THREAT_W
+## The three verbs, pinned below the column's scroll region. Heights named rather than
+## repeated: this block is measured twice, once to bound the scroller and once to lay it
+## out, and two literals that must agree is one literal too many.
+const VERB_H := 36.0
+const POWER_H := 34.0
+const VERBS_GAP := 6.0
+const VERBS_H := 10.0 + VERB_H + VERBS_GAP + POWER_H + PAD
 
 var _buttons: Array[Button] = []
 var _root: Control
+var _col_scroll: ScrollContainer
+var _threat_scroll: ScrollContainer
 var _relayout_queued := false
 
 
@@ -122,61 +133,82 @@ func _build_ui() -> void:
 	_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_root)
 
-	var inner_x := COL_X + PAD
+	# The margin is derived from the viewport, not fixed: see Ui.gutter(). At 200% the two
+	# panels are 948 px of a 960 px design space and there is no 16 px margin to be had.
+	var g := Ui.gutter(vp)
+
+	# The column's readout lives inside a scroll region and its three verbs are pinned below
+	# it, so the controls can never be the thing that leaves the screen — which is exactly
+	# what happened above 125% before (decision 046). Everything from here is laid out in
+	# the scroll content's own coordinates, so the running cursor starts at PAD rather than
+	# at COL_X + PAD.
+	var col := Control.new()
+	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	var inner_x := PAD
 	# A running cursor rather than a column of literals. Every offset this replaces was a
 	# number that was right for one font size, and the type ladder has just changed under
 	# all of them.
-	var y := COL_X + PAD
+	var y := PAD
 
 	var title := _make_label(Ui.SIZE_CAPTION, C_MUTED)
 	title.text = "REACTOR BUS"
 	title.position = Vector2(inner_x, y)
-	_root.add_child(title)
+	col.add_child(title)
 	y += Ui.line_h(Ui.SIZE_CAPTION, false) + 2.0
 
 	_load_label = _make_label(Ui.SIZE_READOUT, C_AMBER, true, true)
 	_load_label.position = Vector2(inner_x, y)
-	_root.add_child(_load_label)
+	col.add_child(_load_label)
 	y += Ui.line_h(Ui.SIZE_READOUT) + 4.0
 
 	_gauge = ColorRect.new()
 	_gauge.color = Color(0.07, 0.10, 0.11)
 	_gauge.position = Vector2(inner_x, y)
 	_gauge.size = Vector2(INNER_W, 16)
-	_root.add_child(_gauge)
+	col.add_child(_gauge)
 
 	_fill = ColorRect.new()
 	_fill.color = C_VERD
 	_fill.position = Vector2(inner_x, y)
 	_fill.size = Vector2(0, 16)
-	_root.add_child(_fill)
+	col.add_child(_fill)
 	y += 16.0 + 4.0
 
 	_fault = _make_label(Ui.SIZE_BODY, C_ALERT, false, true)
 	_fault.position = Vector2(inner_x, y)
-	_root.add_child(_fault)
+	col.add_child(_fault)
 	y += Ui.line_h(Ui.SIZE_BODY, false)
 
 	# The reactor panel is added after its contents because its height is only known once
 	# they have been placed, then moved behind them. No hardcoded 108.
 	var panel := ColorRect.new()
 	panel.color = C_PANEL
-	panel.position = Vector2(COL_X, COL_X)
-	panel.size = Vector2(COL_W, y - COL_X + PAD * 0.5)
+	panel.position = Vector2.ZERO
+	panel.size = Vector2(COL_W, y + PAD * 0.5)
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_root.add_child(panel)
-	_root.move_child(panel, 0)
+	col.add_child(panel)
+	col.move_child(panel, 0)
 
 	y += PAD * 1.5
 
-	_stat = _make_label(Ui.SIZE_STAT, C_BONE, true)
-	_stat.position = Vector2(inner_x, y)
-	_root.add_child(_stat)
+	# Fields at fractions of the column, so each one is bounded by construction and the two
+	# to its right do not shift sideways when funds gains a digit. The widths are unequal
+	# because the values are: funds runs to five figures, leaks to two.
+	_stat_funds = _make_label(Ui.SIZE_STAT, C_BONE, true)
+	_stat_funds.position = Vector2(inner_x, y)
+	col.add_child(_stat_funds)
+	_stat_lives = _make_label(Ui.SIZE_STAT, C_BONE, true)
+	_stat_lives.position = Vector2(inner_x + INNER_W * 0.40, y)
+	col.add_child(_stat_lives)
+	_stat_leaks = _make_label(Ui.SIZE_STAT, C_BONE, true)
+	_stat_leaks.position = Vector2(inner_x + INNER_W * 0.72, y)
+	col.add_child(_stat_leaks)
 	y += Ui.line_h(Ui.SIZE_STAT) + 2.0
 
 	_wave = _make_label(Ui.SIZE_STAT, C_MUTED, true)
 	_wave.position = Vector2(inner_x, y)
-	_root.add_child(_wave)
+	col.add_child(_wave)
 	y += Ui.line_h(Ui.SIZE_STAT) + PAD * 1.5
 
 	# Two across, inside the instrument column, rather than one long row. Nine unlocked
@@ -193,7 +225,7 @@ func _build_ui() -> void:
 	bar.position = Vector2(inner_x, y)
 	bar.add_theme_constant_override("h_separation", 6)
 	bar.add_theme_constant_override("v_separation", 6)
-	_root.add_child(bar)
+	col.add_child(bar)
 
 	var btn_w := (INNER_W - 6.0 * float(bar_cols - 1)) / float(bar_cols)
 	for tid in unlocked:
@@ -214,11 +246,30 @@ func _build_ui() -> void:
 	# shielding runs eight rows where a support emplacement runs five. The rule under it was
 	# at a hardcoded offset and the longest sheets already touched it. Measure instead.
 	var stat_rows := 1
+	# The note is reserved at the height of the longest note this anchor can show, measured
+	# from the font. It used to be the column's one elastic element, shrinking to nothing to
+	# keep the verbs on screen; the verbs are pinned now, so the note can simply be as tall
+	# as it needs and the scroll region absorbs it.
+	var note_lines := 0
 	for tid in unlocked:
 		var t: Dictionary = Content.tower(tid)
 		stat_rows = maxi(stat_rows, _stats_text(t, t.get("upgrade", {})).split("\n").size())
-	_build_inspector(_root, y + bar_h + PAD, stat_rows, vp)
-	_build_threat(_root, vp)
+		note_lines = maxi(note_lines, Ui.wrapped_lines(
+			String(t.get("note", "")), INNER_W, Ui.SIZE_BODY))
+	var col_h := _build_inspector(col, y + bar_h + PAD, stat_rows, note_lines)
+
+	# The scroll region takes what the content wants, or what is left after the pinned
+	# verbs, whichever is smaller. At 100% nothing scrolls and the verbs sit directly under
+	# the note exactly as before; at 150% and above the readout scrolls under them.
+	col.custom_minimum_size = Vector2(COL_W - Ui.SCROLL_GUTTER, col_h)
+	_col_scroll = Ui.scroller()
+	_col_scroll.position = Vector2(g, g)
+	_col_scroll.size = Vector2(COL_W, minf(col_h, vp.y - g * 2.0 - VERBS_H))
+	_col_scroll.add_child(col)
+	_root.add_child(_col_scroll)
+
+	_build_verbs(_root, Vector2(g, g + _col_scroll.size.y))
+	_build_threat(_root, vp, g)
 
 	# End-of-anchor banner. Centred, large, and the only place the game tells the player
 	# how to get back out of a level — without it the only exit from a finished anchor is
@@ -269,115 +320,128 @@ func _build_ui() -> void:
 	_outcome_actions.add_child(ops)
 
 
-func dialog_reserve() -> float:
-	## What the column must leave at the bottom of the screen. Now only its own margin: the
-	## dialog panel starts to the right of the column (see Ui.COL_W), so it no longer takes
-	## a bite out of a column that reaches the bottom of the viewport at the 16 px ladder.
-	## The first cut of this put the power button underneath the dialog panel, where it was
-	## neither readable nor clickable.
-	return COL_X
+func dialog_reserve(vp: Vector2) -> float:
+	## What the threat panel must leave at the bottom of the screen. The dialog panel starts
+	## to the right of the instrument column and runs to the right edge, and it is on a later
+	## CanvasLayer — so it draws over whatever is beneath it. At 1920 the threat panel ends
+	## hundreds of pixels above the band and this costs nothing; at 960 it is the difference
+	## between reading the air warning and having a radio line sit on top of it.
+	return Ui.gutter(vp) + Ui.dialog_h() + 8.0
 
 
-func _build_inspector(root: Control, top: float, stat_rows: int, vp: Vector2) -> void:
-	## One panel that describes whichever emplacement the player is thinking about — the
-	## one selected on the board, or failing that the one about to be built — and carries
-	## the three verbs that act on it. The verbs act on `view.selected_slot`, never on the
-	## hover: reaching a button means dragging the cursor across the board, and a
-	## hover-targeted SELL sells whatever tile the cursor last crossed on its way over.
+func _build_inspector(col: Control, top: float, stat_rows: int, note_lines: int) -> float:
+	## The readout half of the panel that describes whichever emplacement the player is
+	## thinking about — the one selected on the board, or failing that the one about to be
+	## built. The three verbs that act on it are pinned outside the scroll region by
+	## `_build_verbs`, because a control the player must scroll to find is a control that
+	## clipped as far as they are concerned.
 	##
 	## Everything is placed relative to `top`, which is wherever the build bar ended, and to
-	## the measured height of the tallest datasheet this anchor can show.
-	var inner_x := COL_X + PAD
+	## the measured height of the tallest datasheet and longest note this anchor can show.
+	## Returns the height of the whole column's content.
+	var inner_x := PAD
 	var y := top + PAD
 
 	_kicker = _make_label(Ui.SIZE_CAPTION, C_MUTED)
 	_kicker.position = Vector2(inner_x, y)
-	root.add_child(_kicker)
+	col.add_child(_kicker)
 	y += Ui.line_h(Ui.SIZE_CAPTION, false) + 2.0
 
 	_title = _make_label(Ui.SIZE_LEAD, C_BONE, false, true)
 	_title.position = Vector2(inner_x, y)
-	root.add_child(_title)
+	col.add_child(_title)
 	y += Ui.line_h(Ui.SIZE_LEAD, false) + 2.0
 
 	_sub = _make_label(Ui.SIZE_BODY, C_AMBER, true)
 	_sub.position = Vector2(inner_x, y)
-	root.add_child(_sub)
+	col.add_child(_sub)
 	y += Ui.line_h(Ui.SIZE_BODY) + 8.0
 
-	root.add_child(_rule(y))
+	col.add_child(_rule(y, inner_x, INNER_W))
 	y += 8.0
 
 	_body = _make_label(Ui.SIZE_BODY, C_BONE, true)
 	_body.position = Vector2(inner_x, y)
-	root.add_child(_body)
+	col.add_child(_body)
 	y += float(stat_rows) * Ui.line_h(Ui.SIZE_BODY) + 10.0
 
-	root.add_child(_rule(y))
+	col.add_child(_rule(y, inner_x, INNER_W))
 	y += 8.0
 
-	# The note gets whatever vertical space is left once the fixed rows below it are
-	# accounted for, between two and five wrapped lines. It is the only elastic element in
-	# the column, so it is what absorbs a tall build bar at anchor-24, a long datasheet, and
-	# a short viewport — the alternative is a fixed height that pushes the verbs off screen
-	# in exactly those cases.
-	# The note is the column's only elastic element, so it absorbs a tall build bar at
-	# anchor-24, a long datasheet, and a short viewport. Its floor is zero rather than two
-	# lines: at a raised interface scale there is genuinely no room, and losing supporting
-	# prose is a far better outcome than pushing SELL, UPGRADE and the power switch off the
-	# bottom of the screen, which is what a two-line floor did.
-	var line := Ui.line_h(Ui.SIZE_BODY, false)
-	var below := 36.0 + 6.0 + 34.0 + PAD + 10.0     # verbs, gap, power button, padding
-	var room := vp.y - dialog_reserve() - below - y
-	var note_h := clampf(floorf(room / line) * line, 0.0, 5.0 * line)
+	# The note is reserved at its measured height rather than clipped to whatever is left.
+	# It used to be the column's one elastic element — squeezed to nothing at raised
+	# interface scales, and capped at five lines even at 100%, which cut the shield wall's
+	# six-line note mid-sentence — because the alternative was pushing SELL, UPGRADE and the
+	# power switch off the bottom of the screen. The verbs are pinned now, so that trade is
+	# gone: the note gets the lines it needs and the scroll region carries the overflow.
+	var note_h := float(note_lines) * Ui.line_h(Ui.SIZE_BODY, false)
 	_note = _make_label(Ui.SIZE_BODY, C_MUTED)
 	_note.position = Vector2(inner_x, y)
 	_note.size = Vector2(INNER_W, note_h)
 	_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_note.clip_text = true
-	# `clip_text` clips horizontally only, so a zero-height note still draws a full line —
-	# on top of the SELL and UPGRADE row, which is what it did at 125%. When there is no
-	# room for even one line the label has to be hidden, not merely given no height.
-	_note.visible = note_h >= line
-	root.add_child(_note)
+	_note.visible = note_h > 0.0
+	col.add_child(_note)
 	y += note_h + 10.0
+
+	var panel := ColorRect.new()
+	panel.color = C_PANEL
+	panel.position = Vector2(0.0, top)
+	panel.size = Vector2(COL_W, y - top)
+	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	col.add_child(panel)
+	# Behind the labels it backs, which were added before it. The reactor panel above is a
+	# sibling at a different y and does not overlap, so their relative order is immaterial.
+	col.move_child(panel, 0)
+	return y
+
+
+func _build_verbs(root: Control, at: Vector2) -> void:
+	## SELL, UPGRADE and the power switch, pinned flush under the column's scroll region.
+	##
+	## They are outside it deliberately. These are the only controls in the column that act
+	## on the board — everything above them is a readout — and above 125% interface scale
+	## there is not enough logical height for both the readout and the verbs. Scrolling the
+	## readout under a fixed footer keeps every control on screen at every scale, which is
+	## the whole of LF-045; the previous answer was to stop offering the scale.
+	##
+	## They act on `view.selected_slot`, never on the hover: reaching a button means dragging
+	## the cursor across the board, and a hover-targeted SELL sells whatever tile the cursor
+	## last crossed on its way over.
+	var panel := ColorRect.new()
+	panel.color = C_PANEL
+	panel.position = at
+	panel.size = Vector2(COL_W, VERBS_H)
+	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(panel)
+
+	var inner_x := at.x + PAD
+	var y := at.y + 10.0
 
 	var verbs := HBoxContainer.new()
 	verbs.position = Vector2(inner_x, y)
-	verbs.add_theme_constant_override("separation", 6)
+	verbs.add_theme_constant_override("separation", VERBS_GAP)
 	root.add_child(verbs)
 
-	var verb_w := (INNER_W - 6.0) / 2.0
+	var verb_w := (INNER_W - VERBS_GAP) / 2.0
 	_sell_button = Ui.button("", Ui.SIZE_BODY)
-	_sell_button.custom_minimum_size = Vector2(verb_w, 36)
+	_sell_button.custom_minimum_size = Vector2(verb_w, VERB_H)
 	_sell_button.pressed.connect(func(): view.sell_at(view.selected_slot))
 	verbs.add_child(_sell_button)
 
 	_upgrade_button = Ui.button("", Ui.SIZE_BODY)
-	_upgrade_button.custom_minimum_size = Vector2(verb_w, 36)
+	_upgrade_button.custom_minimum_size = Vector2(verb_w, VERB_H)
 	_upgrade_button.pressed.connect(func(): view.upgrade_at(view.selected_slot))
 	verbs.add_child(_upgrade_button)
-	y += 36.0 + 6.0
+	y += VERB_H + VERBS_GAP
 
 	_power_button = Ui.button("", Ui.SIZE_BODY)
-	_power_button.custom_minimum_size = Vector2(INNER_W, 34)
+	_power_button.custom_minimum_size = Vector2(INNER_W, POWER_H)
 	_power_button.position = Vector2(inner_x, y)
 	_power_button.pressed.connect(func(): view.toggle_at(view.selected_slot))
 	root.add_child(_power_button)
-	y += 34.0
-
-	var panel := ColorRect.new()
-	panel.color = C_PANEL
-	panel.position = Vector2(COL_X, top)
-	panel.size = Vector2(COL_W, y - top + PAD)
-	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	root.add_child(panel)
-	# Behind the labels it backs, which were added before it. The reactor panel above is a
-	# sibling at a different y and does not overlap, so their relative order is immaterial.
-	root.move_child(panel, 0)
 
 
-func _build_threat(root: Control, vp: Vector2) -> void:
+func _build_threat(root: Control, vp: Vector2, g: float) -> void:
 	## What is coming, and when. A tower defense played without this is a guessing game:
 	## whether the wave carries air decides if a scan relay is worth 8 MW, whether it
 	## carries shielded units decides between a lance and an arc node, and the wave's total
@@ -395,43 +459,46 @@ func _build_threat(root: Control, vp: Vector2) -> void:
 
 	# Right-anchored to the live viewport. At 125% interface scale the design space is
 	# 1536 px wide, and a panel pinned at 1524 would be a 12 px sliver at the edge.
-	var px := vp.x - COL_X - THREAT_W
-	var inner_x := px + PAD
-	var inner_w := THREAT_W - PAD * 2.0
-	var y := COL_X + PAD
+	var px := vp.x - g - THREAT_W
+	# Laid out in the scroll content's own coordinates, as the instrument column is.
+	var inner_x := PAD
+	var inner_w := Ui.THREAT_INNER_W
+	var threat := Control.new()
+	threat.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var y := PAD
 
 	_threat_kicker = _make_label(Ui.SIZE_CAPTION, C_MUTED)
 	_threat_kicker.position = Vector2(inner_x, y)
-	root.add_child(_threat_kicker)
+	threat.add_child(_threat_kicker)
 	y += Ui.line_h(Ui.SIZE_CAPTION, false) + 2.0
 
 	_threat_title = _make_label(Ui.SIZE_LEAD, C_BONE, false, true)
 	_threat_title.position = Vector2(inner_x, y)
-	root.add_child(_threat_title)
+	threat.add_child(_threat_title)
 	y += Ui.line_h(Ui.SIZE_LEAD, false) + 2.0
 
 	_threat_sub = _make_label(Ui.SIZE_STAT, C_AMBER, true, true)
 	_threat_sub.position = Vector2(inner_x, y)
-	root.add_child(_threat_sub)
+	threat.add_child(_threat_sub)
 	y += Ui.line_h(Ui.SIZE_STAT) + 8.0
 
-	root.add_child(_rule(y, inner_x, inner_w))
+	threat.add_child(_rule(y, inner_x, inner_w))
 	y += 8.0
 
 	_threat_body = _make_label(Ui.SIZE_BODY, C_BONE, true)
 	_threat_body.position = Vector2(inner_x, y)
-	root.add_child(_threat_body)
+	threat.add_child(_threat_body)
 	# Two lines per spawn group — a name row and a traits row — sized against the busiest
 	# wave this anchor ever fields, not against a constant. Anchor-01 runs one unit type and
 	# anchor-13 runs six; a fixed height leaves the first a mostly empty box.
 	y += float(groups) * 2.0 * Ui.line_h(Ui.SIZE_BODY) + 10.0
 
-	root.add_child(_rule(y, inner_x, inner_w))
+	threat.add_child(_rule(y, inner_x, inner_w))
 	y += 8.0
 
 	_threat_footer = _make_label(Ui.SIZE_BODY, C_MUTED, true)
 	_threat_footer.position = Vector2(inner_x, y)
-	root.add_child(_threat_footer)
+	threat.add_child(_threat_footer)
 	y += 2.0 * Ui.line_h(Ui.SIZE_BODY) + 8.0
 
 	var alert_h := 2.0 * Ui.line_h(Ui.SIZE_BODY, false)
@@ -439,19 +506,29 @@ func _build_threat(root: Control, vp: Vector2) -> void:
 	_threat_alert.position = Vector2(inner_x, y)
 	_threat_alert.size = Vector2(inner_w, alert_h)
 	_threat_alert.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	root.add_child(_threat_alert)
-	y += alert_h
+	threat.add_child(_threat_alert)
+	y += alert_h + PAD
 
 	var panel := ColorRect.new()
 	panel.color = C_PANEL
-	panel.position = Vector2(px, COL_X)
-	panel.size = Vector2(THREAT_W, y - COL_X + PAD)
+	panel.position = Vector2.ZERO
+	panel.size = Vector2(THREAT_W, y)
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	root.add_child(panel)
-	root.move_child(panel, 0)
+	threat.add_child(panel)
+	threat.move_child(panel, 0)
+
+	# Bounded by the dialog band rather than by the viewport: the dialog draws over this
+	# panel, so the panel stops above it and scrolls if the wave needs more room than that
+	# leaves. At 1920x1080 this never engages; at 960x540 it is 78 px of unit rows.
+	threat.custom_minimum_size = Vector2(THREAT_W - Ui.SCROLL_GUTTER, y)
+	_threat_scroll = Ui.scroller()
+	_threat_scroll.position = Vector2(px, g)
+	_threat_scroll.size = Vector2(THREAT_W, minf(y, vp.y - g - dialog_reserve(vp)))
+	_threat_scroll.add_child(threat)
+	root.add_child(_threat_scroll)
 
 
-func _rule(y: float, x: float = COL_X + PAD, w: float = INNER_W) -> ColorRect:
+func _rule(y: float, x: float = PAD, w: float = INNER_W) -> ColorRect:
 	var r := ColorRect.new()
 	r.color = Ui.C_RULE
 	r.position = Vector2(x, y)
@@ -463,6 +540,38 @@ func _rule(y: float, x: float = COL_X + PAD, w: float = INNER_W) -> ColorRect:
 func _on_pick(tid: String) -> void:
 	view.select(tid)
 	refresh()
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	## `lf_panel_up` / `lf_panel_down` — PageUp/PageDown, or the right stick.
+	##
+	## The mouse wheel scrolls whichever panel it is over for free, but a keyboard or gamepad
+	## player has no pointer to put over one, and neither instrument panel has a focus chain
+	## for `follow_focus` to work with: their controls are bound to board actions instead
+	## (`lf_sell`, `lf_upgrade`, `lf_power`, `lf_next`). Text that one input method cannot
+	## reach is still loss of content under SC 1.4.4, so both panels move together on one
+	## action pair. They only have anywhere to move at 150% and above.
+	if event.is_action_pressed("lf_panel_down"):
+		scroll_panels(1)
+	elif event.is_action_pressed("lf_panel_up"):
+		scroll_panels(-1)
+	else:
+		return
+	get_viewport().set_input_as_handled()
+
+
+func scroll_panels(steps: int) -> void:
+	## Four body lines per press. Public because `-- --scroll N` drives it: a scroll region
+	## that has never been screenshotted scrolled is a scroll region nobody has looked at,
+	## and `--fixed-fps` has nobody to press PageDown.
+	var step := steps * roundi(Ui.line_h(Ui.SIZE_BODY) * 4.0)
+	var panels: Array[ScrollContainer] = []
+	if _col_scroll != null:
+		panels.append(_col_scroll)
+	if _threat_scroll != null:
+		panels.append(_threat_scroll)
+	for s in panels:
+		s.scroll_vertical += step
 
 
 func _process(_d: float) -> void:
@@ -486,7 +595,9 @@ func refresh() -> void:
 	_fault.text = ("BUS OVERDRAW — ALL SYSTEMS %d%% FIRE RATE"
 			% [-roundi(sim.penalty_now() * 100.0)]) if sim.brownout else ""
 
-	_stat.text = "funds $%d      lives %d      leaks %d" % [sim.funds, sim.lives, sim.leaks]
+	_stat_funds.text = "funds $%d" % sim.funds
+	_stat_lives.text = "lives %d" % sim.lives
+	_stat_leaks.text = "leaks %d" % sim.leaks
 	var total: int = sim.anchor["waves"].size()
 	_wave.text = "wave %d / %d   ·   %s" % [view.wave_number(), total, view.phase()]
 
