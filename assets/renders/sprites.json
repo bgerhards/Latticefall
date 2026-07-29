@@ -116,277 +116,309 @@
           3,
           2
         ],
-        "hollow_vessel|y045": [
+        "hollow_shard|y045": [
           4,
+          2
+        ],
+        "hollow_shard|y135": [
+          5,
+          2
+        ],
+        "hollow_shard|y225": [
+          6,
+          2
+        ],
+        "hollow_shard|y315": [
+          7,
+          2
+        ],
+        "hollow_vessel|y045": [
+          8,
           2
         ],
         "hollow_vessel|y135": [
-          5,
+          9,
           2
         ],
         "hollow_vessel|y225": [
-          6,
+          10,
           2
         ],
         "hollow_vessel|y315": [
-          7,
+          11,
           2
         ],
         "ion_lance|y045": [
-          8,
-          2
+          0,
+          3
         ],
         "ion_lance|y135": [
-          9,
-          2
+          1,
+          3
         ],
         "ion_lance|y225": [
-          10,
-          2
+          2,
+          3
         ],
         "ion_lance|y315": [
-          11,
-          2
+          3,
+          3
         ],
         "mortar_emplacement|y045": [
-          0,
+          4,
           3
         ],
         "mortar_emplacement|y135": [
-          1,
+          5,
           3
         ],
         "mortar_emplacement|y225": [
-          2,
+          6,
           3
         ],
         "mortar_emplacement|y315": [
-          3,
+          7,
           3
         ],
         "pulse_turret|y045": [
-          4,
+          8,
           3
         ],
         "pulse_turret|y135": [
-          5,
+          9,
           3
         ],
         "pulse_turret|y225": [
-          6,
+          10,
           3
         ],
         "pulse_turret|y315": [
-          7,
+          11,
           3
         ],
         "reach_breacher|y045": [
-          8,
-          3
+          0,
+          4
         ],
         "reach_breacher|y135": [
-          9,
-          3
+          1,
+          4
         ],
         "reach_breacher|y225": [
-          10,
-          3
+          2,
+          4
         ],
         "reach_breacher|y315": [
-          11,
-          3
+          3,
+          4
         ],
         "reach_bulwark|y045": [
-          0,
+          4,
           4
         ],
         "reach_bulwark|y135": [
-          1,
+          5,
           4
         ],
         "reach_bulwark|y225": [
-          2,
+          6,
           4
         ],
         "reach_bulwark|y315": [
-          3,
+          7,
+          4
+        ],
+        "reach_picket|y045": [
+          8,
+          4
+        ],
+        "reach_picket|y135": [
+          9,
+          4
+        ],
+        "reach_picket|y225": [
+          10,
+          4
+        ],
+        "reach_picket|y315": [
+          11,
           4
         ],
         "reach_sapper|y045": [
-          4,
-          4
+          0,
+          5
         ],
         "reach_sapper|y135": [
-          5,
-          4
+          1,
+          5
         ],
         "reach_sapper|y225": [
-          6,
-          4
+          2,
+          5
         ],
         "reach_sapper|y315": [
-          7,
-          4
+          3,
+          5
         ],
         "reach_skiff|y045": [
-          8,
-          4
+          4,
+          5
         ],
         "reach_skiff|y135": [
-          9,
-          4
+          5,
+          5
         ],
         "reach_skiff|y225": [
-          10,
-          4
+          6,
+          5
         ],
         "reach_skiff|y315": [
-          11,
-          4
+          7,
+          5
         ],
         "restorer|y045": [
-          0,
+          8,
           5
         ],
         "restorer|y135": [
-          1,
+          9,
           5
         ],
         "restorer|y225": [
-          2,
+          10,
           5
         ],
         "restorer|y315": [
-          3,
+          11,
           5
         ],
         "scan_relay|y045": [
-          4,
-          5
+          0,
+          6
         ],
         "scan_relay|y135": [
-          5,
-          5
+          1,
+          6
         ],
         "scan_relay|y225": [
-          6,
-          5
+          2,
+          6
         ],
         "scan_relay|y315": [
-          7,
-          5
+          3,
+          6
         ],
         "shield_wall|y045": [
-          8,
-          5
+          4,
+          6
         ],
         "shield_wall|y135": [
-          9,
-          5
+          5,
+          6
         ],
         "shield_wall|y225": [
-          10,
-          5
+          6,
+          6
         ],
         "shield_wall|y315": [
-          11,
-          5
+          7,
+          6
         ],
         "tile_ground|y045": [
-          0,
+          8,
           6
         ],
         "tile_ground|y135": [
-          1,
+          9,
           6
         ],
         "tile_ground|y225": [
-          2,
+          10,
           6
         ],
         "tile_ground|y315": [
-          3,
+          11,
           6
         ],
         "tile_path|y045": [
-          4,
-          6
-        ],
-        "tile_path|y135": [
-          5,
-          6
-        ],
-        "tile_path|y225": [
-          6,
-          6
-        ],
-        "tile_path|y315": [
-          7,
-          6
-        ],
-        "tile_slot|y045": [
-          8,
-          6
-        ],
-        "tile_slot|y135": [
-          9,
-          6
-        ],
-        "tile_slot|y225": [
-          10,
-          6
-        ],
-        "tile_slot|y315": [
-          11,
-          6
-        ],
-        "warden_drone|y045": [
           0,
           7
         ],
-        "warden_drone|y135": [
+        "tile_path|y135": [
           1,
           7
         ],
-        "warden_drone|y225": [
+        "tile_path|y225": [
           2,
           7
         ],
-        "warden_drone|y315": [
+        "tile_path|y315": [
           3,
           7
         ],
-        "warden_heavy|y045": [
+        "tile_slot|y045": [
           4,
           7
         ],
-        "warden_heavy|y135": [
+        "tile_slot|y135": [
           5,
           7
         ],
-        "warden_heavy|y225": [
+        "tile_slot|y225": [
           6,
           7
         ],
-        "warden_heavy|y315": [
+        "tile_slot|y315": [
           7,
           7
         ],
-        "warden_mote|y045": [
+        "warden_drone|y045": [
           8,
           7
         ],
-        "warden_mote|y135": [
+        "warden_drone|y135": [
           9,
           7
         ],
-        "warden_mote|y225": [
+        "warden_drone|y225": [
           10,
           7
         ],
-        "warden_mote|y315": [
+        "warden_drone|y315": [
           11,
           7
+        ],
+        "warden_heavy|y045": [
+          0,
+          8
+        ],
+        "warden_heavy|y135": [
+          1,
+          8
+        ],
+        "warden_heavy|y225": [
+          2,
+          8
+        ],
+        "warden_heavy|y315": [
+          3,
+          8
+        ],
+        "warden_mote|y045": [
+          4,
+          8
+        ],
+        "warden_mote|y135": [
+          5,
+          8
+        ],
+        "warden_mote|y225": [
+          6,
+          8
+        ],
+        "warden_mote|y315": [
+          7,
+          8
         ]
       },
       "glow": {
@@ -502,277 +534,309 @@
           3,
           2
         ],
-        "hollow_vessel|y045": [
+        "hollow_shard|y045": [
           4,
+          2
+        ],
+        "hollow_shard|y135": [
+          5,
+          2
+        ],
+        "hollow_shard|y225": [
+          6,
+          2
+        ],
+        "hollow_shard|y315": [
+          7,
+          2
+        ],
+        "hollow_vessel|y045": [
+          8,
           2
         ],
         "hollow_vessel|y135": [
-          5,
+          9,
           2
         ],
         "hollow_vessel|y225": [
-          6,
+          10,
           2
         ],
         "hollow_vessel|y315": [
-          7,
+          11,
           2
         ],
         "ion_lance|y045": [
-          8,
-          2
+          0,
+          3
         ],
         "ion_lance|y135": [
-          9,
-          2
+          1,
+          3
         ],
         "ion_lance|y225": [
-          10,
-          2
+          2,
+          3
         ],
         "ion_lance|y315": [
-          11,
-          2
+          3,
+          3
         ],
         "mortar_emplacement|y045": [
-          0,
+          4,
           3
         ],
         "mortar_emplacement|y135": [
-          1,
+          5,
           3
         ],
         "mortar_emplacement|y225": [
-          2,
+          6,
           3
         ],
         "mortar_emplacement|y315": [
-          3,
+          7,
           3
         ],
         "pulse_turret|y045": [
-          4,
+          8,
           3
         ],
         "pulse_turret|y135": [
-          5,
+          9,
           3
         ],
         "pulse_turret|y225": [
-          6,
+          10,
           3
         ],
         "pulse_turret|y315": [
-          7,
+          11,
           3
         ],
         "reach_breacher|y045": [
-          8,
-          3
+          0,
+          4
         ],
         "reach_breacher|y135": [
-          9,
-          3
+          1,
+          4
         ],
         "reach_breacher|y225": [
-          10,
-          3
+          2,
+          4
         ],
         "reach_breacher|y315": [
-          11,
-          3
+          3,
+          4
         ],
         "reach_bulwark|y045": [
-          0,
+          4,
           4
         ],
         "reach_bulwark|y135": [
-          1,
+          5,
           4
         ],
         "reach_bulwark|y225": [
-          2,
+          6,
           4
         ],
         "reach_bulwark|y315": [
-          3,
+          7,
+          4
+        ],
+        "reach_picket|y045": [
+          8,
+          4
+        ],
+        "reach_picket|y135": [
+          9,
+          4
+        ],
+        "reach_picket|y225": [
+          10,
+          4
+        ],
+        "reach_picket|y315": [
+          11,
           4
         ],
         "reach_sapper|y045": [
-          4,
-          4
+          0,
+          5
         ],
         "reach_sapper|y135": [
-          5,
-          4
+          1,
+          5
         ],
         "reach_sapper|y225": [
-          6,
-          4
+          2,
+          5
         ],
         "reach_sapper|y315": [
-          7,
-          4
+          3,
+          5
         ],
         "reach_skiff|y045": [
-          8,
-          4
+          4,
+          5
         ],
         "reach_skiff|y135": [
-          9,
-          4
+          5,
+          5
         ],
         "reach_skiff|y225": [
-          10,
-          4
+          6,
+          5
         ],
         "reach_skiff|y315": [
-          11,
-          4
+          7,
+          5
         ],
         "restorer|y045": [
-          0,
+          8,
           5
         ],
         "restorer|y135": [
-          1,
+          9,
           5
         ],
         "restorer|y225": [
-          2,
+          10,
           5
         ],
         "restorer|y315": [
-          3,
+          11,
           5
         ],
         "scan_relay|y045": [
-          4,
-          5
+          0,
+          6
         ],
         "scan_relay|y135": [
-          5,
-          5
+          1,
+          6
         ],
         "scan_relay|y225": [
-          6,
-          5
+          2,
+          6
         ],
         "scan_relay|y315": [
-          7,
-          5
+          3,
+          6
         ],
         "shield_wall|y045": [
-          8,
-          5
+          4,
+          6
         ],
         "shield_wall|y135": [
-          9,
-          5
+          5,
+          6
         ],
         "shield_wall|y225": [
-          10,
-          5
+          6,
+          6
         ],
         "shield_wall|y315": [
-          11,
-          5
+          7,
+          6
         ],
         "tile_ground|y045": [
-          0,
+          8,
           6
         ],
         "tile_ground|y135": [
-          1,
+          9,
           6
         ],
         "tile_ground|y225": [
-          2,
+          10,
           6
         ],
         "tile_ground|y315": [
-          3,
+          11,
           6
         ],
         "tile_path|y045": [
-          4,
-          6
-        ],
-        "tile_path|y135": [
-          5,
-          6
-        ],
-        "tile_path|y225": [
-          6,
-          6
-        ],
-        "tile_path|y315": [
-          7,
-          6
-        ],
-        "tile_slot|y045": [
-          8,
-          6
-        ],
-        "tile_slot|y135": [
-          9,
-          6
-        ],
-        "tile_slot|y225": [
-          10,
-          6
-        ],
-        "tile_slot|y315": [
-          11,
-          6
-        ],
-        "warden_drone|y045": [
           0,
           7
         ],
-        "warden_drone|y135": [
+        "tile_path|y135": [
           1,
           7
         ],
-        "warden_drone|y225": [
+        "tile_path|y225": [
           2,
           7
         ],
-        "warden_drone|y315": [
+        "tile_path|y315": [
           3,
           7
         ],
-        "warden_heavy|y045": [
+        "tile_slot|y045": [
           4,
           7
         ],
-        "warden_heavy|y135": [
+        "tile_slot|y135": [
           5,
           7
         ],
-        "warden_heavy|y225": [
+        "tile_slot|y225": [
           6,
           7
         ],
-        "warden_heavy|y315": [
+        "tile_slot|y315": [
           7,
           7
         ],
-        "warden_mote|y045": [
+        "warden_drone|y045": [
           8,
           7
         ],
-        "warden_mote|y135": [
+        "warden_drone|y135": [
           9,
           7
         ],
-        "warden_mote|y225": [
+        "warden_drone|y225": [
           10,
           7
         ],
-        "warden_mote|y315": [
+        "warden_drone|y315": [
           11,
           7
+        ],
+        "warden_heavy|y045": [
+          0,
+          8
+        ],
+        "warden_heavy|y135": [
+          1,
+          8
+        ],
+        "warden_heavy|y225": [
+          2,
+          8
+        ],
+        "warden_heavy|y315": [
+          3,
+          8
+        ],
+        "warden_mote|y045": [
+          4,
+          8
+        ],
+        "warden_mote|y135": [
+          5,
+          8
+        ],
+        "warden_mote|y225": [
+          6,
+          8
+        ],
+        "warden_mote|y315": [
+          7,
+          8
         ]
       }
     },
@@ -780,7 +844,7 @@
       "albedo": "assets/renders/atlas/albedo.png",
       "glow": "assets/renders/atlas/glow.png"
     },
-    "source_digest": "505097bffb6e9dea616ed72da73430d92db51ce30c508a710ad7c07b0672e581"
+    "source_digest": "ebb701961df14a3bc423211d788b2f11a58d57d7d9188ae2b8c8acdbe17fd095"
   },
   "cell": 256,
   "elevation_deg": 30.0,
@@ -916,6 +980,24 @@
         "glow": "assets/renders/hollow_echo_y315_glow.png"
       }
     },
+    "hollow_shard": {
+      "y045": {
+        "albedo": "assets/renders/hollow_shard_y045_albedo.png",
+        "glow": "assets/renders/hollow_shard_y045_glow.png"
+      },
+      "y135": {
+        "albedo": "assets/renders/hollow_shard_y135_albedo.png",
+        "glow": "assets/renders/hollow_shard_y135_glow.png"
+      },
+      "y225": {
+        "albedo": "assets/renders/hollow_shard_y225_albedo.png",
+        "glow": "assets/renders/hollow_shard_y225_glow.png"
+      },
+      "y315": {
+        "albedo": "assets/renders/hollow_shard_y315_albedo.png",
+        "glow": "assets/renders/hollow_shard_y315_glow.png"
+      }
+    },
     "hollow_vessel": {
       "y045": {
         "albedo": "assets/renders/hollow_vessel_y045_albedo.png",
@@ -1022,6 +1104,24 @@
       "y315": {
         "albedo": "assets/renders/reach_bulwark_y315_albedo.png",
         "glow": "assets/renders/reach_bulwark_y315_glow.png"
+      }
+    },
+    "reach_picket": {
+      "y045": {
+        "albedo": "assets/renders/reach_picket_y045_albedo.png",
+        "glow": "assets/renders/reach_picket_y045_glow.png"
+      },
+      "y135": {
+        "albedo": "assets/renders/reach_picket_y135_albedo.png",
+        "glow": "assets/renders/reach_picket_y135_glow.png"
+      },
+      "y225": {
+        "albedo": "assets/renders/reach_picket_y225_albedo.png",
+        "glow": "assets/renders/reach_picket_y225_glow.png"
+      },
+      "y315": {
+        "albedo": "assets/renders/reach_picket_y315_albedo.png",
+        "glow": "assets/renders/reach_picket_y315_glow.png"
       }
     },
     "reach_sapper": {

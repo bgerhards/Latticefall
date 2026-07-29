@@ -68,6 +68,165 @@ def check_game_data() -> Result:
     return Result(OK, f"{len(warns)} warning(s)" if warns else "no warnings")
 
 
+## No act may run at less than this fraction of the busiest act's screen presence. It is a
+## judgement, not a measurement — but it is the judgement LF-044 was about, and the ratio it
+## guards was 0.38 for most of the project's life without anyone being able to see it.
+DENSITY_FLOOR = 0.55
+
+
+def check_wave_density() -> Result:
+    """Every act keeps a comparable number of units on screen.
+
+    Act III fielded 7.7 units a wave against Act I's 20.2 and nothing said so, because from
+    Act II every unit drains the bus — unit count and bus theft were the same number, so the
+    act could only get busier by getting poorer. Fixing that took two new units and a
+    re-authored wave table; keeping it fixed is one ratio, and it can be undone silently,
+    since `sweep.py --weight` scales every spawn count in a level at once.
+
+    Measured as peak units in flight rather than units per wave: a Column at 0.5 tiles/sec
+    holds the board four times as long as a Shard, so the per-wave count understates a slow
+    act. See tools/density.py, which owns the calculation.
+    """
+    sys.path.insert(0, str(ROOT))
+    sys.path.insert(0, str(ROOT / "tools"))
+    from density import peak_concurrent                       # noqa: PLC0415
+    from sim.content import all_anchor_ids, load_anchor, load_enemies  # noqa: PLC0415
+
+    enemies = load_enemies()
+    per_act: dict[int, list[int]] = {}
+    for aid in all_anchor_ids():
+        a = load_anchor(aid)
+        per_act.setdefault(a.act, []).append(peak_concurrent(a, enemies))
+
+    means = {act: sum(v) / len(v) for act, v in sorted(per_act.items())}
+    busiest = max(means.values())
+    thin = [f"act {act} holds {m:.1f} units on screen against the busiest act's {busiest:.1f} "
+            f"({m / busiest:.0%}, floor {DENSITY_FLOOR:.0%})"
+            for act, m in means.items() if m < busiest * DENSITY_FLOOR]
+    if thin:
+        return Result(FAIL, "; ".join(thin))
+    return Result(OK, " · ".join(f"act {a} {means[a]:.0f} on screen ({means[a]/busiest:.0%})"
+                                for a in sorted(means)))
+
+
+## Spoken numbers, for the dialog-vs-data check. Control reads the bus figure aloud in the
+## brief of every anchor — "A hundred and ninety megawatts." — so the reactor tier is content
+## as well as a tuning knob, and `sweep.py --apply` moves it without touching the line.
+_WORD_NUM = {
+    "one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7,
+    "eight": 8, "nine": 9, "ten": 10, "eleven": 11, "twelve": 12, "thirteen": 13,
+    "fourteen": 14, "fifteen": 15, "sixteen": 16, "seventeen": 17, "eighteen": 18,
+    "nineteen": 19, "twenty": 20, "thirty": 30, "forty": 40, "fifty": 50, "sixty": 60,
+    "seventy": 70, "eighty": 80, "ninety": 90,
+}
+
+
+def _spoken_numbers(text: str) -> set[int]:
+    """Every "<words> megawatts" figure in a line of dialog, as integers."""
+    import re                                                  # noqa: PLC0415
+
+    found = set()
+    for phrase in re.findall(r"([A-Za-z][A-Za-z \-]*?)\s+megawatts", text, re.I):
+        words = phrase.lower().replace("-", " ").split()
+        total = current = 0
+        seen = False
+        for w in words:
+            if w in ("a", "and"):
+                continue
+            if w == "hundred":
+                current = max(current, 1) * 100
+                seen = True
+            elif w in _WORD_NUM:
+                current += _WORD_NUM[w]
+                seen = True
+            else:                       # a word that is not part of a number resets the run
+                if seen:
+                    total += current
+                current, seen = 0, False
+        if seen:
+            total += current
+        if total:
+            found.add(total)
+    return found
+
+
+def _spell(n: int) -> str:
+    """The number as Control would read it: "a hundred and ninety". The check reports this
+    so a failure names the line to write, rather than only the number that is wrong."""
+    tens = {20: "twenty", 30: "thirty", 40: "forty", 50: "fifty", 60: "sixty",
+            70: "seventy", 80: "eighty", 90: "ninety"}
+    ones = {v: k for k, v in _WORD_NUM.items() if v <= 19}
+
+    def under_100(v: int) -> str:
+        if v in ones:
+            return ones[v]
+        t, r = divmod(v, 10)
+        return tens[t * 10] + (f"-{ones[r]}" if r else "")
+
+    h, r = divmod(n, 100)
+    if not h:
+        return under_100(r)
+    lead = "a hundred" if h == 1 else f"{ones[h]} hundred"
+    return lead + (f" and {under_100(r)}" if r else "")
+
+
+def check_dialog_capacity() -> Result:
+    """The capacity an anchor speaks is the capacity it has.
+
+    Every brief states the bus figure aloud, and `sweep.py --apply` writes `capacity_mw`
+    without touching prose — so a re-tune silently leaves Control reading out a number that
+    was true two sessions ago. Nothing else in the project compares the two, and a player
+    hears this line before every level.
+    """
+    sys.path.insert(0, str(ROOT))
+    from sim.content import DATA, all_anchor_ids, load_anchor   # noqa: PLC0415
+
+    wrong = []
+    for aid in all_anchor_ids():
+        a = load_anchor(aid)
+        p = DATA / "dialog" / f"{aid}.json"
+        if not p.exists():
+            continue
+        spoken: set[int] = set()
+        for line in json.loads(p.read_text())["lines"]:
+            spoken |= _spoken_numbers(line["text"])
+        if int(a.capacity_mw) not in spoken:
+            heard = ", ".join(str(s) for s in sorted(spoken)) or "no figure at all"
+            wrong.append(f"{aid} runs at {a.capacity_mw:.0f} MW but says {heard} — "
+                         f'the brief should read "{_spell(int(a.capacity_mw)).capitalize()} '
+                         f'megawatts"')
+    if wrong:
+        return Result(FAIL, "\n".join(wrong))
+    return Result(OK, f"{len(all_anchor_ids())} briefs quote their own capacity")
+
+
+def check_sprite_coverage() -> Result:
+    """Every enemy and emplacement id has a sprite under the name the game derives.
+
+    `anchor_view.gd` does not look a sprite up, it *derives* one: the id with hyphens
+    turned into underscores. A miss returns null, falls through to `_draw_unit`, and the
+    game quietly draws a coloured circle instead — no warning, no error, and the unit still
+    walks and fights. So a new unit shipped without art looks like a rendering bug rather
+    than a missing asset, and only on the anchor that fields it.
+
+    The manifest is hand-kept in step with `render.py`'s ASSETS dict and with
+    `enemies.json`, by three separate people-shaped processes. This is the comparison.
+    """
+    sys.path.insert(0, str(ROOT))
+    from sim.content import load_enemies, load_towers            # noqa: PLC0415
+
+    man = ROOT / "assets" / "renders" / "sprites.json"
+    if not man.exists():
+        return Result(SKIP, "no sprite manifest")
+    have = set(json.loads(man.read_text()).get("sprites", {}))
+    ids = list(load_enemies()) + list(load_towers())
+    missing = sorted(i for i in ids if i.replace("-", "_") not in have)
+    if missing:
+        return Result(FAIL, "no sprite for: " + ", ".join(missing)
+                            + " — the board will draw a coloured circle and say nothing")
+    return Result(OK, f"{len(ids)} ids drawn from {len(have)} sprites")
+
+
 def check_json_parses() -> Result:
     bad = []
     for p in ROOT.rglob("*.json"):
@@ -141,10 +300,13 @@ def check_banned_terms() -> Result:
     banned = ["stargate", "goa'uld", "jaffa", "naquadah", "tok'ra", "ha'tak",
               "asgard", "chevron", "dial-home", "zero point module", "kawoosh"]
     hits = []
+    # `.claude` holds agent worktrees — a second checkout of this repo, nomenclature bible
+    # included, which the exact-path exemption below does not recognise and which therefore
+    # failed the gate with six hits against a file that is the authority on those terms.
+    SKIP_DIRS = {".venv", "addons", ".godot", ".claude"}
     scan = [p for p in list(ROOT.rglob("*.py")) + list(ROOT.rglob("*.json"))
             + list(ROOT.rglob("*.gd")) + list(ROOT.rglob("*.md"))
-            if ".venv" not in p.parts and "addons" not in p.parts
-            and ".godot" not in p.parts and p != nom]
+            if not SKIP_DIRS.intersection(p.parts) and p != nom]
     for p in scan:
         try:
             text = p.read_text(errors="ignore")
@@ -211,7 +373,7 @@ def check_game_renders() -> Result:
     shot = ROOT / ".godot" / "gate-frame.png"
     shot.parent.mkdir(parents=True, exist_ok=True)
     r = run(godot, "--path", str(ROOT), "--fixed-fps", "60",
-            "--", "--shot", str(shot), "120")
+            "--", "--display-defaults", "--shot", str(shot), "120")
     blob = r.stdout + r.stderr
 
     line = next((l for l in blob.splitlines() if l.startswith("FRAME ")), "")
@@ -247,7 +409,7 @@ def check_menu_renders() -> Result:
     shot = ROOT / ".godot" / "gate-menu.png"
     shot.parent.mkdir(parents=True, exist_ok=True)
     r = run(godot, "--path", str(ROOT), "--fixed-fps", "60",
-            "--", "--shot-menu", str(shot), "40")
+            "--", "--display-defaults", "--shot-menu", str(shot), "40")
     blob = r.stdout + r.stderr
 
     line = next((l for l in blob.splitlines() if l.startswith("MENUFRAME ")), "")
@@ -277,10 +439,18 @@ def check_accessibility() -> Result:
     the real composited background under every label. See that module for what is measured
     and why the thresholds are what they are.
 
-    The game is checked at anchor-24 and at 125% interface scale — the worst case on both
-    axes. Anchor-24 unlocks nine emplacements and fields the widest threat rows, and 125%
-    is the smallest logical viewport the interface is offered in. A layout that survives
-    both survives everything between them.
+    The game is checked at anchor-24 and at **200%** interface scale — the worst case on
+    both axes. Anchor-24 unlocks nine emplacements and fields the widest threat rows, and
+    200% is the smallest logical viewport the interface is offered in: 960x540, into which
+    the instrument column wants 893 px of readout plus 98 px of pinned controls and the
+    threat panel another 455 beside it. It is also checked at
+    100%, because the reflow is conditional and a rule that only fires at the top of the
+    range can break the bottom of it.
+
+    The menu and the options panel are checked at 200% as well. The options panel carries
+    the interface-scale control itself, so it is the one screen that absolutely must survive
+    the top of its own range — it did not, before decision 048: MUSIC, EFFECTS and BACK were
+    off the bottom of the screen.
 
     This exists because every one of these defects was invisible in the source and obvious
     in a measurement: an 11 px ladder that read as 8 px in the default window, an alert
@@ -297,16 +467,26 @@ def check_accessibility() -> Result:
     out = ROOT / ".godot"
     out.mkdir(parents=True, exist_ok=True)
     cases = [
-        ("game", ["--autoplay", "--anchor", "anchor-24", "--select", "1",
-                  "--ui-scale", "1.25"], "--shot", "300"),
-        ("menu", [], "--shot-menu", "40"),
+        ("game-100", ["--autoplay", "--anchor", "anchor-24", "--select", "1",
+                      "--ui-scale", "1.0"], "--shot", "300"),
+        ("game-200", ["--autoplay", "--anchor", "anchor-24", "--select", "1",
+                      "--ui-scale", "2.0"], "--shot", "300"),
+        ("menu", ["--ui-scale", "2.0"], "--shot-menu", "40"),
+        ("options", ["--options", "--ui-scale", "2.0"], "--shot-menu", "40"),
     ]
 
     totals, worst = [], []
     for name, extra, shot_flag, frame in cases:
         png, js = out / f"gate-a11y-{name}.png", out / f"gate-a11y-{name}.json"
+        # `--display-defaults` leads, because it resets ui_scale and the per-case
+        # `--ui-scale` after it must win. Without it the gate measures whatever window
+        # mode and resolution happen to be saved in the player's progress.json — a file
+        # outside the repo. The same tree reported coverage 0.56 on one machine and 0.34
+        # on another for exactly that reason, and the a11y analyser samples its background
+        # colours out of these frames.
         r = run(godot, "--path", str(ROOT), "--fixed-fps", "60",
-                "--", *extra, shot_flag, str(png), frame, "--a11y", str(js))
+                "--", "--display-defaults", *extra, shot_flag, str(png), frame,
+                "--a11y", str(js))
         if not js.exists():
             return Result(FAIL, f"{name}: probe wrote no report — the run did not reach "
                                 f"the shot:\n" + (r.stdout + r.stderr).strip()[-800:])
@@ -384,10 +564,13 @@ CHECKS = [
     ("python syntax",     check_python_syntax),
     ("json parses",       check_json_parses),
     ("game data",         check_game_data),
+    ("wave density",      check_wave_density),
+    ("dialog capacity",   check_dialog_capacity),
     ("banned terms",      check_banned_terms),
     ("sfx determinism",   check_sfx_reproducible),
     ("music manifest",    check_music_manifest),
     ("sprite atlas",      check_sprite_atlas),
+    ("sprite coverage",   check_sprite_coverage),
     ("backlog rendered",  check_backlog_rendered),
     ("sim determinism",   check_sim),
     ("godot boots",       check_godot_boots),

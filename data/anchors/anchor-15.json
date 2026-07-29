@@ -3,9 +3,9 @@
   "id": "anchor-15",
   "act": 2,
   "title": "Breach of Contract",
-  "capacity_mw": 174,
-  "starting_funds": 1700,
-  "lives": 24,
+  "capacity_mw": 260,
+  "starting_funds": 2210,
+  "lives": 21,
   "grid": {
     "w": 17,
     "h": 13
@@ -91,6 +91,11 @@
       "lead_in": 20,
       "spawns": [
         {
+          "enemy": "reach-picket",
+          "count": 4,
+          "interval": 0.7
+        },
+        {
           "enemy": "warden-drone",
           "count": 2,
           "interval": 1.05
@@ -112,6 +117,11 @@
     {
       "lead_in": 16,
       "spawns": [
+        {
+          "enemy": "reach-picket",
+          "count": 8,
+          "interval": 0.7
+        },
         {
           "enemy": "warden-drone",
           "count": 2,
@@ -141,6 +151,11 @@
       "lead_in": 16,
       "spawns": [
         {
+          "enemy": "reach-picket",
+          "count": 7,
+          "interval": 0.7
+        },
+        {
           "enemy": "warden-mote",
           "count": 1,
           "interval": 1.3,
@@ -148,12 +163,12 @@
         },
         {
           "enemy": "warden-drone",
-          "count": 2,
+          "count": 1,
           "interval": 1.0
         },
         {
           "enemy": "reach-sapper",
-          "count": 2,
+          "count": 1,
           "interval": 2.0,
           "delay": 6
         },
@@ -168,6 +183,11 @@
     {
       "lead_in": 15,
       "spawns": [
+        {
+          "enemy": "reach-picket",
+          "count": 10,
+          "interval": 0.7
+        },
         {
           "enemy": "warden-drone",
           "count": 2,
@@ -196,6 +216,11 @@
     {
       "lead_in": 15,
       "spawns": [
+        {
+          "enemy": "reach-picket",
+          "count": 8,
+          "interval": 0.7
+        },
         {
           "enemy": "warden-drone",
           "count": 3,
@@ -231,6 +256,11 @@
       "lead_in": 14,
       "spawns": [
         {
+          "enemy": "reach-picket",
+          "count": 11,
+          "interval": 0.7
+        },
+        {
           "enemy": "warden-drone",
           "count": 3,
           "interval": 0.9
@@ -259,25 +289,30 @@
       "lead_in": 14,
       "spawns": [
         {
+          "enemy": "reach-picket",
+          "count": 15,
+          "interval": 0.7
+        },
+        {
           "enemy": "warden-drone",
-          "count": 3,
+          "count": 2,
           "interval": 0.9
         },
         {
           "enemy": "warden-mote",
-          "count": 2,
+          "count": 1,
           "interval": 1.2,
           "delay": 4
         },
         {
           "enemy": "reach-skiff",
-          "count": 3,
+          "count": 2,
           "interval": 1.5,
           "delay": 5
         },
         {
           "enemy": "reach-sapper",
-          "count": 3,
+          "count": 2,
           "interval": 1.6,
           "delay": 6
         },
@@ -292,6 +327,11 @@
     {
       "lead_in": 13,
       "spawns": [
+        {
+          "enemy": "reach-picket",
+          "count": 15,
+          "interval": 0.7
+        },
         {
           "enemy": "warden-drone",
           "count": 4,
@@ -327,8 +367,13 @@
       "lead_in": 13,
       "spawns": [
         {
+          "enemy": "reach-picket",
+          "count": 14,
+          "interval": 0.7
+        },
+        {
           "enemy": "warden-drone",
-          "count": 4,
+          "count": 3,
           "interval": 0.85
         },
         {
@@ -345,13 +390,13 @@
         },
         {
           "enemy": "reach-skiff",
-          "count": 4,
+          "count": 3,
           "interval": 1.4,
           "delay": 5
         },
         {
           "enemy": "reach-sapper",
-          "count": 4,
+          "count": 3,
           "interval": 1.5,
           "delay": 6
         },

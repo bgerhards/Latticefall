@@ -70,10 +70,24 @@ def git_sha() -> str:
 
 # ────────────────────────────────────────────────────────────── commands ──
 
+def next_id(db: dict) -> int:
+    """The stored counter, or one past the highest id present — whichever is larger.
+
+    The counter alone is correct only while one person adds items in one checkout. Work
+    now arrives from parallel git worktrees, and a merge brings items whose ids the counter
+    has never seen: three agents filed LF-046 through LF-056 between them, the counter came
+    back from the merge still pointing at 055, and the next `add` minted a second LF-055.
+    A duplicate id is quietly corrosive here, because commit messages reference ids and
+    `done LF-055` then picks whichever one comes first in the file.
+    """
+    highest = max((int(i["id"].split("-")[1]) for i in db["items"]), default=0)
+    return max(int(db.get("next_id", 1)), highest + 1)
+
+
 def cmd_add(args) -> int:
     db = load()
     item = {
-        "id": f"LF-{db['next_id']:03d}",
+        "id": f"LF-{next_id(db):03d}",
         "title": args.title.strip(),
         "kind": args.kind,
         "area": args.area,
@@ -84,7 +98,7 @@ def cmd_add(args) -> int:
         "closed": None,
         "note": "",
     }
-    db["next_id"] += 1
+    db["next_id"] = int(item["id"].split("-")[1]) + 1
     db["items"].append(item)
     save(db)
     print(f"{item['id']}  {item['title']}")

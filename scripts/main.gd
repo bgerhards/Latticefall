@@ -30,6 +30,8 @@ var _shot_at: int = 240
 ## Same frame is the point: the analyser samples the background behind each label out of
 ## the PNG, so a report taken a frame later describes a screen that was never measured.
 var _a11y_path: String = ""
+## `-- --facings` prints the yaw every drawable was drawn at, on the frame `--shot` took.
+var _dump_facings: bool = false
 var _frame: int = 0
 var _shot_taken: bool = false
 var _autoplay: bool = false
@@ -38,6 +40,7 @@ var _open_pause: bool = false
 var _select_nth: int = 0
 var _pick_tower: String = ""
 var _cursor_steps: int = 0
+var _scroll_steps: int = 0
 
 const MENU_SCENE := "res://scenes/menu.tscn"
 
@@ -64,6 +67,8 @@ func _ready() -> void:
         view.selected_slot = view.sim.placed[_select_nth - 1]["slot"]
     if _pick_tower != "":
         view.select(_pick_tower)      # applied after --select, so it can be seen to win
+    if _scroll_steps != 0:
+        hud.scroll_panels(_scroll_steps)
     for _i in range(_cursor_steps):
         var press := InputEventAction.new()
         press.action = "lf_right"
@@ -88,6 +93,13 @@ func _setup_cli() -> void:
             "--a11y":
                 if i + 1 < argv.size():
                     _a11y_path = argv[i + 1]
+            "--facings":
+                # One line per drawable with the shot: sprite, chosen yaw and board
+                # position. A facing is not legible from a 1440x810 PNG — the four yaws of
+                # a turret differ by which side its muzzle sits on and by 40 px of height —
+                # so the screenshot alone cannot say whether a sprite is pointing where the
+                # thing it is tracking actually is. This makes that falsifiable. LF-050.
+                _dump_facings = true
             "--anchor":
                 if i + 1 < argv.size():
                     anchor_id = argv[i + 1]
@@ -111,6 +123,13 @@ func _setup_cli() -> void:
                 # when the bar is used, which is the whole of that interaction.
                 if i + 1 < argv.size():
                     _pick_tower = argv[i + 1]
+            "--scroll":
+                # Scroll the instrument panels N steps, exactly as lf_panel_down does.
+                # Above 125% interface scale both panels hold more than fits, and the
+                # scrolled state is unreachable at --fixed-fps for the same reason the
+                # pause overlay and the inspector are: it takes a real key press.
+                if i + 1 < argv.size() and argv[i + 1].is_valid_int():
+                    _scroll_steps = int(argv[i + 1])
             "--cursor":
                 # Press lf_right N times at boot. Gamepad and keyboard board navigation
                 # is otherwise unscreenshottable at --fixed-fps for the same reason the
@@ -161,6 +180,10 @@ func _process(_delta: float) -> void:
             % [_frame, view.sim_time(), view.wave_number(), view.phase(),
                view.sim.lives, view.sim.leaks])
         print("AUDIO %s" % Audio.report())
+        if _dump_facings:
+            for d in view.drawables():
+                print("FACE %s %s yaw=%d at=(%.0f,%.0f)"
+                    % [d["kind"], d["sprite"], d["yaw"], d["at"].x, d["at"].y])
         get_tree().quit()
 
 

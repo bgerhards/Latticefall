@@ -30,6 +30,10 @@ ROOT = Path(__file__).resolve().parents[2]
 DATA = ROOT / "data"
 SCHEMA = DATA / "schema"
 
+## Capacity as a fraction of "every slot running the hungriest emplacement". Above this the
+## power decision is thin; at 1.0 it does not exist. Act I sits at 29-38%.
+SATURATION_WARN = 0.80
+
 # valid dialog triggers that do not depend on wave count
 STATIC_TRIGGERS = {"brief", "debrief", "brownout", "first-leak", "low-lives"}
 
@@ -128,9 +132,19 @@ def check_anchor(doc: dict, towers: dict, enemies: dict, rep: Report) -> None:
     max_draw = max(t["draw_mw"] for t in avail)
     saturated = len(doc["slots"]) * max_draw
     if cap >= saturated:
-        rep.warn(where, f"capacity {cap} MW covers every slot at max draw "
-                        f"({len(doc['slots'])} x {max_draw} = {saturated} MW) "
-                        f"— no power decision exists on this anchor")
+        rep.err(where, f"capacity {cap} MW covers every slot at max draw "
+                       f"({len(doc['slots'])} x {max_draw} = {saturated} MW) "
+                       f"— no power decision exists on this anchor")
+    # Warned well before that, because the hook does not switch off at the boundary, it
+    # fades towards it — and the drift is invisible until it crosses. Act I runs at 29-38%
+    # of saturation. Act III reached 103% once, by paying for heavier waves with reactor
+    # capacity a sweep was free to raise: every anchor still graded clean, the validator
+    # said nothing until the last one tipped over, and the game's core decision had
+    # quietly stopped existing on five levels. Decision 048.
+    elif cap > saturated * SATURATION_WARN:
+        rep.warn(where, f"capacity {cap} MW is {cap / saturated:.0%} of what would run "
+                        f"every slot at max draw ({saturated} MW) — the power decision is "
+                        f"getting thin; Act I sits at 29-38%")
 
     if len(doc["slots"]) < 3:
         rep.warn(where, f"{len(doc['slots'])} build slots is very few")

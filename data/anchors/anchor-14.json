@@ -3,9 +3,9 @@
   "id": "anchor-14",
   "act": 2,
   "title": "What He Paid For",
-  "capacity_mw": 166,
-  "starting_funds": 1600,
-  "lives": 14,
+  "capacity_mw": 250,
+  "starting_funds": 2080,
+  "lives": 23,
   "grid": {
     "w": 16,
     "h": 14
@@ -87,6 +87,11 @@
       "lead_in": 20,
       "spawns": [
         {
+          "enemy": "reach-picket",
+          "count": 3,
+          "interval": 0.7
+        },
+        {
           "enemy": "warden-drone",
           "count": 1,
           "interval": 1.1
@@ -108,6 +113,11 @@
     {
       "lead_in": 17,
       "spawns": [
+        {
+          "enemy": "reach-picket",
+          "count": 7,
+          "interval": 0.7
+        },
         {
           "enemy": "warden-drone",
           "count": 1,
@@ -136,6 +146,11 @@
     {
       "lead_in": 16,
       "spawns": [
+        {
+          "enemy": "reach-picket",
+          "count": 8,
+          "interval": 0.7
+        },
         {
           "enemy": "warden-mote",
           "count": 1,
@@ -171,8 +186,13 @@
       "lead_in": 16,
       "spawns": [
         {
+          "enemy": "reach-picket",
+          "count": 6,
+          "interval": 0.7
+        },
+        {
           "enemy": "warden-drone",
-          "count": 3,
+          "count": 2,
           "interval": 1.0
         },
         {
@@ -198,6 +218,11 @@
     {
       "lead_in": 15,
       "spawns": [
+        {
+          "enemy": "reach-picket",
+          "count": 10,
+          "interval": 0.7
+        },
         {
           "enemy": "warden-drone",
           "count": 3,
@@ -233,6 +258,11 @@
       "lead_in": 15,
       "spawns": [
         {
+          "enemy": "reach-picket",
+          "count": 10,
+          "interval": 0.7
+        },
+        {
           "enemy": "warden-drone",
           "count": 3,
           "interval": 0.95
@@ -267,8 +297,13 @@
       "lead_in": 14,
       "spawns": [
         {
+          "enemy": "reach-picket",
+          "count": 8,
+          "interval": 0.7
+        },
+        {
           "enemy": "warden-drone",
-          "count": 4,
+          "count": 2,
           "interval": 0.95
         },
         {
@@ -300,6 +335,11 @@
     {
       "lead_in": 14,
       "spawns": [
+        {
+          "enemy": "reach-picket",
+          "count": 11,
+          "interval": 0.7
+        },
         {
           "enemy": "warden-drone",
           "count": 4,
@@ -335,8 +375,13 @@
       "lead_in": 13,
       "spawns": [
         {
+          "enemy": "reach-picket",
+          "count": 12,
+          "interval": 0.7
+        },
+        {
           "enemy": "warden-drone",
-          "count": 4,
+          "count": 3,
           "interval": 0.9
         },
         {
@@ -353,13 +398,13 @@
         },
         {
           "enemy": "reach-skiff",
-          "count": 3,
+          "count": 2,
           "interval": 1.5,
           "delay": 5
         },
         {
           "enemy": "reach-sapper",
-          "count": 3,
+          "count": 2,
           "interval": 1.6,
           "delay": 7
         },

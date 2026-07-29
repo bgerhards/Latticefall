@@ -3,7 +3,7 @@
   "anchor": "anchor-09",
   "lines": [
     { "trigger": "brief", "speaker": "control",
-      "text": "Anchor nineteen. A hundred and eighteen megawatts. Be advised the deck's been worked — scaffolding, lighting, someone's generator bolted to Ordinal stone." },
+      "text": "Anchor nineteen. A hundred and seventy megawatts. Be advised the deck's been worked — scaffolding, lighting, someone's generator bolted to Ordinal stone." },
     { "trigger": "brief", "speaker": "vasquez",
       "text": "Someone's still here?" },
     { "trigger": "brief", "speaker": "control",
@@ -20,6 +20,11 @@
 
     { "trigger": "wave-start:1", "speaker": "ferrar",
       "text": "That's not me, Captain. That's the local wildlife. I'd deal with it." },
+
+    { "trigger": "wave-clear:1", "speaker": "okonkwo", "critical": false,
+      "text": "Count on that first group — fourteen through the lane and four of them carrying anything at all. The rest were just walking." },
+    { "trigger": "wave-clear:1", "speaker": "ferrar", "critical": false,
+      "text": "Pickets. Day labour, Captain. They cost me almost nothing and they cost you a shot each, which is the arrangement I'd have chosen." },
 
     { "trigger": "wave-clear:2", "speaker": "okonkwo", "critical": false,
       "text": "Vasquez, the bus. Something out there is pulling off it while it's alive." },

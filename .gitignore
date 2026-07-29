@@ -27,3 +27,6 @@ assets/audio/source/
 
 # loop-check scratch clips
 assets/audio/_loop_checks/
+
+# Agent worktrees — a git worktree inside the repo is not repo content
+.claude/worktrees/

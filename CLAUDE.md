@@ -60,6 +60,10 @@ docs/            STATE, BACKLOG, DECISIONS, NOMENCLATURE, STORY
 .venv/bin/python tools/check.py                    # the gate. run before every commit.
 .venv/bin/python tools/backlog.py add "..." --kind bug --area audio
 .venv/bin/python tools/validate/validate_data.py   # schemas + cross-references
+.venv/bin/python tools/density.py                  # units, leak, hp, drain and screen
+                                                   # presence per anchor and per act
+.venv/bin/python tools/sweep.py anchor-20 --jobs 8 # grade a grid, one cell per core
+.venv/bin/python -m sim.run --jobs 8               # grade every anchor, one per core
 .venv/bin/python tools/validate/a11y.py <report.json> --shot <frame.png> --all
                                                    # WCAG AA contrast + text size audit
 .venv/bin/python tools/audio/synth_sfx.py          # rebuild SFX bank
@@ -74,16 +78,24 @@ docs/            STATE, BACKLOG, DECISIONS, NOMENCLATURE, STORY
 /Applications/Godot.app/Contents/MacOS/Godot --path . --fixed-fps 60 \
   -- --autoplay --shot /tmp/shot.png 1800          # the build screenshots itself
 /Applications/Godot.app/Contents/MacOS/Godot --path . --fixed-fps 60 \
-  -- --autoplay --anchor anchor-24 --ui-scale 1.25 \
+  -- --autoplay --anchor anchor-24 --ui-scale 2.0 \
      --shot /tmp/s.png 300 --a11y /tmp/s.json      # frame + its text inventory
 ```
 
 **Verification hooks, because `--fixed-fps` has nobody to press a key.** `--paused`,
-`--select N`, `--pick <id>`, `--cursor N`, `--options`, `--ui-scale <f>` and
+`--select N`, `--pick <id>`, `--cursor N`, `--scroll N`, `--options`, `--ui-scale <f>` and
 `--display-defaults` each reach a state that otherwise needs a real input. Add one rather
-than shipping a screen nobody has looked at. `--a11y <path>` must be paired with the
+than shipping a screen nobody has looked at. `--facings` is the same idea for something a
+screenshot *shows* but cannot settle: it prints the yaw every drawable was drawn at, on the
+frame `--shot` captured, because four yaws of one turret differ by which side the muzzle is
+on and 40 px of height. Decision 049. `--a11y <path>` must be paired with the
 `--shot` on the *same frame*: the analyser samples the background out of that PNG, so a
 report taken a frame later describes a screen that was never measured.
+
+**The interface scale goes to 200% and the worst case is `--anchor anchor-24 --ui-scale
+2.0`** — a 960x540 logical viewport, into which the two instrument panels want about
+1480 px of stacked height. Both panels scroll vertically with their controls pinned outside
+the scroll region; `--scroll N` reaches the scrolled state. Decision 048.
 
 **A re-render is invisible to the game until you re-import.** Godot's *game* mode never
 reimports changed assets — it loads the cached `.ctex` in `.godot/imported/`. Only the
@@ -101,6 +113,15 @@ would reintroduce LF-027.
 
 `tools/check.py` is the single gate: schema validation, data cross-references, sim
 determinism, asset manifest integrity, Python syntax. **If it fails, do not commit.**
+
+**Grading is parallel; nothing else about it changed.** The sim has no RNG and no shared
+state, so `--jobs` on `sim/run.py` and `tools/sweep.py` buys wall-clock and returns the
+same cells in the same order. Grading 24 anchors was 3.5 minutes serially, and a balance
+question usually needs the box widened two or three times before it answers.
+
+**A wave's unit count is not its screen presence.** A Column at 0.5 tiles/sec holds the
+board four times as long as a Shard, so `tools/density.py` reports peak units in flight
+alongside the per-wave count, and the gate's `wave density` check compares acts on that.
 
 ---
 

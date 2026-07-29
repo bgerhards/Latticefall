@@ -1455,3 +1455,301 @@ honest consequence of changing a rule that Act I is subject to.
 cost, and the HUD reports both. Any future enemy needs a `leak_cost` consistent with the
 divisor, and the GDScript default of 1 must stay identical to the Python one or the parity
 gate will catch it as a divergence — which is the intended safety net.
+
+---
+
+## 048 — Act II and Act III field escorts, and each act is budgeted against the resource that limits it
+
+**Date.** 2026-07-28. **Status.** Adopted.
+
+Two cheap units join the roster: **Reach Picket** (55 hp, 1 MW, Act II) and **Hollow
+Shard** (60 hp, 2 MW, Act III). No armour, no screen, worth one life if they land. They are
+spent into Act II and III wave tables by `tools/densify.py`, which **replaces** authored
+mass rather than adding to it — and the two acts are re-authored against **different**
+resources: Act II against hp, Act III against `leak_cost`.
+
+**Why the acts had nothing on them.** `LF-044` said the finale put fewer things on screen
+than the tutorial, and `tools/density.py` confirms it: 20.2 units a wave in Act I, 9.7 in
+Act II, 7.7 in Act III. The cause was structural, not timid authoring. From Act II every
+unit in the game drains the bus while it walks, so **unit count and bus theft were literally
+the same number** — eighteen Hollow Echoes is 144 MW of theft against a bus that has decayed
+to 157 MW. The roster simply had no cheap unit: the lightest thing in Act III drained 8 MW.
+Decision 047 made density affordable in lives; it did not make it affordable in megawatts,
+and this is the other half.
+
+**Two wrong cuts, recorded because both are the obvious move.**
+
+*Escorts on top of the authored waves.* Leaving the existing spawns alone put Act III at
+2668 hp a wave against 1562, and all eight Act III anchors graded unwinnable. A level does
+not absorb a 70% rise in work because it has more silhouettes on it. Escorts replace mass.
+
+*One budget for both acts — hold total HP constant and buy escorts out of the heavies.*
+That works for Act II and fails for Act III. Measured: anchor-20 re-authored against an HP
+budget needed 38 lives at 250 MW to grade clean, a **28% leak budget against the 26% it
+started at**. Density improved and tension did not, which is exactly the trade decision 047
+exists to prevent — because Act III units are worth 2–4 lives each now, buying escorts with
+HP raises the wave's total `leak_cost` and the anchor has to be made more forgiving to pay
+for it.
+
+**What shipped.** Each wave gets an **allowance** in the resource its act is limited by, and
+escorts fill whatever the authored units do not spend.
+
+| act | limited by | measured in | allowance | why |
+|---|---|---|---|---|
+| II | drain | hp | 1.70x | fields *less* work than Act I — 740 hp/wave against 950 — and was thin only because a Sapper costs 8 MW to put on the board and a Picket costs 1. It is growing into headroom it always had. |
+| III | leak | `leak_cost` | 1.90x | already carries the most work in the game, and its units are worth 2–4 lives each, so leak is the currency that binds. Lives are then set as a *fraction* of that larger total, which is what makes the act tighter rather than merely bigger. |
+
+At these allowances the solver does not need to cut the authored spawns at all, and the
+composition survives intact — which is the whole point, and was learned the hard way twice.
+
+**The wave table is content, and a transform that is free to cut it will destroy it.** With
+the allowance set tight (1.45x on leak) the target unit count is simply unreachable — no
+amount of anything buys 20 units out of 17 leak — so the scale factor floors and every
+authored spawn lands on its own floor of 1. Measured: **251 of 252 Act III spawn entries came
+out at `count: 1`**, and every wave of the last three anchors of the game became "N Shards
+and one of each", ramp gone. That is not a thinner wave, it is the loss of the authored
+content. Hence `KEEP_FLOOR = 0.5` and, more importantly, allowances generous enough that the
+floor rarely binds. **Undershooting a density target is a tuning miss; flattening composition
+is a content loss, and they are not the same severity.**
+
+**The allowance is capped at 1.6x the anchor's mean wave.** Per-wave, the ramp multiplier and
+the budget multiplier compound on the last wave of an act: anchor-16's finale came out at
+3796 hp against the anchor's own 1173 hp mean — twice the next hardest wave in the game — and
+the anchor then graded clean only at 56 lives, a 25% leak budget.
+
+**And the solver's own algebra was wrong.** From `f*units + (allowance - f*mass)/escort = target`
+the scale factor is `(allowance/escort - target) / (mass/escort - units)`; it was written with
+the denominator as `allowance/escort - mass/escort`, a different quantity. The escort residual
+absorbed most of the error, so the tables looked plausible while the target was quietly missed
+by a fifth on every Act III anchor. Recorded because of *how* it hid: a derived quantity that
+another term compensates for does not announce itself, and the only thing that caught it was
+re-deriving the algebra from the docstring rather than reading the code.
+
+**Density is not paid for with reactor capacity.** The heavier waves grade clean if the bus
+is allowed to grow, and a sweep will happily buy exactly that — so the first re-sweep put
+Act III at 300-420 MW, and anchor-24 at **103% of what would run every slot at maximum
+draw**. Every anchor still graded clean. The five heaviest levels in the game had quietly
+stopped containing a power decision at all, which is the one thing the game is about
+(decision 003). Act I sits at 29-38% of that saturation figure; Act II and III now run
+against a sweep grid **bounded at 70%** of it, and the shortfall is paid in cheaper escorts
+and a smaller allowance rather than in megawatts. `validate_data.py` now errors at
+saturation instead of warning, and warns from 80% — because the hook does not switch off at
+the boundary, it fades towards it, and nothing said a word until the last anchor tipped over.
+
+**A second measurement correction.** Units-per-wave is not an honest reading of "how much is
+on screen": a Column at 0.5 tiles/sec occupies the board four times as long as a Shard, so a
+table with fewer, slower units can be busier than one with more. `density.py` now also
+reports **peak concurrent units in flight** — an upper bound, assuming the board kills
+nothing, which is what makes it comparable across acts whose emplacements differ — and that
+is the number `tools/check.py` gates on.
+
+**Rejected.**
+
+- *Cut `drains_mw` across the existing roster so the current units get affordable.* It
+  makes density arrive by weakening the act mechanic itself. The bus being contested **is**
+  Act II (decisions 027 and 028); a Sapper that costs 3 MW is not a Sapper.
+- *Raise reactor capacity to pay for more units.* Already disproved and not worth
+  re-running: doubling every weapon's damage **and** raising capacity 60% — 3.2x throughput
+  — reached 1 of 11 winning builds at weight 1.50 on anchor-20. Capacity alone changes
+  nothing, because the constraint is what the wave steals, not what the board is given.
+- *Scale spawn counts with `sweep.py --weight`.* It scales every spawn in the table,
+  heavies included, so it multiplies drain and leak along with the count. That is the exact
+  knob `LF-044` was already stuck on for sixteen anchors.
+- *Give the escorts zero drain.* Cleaner arithmetic, and it puts a unit on an Act II/III
+  board that is not connected to the act's economy at all. 1–2 MW keeps every unit in the
+  act honest to the mechanic and is still cheap enough to field in numbers.
+- *Give the Act III escort the 80 hp the first cut used.* Any 20-unit Act III wave then
+  carries at least 1600 hp of chaff alone — more than the whole wave carried before. 60 hp
+  is what makes the count reachable.
+
+**Consequence.** `densify.py` is **one-shot**: unlike `sweep.py` it rewrites authored
+composition rather than a knob, so running it twice scales the same tables twice. It refuses
+any anchor that already carries its act's escort; `--force` is for deliberately re-deriving
+from a re-authored base. Every anchor it touches must be re-swept on lives and re-graded
+behind it. The density gate in `check.py` exists because this is undoable in silence — a
+later sweep or a hand-edited wave table can quietly put the finale back below the tutorial.
+## 049 — Facing is driven by heading, and the heading→yaw mapping is measured
+
+**Date.** 2026-07-28. **Status.** Adopted.
+
+`anchor_view.gd` hardcoded `"yaw": 45` for every drawable, so **156 of the 208 atlas cells
+were never drawn**. Three quarters of the render pipeline — render, mask, pack, import —
+produced pixels nothing could reach, and a defect that only shows at one yaw was invisible
+in the game by construction: that is how the Hollow emissive collapse at yaw 315 (`LF-049`)
+survived being looked at. `LF-050`.
+
+**Units face their direction of travel; emplacements face what they last fired at**, or the
+nearest point on the path when they have nothing to fire at.
+
+**The mapping was measured, not derived.** Every asset is modelled facing Blender world
+**+Y** — pulse_turret's muzzle sphere at (0, 0.63, 0.70), the relay dish, the lance muzzle,
+warden_heavy's eye. pulse_turret's *only* emitter is that muzzle, so the rendered glow pass
+is a direct probe of where +Y lands: its luminance centroid sits at (+41, −20) px
+horizontally from the sprite pivot at yaw 045, (+41, +20) at 135, (−41, +20) at 225 and
+(−41, −20) at 315 — each within a pixel of the projection maths for a 30° camera. The four
+sprites therefore face the four screen diagonals, NE/SE/SW/NW in that order, and since
+`Iso.tile_to_screen` sends tile +x to screen right-down and tile −y to right-up:
+
+```
+yaw 045 → tile ( 0,−1)      yaw 135 → tile (+1, 0)
+yaw 225 → tile ( 0,+1)      yaw 315 → tile (−1, 0)
+```
+
+i.e. **tile-space heading angle = yaw − 135**, which is the whole of `Iso.yaw_for_heading`.
+It lives in `iso.gd` because it is a property of the projection, not of the view. Verified
+in the engine rather than on paper: on anchor-02 at frame 1900 the four turrets report
+225/45/225/315 and the one drone 135, and each is exactly what the slot geometry predicts —
+the two turrets in range of the drone point at it from opposite sides, the two out of range
+watch the nearest path segment, and the drone on the westbound first leg faces down-right.
+
+**Bucketed in tile space, not screen space.** The projection is 2:1, so the four screen
+diagonals sit 53° apart across one axis and 127° across the other; bucketing a screen angle
+would give two of the four sprites most of the circle.
+
+**Flicker, measured.** Unit yaw is a pure function of path distance, so the whole path can
+be swept: anchor-07 changes facing exactly 6 times in 41 tiles, at 12.0/15.0/24.0/27.0/
+36.0/39.0 — its six corners — and never returns to a yaw inside a tile of travel. A centred
+difference over ±0.35 tiles rotates monotonically through a corner, so a unit cannot
+re-cross a boundary it has just crossed and **units need no hysteresis**. Emplacements do:
+tracking a target across a boundary re-buckets 116 times with 40 reversals inside half a
+second over three waves of anchor-07. A 12° hysteresis band takes that to 59 changes and 3
+reversals, and the 3 are real target changes — the leader died and the next one is on the
+other side — not bucketing noise.
+
+**The hysteresis state is on the emplacement record and deliberately not on the unit.**
+Godot 4.7 compares `Dictionary` by value (probed: two dictionaries with identical contents
+are `==`, and `Array.find` matches by value), and `anchor_sim._step` tests `u == target` in
+the splash loop. One extra key on a unit would change which units count as the target and
+break parity with the Python reference, which uses `u is target`. `placed` records are only
+ever compared on their slot.
+
+**Rejected.** *Dropping to one yaw and deleting the other three renders.* It is the smaller
+diff and it is what the atlas currently behaves like, but the sprites already exist, the
+pipeline already produces them, and a board where nine units walking four directions all
+face the same way reads as a bug — visibly so once you have seen the alternative. It would
+also have removed the only way a yaw-specific art defect can ever be seen.
+
+*Selecting the emplacement's target in the view.* The view would have had to re-implement
+"furthest along the path, in range, targetable, revealed" — a rule, and one that exists in
+two languages already. Instead `anchor_sim` records the aim point it has just computed;
+nothing in the sim reads it, it is absent from `sim/engine.py` on purpose, and parity
+compares outcomes.
+
+*Rotating the sprite in the engine instead of picking a rendered yaw.* A 2:1 projection is
+not a rotation in screen space; spinning a flat isometric sprite is the classic tell of a
+faked isometric board.
+
+**Consequence.** All 208 cells are now reachable, which means `LF-049`'s yaw-315 Hollow
+collapse is now visible in game and worth fixing. `--facings` prints the yaw of every
+drawable on the frame `--shot` captures, because which of four near-identical sprites is on
+screen cannot be read reliably out of a 1440x810 PNG.
+## 050 — The instrument panels scroll, so the interface scale reaches 200%
+
+**Date.** 2026-07-28. **Status.** Adopted. **Supersedes decision 046**, which capped the
+interface scale at 125% because the instrument column could not reflow.
+
+`content_scale_factor` divides the logical viewport, so the design space is 1536x864 at
+125%, 1280x720 at 150% and **960x540 at 200%**. Decision 046 measured the instrument column
+at ~847 px and concluded that 720 clips the SELL, UPGRADE and power controls. That was
+right, and it understated the problem. Measured on anchor-24 at 200%: the column's content
+is **893 px** and its pinned verbs another 98, against 540 px of viewport; the threat panel
+is **455** beside it. The two panels are 656,000 px² of instrument in a 518,000 px²
+viewport, so they do not fit *tiled perfectly*, let alone as laid out. No arrangement of
+fixed panels reaches 200%. Two compressions bought the 125% step (a three-column build bar,
+a note allowed to shrink to nothing) and there was nothing left.
+
+**So the panels reflow, and the reflow is scrolling in one axis with the controls pinned
+outside it.** Both instrument panels are `ScrollContainer`s. The column's three verbs —
+SELL, UPGRADE and the power switch — sit in their own panel flush *below* the scroll
+region, so the controls can never be the thing that leaves the screen. That is the whole
+inversion: before, the readout was fixed and the controls were pushed off; now the readout
+is what moves and the controls are nailed down.
+
+Measured on anchor-24, the worst case on both axes:
+
+| scale | viewport | column content | column visible | threat content | threat visible | fails |
+|---|---|---|---|---|---|---|
+| 100% | 1920x1080 | 1009 | 950 | 455 | 455 | 0 |
+| 125% | 1536x864 | 893 | 734 | 455 | 455 | 0 |
+| 150% | 1280x720 | 893 | 590 | 455 | 455 | 0 |
+| 175% | 1097x617 | 893 | 487 | 455 | 455 | 0 |
+| 200% | 960x540 | 893 | 434 | 455 | 419 | 0 |
+
+Every number is read out of the probe's own clip rects, not computed here. The column's
+content drops 1009 → 893 below 950 px of viewport because the build bar goes three across;
+that compression predates this change and is kept. *Fails* is `tools/validate/a11y.py`
+against the screenshot from the same frame — it was **3 at 150% and 4 at 200%** before this,
+and the three verbs were among them at both.
+
+**Scrolling is what SC 1.4.4 is written to allow, and the analyser now knows the
+difference.** Text pushed off the viewport by a layout that cannot reflow is lost; text
+below the fold of a region that scrolls is one wheel notch away. That distinction cannot be
+made from a rect, so `a11y_probe.gd` now reports each item's nearest clipping ancestor and
+its scroll axes, and `a11y.py` judges three things that are still failures inside a
+scroller: scrolling in **both** axes (SC 1.4.10 Reflow forbids it), text cut off along an
+axis the region does **not** scroll, and a scroll region that is itself off screen. The
+check got stronger, not weaker — it immediately caught a defect that had been shipping at
+every scale: `funds $3100      lives 52      leaks 0` is 411 px of 18 px monospace in a
+388 px column. A string padded with spaces is a layout made of character counts. It is
+three positioned fields now.
+
+**Three other screens broke at 200% and are fixed here**, because an accessibility setting
+that is only honest on one screen is not honest:
+
+- The **options panel** — which carries this very control — put MUSIC, EFFECTS and BACK off
+  the bottom. Its rows scroll now, bounded by the viewport it is sitting in.
+- The **title screen** forced itself 1446 px wide, because a `GridContainer` of eight
+  172 px anchor buttons does not wrap, it widens its parent. The column count is solved
+  from the live viewport width (four at 200%) and the screen scrolls.
+- The **outer margin** was a fixed 16 px on each side. At 520 + 420 + three 16 px margins
+  that is 972 px in a 960 px design space, so at 200% the panels overlapped by 12 px and the
+  right column of the build bar was drawn under the threat list. The threat panel is 528
+  now — it gained the 8 px scrollbar gutter, and its widest row is a measured 490 px that
+  cannot be given up — so `Ui.gutter()` derives the margin from the viewport instead and
+  squeezes it to 4 px only when there is nothing else to give.
+
+**Reachability, which is the part that is easy to skip.** A scroll region a keyboard or
+gamepad player cannot move is still loss of content. The menu and options panels navigate
+by focus, so `follow_focus` scrolls them for free. The HUD's panels have no focus chain —
+their verbs are bound to board actions — so `lf_panel_up` / `lf_panel_down` (PageUp,
+PageDown, right stick Y) scroll both together, generated through
+`tools/godot/setup_input.gd` like every other action. `-- --scroll N` reaches the scrolled
+state for a screenshot, because a scroll region nobody has screenshotted scrolled is a
+scroll region nobody has looked at.
+
+**The offered range is 100 / 110 / 125 / 150 / 175 / 200%, and SC 1.4.4 is met.** Combined
+with the 16-18 px type ladder from decision 045, the largest available body text is about
+**2.9x** the 11-13 px the interface shipped with.
+
+**What it costs.** At 100% on anchor-24 the column scrolls by 59 px. That is not a
+regression to hide: the note is now reserved at its *measured* height — six wrapped lines
+for the longest — where decision 045's elastic note capped at five and cut the shield wall's
+last line mid-sentence. Losing 75 px to a scrollbar on the busiest anchor is a better trade
+than silently truncating prose, and the same fold exists at every scale rather than being a
+special case at the top of the range. At 200% the two panels cover nearly the whole board;
+that is inherent to enlarging a 1920x1080 interface fourfold in area, and the board is still
+playable through the keyboard and gamepad cursor.
+
+**Rejected.** *A bigger multiplier over the same layout* — decision 046's own conclusion,
+and the arithmetic above says why: 1480 px of panel does not fit in 540 whatever the
+multiplier is.
+
+*Moving the build bar out of the column, and collapsing the datasheet to the selected
+tower's rows.* Both were the backlog item's other suggestions and both were measured: the
+bar is 168 px and the datasheet collapse saves at most 73 (three of the eight reserved rows,
+at 24.4 px each), against a 451 px deficit at 200%. Together they would have bought 175% and
+no further, and the collapse makes the panel jump every time the pointer crosses a different
+emplacement.
+
+*Letting the whole column scroll, verbs included.* The verbs would be reachable, but a
+control you have to go looking for has clipped as far as the player is concerned — and they
+are exactly the controls decision 046 named as the thing that broke.
+
+*Leaving `a11y.py` alone and accepting the clipping failures as expected.* A gate that is
+argued with rather than satisfied stops being a gate. The check was taught the distinction
+the criterion actually makes, and made stricter in three ways at the same time so the change
+cannot be read as filing the teeth off it.
+
+**Consequence.** Any new HUD panel is a scroll region with its controls outside it, and any
+new text has to fit its column's inner width — `a11y.py` now measures that, and the gate
+runs the game at 100% and 200%, the menu at 200% and the options panel at 200%.

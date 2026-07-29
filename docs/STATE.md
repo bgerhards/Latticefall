@@ -13,53 +13,63 @@ all grading clean, with dialog, art, audio, save, a pause menu, and full keyboar
 gamepad control. Launch it, pick a difficulty, play anchor 01, get handed anchor 02, never
 touch a command line.
 
-**The interface was rebuilt for legibility.** It ran on an 11-13 px type ladder — 8-10
-physical pixels in the default window — and measured 22 failures on the game screen and 53
-on the menu against WCAG 2.1 AA. Both are now 0. The ladder starts at 16 px, the palette was
-solved for contrast rather than picked, and there is an options screen carrying display
-mode, resolution, fullscreen, v-sync, frame cap, interface scale and glow. Decisions 045
-and 046.
+**The board fills up now.** `LF-044` is closed. Act III fielded 7.7 units a wave against the
+tutorial's 20.2, and the cause was structural rather than timid authoring: from Act II every
+unit in the game drains the bus while it walks, so unit count and bus theft were the same
+number. The roster had no cheap unit at all — the lightest thing in Act III drained 8 MW.
+Two escorts fix it, **Reach Picket** (45 hp, 1 MW) and **Hollow Shard** (35 hp, 0 MW), and
+`tools/densify.py` spends them into every Act II/III wave. Decision 048.
 
-**A leak now costs what the unit is worth.** Decision 047: `leak_cost` on the enemy,
-`max(1, round(hp/130))`, so a Hollow Column costs four lives and a mote costs one. Nine
-anchors stopped grading clean and were re-swept on lives alone, content untouched. All 24
-grade clean and parity holds. **Raw life counts are not comparable across that change** —
-anchor-24 went 40 → 52 and is *tighter*, because the measure that matters is lives as a
-fraction of the wave's total `leak_cost`.
+| | units/wave | on screen | hp/wave | leak budget |
+|---|---|---|---|---|
+| Act I | 20.2 | 32 | 950 | 8.7% |
+| Act II | 17.9 | 27 | 1107 | 11.4% |
+| Act III | 13.6 | 21 | 1668 | 20.4% |
 
-**The backlog is two items,** both `med`, neither blocked on the owner. `LF-044` — Act II
-and III run about 8 units a wave against Act I's 20 — is now mechanical: 047 made the
-density affordable and what is left is re-authoring wave composition to spend it. `LF-045` —
-interface scale is capped at 125% because the instrument column cannot reflow. See "What
-does not exist".
+**Act III is still the thinnest act, and that is a measured ceiling rather than a stopping
+point.** It went from 38% of Act I's screen presence to 65%. Three things cap it, all
+verified: the finale's waves already carried 2700 hp before any escort was added, its bus
+already ran at 89% of capacity, and capacity cannot buy the difference (see below). Act III
+escorts have to be nearly free in *both* hp and drain, which is what limits the count.
 
-**Two commits are unpushed** (`cdd914e`, `b7e38d3`). `main` tracks `origin/main`; the
-project's habit is branch → PR → merge, as PRs #1 and #2.
+**The interface scale reaches 200% and SC 1.4.4 is met.** Decision 050 supersedes 046: both
+instrument panels are scroll regions with SELL / UPGRADE / power pinned outside them, so the
+readout moves and the controls stay put. 150 / 175 / 200% all measure 0 WCAG failures on
+anchor-24, against 3 and 4 before. `LF-045` closed.
+
+**Sprites face where they are going.** Decision 049: yaw is driven by heading, mapped from
+the measured projection rather than derived, with 12° of hysteresis on emplacements (raw
+bucketing re-bucketed 116 times with 40 reversals in half a second). Before this the board
+drew yaw 45 for everything and **156 of the 208 atlas cells were never sampled**, which is
+why a Hollow emissive collapse at yaw 315 went unnoticed for so long — it is now `LF-049`.
+
+**The gate is 17 checks and measures four new things**, each of which caught something real:
+`wave density` (acts compared on peak concurrent units), `dialog capacity` (sixteen briefs
+were quoting capacities two sessions stale), `sprite coverage` (a missing sprite draws a
+coloured circle in silence), and rendered checks pinned to `--display-defaults`.
+
+**The open backlog is twelve `med` items**, none blocked on the owner. The next task is the
+owner's call rather than mine; `LF-052` (board pan and zoom) is the one they asked for
+directly.
 
 If you are starting fresh: read this file, then `docs/DECISIONS.md` headings, then run the
-gate. The gate takes about nine minutes and passing it is the precondition for everything.
+gate. It takes about eleven minutes and passing it is the precondition for everything.
 
-## What works
+## What does not exist
 
-| | |
-|---|---|
-| **Flow** | Title → level select → anchor → debrief → next anchor. Pause overlay with volume. |
-| **Inspector** | Click a built emplacement to select it. The left panel is its full datasheet — damage, interval, derived DPS, range, draw, what it is rated to hit, the shield tax, splash, support effect, and the authored note — with the second tier shown as a `9 → 14` delta per row. Sell, upgrade and power act on that selection. Decisions 035, 036. |
-| **Threat panel** | Right edge. Current wave, a prep countdown in seconds, every unit type with count/hp/speed and `AIR`/`SHIELD`/`ARM`/`DRAIN`, what each costs to leak when that is more than one life, the wave's total bus theft and total life cost, and an alert when air is inbound with no reveal emplacement online. Decisions 037, 047. |
-| **Board feedback** | Reach drawn on the ground: bone for the selection, red when it is offline, amber previewing what the armed emplacement would cover on the hovered slot. |
-| **Input** | Mouse, keyboard and gamepad. Thirteen `lf_*` actions; the board cursor steps slot to slot, scored in screen space. Decision 042. |
-| **Options** | One panel, reachable from the title screen and mid-anchor from pause. Window mode (windowed/borderless/fullscreen), resolution filtered to what fits the monitor, v-sync, frame cap, interface scale, emissive glow, and both volumes. Saved in `progress.json` under `display`. Decision 046. |
-| **Legibility** | Type ladder starts at 16 px and every colour clears WCAG 2.1 AA against the real composited panel. Game screen and menu both measure 0 failures. Decision 045. |
-| **Content** | 24 anchors, 24 dialog files, 9 emplacements, 11 enemies across 4 factions. |
-| **Progress** | `user://progress.json` — cleared map, difficulty, volumes. Anchors unlock in order. A pre-rename save is adopted once. Decision 040. |
-| **Rules** | `sim/engine.py` and `scripts/anchor_sim.gd`, diffed every commit: 864 runs identical. |
-| **Simulation** | Headless, fixed timestep, no RNG. 12 policies x 3 difficulties per anchor. |
-| **Sweeping** | `tools/sweep.py` grades a capacity x funds x weight x lives grid; `--apply` writes the best cell back. Robustness is a threshold, not a quantity. Decision 044. |
-| **Art** | 24 sprites, packed into one atlas page per pass — 192 textures became 2, 8.7 MB became 4.0 MB. Faction reads by emissive colour: Ordinal verdigris, warden red, Sable Reach blue-white, Hollow violet. Decision 039. |
-| **Audio** | 14 music tracks, 47 SFX (36 synthesized + 11 sourced CC0), per-player volume, brownout ducking. Dialog opens and closes on a radio squelch. |
-| **Sourcing** | `fetch_cc0.py` → `audition_cc0.py` → `promote_cc0.py`. Licence verified twice, auditioned by ear, cut baked into the asset, logged in `SOURCES.md`. Decision 038. |
-| **Gate** | `tools/check.py` — 14 checks, 0 skipped, ~9 minutes (parity runs both sides concurrently). |
-| **A11y audit** | `scripts/a11y_probe.gd` dumps the live UI tree; `tools/validate/a11y.py` pairs it with the same-frame screenshot and measures WCAG contrast against the sampled background. Gated at anchor-24 and 125% — the worst case on both axes. |
+**Indentation is unsettled, and there is a branch waiting on a decision.**
+`worktree-agent-a1cb438a721b228c6` carries a second commit that reindents all 19 `.gd` files
+from tabs to four spaces and adds an `indentation` gate check. It was **not merged**: it was
+never asked for, it rewrites 6000 lines of whitespace, and it would have collided with the
+yaw work. It is a real question rather than a dead branch, because `LF-056` records that the
+Godot editor import rewrites `menu.gd`'s indentation *by itself* — two separate agents hit
+it. Either settle it deliberately or the tool will settle it by attrition.
+
+**Escort value is asserted, not proved.** `enemies.json` says the Picket exists "so the
+pulse turret earns its slot again", and the harness cannot test that claim: every grading
+`Policy` is a total preference order and `_try_build` fills every free slot greedily from the
+top, so a graded build is all-of-one-thing. "Three pulse turrets in front of an ion lance" is
+not in the search space. `LF-053`.
 
 ## The three act mechanics
 
@@ -71,84 +81,30 @@ gate. The gate takes about nine minutes and passing it is the precondition for e
   the **restorer** returns 44 MW for 10 MW drawn and a slot spent. Decision 031.
 
 Across all three: **a leak costs the unit's `leak_cost`, not a flat life** (decision 047),
-which is what stops density and tension being the same knob.
-
-## What does not exist
-
-**`LF-045` — interface scale above 125%.** `content_scale_factor` divides the 1920x1080
-design space, so 150% lays the interface out in 1280x720, and the instrument column needs
-about 847 px of height at anchor-24 — nine emplacements, eight reserved datasheet rows. The
-SELL, UPGRADE and power controls clip, and `a11y.py` reports it. Two compressions already
-buy the 125% step (the build bar goes three columns wide when the viewport is short, and
-the note may shrink to nothing); beyond that there is nothing left to give. WCAG 2.1 SC
-1.4.4 asks for 200%, so **the game does not meet it** — say so rather than shipping a
-setting that clips the controls it exists to help someone reach. Fixing it means a column
-that can reflow, not a bigger multiplier. Decision 046.
-
-**`LF-044` — Act II and III wave density.** The other half of the backlog.
-
-| | units/wave | lives | leak budget |
-|---|---|---|---|
-| Act I | 20.2 | 14.0 | 8.7% |
-| Act II | 9.7 | 17.0 | 18.0% |
-| Act III | 7.7 | 30.5 | 30.4% |
-
-The finale still has fewer things on screen than the tutorial. *Leak budget* is lives as a
-fraction of the wave's total `leak_cost` — since decision 047 that is the only comparable
-tension measure, and raw life counts are not.
-
-**The blocker is removed but not yet spent.** Decision 047 priced a leak by the unit, so
-trading one 520 hp Column for four ~130 hp units is now tension-neutral where it used to
-triple the tension along with the count. Nothing is denser yet: that trade has to be
-authored. `LF-044` now means re-author Act II and III wave composition to field more,
-lighter units in place of the bricks, holding each wave's total `leak_cost` roughly where it
-is, then re-sweep anchors 09–24. Mechanical, and not blocked on the owner.
-
-**Three things were measured on 2026-07-28 that the previous note had wrong.** Kept because
-each one is a live trap, not for the history:
-
-- *The roster is not the constraint.* Effective dps/MW is ~0.52 against shielded or armoured
-  units against ~1.0 for plain — a 2x penalty, not an absence. The ion lance is the answer
-  and it works. The proposed "mid-cost anti-armour emplacement" would not have helped.
-- *Throughput is not the constraint.* Doubling every weapon's damage **and** raising capacity
-  60% — 3.2x throughput — still reaches only 1/11 winning builds at weight 1.50 on anchor-20.
-  Capacity alone changes nothing.
-- *"Higher spawn weights do not grade clean at any life count" was false.* anchor-20 at
-  weight 1.50 grades clean at 72 lives. It had never been tested, because `sweep.py` defaults
-  to weights `[0.85, 1.0, 1.15]` and to the anchor's current life count.
-
-## Next task
-
-`LF-044`, and it is now mechanical rather than blocked: decision 047 made density
-affordable, and what remains is to spend it. Re-author Act II and III wave composition —
-more, lighter units in place of the bricks, holding each wave's total `leak_cost` roughly
-where it is — then re-sweep anchors 09–24. Nothing is blocked on the owner.
-
-`LF-045` (a reflowable instrument column, which unblocks interface scale above 125%) after
-that.
+and **each act's escorts are budgeted against the resource that limits that act**
+(decision 048).
 
 ## Method that works — do not skip it
 
 **Author the layout, then sweep, then write dialog.** Decision 026. Not one anchor of the
 24 graded clean on its first cut.
 
-- **Check the layout before the numbers** — the validator errors on slots no weapon can
-  reach and warns on ones the shortest-ranged weapon cannot. There are currently **no
-  warnings**: every slot on every anchor is inside the shortest weapon's range.
-- **Check the harness before the level.** Six times now the grader, the smoke test, the
-  scorer or the sweep's own grid — not the content — was what was broken. Decisions 023,
-  024, 028, 044, the autobuild fix below, and `LF-044`'s disproved premise, which was a
-  conclusion drawn from a grid that spanned ±15% of the value it was trying to change.
-- **Since decision 047, a raw life count means nothing on its own.** Compare `lives` against
-  the wave's total `leak_cost`, not against another anchor's `lives`. anchor-24 going 40 →
-  52 looks like it got easier and is in fact tighter: 46% of its leak budget tolerable
-  before, 36% after. The sweep optimises robustness and has no notion of "in family with the
-  rest of the act" — that judgement is the author's, and it is what pinned anchor-03 to 12
-  lives rather than the 20 the scorer preferred.
-- **A sweep proves nothing outside its grid.** `sweep.py` defaults to weights
-  `[0.85, 1.0, 1.15]` and to the anchor's current life count. "No cell grades clean" means
-  "no cell in that box", and a question about doubling density is not answerable inside a
-  box 15% wide. Pass `--weight` and `--lives` explicitly when the question is structural.
+- **Check the harness before the level.** Seven times now the grader, the smoke test, the
+  scorer, the sweep's grid or the transform itself — not the content — was what was broken.
+  Decisions 023, 024, 028, 044, and three separate bugs inside `densify.py` on the session
+  that wrote it.
+- **Preview a rule before you spend cores on it.** `densify.py --preview` prints the wave
+  table a rule change *would* write. Four of the six rule versions on this task were wrong,
+  and the first ones each cost a thirty-minute sweep to disprove.
+- **A raw life count means nothing on its own.** Compare `lives` against the wave's total
+  `leak_cost`. `sweep.py --lives %12` takes it in that form directly, which is the only
+  comparable one.
+- **A sweep proves nothing outside its grid**, and `sweep.py` prints its box next to the
+  verdict for that reason. Pass `--weight` and `--lives` explicitly when the question is
+  structural.
+- **A sweep tunes one anchor blind to the others.** It will happily leave capacity dipping
+  in the middle of an act; the ladder is reconciled to a monotone envelope by hand
+  afterwards, and every anchor re-graded.
 - **Look at UI and art in the engine, never in the source.** Every UI defect this project
   has had was invisible in the code and obvious in a screenshot.
 
@@ -156,105 +112,73 @@ that.
 
 Newest last. Full reasoning and rejected alternatives in `docs/DECISIONS.md`.
 
-- **Shielding taxes damage, it does not block it** — 25% leak, armour subtracted *before*
-  the tax. Decision 029.
-- **Policies carry a `reserve`** of unbuilt capacity. Decision 028.
-- **The rules work in float64 and compare squared distances.** Decision 030.
-- **Act III decay is per wave, with a floor.** Decision 031.
-- **The menu is the boot scene; the CLI still skips it.** Decision 032.
-- **Sell and upgrade exist for the player, not for the grader** — a grade describes a
-  plan-once player and is therefore a floor. Decision 033.
-- **Esc pauses rather than exits.** Decision 034.
-- **The board has a selection, and it is what sell/upgrade/power act on** — not the hover.
-  The inspector is generated from the tower record, so a new emplacement documents itself.
-  Decision 035.
-- **The inspector describes whatever was last pointed at**, board or build bar; arming a
-  build clears the board selection. Decision 036.
-- **Both sides of the trade are on screen** — the emplacement datasheet on the left, the
-  wave's composition and bus theft on the right. Decision 037.
-- **CC0-only for sourced audio, confirmed by the owner.** The Suno music is the owner's own
-  work under a paid subscription and sits outside that rule. Decision 038.
-- **The sprite library is a fixed-grid atlas that is never trimmed** — one measured pivot
-  only stays correct while every cell is identical. Decision 039.
-- **The app is Latticefall, and a pre-rename save is adopted once.** Decision 040.
-- **Debris is synthesized.** The bank's real split is stochastic vs structured, not organic
-  vs synthetic — decision 009 had it on the wrong side. Decision 041.
-- **Input is an action map**, `lf_*`, generated by a script and never hand-written into
-  `project.godot`. Decision 042.
-- **The HUD stays built in code**, because every panel is sized from content and a scene
-  cannot express that without duplicating the code that computes it. Decision 043.
 - **The sweep scores robustness as a threshold**, so it stops buying safety with lives.
   Decision 044.
 - **The type ladder starts at 16 px and the palette is solved for contrast, not chosen.**
-  Both live in `Ui`, and `tools/check.py` measures the rendered result. Decision 045.
-- **Interface scale stops at 125%, and the cap is measured rather than picked.** SC 1.4.4
-  is not met and the docs say so. Decision 046.
-- **A leak costs the unit's `leak_cost`, not a flat life** — `max(1, round(hp/130))`, so a
-  Column costs four and a mote costs one. This is what stops density and tension being the
-  same knob. Decision 047.
+  Decision 045.
+- **A leak costs the unit's `leak_cost`** — `max(1, round(hp/130))`. Decision 047.
+- **Act II and III field escorts, budgeted against the resource that limits each act.**
+  Decision 048.
+- **Facing is driven by heading, and the mapping is measured.** Decision 049.
+- **The instrument panels scroll, so interface scale reaches 200%**, superseding 046.
+  Decision 050.
 
 ## Traps that have already cost time
 
-Full detail in `CLAUDE.md`.
+Full detail in `CLAUDE.md` and in the decision entries.
 
+- **Density must never be paid for with reactor capacity.** The heavier tables grade clean
+  if the bus is allowed to grow, and the sweep will buy exactly that: anchor-24 reached
+  **103% of what would run every slot at maximum draw**. Every anchor still graded clean,
+  and the power decision the whole game is about had stopped existing on five levels. The
+  grader cannot see this — a level with no decision in it is still winnable. Capacity is now
+  bounded at 70% of board saturation in the sweep grid, and `validate_data.py` errors at
+  saturation and warns from 80%.
+- **A transform that is free to cut the wave table will destroy it.** At a tight allowance,
+  251 of 252 Act III spawn entries came out at `count: 1` — every wave of the last three
+  anchors reduced to "N shards and one of each". Undershooting a density target is a tuning
+  miss; flattening composition is a content loss, and they are not the same severity.
+- **A derived quantity that another term compensates for does not announce itself.**
+  `solve_scale`'s denominator was algebraically wrong for six revisions; the escort residual
+  absorbed the error, so the tables looked plausible while the target was missed by a fifth
+  on every Act III anchor. Re-derive from the docstring, do not read the code.
+- **The briefs speak their own numbers.** Control reads the bus figure aloud in every anchor,
+  and `sweep.py --apply` moves `capacity_mw` without touching a word of prose. Sixteen briefs
+  had drifted. `tools/say_capacity.py` reconciles them and the gate now checks it.
+- **The gate's rendered checks used to read the player's save.** `window_mode`, `resolution`
+  and `ui_scale` live in `user://progress.json`, outside the repo, so the same tree reported
+  coverage 0.56 and 0.34 on two machines. Every rendered check now leads with
+  `--display-defaults`, and it must come *first* because it resets `ui_scale`.
+- **The gate scans the backlog.** A backlog item that quotes a banned term turns the
+  nomenclature check red. Describe the hits; never repeat them.
+- **`check_banned_terms` rglobs the whole repo**, so an agent worktree under `.claude/`
+  carrying its own copy of the nomenclature bible failed the gate with six false hits.
+  `.claude` is skipped alongside `.venv`, `addons` and `.godot`.
+- **Backlog ids collide across worktrees.** The stored `next_id` counter cannot see items a
+  merge brought in; it minted a second `LF-055`. It is now
+  `max(counter, highest id present + 1)`.
 - **Killing `check.py` does not kill its headless Godot.** It reparents to init and holds a
-  core at 100%, nearly doubling the next parity run. Kill it too and confirm with `ps`.
-- **Godot's `Vector2` is float32 and `distance_to` is not correctly rounded.** One run of
-  528 diverged by six leaks before the rules moved to `PackedFloat64Array` and squared
-  range tests.
-- **Unranked emplacements all sort at rank 99** — Python's stable sort and GDScript's
-  disagreed once Act II added three towers. Both now sort by `(rank, id)`.
-- **`--autoplay` used to build once, before wave one** — a strictly worse player than any
-  grading policy, which spends bounty income between waves. It now rebuilds every wave. A
-  smoke test that plays a different game than the one that was balanced is not evidence.
-- **An art fix can look like it did nothing in two different ways.** Skipping `--import`
-  serves the cached `.ctex`; a stale atlas serves the old pixels. The pipeline is render →
-  `mask_glow` → `pack_atlas` → `--import`, and the gate's `sprite atlas` check hashes every
-  render so the second one is red rather than mysterious.
-- **A button that acts on the hover acts on the wrong thing.** Reaching it drags the cursor
-  across the board. Decision 035.
-- **A Label's line height is not its font size.** It stacks the `line_spacing` theme
-  constant (3) on the face height, so 11 px mono is ~19 px. Read it from the font.
-- **No HUD panel has a hardcoded height.** Each of the three fixed offsets that was
-  replaced had already been wrong for some anchor.
-- **A sourced sound is raw material, not an asset.** 55 s of radio noise stood in for a
-  150 ms squelch; 30 footsteps arrived in one file. The cut is baked by `promote_cc0.py`;
-  `Audio.sfx()` has no notion of length and must not grow one.
-- **A scoring function is content.** The sweep ranked clean cells by winning-build count
-  alone, so more lives always scored higher and sixteen anchors were tuned loose. Nobody
-  authored that shape; the tool chose it. Decision 044.
-- **Verification hooks exist because `--fixed-fps` has nobody to press a key.**
-  `--paused`, `--select N`, `--pick <id>`, `--cursor N`, `--options` and `--ui-scale <f>`
-  each reach a state that needs a real input. Add one rather than shipping a UI nobody has
-  looked at.
-- **A new `class_name` is invisible until the editor imports.** Adding a script with a
-  `class_name` and running the game straight away does not fail with "unknown identifier" —
-  it **hangs**, because the global class cache has no entry and the scene never finishes
-  loading. Run `--headless --path . --import` first and confirm the name appears in
-  `.godot/global_script_class_cache.cfg`. Cost two apparently-dead runs before it was
-  recognised; the `--import` step was already mandatory for art and is mandatory here too.
-- **A theme override under a name the theme does not know is accepted in silence.** The
-  Button item is `font_disabled_color`; `font_color_disabled` is not an item at all, and it
-  was set on all sixteen locked anchors for several sessions. Same failure mode as a
-  mistyped `InputEvent`. Check the key against `ThemeDB` before trusting it.
-- **`Label.clip_text` clips horizontally only** — a zero-height label still draws a line,
-  over whatever is under it. That put the emplacement note across the SELL button at 125%.
-- **A contrast ratio cannot be read out of the source.** The panel is 94% opaque over the
-  clear colour, so the background under a label exists only once it is drawn; and Godot's
-  default disabled text is 50% alpha, which halves the ratio a declared colour implies.
-- **`backlog.py add` does not re-render `docs/BACKLOG.md`.** Run `backlog.py render`, or
-  the gate passes against a stale file.
-- Colours are authored in **sRGB** and linearised by `mat()`.
-- The sprite pivot is **measured** by `calibrate()`, not assumed.
-- ffmpeg here has no libvorbis; libsndfile segfaults on large single Vorbis writes.
-- **Do not tune the music loop splicer against a seam metric.** Decision 011.
+  core at 100%. Kill it too and confirm with `ps`.
+- **Godot's `Vector2` is float32 and `distance_to` is not correctly rounded.** The rules use
+  `PackedFloat64Array` and squared range tests.
+- **A new `class_name` is invisible until the editor imports, and the symptom is a hang.**
+- **A theme override under a name the theme does not know is accepted in silence.**
+- **`Label.clip_text` clips horizontally only.** A zero-height label still draws a line.
+- **An art fix can look like it did nothing in two ways** — a skipped `--import` serves the
+  cached `.ctex`, a stale atlas serves the old pixels. render → `mask_glow` → `pack_atlas`
+  → `--import` → screenshot.
+- Colours are authored in **sRGB** and linearised by `mat()`; the sprite pivot is
+  **measured** by `calibrate()`; ffmpeg here has no libvorbis; do not tune the music loop
+  splicer against a seam metric (decision 011).
 
 ## Open with the user
 
-Nothing. The Act III density question was decided — decision 047, leak cost priced by unit —
-and the remaining work under `LF-044` is content, not a decision. CC0-only is confirmed
-(038), music provenance is recorded in `assets/audio/SOURCES.md`, and no other decision is
-outstanding.
+- **Indentation**, above: tabs or spaces, and whether to take that branch.
+- **`LF-052`, the board camera** — pan and zoom, which the owner asked for directly. Scoped
+  in the backlog item: pan on middle-drag and the action map rather than left-drag (left
+  click arms builds and selects emplacements), zoom on the board layer only so it cannot
+  undo the WCAG work, and a `--camera` verification hook so `--shot`/`--a11y` reports do not
+  become camera-state dependent.
 
 ---
 
@@ -265,22 +189,25 @@ outstanding.
 ### Gate
 
 ```
-[  ok  ] python syntax           188ms  29 files
-[  ok  ] json parses              71ms  
-[  ok  ] game data               129ms  no warnings
-[  ok  ] banned terms            239ms  124 files clean
+[  ok  ] python syntax           308ms  90 files
+[  ok  ] json parses              92ms  
+[  ok  ] game data               132ms  no warnings
+[  ok  ] wave density             14ms  act 1 32 on screen (100%) · act 2 27 on screen (85%) · act 3 21 on screen (65%)
+[  ok  ] dialog capacity          14ms  24 briefs quote their own capacity
+[  ok  ] banned terms            270ms  118 files clean
 [  ok  ] sfx determinism         138ms  ui_confirm byte-identical
 [  ok  ] music manifest            0ms  14 tracks
-[  ok  ] sprite atlas             60ms  192 cells in 2 pages, in sync
-[  ok  ] backlog rendered          0ms  2 open
-[  ok  ] sim determinism        3097ms  deterministic
-[  ok  ] godot boots            1482ms  main scene loads clean
-[  ok  ] game renders           2838ms  coverage 0.56, 88 tones
-[  ok  ] menu renders           1411ms  coverage 0.052, 8 anchors listed
-[  ok  ] accessibility          9387ms  65 text items clean, worst contrast 4.68:1
-[  ok  ] rules parity         465403ms  864 runs identical (gdscript vs python)
+[  ok  ] sprite atlas             62ms  208 cells in 2 pages, in sync
+[  ok  ] sprite coverage           0ms  22 ids drawn from 26 sprites
+[  ok  ] backlog rendered          0ms  12 open
+[  ok  ] sim determinism        3082ms  deterministic
+[  ok  ] godot boots            1660ms  main scene loads clean
+[  ok  ] game renders           2294ms  coverage 0.56, 84 tones
+[  ok  ] menu renders           1301ms  coverage 0.059, 8 anchors listed
+[  ok  ] accessibility         14090ms  131 text items clean, worst contrast 5.08:1
+[  ok  ] rules parity         630652ms  864 runs identical (gdscript vs python)
 
-14 passed · 0 failed · 0 skipped · 484446ms
+17 passed · 0 failed · 0 skipped · 654109ms
 ```
 
 ### Inventory
@@ -291,8 +218,8 @@ outstanding.
 | dialog files | 24 |
 | sfx | 47 of ~60 |
 | music tracks | 14 of 14 |
-| sprite renders | 208 |
-| godot scripts | 19 |
+| sprite renders | 224 |
+| godot scripts | 20 |
 | godot scenes | 2 |
 
 ### Anchor grades
@@ -307,43 +234,53 @@ outstanding.
 | anchor-06 | 1 | 104 MW | 7 | 6/12 | 5/12 | 2/12 | ok |
 | anchor-07 | 1 | 106 MW | 8 | 4/12 | 3/12 | 2/12 | ok |
 | anchor-08 | 1 | 110 MW | 9 | 3/12 | 3/12 | 3/12 | ok |
-| anchor-09 | 2 | 118 MW | 8 | 8/12 | 7/12 | 4/12 | ok |
-| anchor-10 | 2 | 134 MW | 8 | 6/12 | 3/12 | 2/12 | ok |
-| anchor-11 | 2 | 142 MW | 8 | 4/11 | 3/11 | 2/11 | ok |
-| anchor-12 | 2 | 150 MW | 8 | 4/11 | 4/11 | 4/11 | ok |
-| anchor-13 | 2 | 158 MW | 9 | 6/12 | 5/12 | 3/12 | ok |
-| anchor-14 | 2 | 166 MW | 9 | 3/11 | 3/11 | 3/11 | ok |
-| anchor-15 | 2 | 174 MW | 9 | 4/11 | 4/11 | 3/11 | ok |
-| anchor-16 | 2 | 180 MW | 10 | 5/11 | 2/11 | 2/11 | ok |
-| anchor-17 | 3 | 190 MW | 8 | 3/12 | 3/12 | 2/12 | ok |
-| anchor-18 | 3 | 200 MW | 8 | 3/12 | 3/12 | 2/12 | ok |
-| anchor-19 | 3 | 210 MW | 8 | 3/11 | 3/11 | 3/11 | ok |
-| anchor-20 | 3 | 220 MW | 8 | 3/11 | 2/11 | 2/11 | ok |
-| anchor-21 | 3 | 230 MW | 8 | 3/11 | 3/11 | 3/11 | ok |
-| anchor-22 | 3 | 240 MW | 9 | 3/11 | 3/11 | 2/11 | ok |
-| anchor-23 | 3 | 250 MW | 9 | 3/11 | 2/11 | 2/11 | ok |
-| anchor-24 | 3 | 260 MW | 10 | 3/11 | 3/11 | 2/11 | ok |
+| anchor-09 | 2 | 170 MW | 8 | 7/9 | 5/9 | 5/10 | ok |
+| anchor-10 | 2 | 190 MW | 8 | 7/11 | 2/11 | 3/11 | ok |
+| anchor-11 | 2 | 200 MW | 8 | 6/10 | 3/10 | 2/10 | ok |
+| anchor-12 | 2 | 200 MW | 8 | 7/10 | 5/10 | 4/10 | ok |
+| anchor-13 | 2 | 250 MW | 9 | 5/10 | 4/10 | 3/10 | ok |
+| anchor-14 | 2 | 250 MW | 9 | 4/10 | 3/10 | 3/10 | ok |
+| anchor-15 | 2 | 260 MW | 9 | 4/10 | 4/10 | 4/10 | ok |
+| anchor-16 | 2 | 260 MW | 10 | 6/10 | 2/10 | 2/10 | ok |
+| anchor-17 | 3 | 290 MW | 8 | 3/11 | 2/11 | 3/11 | ok |
+| anchor-18 | 3 | 290 MW | 8 | 3/11 | 3/11 | 3/11 | ok |
+| anchor-19 | 3 | 290 MW | 8 | 3/11 | 3/11 | 3/11 | ok |
+| anchor-20 | 3 | 290 MW | 8 | 3/11 | 3/11 | 3/11 | ok |
+| anchor-21 | 3 | 290 MW | 8 | 3/11 | 3/11 | 2/11 | ok |
+| anchor-22 | 3 | 290 MW | 9 | 3/11 | 3/11 | 3/11 | ok |
+| anchor-23 | 3 | 290 MW | 9 | 3/11 | 3/11 | 2/11 | ok |
+| anchor-24 | 3 | 290 MW | 10 | 3/11 | 3/11 | 3/11 | ok |
 
 *Cells are distinct winning builds / distinct builds tried.*
 
 ### Backlog
 
-2 open · 43 closed
+12 open · 48 closed
 
-- `med` LF-044 Act II/III density: decision 047 removed the blocker, now spend it — re-author Act II/III wave composition for more, lighter units at constant wave leak_cost, then re-sweep anchors 09-24
-- `med` LF-045 The instrument column cannot reflow, so interface scale is capped at 125%. content_scale_factor divides the 1920x1080 design space, and the column needs ~847px of height at anchor-24 (nine emplacements, eight reserved datasheet rows) — 150% leaves 720 and clips the SELL/UPGRADE/power controls. WCAG 2.1 SC 1.4.4 asks for 200%. Needs a column that can reflow (scroll, collapse the datasheet to the selected tower's rows, or move the build bar out of the column) rather than a larger multiplier
+- `med` LF-046 Placeholder unit tint collapses Sable Reach and Hollow to the same amber (anchor_view.gd:728) and scales the placeholder radius by hp/220, Warden Heavy's HP. Only reachable when a sprite is missing, which the new sprite coverage gate now prevents — but it is the one place a fourth faction would mis-render with no error
+- `med` LF-047 Threat panel shows base enemy HP, not hp * difficulty multiplier — on hard and brutal every unit is understated (hud.gd:597). The panel is the player's whole read on what is coming, so it should show the HP they will actually shoot at
+- `med` LF-048 THREAT_W is hand-derived from the widest trait row in the current roster (hud.gd:60). Nothing recomputes or asserts it, so a future unit with a longer trait line overflows the panel silently
+- `med` LF-049 Hollow lit cones are laterally off-axis from their dark cones, so the emissive collapses at yaw 315. cone() rotates each primitive about its own origin, so two cones sharing rot=(11,-8,0) but sitting at different z have parallel axes offset by ~0.045 world units (~4px): the lit cone pokes out on the +x+y side and hides behind the dark cone from the opposite camera. Measured glow coverage hollow_shard 0.0061 at y315 vs 0.024-0.036 elsewhere; hollow_echo 0.0089 vs 0.042-0.068. Currently latent because anchor_view.gd only ever draws y045 (see the sibling item). Fix is to put the lit cone on the dark cone's rotated axis, or to build both from one origin, and it applies to the whole Hollow set at once rather than shard alone
+- `med` LF-052 Board camera: pan and zoom. Pan on middle-drag plus lf_* keys and edge-scroll, NOT left-drag — left click arms builds and selects emplacements, so drag-to-pan turns every slipped click into a camera move. The board cursor should carry the camera with it, which gives keyboard and gamepad panning without a second system. Zoom transforms the BOARD LAYER ONLY: the HUD ladder and palette were solved for WCAG AA at a known size (045/046) and scaling them with the board silently undoes it. Zoom out is cheap; zoom in past 1.0 softens sprites, which are a fixed 256px atlas at one orthographic scale, so either raise the render base or clamp. Value is inspection on a busy board, not navigation — a 17x13 grid already fits — so it must never be required to play. Needs a --camera x,y,zoom verification hook or every --shot/--a11y report becomes camera-state dependent
+- `med` LF-053 standard_policies() cannot express a mixed board: every Policy is a total preference order and _try_build fills every free slot greedily from the top, so a graded build is all-of-one-thing. 'Three pulse turrets in front of an ion lance' is not in the search space, which makes claims like 'the escort brings the cheap emplacements back' unfalsifiable by the harness that is supposed to test them. Needs capped-core policies (cap the expensive tower at N, fill the rest cheap)
+- `med` LF-054 PRESSURE_FLOOR in sim/run.py is a dead check: peak load ratio is >=100% of capacity on all 24 anchors x 3 difficulties, and still >=75% everywhere with the greedy-overdraw policy excluded, so 'the player is pressed against capacity' can never fail. Either measure pressure on winning builds only, or raise the floor until it discriminates
+- `med` LF-055 anchor_sim._step's splash loop tests 'u == target' but Godot 4.7 compares Dictionary by value (probed: two dicts with equal contents are ==, and Array.find matches by value), while sim/engine.py tests 'u is target'. Two units of the same kind with equal hp and equal dist therefore drop out of splash damage in GDScript and take it in Python. Latent only because same-kind units spawn on different ticks so their dist differs — a wave table that spawns two identical units on the same tick turns it into a parity failure. Found while deciding where facing state could live (LF-050); the fix is an identity-safe test on the GDScript side, e.g. comparing by index
+- `med` LF-056 Running the editor import (godot --headless --path . --import) rewrote scripts/menu.gd from tab indentation to four-space indentation, a 442-line no-op diff that has to be reverted by hand before committing. Reproduced once in a worktree with no .godot; cause not identified (editor settings or an addon under addons/). Either pin the indentation in .editorconfig for the editor to honour, or stop the import from touching scripts at all
+- `med` LF-057 At 200% interface scale the two instrument panels cover nearly the whole board (420+528 of a 960px design space), so the anchor is playable but barely watchable. Consider a hide-panels toggle or a compact threat panel below ~1100px of viewport width
+- `med` LF-058 options_menu.gd _fit() sets size on a node with full-rect anchors, which Godot warns about on every boot: 'Nodes with non-equal opposite anchors will have their size overridden after _ready()'. Harmless but it is noise in every run log
+- `med` LF-059 scripts/main.gd is indented with 4 spaces while every other .gd file uses tabs. Cosmetic, but it makes a whole-file diff out of any tool that normalises indentation
 
 ### Recent commits
 
 ```
-b7e38d3 feat(rules): a leak costs what the unit is worth, not a flat life
-cdd914e fix(balance): LF-044's premise was wrong — measure it, and make the sweep state its box
-13da1f0 Merge pull request #2 from bgerhards/feat/accessibility
-08d2ca8 feat(a11y): 16px type ladder, measured palette, and display options
-63cc6c6 Merge pull request #1 from bgerhards/feat/content-complete
-7bbd118 docs: session wrap — rewrite STATE for a reader with no memory of this session
-1cfbeaa fix(balance): score robustness as a threshold, and re-sweep Act II and III
-bd6ef38 feat(engine): input action map, gamepad support, and a board cursor
+d8ff613 fix(tooling): allocate backlog ids past what a merge brought in
+3d4045a fix(gate): pin display state, so the rendered checks measure the build
+e5e8d58 feat(a11y): panels that scroll, so interface scale reaches 200%
+5788fa1 Merge LF-050: sprite facing follows heading
+4aef1cc feat(content): escort units, so Act II and III fill the board
+e7431e6 feat(view): draw the yaw a thing is facing, not always 45
+d443c85 Merge pull request #3 from bgerhards/fix/leak-cost-and-density-diagnosis
+0be8408 docs: session wrap — rewrite STATE, and record the class_name import trap
 ```
 
 <!-- END AUTO -->

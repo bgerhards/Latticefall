@@ -66,7 +66,72 @@ const C_RULE := Color(0.591, 0.675, 0.687, 0.28)
 const COL_X := 16.0
 const COL_W := 420.0
 const PAD := 12.0
-const INNER_W := COL_W - PAD * 2.0
+## Every instrument panel reserves this much of its own width for a vertical scrollbar,
+## whether or not one is showing. `ScrollContainer.get_v_scroll_bar()` reports a minimum
+## width of 8 on this build — measured, not assumed. Reserving it unconditionally is what
+## keeps a panel's inner geometry identical at every interface scale: the alternative is a
+## layout that shifts by 8 px the moment the content grows past the fold.
+const SCROLL_GUTTER := 8.0
+const INNER_W := COL_W - SCROLL_GUTTER - PAD * 2.0
+## The threat panel mirrors the column on the right edge. 490 px is the widest row the data
+## can produce — the longest trait row `enemies.json` can generate is 51 monospaced
+## characters at 16 px — plus padding on both sides and the scrollbar gutter.
+const THREAT_W := 528.0
+const THREAT_INNER_W := THREAT_W - SCROLL_GUTTER - PAD * 2.0
+## A floor, not a target: below this the dialog is not a line of prose, it is a word ladder.
+const DIALOG_MIN_W := 200.0
+
+
+func scroller() -> ScrollContainer:
+	## The one way a panel is allowed to hold more than fits.
+	##
+	## Vertical only, and that is the whole point. WCAG 2.1 SC 1.4.4 asks for 200% without
+	## loss of content, and at 200% the design space is 960x540 — the instrument column alone
+	## wants 893 px of it plus 98 px of pinned controls. Content reached by scrolling in
+	## *one* axis is not lost; content
+	## that needs scrolling in two is what SC 1.4.10 exists to forbid, so the horizontal mode
+	## is DISABLED rather than left to size itself out of trouble. `tools/validate/a11y.py`
+	## checks both of those, which is why `scripts/a11y_probe.gd` reports the clip region and
+	## its scroll axes for every label.
+	##
+	## `follow_focus` is what makes a scrolled panel reachable from the keyboard and gamepad
+	## wherever the panel's own controls take focus. The HUD column has no focus chain — its
+	## verbs are bound to `lf_sell`/`lf_upgrade`/`lf_power` on the board — so it is scrolled
+	## by `lf_panel_up`/`lf_panel_down` instead. See hud.gd.
+	var s := ScrollContainer.new()
+	s.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	s.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	s.follow_focus = true
+	s.clip_contents = true
+	return s
+
+
+func gutter(vp: Vector2) -> float:
+	## The margin around the instrument panels, derived from the viewport rather than fixed
+	## at COL_X. At 200% interface scale the design space is 960 px wide and the two panels
+	## are 420 + 528 of it, so a 16 px margin on each side does not exist to be spent — the
+	## panels would overlap by 20 px and the build bar would be drawn under the threat list.
+	## Squeezing the margin is the cheapest thing to give up; nothing in either panel moves.
+	return clampf((vp.x - COL_W - THREAT_W) / 3.0, 4.0, COL_X)
+
+
+func dialog_h() -> float:
+	## A speaker line and two wrapped lines of dialog, measured from the type it holds.
+	return line_h(SIZE_CAPTION, false) + 2.0 * line_h(SIZE_STAT, false) + 26.0
+
+
+func dialog_rect(vp: Vector2) -> Rect2:
+	## Where the dialog panel sits: a band along the bottom, from the right edge of the
+	## instrument column to the right edge of the viewport. Here rather than in
+	## dialog_view.gd because the threat panel has to reserve the same band — the dialog is
+	## on a later CanvasLayer and draws over anything it lands on, and at 960x540 what it
+	## lands on is the threat panel's air warning. "Where the dialog is" and "how tall the
+	## threat panel may be" are one fact, so they are one function.
+	var g := gutter(vp)
+	var h := dialog_h()
+	var x := g + COL_W + 8.0
+	var w := vp.x - x - g
+	return Rect2(x, vp.y - h - g, maxf(w, DIALOG_MIN_W), h)
 
 
 func label(text: String, size: int, col: Color, mono: bool = false,
@@ -109,6 +174,19 @@ func line_h(size: int, mono: bool = true) -> float:
 	## not 15 — and a guessed 15 drew the threat footer on top of the last two rows of the
 	## unit list.
 	return (MONO if mono else SANS).get_height(size) + 3.0
+
+
+func wrapped_lines(text: String, width: float, size: int, mono: bool = false) -> int:
+	## How many lines a wrapped label will really take. Asked of the font rather than
+	## estimated from character counts, for the same reason `line_h` is: the emplacement
+	## note used to be given a fixed box and `clip_text`, and `clip_text` clips horizontally
+	## only — a note that did not fit was silently cut mid-sentence and its last line was
+	## drawn over the SELL button. Reserving the measured height means nothing is cut.
+	if text.strip_edges() == "":
+		return 0
+	var f := _face(mono, false)
+	var h := f.get_multiline_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, width, size).y
+	return maxi(1, ceili(h / maxf(f.get_height(size), 1.0)))
 
 
 func _face(mono: bool, bold: bool) -> Font:

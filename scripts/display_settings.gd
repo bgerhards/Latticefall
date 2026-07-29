@@ -11,10 +11,11 @@ extends Node
 ## `ui_scale` is the accessibility control specifically. It sets the window's
 ## `content_scale_factor`, which multiplies the whole canvas, so the logical viewport
 ## *shrinks* as the scale rises: at 1.5 the interface is laid out in 1280x720 of design
-## space and drawn at 1920x1080. That only works because the HUD derives its right and
-## bottom edges from the live viewport rect rather than from a hardcoded 1920 — see
-## hud.gd. WCAG 2.1 SC 1.4.4 asks for 200% without loss of content, so the range goes to
-## 2.0 and `tools/validate/a11y.py --shot` proves nothing clips at the top of it.
+## space and drawn at 1920x1080. That only works because the HUD derives its edges and its
+## margins from the live viewport rect rather than from a hardcoded 1920, and because its
+## two instrument panels scroll — see hud.gd. WCAG 2.1 SC 1.4.4 asks for 200% without loss
+## of content, so the range goes to 2.0 and `tools/validate/a11y.py --shot` proves nothing
+## clips at the top of it.
 ##
 ## Settings persist through Progress, next to volume, because they are the same kind of
 ## thing: a player preference that is not game state.
@@ -47,25 +48,21 @@ const RESOLUTIONS: Array[Vector2i] = [
 	Vector2i(1024, 768), Vector2i(1280, 1024),
 ]
 
-## The ceiling is 125%, and it is measured rather than chosen.
+## The ceiling is 200%, which is what WCAG 2.1 SC 1.4.4 asks for.
 ##
 ## `content_scale_factor` divides the logical viewport: the project renders a fixed
-## 1920x1080 design space, so at 125% the interface is laid out in 1536x864 and at 150% in
-## 1280x720. The instrument column needs about 847 px of height at its most crowded —
-## anchor-24 unlocks nine emplacements, and the datasheet reserves eight rows for the
-## longest weapon sheet — which 864 clears and 720 does not. Above 125% the SELL, UPGRADE
-## and power controls leave the bottom of the screen, which
-## `tools/validate/a11y.py --shot` reports as a clipping failure.
+## 1920x1080 design space, so at 125% the interface is laid out in 1536x864, at 150% in
+## 1280x720 and at 200% in 960x540. The instrument column's content is 893 px at its most
+## crowded — anchor-24 unlocks nine emplacements, the datasheet reserves eight rows for the
+## longest weapon sheet and the note six wrapped lines — with 98 px of pinned controls under
+## it, and the threat panel is another 455 beside it. At 960x540 that is 656,000 px² of
+## instrument in a 518,000 px² viewport, so no arrangement of fixed panels reaches 200%:
+## this was capped at 125% until the panels could reflow, which is decision 046 and LF-045.
 ##
-## WCAG 2.1 SC 1.4.4 asks for 200% without loss of content and this does not reach it. The
-## honest position is that the type ladder did most of the work instead — body text went
-## from 11-13 px to 16-18 px, a 45% increase before this control is touched at all — and
-## that going further needs an instrument column that can reflow rather than a bigger
-## multiplier on one that cannot. That is LF-045.
-const UI_SCALES: Array[float] = [1.0, 1.1, 1.25]
-## Measured minimum logical height of the instrument column at its most crowded. Any scale
-## whose resulting viewport is shorter than this clips the emplacement controls.
-const MIN_LOGICAL_HEIGHT := 847.0
+## They reflow now. Both instrument panels scroll vertically with their controls pinned
+## outside the scroll region, so no control ever leaves the screen, and
+## `tools/validate/a11y.py` proves it at 200% on anchor-24 as part of the gate. Decision 048.
+const UI_SCALES: Array[float] = [1.0, 1.1, 1.25, 1.5, 1.75, 2.0]
 
 const GLOW_LABELS := {0.0: "OFF", 0.5: "REDUCED", 1.0: "FULL"}
 const GLOW_LEVELS: Array[float] = [0.0, 0.5, 1.0]

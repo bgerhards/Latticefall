@@ -395,6 +395,25 @@ REACH_LAMP = (0.62, 0.80, 0.98)
 REACH_PLATE = (0.180, 0.165, 0.140)
 
 
+def a_reach_picket():
+    # The unit with no tap. Everything else Sable Reach sends carries a module on its back
+    # and the module is the silhouette; this one is the same contractor with nothing on it,
+    # so it reads as the cheap version of the sapper rather than as a different thing.
+    # Narrow, upright and a head shorter, with one lamp instead of three.
+    cube(0.34, (0, 0, 0.48), scale=(0.75, 0.6, 1.25),
+         material=mat("rpb", REACH_PLATE, 0.35, 0.6))
+    cube(0.22, (0, 0.02, 0.72), scale=(0.8, 0.7, 0.6),           # hood
+         material=mat("rph", STEEL_LT, 0.55, 0.45))
+    for s in (-1, 1):
+        cube(0.09, (s * 0.15, 0.0, 0.18), scale=(1.0, 1.0, 2.6),
+             material=mat("rpl%d" % s, STEEL, 0.5, 0.55))
+    cyl(6, 0.035, 0.34, (0.20, -0.06, 0.52), rot=(0, math.radians(14), 0),
+        material=mat("rpr", BONE, 0.7, 0.35))                    # slung bar, not a weapon
+    sphere(0.055, (0, 0.20, 0.76), segments=12, rings=8,
+           material=mat("rpm", REACH_LAMP, 0.0, 0.3,
+                        emit=(0.55, 0.78, 1.0), emit_strength=1.2))
+
+
 def a_reach_sapper():
     # Light, hunched, and carrying the tap on its back — the drain is the silhouette.
     # Scaled up from the first cut: at 0.34 body it was a smudge next to a warden drone
@@ -504,6 +523,23 @@ HOLLOW_LIT = (0.66, 0.60, 0.90)
 HOLLOW_DARK = (0.075, 0.070, 0.095)
 
 
+def a_hollow_shard():
+    # One piece of what the Echo is a cluster of, travelling alone. Half the Echo's height
+    # and a single blade rather than five, so the two read as the same material at two
+    # scales — which is the only thing the act ever says about what the Hollow is made of.
+    cone(6, 0.17, 0.018, 0.62, (0.0, 0.0, 0.31),
+         rot=(math.radians(11), math.radians(-8), 0),
+         material=mat("hsb", HOLLOW_DARK, 0.2, 0.55))
+    cone(6, 0.075, 0.014, 0.30, (0.0, 0.0, 0.50),
+         rot=(math.radians(11), math.radians(-8), 0),
+         material=mat("hsg", HOLLOW_LIT, 0.0, 0.3,
+                      emit=(0.60, 0.52, 0.94), emit_strength=1.2))
+    # A low sliver of debris travelling with it, so the sprite has a base to sit on and
+    # does not read as floating the way a bare blade does at this size.
+    cube(0.20, (0.11, -0.13, 0.05), scale=(1.0, 0.55, 0.32), rot_z=math.radians(24),
+         material=mat("hsd", HOLLOW_DARK, 0.25, 0.6))
+
+
 def a_hollow_echo():
     # A cluster of thin shards leaning the same way. Baseline unit, so it has to read
     # instantly at 100% zoom without having any features to read.
@@ -578,11 +614,13 @@ ASSETS = {
     "flak_array": a_flak_array,
     "anchor_damper": a_anchor_damper,
     "mortar_emplacement": a_mortar_emplacement,
+    "reach_picket": a_reach_picket,
     "reach_sapper": a_reach_sapper,
     "reach_breacher": a_reach_breacher,
     "reach_skiff": a_reach_skiff,
     "reach_bulwark": a_reach_bulwark,
     "restorer": a_restorer,
+    "hollow_shard": a_hollow_shard,
     "hollow_echo": a_hollow_echo,
     "hollow_drift": a_hollow_drift,
     "hollow_vessel": a_hollow_vessel,

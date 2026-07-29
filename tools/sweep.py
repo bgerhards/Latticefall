@@ -20,20 +20,31 @@ numbers (anchor-06, decision 024), and the validator now catches the worst layou
     .venv/bin/python tools/sweep.py anchor-09
     .venv/bin/python tools/sweep.py anchor-09 --cap 130,140,150 --funds 900,1050 --weight 0.9,1.0
     .venv/bin/python tools/sweep.py anchor-09 --apply          # write the best cell back
+    .venv/bin/python tools/sweep.py anchor-09 --jobs 8         # grade cells in parallel
+    .venv/bin/python tools/sweep.py --act 3 --jobs 8 \\
+        --cap x0.92,x1.0,x1.12 --lives %9,%12,%16              # a whole act, one box
+
+A grid is a few dozen independent grades of an anchor that only exists in memory, so
+--jobs is pure wall-clock: same cells, same order, same verdict. It was worth adding the
+first time a density question needed sixteen anchors re-swept and the box had to widen
+twice before it answered.
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from dataclasses import replace
+from multiprocessing import Pool
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from sim.content import DATA, Spawn, Wave, load_anchor, load_enemies, load_towers  # noqa: E402
+from sim.content import (DATA, Spawn, Wave, all_anchor_ids, load_anchor,  # noqa: E402
+                         load_enemies, load_towers)
 from sim.engine import DIFFICULTIES  # noqa: E402
 from sim.run import grade_anchor  # noqa: E402
 
@@ -51,10 +62,28 @@ def scaled_waves(waves: tuple[Wave, ...], weight: float) -> tuple[Wave, ...]:
     return tuple(out)
 
 
-def parse_list(raw: str | None, default: list[float]) -> list[float]:
+def parse_list(raw: str | None, default: list[float], base: float = 0.0,
+               leak: float = 0.0) -> list[float]:
+    """Absolute values, or relative ones so a grid can be written once for many anchors.
+
+        220,246,275     absolute
+        x0.9,x1.0,x1.12 multiples of the anchor's current value
+        %9,%12,%16      percent of the anchor's total leak_cost — lives only, and the only
+                        honest way to write a life count since decision 047, because 24
+                        lives means something different on every anchor
+    """
     if not raw:
         return default
-    return [float(x) for x in raw.split(",")]
+    out = []
+    for tok in raw.split(","):
+        tok = tok.strip()
+        if tok.startswith("x"):
+            out.append(base * float(tok[1:]))
+        elif tok.startswith("%"):
+            out.append(leak * float(tok[1:]) / 100.0)
+        else:
+            out.append(float(tok))
+    return out
 
 
 ## Robustness is a threshold, not a quantity to maximise.
@@ -81,53 +110,73 @@ def cell_score(result: dict, weight: float, lives: int) -> float:
     return robust + weight * 6.0 - float(lives) * 0.8
 
 
-def main() -> int:
-    ap = argparse.ArgumentParser(description="Sweep an anchor's knobs against the grader.")
-    ap.add_argument("anchor")
-    ap.add_argument("--cap", help="comma-separated capacities in MW")
-    ap.add_argument("--funds", help="comma-separated starting funds")
-    ap.add_argument("--weight", help="comma-separated spawn-count multipliers")
-    ap.add_argument("--lives", help="comma-separated life counts")
-    ap.add_argument("--apply", action="store_true",
-                    help="write the best clean cell back into the anchor file")
-    ap.add_argument("--quiet", action="store_true", help="only print clean cells")
-    args = ap.parse_args()
+_CONTENT: tuple = ()
 
-    base = load_anchor(args.anchor)
-    towers, enemies = load_towers(), load_enemies()
+
+def _init_worker() -> None:
+    global _CONTENT
+    _CONTENT = (load_towers(), load_enemies())
+
+
+def _grade_cell(job: tuple) -> tuple:
+    """Grade one cell. Returns the cell's coordinates alongside the report so results can
+    be printed in grid order regardless of which worker finished first."""
+    base, cap, fu, wt, lv, diffs = job
+    towers, enemies = _CONTENT if _CONTENT else (load_towers(), load_enemies())
+    cand = replace(base, capacity_mw=cap, starting_funds=int(fu), lives=lv,
+                   waves=scaled_waves(base.waves, wt))
+    return (cap, fu, wt, lv, grade_anchor(cand, diffs, towers, enemies))
+
+
+def sweep_one(anchor_id: str, args) -> int:
+    base = load_anchor(anchor_id)
     diffs = list(DIFFICULTIES)
+    enemies = load_enemies()
+    leak = float(sum(s.count * enemies[s.enemy].leak_cost
+                     for w in base.waves for s in w.spawns))
 
-    caps = parse_list(args.cap, [base.capacity_mw * m for m in (0.9, 1.0, 1.1)])
-    funds = parse_list(args.funds, [base.starting_funds * m for m in (0.85, 1.0, 1.15)])
-    weights = parse_list(args.weight, [0.85, 1.0, 1.15])
-    lives = [int(x) for x in parse_list(args.lives, [float(base.lives)])]
+    caps = parse_list(args.cap, [base.capacity_mw * m for m in (0.9, 1.0, 1.1)],
+                      base.capacity_mw, leak)
+    funds = parse_list(args.funds, [base.starting_funds * m for m in (0.85, 1.0, 1.15)],
+                       base.starting_funds, leak)
+    weights = parse_list(args.weight, [0.85, 1.0, 1.15], 1.0, leak)
+    lives = sorted({max(1, int(round(x))) for x in
+                    parse_list(args.lives, [float(base.lives)], base.lives, leak)})
     total = len(caps) * len(funds) * len(weights) * len(lives)
 
-    print(f"{args.anchor}  {base.title}  ·  sweeping "
+    print(f"{anchor_id}  {base.title}  ·  sweeping "
           f"{len(caps)}x{len(funds)}x{len(weights)}x{len(lives)} = {total} cells\n")
     print(f"{'cap':>6s} {'funds':>7s} {'wt':>5s} {'liv':>4s}  "
           f"{'std':>7s} {'hard':>7s} {'brutal':>7s} {'peak':>6s}  verdict")
 
+    jobs = [(base, cap, fu, wt, lv, diffs)
+            for cap in caps for fu in funds for wt in weights for lv in lives]
+    n_jobs = (os.cpu_count() or 1) if args.jobs == 0 else args.jobs
+
+    if n_jobs <= 1:
+        _init_worker()
+        results = (_grade_cell(j) for j in jobs)
+    else:
+        pool = Pool(min(n_jobs, len(jobs)), initializer=_init_worker)
+        results = pool.imap(_grade_cell, jobs)
+
     clean: list[tuple] = []
-    for cap in caps:
-        for fu in funds:
-            for wt in weights:
-                for lv in lives:
-                    cand = replace(base, capacity_mw=cap, starting_funds=int(fu),
-                                   lives=lv, waves=scaled_waves(base.waves, wt))
-                    r = grade_anchor(cand, diffs, towers, enemies)
-                    cells = [r["by_difficulty"][d] for d in diffs]
-                    peak = max(c["peak_load_ratio"] for c in cells)
-                    line = (f"{cap:>6.0f} {int(fu):>7d} {wt:>5.2f} {lv:>4d}  "
-                            + " ".join(f"{c['distinct_winning_builds']:>2d}/"
-                                       f"{c['distinct_builds_tried']:<4d}" for c in cells)
-                            + f" {peak:>5.0%}  ")
-                    if r["ok"]:
-                        score = cell_score(r, wt, lv)
-                        clean.append((score, cap, int(fu), wt, lv, r))
-                        print(line + "ok")
-                    elif not args.quiet:
-                        print(line + r["problems"][0][:60])
+    for cap, fu, wt, lv, r in results:
+        cells = [r["by_difficulty"][d] for d in diffs]
+        peak = max(c["peak_load_ratio"] for c in cells)
+        line = (f"{cap:>6.0f} {int(fu):>7d} {wt:>5.2f} {lv:>4d}  "
+                + " ".join(f"{c['distinct_winning_builds']:>2d}/"
+                           f"{c['distinct_builds_tried']:<4d}" for c in cells)
+                + f" {peak:>5.0%}  ")
+        if r["ok"]:
+            score = cell_score(r, wt, lv)
+            clean.append((score, cap, int(fu), wt, lv, r))
+            print(line + "ok")
+        elif not args.quiet:
+            print(line + r["problems"][0][:60])
+    if n_jobs > 1:
+        pool.close()
+        pool.join()
 
     print(f"\n{len(clean)} clean cell(s) of {total}")
 
@@ -154,7 +203,7 @@ def main() -> int:
           f"lives {lv} (score {score:.1f})")
 
     if args.apply:
-        p = DATA / "anchors" / f"{args.anchor}.json"
+        p = DATA / "anchors" / f"{anchor_id}.json"
         doc = json.loads(p.read_text())
         doc["capacity_mw"] = int(cap) if float(cap).is_integer() else cap
         doc["starting_funds"] = fu
@@ -165,6 +214,45 @@ def main() -> int:
         p.write_text(json.dumps(doc, indent=2) + "\n")
         print(f"applied to {p.relative_to(ROOT)}")
     return 0
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description="Sweep an anchor's knobs against the grader.")
+    ap.add_argument("anchor", nargs="*",
+                    help="anchor ids; omit and pass --act to sweep a whole act")
+    ap.add_argument("--act", type=int, help="sweep every anchor in this act")
+    ap.add_argument("--cap", help="capacities in MW, or xN multiples of the current one")
+    ap.add_argument("--funds", help="starting funds, or xN multiples")
+    ap.add_argument("--weight", help="spawn-count multipliers")
+    ap.add_argument("--lives", help="life counts, xN multiples, or %%N of the anchor's "
+                                    "total leak_cost — the only comparable form")
+    ap.add_argument("--apply", action="store_true",
+                    help="write the best clean cell back into the anchor file")
+    ap.add_argument("--quiet", action="store_true", help="only print clean cells")
+    ap.add_argument("--jobs", type=int, default=1,
+                    help="grade this many cells at once; 0 for one per core")
+    args = ap.parse_args()
+
+    ids = list(args.anchor)
+    if args.act is not None:
+        ids += [i for i in all_anchor_ids() if load_anchor(i).act == args.act]
+    if not ids:
+        ap.error("name at least one anchor, or pass --act")
+
+    # Anchors run one after another with their cells in parallel, rather than the other way
+    # round: a grid is dozens of cells and an act is eight anchors, so this keeps every core
+    # busy while the output stays in grid order and readable.
+    failed = []
+    for i, aid in enumerate(dict.fromkeys(ids)):
+        if i:
+            print()
+        if sweep_one(aid, args) != 0:
+            failed.append(aid)
+    if len(ids) > 1:
+        print(f"\n{len(ids) - len(failed)}/{len(ids)} anchors found a clean cell")
+        if failed:
+            print(f"no clean cell in the searched box: {', '.join(failed)}")
+    return 1 if failed else 0
 
 
 if __name__ == "__main__":

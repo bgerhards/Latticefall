@@ -6,18 +6,25 @@ Grade Latticefall anchors headlessly.
     .venv/bin/python sim/run.py --anchor anchor-01           # one anchor
     .venv/bin/python sim/run.py --anchor anchor-01 --json    # machine-readable
     .venv/bin/python sim/run.py --anchor anchor-01 --detail  # per-policy breakdown
+    .venv/bin/python sim/run.py --jobs 8                     # one process per anchor
 
 The verdict is not just win/loss. An anchor passes only if it is winnable by more
 than one approach and the player is actually pressed against capacity at some point.
 A level nobody can lose and a level with exactly one answer are both failures, and
 neither shows up in a pass/fail number.
+
+Grading is embarrassingly parallel and was serial for twenty-four anchors: --jobs
+grades them in a pool, in the same order, with the same numbers. The sim has no RNG and
+no shared state, so this changes wall-clock and nothing else.
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
+from multiprocessing import Pool
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -31,6 +38,20 @@ PRESSURE_FLOOR = 0.75
 
 def grade(anchor_id: str, difficulties: list[str]) -> dict:
     return grade_anchor(load_anchor(anchor_id), difficulties)
+
+
+def _grade_one(job: tuple[str, list[str]]) -> dict:
+    """Pool worker. Top-level rather than a lambda because a pool pickles the callable."""
+    return grade(*job)
+
+
+def grade_all(anchor_ids: list[str], difficulties: list[str], jobs: int = 1) -> list[dict]:
+    """Grade in anchor order. `jobs` only changes how long it takes."""
+    work = [(i, difficulties) for i in anchor_ids]
+    if jobs <= 1 or len(work) == 1:
+        return [_grade_one(w) for w in work]
+    with Pool(min(jobs, len(work))) as pool:
+        return list(pool.imap(_grade_one, work))
 
 
 def grade_anchor(anchor, difficulties: list[str], towers=None, enemies=None) -> dict:
@@ -117,11 +138,14 @@ def main() -> int:
                     help="accepted for interface stability; the sim has no RNG")
     ap.add_argument("--json", action="store_true", help="machine-readable output")
     ap.add_argument("--detail", action="store_true", help="per-policy breakdown")
+    ap.add_argument("--jobs", type=int, default=1,
+                    help="grade this many anchors at once; 0 for one per core")
     args = ap.parse_args()
 
     ids = [args.anchor] if args.anchor else all_anchor_ids()
     diffs = args.difficulty or list(DIFFICULTIES)
-    reports = [grade(i, diffs) for i in ids]
+    jobs = (os.cpu_count() or 1) if args.jobs == 0 else args.jobs
+    reports = grade_all(ids, diffs, jobs)
 
     if args.json:
         slim = [{k: v for k, v in r.items() if k != "runs" or args.detail}

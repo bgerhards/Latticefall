@@ -483,16 +483,93 @@ const C_SHADOW := Color(0.0, 0.0, 0.0, 0.34)
 const C_BONE := Color(0.86, 0.89, 0.88)
 
 
+# ────────────────────────────────────────────────────────────── facing ──
+#
+# Which of the four rendered yaws a drawable is shown at. The mapping from a tile-space
+# heading to a yaw is measured, and lives in iso.gd next to the projection it comes out
+# of; what lives here is only where each kind of entity's heading comes from.
+
+## Tiles either side of the unit used for the path tangent. Long enough that the facing
+## swings through a corner over about half a second rather than snapping, short enough
+## that it is exactly the leg direction everywhere else.
+const TANGENT_EPS := 0.35
+
+var _idle_facing: Dictionary = {}      # slot -> heading toward the nearest path point
+
+
+func _unit_heading(u: Dictionary) -> Vector2:
+	## Direction of travel, as a centred difference along the path. Each leg is straight, so
+	## this is exactly the leg direction along it and rotates monotonically from one leg to
+	## the next through a corner — which is why units need no hysteresis: the heading never
+	## re-crosses a bucket boundary it has just crossed.
+	var d: float = float(u["dist"])
+	var back: Vector2 = sim.point_at(maxf(0.0, d - TANGENT_EPS))
+	var fwd: Vector2 = sim.point_at(minf(float(sim.path_length), d + TANGENT_EPS))
+	return fwd - back
+
+
+func _tower_heading(p: Dictionary) -> Vector2:
+	## What it last fired at, or the lane if it has not fired. `aim` is written by the sim
+	## at the moment of the shot and erased when it has a shot ready and nothing to take it
+	## on, so an emplacement tracks its target and returns to watching the path between waves.
+	var slot := Vector2(float(p["slot"].x), float(p["slot"].y))
+	var aim: Variant = p.get("aim", null)
+	if aim != null:
+		var h: Vector2 = (aim as Vector2) - slot
+		if h.length_squared() > 1e-6:
+			return h
+	return _idle_heading(slot)
+
+
+func _idle_heading(slot: Vector2) -> Vector2:
+	## Toward the nearest point on the path. An emplacement pointing at open ground reads as
+	## broken, and the lane is the only thing on the board worth watching. Constant per slot,
+	## so it is computed once and cached — it is geometry, not a rule.
+	if _idle_facing.has(slot):
+		return _idle_facing[slot]
+	var pts: Array = _anchor_data().get("path", [])
+	var best := Vector2.ZERO
+	var best_d := INF
+	for i in range(pts.size() - 1):
+		var a := Vector2(float(pts[i][0]), float(pts[i][1]))
+		var b := Vector2(float(pts[i + 1][0]), float(pts[i + 1][1]))
+		var ab := b - a
+		var t := 0.0
+		if ab.length_squared() > 0.0:
+			t = clampf((slot - a).dot(ab) / ab.length_squared(), 0.0, 1.0)
+		var q := a + ab * t
+		var d := slot.distance_squared_to(q)
+		if d < best_d:
+			best_d = d
+			best = q - slot
+	_idle_facing[slot] = best
+	return best
+
+
+func _face(p: Dictionary, heading: Vector2) -> int:
+	## Bucket an emplacement's heading, remembering the last answer on the placed record.
+	##
+	## The state lives on the emplacement and deliberately **not** on a unit: Godot 4.7
+	## compares Dictionaries by value, and anchor_sim's splash loop tests `u == target`, so
+	## one extra key on a unit dictionary would change which units count as the target and
+	## put the two rule implementations out of parity. `placed` records are only ever
+	## compared on their slot, so they are safe to annotate.
+	var prev: int = int(p.get("view_yaw", -1))
+	var yaw := IsoScript.yaw_for_heading(heading, prev, IsoScript.YAW_HYSTERESIS_DEG)
+	p["view_yaw"] = yaw
+	return yaw
+
+
 func drawables() -> Array:
 	## One ordered list, shared by the albedo draw and the additive glow layer, so the
-	## two passes cannot disagree about contents or depth order.
+	## two passes cannot disagree about contents, facing or depth order.
 	var out: Array = []
 	for p in sim.placed:
 		out.append({
 			"depth": IsoScript.depth(p["slot"].x, p["slot"].y),
 			"kind": "tower",
 			"sprite": String(p["tower"]["id"]).replace("-", "_"),
-			"yaw": 45,
+			"yaw": _face(p, _tower_heading(p)),
 			"online": bool(p["online"]),
 			"at": IsoScript.tile_to_screen(float(p["slot"].x), float(p["slot"].y)) + _origin,
 			"ref": p,
@@ -505,7 +582,7 @@ func drawables() -> Array:
 			"depth": IsoScript.depth(at.x, at.y),
 			"kind": "unit",
 			"sprite": String(u["kind"]["id"]).replace("-", "_"),
-			"yaw": 45,
+			"yaw": IsoScript.yaw_for_heading(_unit_heading(u)),
 			"online": true,
 			"at": IsoScript.tile_to_screen(at.x, at.y) + _origin,
 			"ref": u,

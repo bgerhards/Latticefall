@@ -3,10 +3,10 @@
   "id": "anchor-17",
   "act": 3,
   "title": "Circulatory",
-  "capacity_mw": 190,
+  "capacity_mw": 290,
   "capacity_decay_mw": 6,
-  "starting_funds": 2000,
-  "lives": 26,
+  "starting_funds": 2600,
+  "lives": 18,
   "grid": {
     "w": 17,
     "h": 15
@@ -92,6 +92,11 @@
       "lead_in": 22,
       "spawns": [
         {
+          "enemy": "hollow-shard",
+          "count": 2,
+          "interval": 0.8
+        },
+        {
           "enemy": "hollow-echo",
           "count": 2,
           "interval": 2.2
@@ -107,6 +112,11 @@
     {
       "lead_in": 17,
       "spawns": [
+        {
+          "enemy": "hollow-shard",
+          "count": 2,
+          "interval": 0.8
+        },
         {
           "enemy": "hollow-echo",
           "count": 3,
@@ -130,6 +140,11 @@
       "lead_in": 16,
       "spawns": [
         {
+          "enemy": "hollow-shard",
+          "count": 2,
+          "interval": 0.8
+        },
+        {
           "enemy": "hollow-echo",
           "count": 3,
           "interval": 1.9
@@ -146,8 +161,13 @@
       "lead_in": 16,
       "spawns": [
         {
+          "enemy": "hollow-shard",
+          "count": 7,
+          "interval": 0.8
+        },
+        {
           "enemy": "hollow-echo",
-          "count": 4,
+          "count": 3,
           "interval": 1.8
         },
         {
@@ -167,6 +187,11 @@
     {
       "lead_in": 15,
       "spawns": [
+        {
+          "enemy": "hollow-shard",
+          "count": 4,
+          "interval": 0.8
+        },
         {
           "enemy": "hollow-echo",
           "count": 4,
@@ -190,8 +215,13 @@
       "lead_in": 15,
       "spawns": [
         {
+          "enemy": "hollow-shard",
+          "count": 8,
+          "interval": 0.8
+        },
+        {
           "enemy": "hollow-echo",
-          "count": 4,
+          "count": 3,
           "interval": 1.6
         },
         {
@@ -211,6 +241,11 @@
     {
       "lead_in": 14,
       "spawns": [
+        {
+          "enemy": "hollow-shard",
+          "count": 6,
+          "interval": 0.8
+        },
         {
           "enemy": "hollow-echo",
           "count": 4,
@@ -240,19 +275,24 @@
       "lead_in": 14,
       "spawns": [
         {
+          "enemy": "hollow-shard",
+          "count": 11,
+          "interval": 0.8
+        },
+        {
           "enemy": "hollow-echo",
-          "count": 5,
+          "count": 4,
           "interval": 1.45
         },
         {
           "enemy": "hollow-drift",
-          "count": 3,
+          "count": 2,
           "interval": 1.7,
           "delay": 5
         },
         {
           "enemy": "hollow-vessel",
-          "count": 3,
+          "count": 2,
           "interval": 3.2,
           "delay": 7
         },

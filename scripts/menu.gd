@@ -11,6 +11,12 @@ extends Control
 
 const GAME_SCENE := "res://scenes/main.tscn"
 const DIFFICULTIES := ["standard", "hard", "brutal"]
+## One anchor button, and the gap between two of them. Named because the grid's column
+## count is now solved from them against the live viewport width rather than fixed at the
+## eight that only ever fitted a 1920 px design space.
+const ANCHOR_W := 172.0
+const ANCHOR_H := 64.0
+const GRID_GAP := 10.0
 ## Act titles come from docs/STORY.md. They are the only place in the UI that names an
 ## act, so they carry the tone the anchor numbers cannot.
 const ACT_TITLES := {
@@ -95,18 +101,34 @@ func _build() -> void:
 	_body.set_anchors_preset(Control.PRESET_FULL_RECT)
 	add_child(_body)
 
-	var col := VBoxContainer.new()
-	col.set_anchors_preset(Control.PRESET_FULL_RECT)
+	# Everything below is inside a scroll region. Three rows of eight anchor buttons is
+	# 1446 px wide and roughly 1000 px tall whatever the viewport is, so at 200% interface
+	# scale — a 960x540 design space — the title screen put CONTINUE, OPTIONS and QUIT off
+	# the bottom of the screen and half the anchors off the right. The grid reflows to the
+	# width it has (below), and the scroller carries whatever height is left over.
+	var scroll := Ui.scroller()
+	scroll.set_anchors_preset(Control.PRESET_FULL_RECT)
 	# Margins in proportion to the viewport rather than a fixed 120 px: the interface-scale
 	# setting shrinks the logical viewport, and a 120 px margin on each side of a 960 px
 	# design space is a quarter of the screen given to nothing.
 	var vp := get_viewport().get_visible_rect().size
-	col.offset_left = minf(120.0, vp.x * 0.0625)
-	col.offset_top = minf(90.0, vp.y * 0.083)
-	col.offset_right = -col.offset_left
-	col.offset_bottom = -minf(60.0, vp.y * 0.055)
+	scroll.offset_left = minf(120.0, vp.x * 0.0625)
+	scroll.offset_top = minf(90.0, vp.y * 0.083)
+	scroll.offset_right = -scroll.offset_left
+	scroll.offset_bottom = -minf(60.0, vp.y * 0.055)
+	_body.add_child(scroll)
+
+	var col := VBoxContainer.new()
+	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	col.add_theme_constant_override("separation", 10)
-	_body.add_child(col)
+	scroll.add_child(col)
+
+	# How many anchors fit across, measured rather than fixed at eight. Eight is the act
+	# structure and stays the ceiling, but a button is 172 px and the row cannot be wider
+	# than the space it is in — a GridContainer does not wrap, it simply forces its parent
+	# wider, which is what pushed every other row off the right edge at 200%.
+	var grid_w := vp.x - scroll.offset_left * 2.0 - Ui.SCROLL_GUTTER
+	var cols := clampi(int(floorf((grid_w + GRID_GAP) / (ANCHOR_W + GRID_GAP))), 2, 8)
 
 	col.add_child(_label("LATTICEFALL", Ui.SIZE_DISPLAY, C_BONE, false, true))
 	col.add_child(_label("TASK FORCE MERIDIAN  ·  SIXTY-ONE ANCHORS  ·  HOLDING ACTION",
@@ -132,14 +154,14 @@ func _build() -> void:
 	spacer2.custom_minimum_size = Vector2(0, 18)
 	col.add_child(spacer2)
 
-	# anchors, in three rows of eight — which is exactly the act structure, so the rows
-	# are labelled rather than left as an anonymous 24-cell grid.
+	# anchors, one block per act — which is exactly the act structure, so the blocks are
+	# labelled rather than left as an anonymous 24-cell grid.
 	for act in [1, 2, 3]:
 		col.add_child(_label(ACT_TITLES[act], Ui.SIZE_CAPTION, C_MUTED))
 		var row := GridContainer.new()
-		row.columns = 8
-		row.add_theme_constant_override("h_separation", 10)
-		row.add_theme_constant_override("v_separation", 10)
+		row.columns = cols
+		row.add_theme_constant_override("h_separation", int(GRID_GAP))
+		row.add_theme_constant_override("v_separation", int(GRID_GAP))
 		row.name = "Act%d" % act
 		col.add_child(row)
 		var gap := Control.new()
@@ -147,8 +169,12 @@ func _build() -> void:
 		col.add_child(gap)
 	_grid = col.get_node("Act1")
 
+	# Wrapped, not clipped. The hover line names the anchor, its capacity, its wave count
+	# and its decay rate, which runs past 840 px at a narrow scale — and a GridContainer
+	# sibling means a too-wide label widens the whole column rather than being cut.
 	_detail = _label("", Ui.SIZE_STAT, C_MUTED)
-	_detail.custom_minimum_size = Vector2(0, 30)
+	_detail.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_detail.custom_minimum_size = Vector2(0, 2.0 * Ui.line_h(Ui.SIZE_STAT, false))
 	col.add_child(_detail)
 
 	var actions := HBoxContainer.new()
@@ -224,7 +250,7 @@ func _refresh() -> void:
 		# default half-transparent grey at 2.0:1 against the background.
 		var b := Ui.button("", Ui.SIZE_BODY)
 		Ui.style(b, Ui.SIZE_BODY, true)
-		b.custom_minimum_size = Vector2(172, 64)
+		b.custom_minimum_size = Vector2(ANCHOR_W, ANCHOR_H)
 		b.disabled = not Progress.is_unlocked(id)
 		var mark := "HELD" if Progress.is_cleared(id) else ("LOCKED" if b.disabled else "OPEN")
 		b.text = "ANCHOR %02d\n%s" % [n, mark]

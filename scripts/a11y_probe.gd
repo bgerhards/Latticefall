@@ -65,6 +65,7 @@ static func _record_label(l: Label, items: Array) -> void:
 		"font_size": l.get_theme_font_size("font_size"),
 		"color": _rgba(l.get_theme_color("font_color")),
 		"rect": [r.position.x, r.position.y, r.size.x, r.size.y],
+		"clip": _clip_of(l),
 		"disabled": false,
 	})
 
@@ -93,8 +94,40 @@ static func _record_button(b: Button, items: Array) -> void:
 		"font_size": b.get_theme_font_size("font_size"),
 		"color": _rgba(b.get_theme_color(key)),
 		"rect": [r.position.x, r.position.y, r.size.x, r.size.y],
+		"clip": _clip_of(b),
 		"disabled": b.disabled,
 	})
+
+
+static func _clip_of(c: Control) -> Dictionary:
+	## The nearest ancestor that clips this item, and which way it scrolls.
+	##
+	## Without this the only clipping question that could be asked was "does the rect leave
+	## the viewport", which is the right question for a fixed layout and the wrong one for a
+	## panel that reflows: an item below the fold of a scroll region has a rect outside the
+	## viewport and is not lost — it is one wheel notch away. The judgement of which of those
+	## it is belongs in `tools/validate/a11y.py`; this only reports the geometry and the
+	## scroll modes, so "reachable by scrolling" cannot be asserted by a script that never
+	## looked at whether the region scrolls.
+	var p := c.get_parent()
+	while p != null:
+		if p is Control and (p as Control).clip_contents:
+			var box := p as Control
+			var r := box.get_global_rect()
+			var sv := false
+			var sh := false
+			if box is ScrollContainer:
+				var sc := box as ScrollContainer
+				sv = sc.vertical_scroll_mode != ScrollContainer.SCROLL_MODE_DISABLED
+				sh = sc.horizontal_scroll_mode != ScrollContainer.SCROLL_MODE_DISABLED
+			return {
+				"path": String(box.get_path()),
+				"rect": [r.position.x, r.position.y, r.size.x, r.size.y],
+				"scroll_v": sv,
+				"scroll_h": sh,
+			}
+		p = p.get_parent()
+	return {}
 
 
 static func _rgba(c: Color) -> Array:
