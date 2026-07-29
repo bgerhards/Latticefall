@@ -385,11 +385,20 @@ func _step(penalty: float) -> void:
 			if target.is_empty() or float(u["dist"]) > float(target["dist"]):
 				target = u
 		if target.is_empty():
+			# Ready to fire with nothing to shoot: drop the aim so the view can point the
+			# emplacement back down the lane instead of at whatever it last killed.
+			p.erase("aim")
 			continue
+		var tp := point_at_xy(target["dist"])
+		# Presentation only, and the only line in this file that is not a rule: where the
+		# shot went, so anchor_view can face the emplacement at it. Deliberately absent from
+		# sim/engine.py — the headless reference has nothing to draw, nothing reads this, and
+		# parity compares outcomes. Position is unaffected by _damage, so computing it here
+		# rather than inside the splash branch is the same number.
+		p["aim"] = Vector2(float(tp[0]), float(tp[1]))
 		_damage(target, tw, 1.0)
 		var splash := float(tw.get("splash", 0.0))
 		if splash > 0.0:
-			var tp := point_at_xy(target["dist"])
 			for u in units:
 				if u == target or not u["alive"]:
 					continue

@@ -30,6 +30,8 @@ var _shot_at: int = 240
 ## Same frame is the point: the analyser samples the background behind each label out of
 ## the PNG, so a report taken a frame later describes a screen that was never measured.
 var _a11y_path: String = ""
+## `-- --facings` prints the yaw every drawable was drawn at, on the frame `--shot` took.
+var _dump_facings: bool = false
 var _frame: int = 0
 var _shot_taken: bool = false
 var _autoplay: bool = false
@@ -88,6 +90,13 @@ func _setup_cli() -> void:
             "--a11y":
                 if i + 1 < argv.size():
                     _a11y_path = argv[i + 1]
+            "--facings":
+                # One line per drawable with the shot: sprite, chosen yaw and board
+                # position. A facing is not legible from a 1440x810 PNG — the four yaws of
+                # a turret differ by which side its muzzle sits on and by 40 px of height —
+                # so the screenshot alone cannot say whether a sprite is pointing where the
+                # thing it is tracking actually is. This makes that falsifiable. LF-050.
+                _dump_facings = true
             "--anchor":
                 if i + 1 < argv.size():
                     anchor_id = argv[i + 1]
@@ -161,6 +170,10 @@ func _process(_delta: float) -> void:
             % [_frame, view.sim_time(), view.wave_number(), view.phase(),
                view.sim.lives, view.sim.leaks])
         print("AUDIO %s" % Audio.report())
+        if _dump_facings:
+            for d in view.drawables():
+                print("FACE %s %s yaw=%d at=(%.0f,%.0f)"
+                    % [d["kind"], d["sprite"], d["yaw"], d["at"].x, d["at"].y])
         get_tree().quit()
 
 
