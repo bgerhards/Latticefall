@@ -57,6 +57,8 @@ docs/            STATE, BACKLOG, DECISIONS, NOMENCLATURE, STORY
 ## Commands
 
 ```bash
+.venv/bin/python tools/reap.py                     # what of ours is still running
+.venv/bin/python tools/reap.py --kill              # kill it. run at every wrap.
 .venv/bin/python tools/check.py                    # the gate. run before every commit.
 .venv/bin/python tools/backlog.py add "..." --kind bug --area audio
 .venv/bin/python tools/validate/validate_data.py   # schemas + cross-references
@@ -214,6 +216,50 @@ that survives `pkill -f check.py`, gets reparented to init, and keeps a core at 
 next gate run then takes nearly twice as long for no visible reason. Kill the Godot too,
 and confirm with `ps` that nothing is left — the same class of mistake as the background
 load-test loops recorded in `docs/STATE.md`.
+
+**A survivor costs money, not just a core.** `tools/reap.py --kill` is the reaper and it is
+not optional: run it at every wrap and check it at every start, and paste what it printed.
+Recording the trap above in this file for several sessions did **not** stop it happening,
+because it relied on someone remembering to run `ps` — so it is a script, a step in both
+session skills, and a `SessionEnd` hook in `.claude/settings.json`. Three known survivors:
+the parity check's Godot, `tools/audio/serve.py` (`serve_forever()`, no exit condition at
+all), and the `--jobs` worker pools of `sim/run.py` and `tools/sweep.py` when their parent
+dies. The cost is not the fan: **a background process the agent harness is still tracking
+re-invokes the model when it finally exits or emits**, so a forgotten loop bills tokens
+against a session that everyone believed was over. This has already spilled the owner's
+subscription usage into paid credits once. Treat it as a money bug, not as hygiene.
+
+**The gate opens real windows on the owner's desktop, and an occluded window hangs it.**
+`game renders`, `menu renders` and `accessibility` launch a *visible* Godot — seven windows
+per run, because the a11y check walks five cases — since GL Compatibility reads back nothing
+headlessly. They steal focus, and **macOS throttles a window it considers occluded**: cover
+it, background it, or simply keep working in front of it and the frame loop stalls, so
+`await RenderingServer.frame_post_draw` in `main.gd` never resolves. The check does not fail
+— it waits until the window is visible again and then *passes*, which is how one
+`game renders` took **36 minutes** and still reported ok. LF-061.
+
+So: **ask before running the full gate when the owner is at the machine**, and offer
+`tools/check.py --no-window`, which skips exactly those three and says out loud that it did.
+Never background a gate run and leave it to surface windows over someone's work. The
+subprocess timeouts turn a stall into a red run rather than a silent wait, but they do not
+make the windows welcome.
+
+**Prefer the foreground, and never leave a watch armed.** Background a command only when the
+task genuinely cannot continue without it running concurrently — not to avoid a timeout on
+something you are going to wait for anyway. The gate takes eleven minutes; wait for it. If
+something *is* backgrounded, it is finished when its exit has been seen and `reap.py` says
+clean. Never leave a `Monitor`, a `/loop`, a `tail -f` or a poll loop running past the task
+that needed it; each wake-up is a billed turn.
+
+**Subagents run on Sonnet 5.** Every definition in `.claude/agents/` carries
+`model: sonnet` in its frontmatter, and it stays there — an agent with no `model:` key
+silently inherits the parent, which is Opus, and a fan-out of five Opus agents is the most
+expensive thing this project can do by accident. The **built-in** agents (`Explore`, `Plan`,
+`general-purpose`) have no frontmatter to carry the key, so pass `model: "sonnet"` in the
+`Agent` call itself. Verify with:
+`awk 'FNR==1{n=0} /^---$/{n++;next} n==1' .claude/agents/*.md | grep -c '^model: sonnet'` → 5.
+The `FNR==1{n=0}` is load-bearing: awk's counter persists across files, so without it only
+the first agent is ever inspected and the check reports 1 no matter what the others say.
 
 **Scope discipline.** Finish the whole task; if part is blocked, finish everything else and
 say plainly what was left and why.

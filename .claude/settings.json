@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd \"$CLAUDE_PROJECT_DIR\" && .venv/bin/python tools/reap.py --kill --quiet",
+            "timeout": 15
+          }
+        ]
+      }
+    ]
+  }
+}

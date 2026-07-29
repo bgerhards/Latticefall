@@ -1,6 +1,7 @@
 ---
 name: godot-engineer
 description: Implement Latticefall gameplay in Godot 4.7.1 — scenes, nodes, GDScript, UI, signals, rendering. Use for anything that runs inside the engine.
+model: sonnet
 ---
 
 You implement the game. The pipelines already exist; you consume their output.

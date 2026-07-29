@@ -35,8 +35,43 @@ class Result:
         self.status, self.detail = status, detail
 
 
-def run(*args: str) -> subprocess.CompletedProcess:
-    return subprocess.run(args, capture_output=True, text=True, cwd=str(ROOT))
+## Every subprocess the gate starts is bounded, because an unbounded one is not a slow
+## check — it is a hang that reports success afterwards. Measured on 2026-07-29: the
+## `game renders` check, which normally takes 2.5 s, took **36 minutes** on one run and then
+## passed, taking the whole gate to 47 minutes. With no timeout there was nothing to
+## distinguish that from ordinary slowness, and a wedged Godot holding a core is exactly the
+## survivor `tools/reap.py` exists for. The generous default is deliberate — this is a
+## backstop against a wedge, not a performance budget.
+DEFAULT_TIMEOUT = 300.0
+## The parity check runs 864 simulations through both implementations and legitimately takes
+## about eleven minutes, so it gets its own ceiling rather than dragging the default up.
+PARITY_TIMEOUT = 1800.0
+TIMED_OUT = 124                       # conventional shell exit code for a timeout
+
+
+def run(*args: str, timeout: float = DEFAULT_TIMEOUT) -> subprocess.CompletedProcess:
+    """Run a child, bounded. On timeout, reap whatever it left behind and report failure.
+
+    `subprocess.run(timeout=...)` kills the direct child only. That is not sufficient here:
+    the parity check's Godot reparents to init and survives its parent (see CLAUDE.md), so
+    the timeout path calls the reaper rather than trusting the kill.
+    """
+    try:
+        return subprocess.run(args, capture_output=True, text=True,
+                              cwd=str(ROOT), timeout=timeout)
+    except subprocess.TimeoutExpired as exc:
+        reaper = ROOT / "tools" / "reap.py"
+        swept = ""
+        if reaper.exists():
+            got = subprocess.run([PY, str(reaper), "--kill"], capture_output=True,
+                                 text=True, cwd=str(ROOT), timeout=60)
+            swept = got.stdout.strip().replace("\n", " · ")
+        out = exc.stdout or b""
+        return subprocess.CompletedProcess(
+            args, TIMED_OUT,
+            stdout=out.decode(errors="replace") if isinstance(out, bytes) else out,
+            stderr=f"timed out after {timeout:.0f}s; reaped: {swept or 'nothing'}",
+        )
 
 
 # ─────────────────────────────────────────────────────────────── checks ──
@@ -285,6 +320,47 @@ def check_backlog_rendered() -> Result:
     return Result(OK, f"{n} open")
 
 
+def check_agent_models() -> Result:
+    """Every subagent definition pins its model, because the default is the expensive one.
+
+    An agent file with no `model:` key in its frontmatter inherits the parent model, which is
+    Opus — so a five-way fan-out silently costs five Opus contexts. That is not a
+    theoretical: it spilled the owner's subscription usage into paid credits, which is why
+    this is a gate check and not a note. The pin is `sonnet` for all of them.
+
+    Parsed rather than grepped: awk's record counter persists across files, so the obvious
+    one-liner inspects only the first agent and passes no matter what the rest say.
+    """
+    agents = sorted((ROOT / ".claude" / "agents").glob("*.md"))
+    if not agents:
+        return Result(SKIP, "no agent definitions")
+    unpinned, wrong = [], []
+    for path in agents:
+        lines = path.read_text().splitlines()
+        if not lines or lines[0].strip() != "---":
+            unpinned.append(path.stem)
+            continue
+        try:
+            close = next(i for i, l in enumerate(lines[1:], 1) if l.strip() == "---")
+        except StopIteration:
+            unpinned.append(path.stem)
+            continue
+        model = None
+        for line in lines[1:close]:
+            if line.startswith("model:"):
+                model = line.split(":", 1)[1].strip()
+                break
+        if model is None:
+            unpinned.append(path.stem)
+        elif model != "sonnet":
+            wrong.append(f"{path.stem}={model}")
+    if unpinned:
+        return Result(FAIL, f"no model pinned (inherits Opus): {', '.join(unpinned)}")
+    if wrong:
+        return Result(FAIL, f"model is not sonnet: {', '.join(wrong)}")
+    return Result(OK, f"{len(agents)} agents pinned to sonnet")
+
+
 def check_banned_terms() -> Result:
     """Nomenclature is a legal risk, so it gets a mechanical check, not a promise.
 
@@ -525,7 +601,9 @@ def check_rules_parity() -> Result:
         return Result(SKIP, "parity harness missing")
     if not Path("/Applications/Godot.app/Contents/MacOS/Godot").exists():
         return Result(SKIP, "godot not installed")
-    r = run(PY, str(script))
+    r = run(PY, str(script), timeout=PARITY_TIMEOUT)
+    if r.returncode == TIMED_OUT:
+        return Result(FAIL, r.stderr)
     if r.returncode != 0:
         return Result(FAIL, (r.stderr + r.stdout).strip()[-1200:])
     return Result(OK, r.stdout.strip().replace("parity ok — ", ""))
@@ -568,6 +646,25 @@ def check_sprite_atlas() -> Result:
     return Result(OK, f"{cells} cells in {len(atlas.get('pages', {}))} pages, in sync")
 
 
+## The checks that open a real window on the owner's desktop, and therefore the ones that
+## cannot run while somebody is using the machine.
+##
+## GL Compatibility renders nothing readable headlessly, so these three launch a visible
+## Godot — seven windows in total, because `accessibility` walks five cases. `godot boots`
+## and `rules parity` both pass `--headless` and are not affected. That has two costs nobody
+## chose. It steals focus and pops up over whatever the
+## owner is doing — repeatedly, per gate run — and, worse, **macOS throttles a window it
+## considers occluded**: cover or background the window and the frame loop stalls, so
+## `await RenderingServer.frame_post_draw` in main.gd never resolves and the check waits.
+## That is the measured 36-minute `game renders` run in LF-061 — it did not fail, it sat
+## there until the window came back and then passed. Diagnosed by the owner, who watched it
+## happen while working in the foreground.
+##
+## `--no-window` skips exactly these. They report SKIP, and this file's contract is that a
+## skip is never a pass — the summary says so out loud — so using it cannot quietly weaken a
+## commit.
+WINDOWED = {"game renders", "menu renders", "accessibility"}
+
 CHECKS = [
     ("python syntax",     check_python_syntax),
     ("json parses",       check_json_parses),
@@ -580,6 +677,7 @@ CHECKS = [
     ("sprite atlas",      check_sprite_atlas),
     ("sprite coverage",   check_sprite_coverage),
     ("backlog rendered",  check_backlog_rendered),
+    ("agent models",      check_agent_models),
     ("sim determinism",   check_sim),
     ("godot boots",       check_godot_boots),
     ("game renders",      check_game_renders),
@@ -592,19 +690,36 @@ CHECKS = [
 def main() -> int:
     ap = argparse.ArgumentParser(description="Latticefall pre-commit gate.")
     ap.add_argument("--list", action="store_true", help="list checks and exit")
+    ap.add_argument("--no-window", action="store_true",
+                    help="skip the checks that open a real window (%s). Use when someone is "
+                         "working on this machine: they steal focus, and macOS stalls a "
+                         "window it thinks is occluded, which hangs the run."
+                         % ", ".join(sorted(WINDOWED)))
     args = ap.parse_args()
 
     if args.list:
         for name, _ in CHECKS:
-            print(name)
+            print(name + ("  [opens a window]" if name in WINDOWED else ""))
         return 0
 
-    failed = skipped = 0
+    if not args.no_window:
+        # Said before the first window appears rather than after, because the whole
+        # complaint is being surprised by it. Cheap, and it makes --no-window discoverable
+        # at the moment it is wanted.
+        print(f"note: {len(WINDOWED)} checks open a real Godot window and will take focus. "
+              f"Do not cover or background it — macOS stalls an occluded window and the run "
+              f"hangs (LF-061). Use --no-window to skip them.")
+
+    failed = skipped = by_flag = 0
     t0 = time.time()
     for name, fn in CHECKS:
         start = time.time()
         try:
-            res = fn()
+            if args.no_window and name in WINDOWED:
+                res = Result(SKIP, "skipped by --no-window (opens a real window)")
+                by_flag += 1
+            else:
+                res = fn()
         except Exception as e:
             res = Result(FAIL, f"check itself raised: {type(e).__name__}: {e}")
         ms = (time.time() - start) * 1000
@@ -620,8 +735,14 @@ def main() -> int:
     total = (time.time() - t0) * 1000
     print(f"\n{len(CHECKS) - failed - skipped} passed · {failed} failed · "
           f"{skipped} skipped · {total:.0f}ms")
-    if skipped:
+    # The two reasons a check can skip are not the same claim and must not share a line: a
+    # missing subsystem is a fact about the project, --no-window is a choice about this run.
+    if skipped > by_flag:
         print("skipped checks are not passes — the subsystem does not exist yet")
+    if by_flag:
+        print(f"--no-window skipped {by_flag} rendered check(s): they did NOT run and are "
+              f"NOT passes. Run the full gate before committing anything that touches the "
+              f"interface, the board or a sprite.")
     return 1 if failed else 0
 
 

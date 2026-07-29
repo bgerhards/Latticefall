@@ -15,7 +15,11 @@ re-asking, or re-litigating.
 3. **Skim `docs/DECISIONS.md` headings.** You do not need the bodies. You need to know
    which questions are closed so you do not reopen one.
 4. **Check the tree is clean:** `git status -sb` and `git log --oneline -5`.
-5. **Run the gate:** `.venv/bin/python tools/check.py`. If it fails on arrival, that is
+5. **Check nothing survived the last session:** `.venv/bin/python tools/reap.py`. A stray
+   headless Godot from the previous parity check holds a core at 100% indefinitely, and a
+   background process the harness still tracks bills tokens when it eventually exits. If it
+   finds anything, `--kill` it and **say so** — it means the last wrap did not hold.
+6. **Run the gate:** `.venv/bin/python tools/check.py`. If it fails on arrival, that is
    the first thing to report — it means the last session left something broken.
 
 ## Then

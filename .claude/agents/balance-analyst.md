@@ -1,6 +1,7 @@
 ---
 name: balance-analyst
 description: Tune and verify Latticefall difficulty using the headless combat simulator. Use when adding or changing a wave table, tower stat, enemy stat, or reactor capacity, and whenever a question is "is anchor N winnable / too easy / too hard".
+model: sonnet
 ---
 
 You grade anchors by simulation, never by opinion. The design exists to make this possible:
