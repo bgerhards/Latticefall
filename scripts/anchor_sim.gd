@@ -370,7 +370,15 @@ func _step(penalty: float) -> void:
 		var sy := float(p["slot"].y)
 		var rng := float(tw["range"])
 		var target: Dictionary = {}
-		for u in units:
+		# The target's *index*, because the splash loop below has to exclude the unit it
+		# already hit and `==` on a Dictionary is a value comparison in Godot 4.7 — two
+		# units of the same kind with equal hp and equal dist compare equal. sim/engine.py
+		# writes `u is target`, an identity test, so the two implementations disagreed the
+		# moment a wave put two identical units at the same distance. Latent rather than
+		# live only because same-kind units spawn on different ticks. LF-055.
+		var target_i := -1
+		for i in range(units.size()):
+			var u: Dictionary = units[i]
 			if not u["alive"]:
 				continue
 			var at := point_at_xy(u["dist"])
@@ -384,6 +392,7 @@ func _step(penalty: float) -> void:
 				continue
 			if target.is_empty() or float(u["dist"]) > float(target["dist"]):
 				target = u
+				target_i = i
 		if target.is_empty():
 			# Ready to fire with nothing to shoot: drop the aim so the view can point the
 			# emplacement back down the lane instead of at whatever it last killed.
@@ -399,8 +408,11 @@ func _step(penalty: float) -> void:
 		_damage(target, tw, 1.0)
 		var splash := float(tw.get("splash", 0.0))
 		if splash > 0.0:
-			for u in units:
-				if u == target or not u["alive"]:
+			for i in range(units.size()):
+				if i == target_i:
+					continue
+				var u: Dictionary = units[i]
+				if not u["alive"]:
 					continue
 				var up := point_at_xy(u["dist"])
 				var sdx: float = up[0] - tp[0]

@@ -705,7 +705,15 @@ func _refresh_threat() -> void:
 
 func _enemy_traits(e: Dictionary) -> String:
 	## The row under a unit's name: what it takes to kill and what it does to the bus.
-	var parts: Array[String] = ["%d hp" % int(e.get("hp", 0)), "%.2f spd" % float(e.get("speed", 1.0))]
+	##
+	## HP is the *difficulty-scaled* figure, not the number in enemies.json. Brutal is
+	## 1.55x (decision 014), so the panel used to tell a brutal player a Column had 520 hp
+	## when the thing walking at them had 806. This panel exists to be planned against, and
+	## the health bars over the units already scale — `anchor_view` divides by
+	## `sim.hp_mult` — so the two readouts disagreed with each other as well as with the
+	## board. LF-047.
+	var hp: float = float(e.get("hp", 0)) * (view.sim.hp_mult if view != null and view.sim != null else 1.0)
+	var parts: Array[String] = ["%d hp" % roundi(hp), "%.2f spd" % float(e.get("speed", 1.0))]
 	if String(e.get("kind", "ground")) == "air":
 		parts.append("AIR")
 	if bool(e.get("shielded", false)):
