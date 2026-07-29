@@ -655,11 +655,11 @@
       "kind": "bug",
       "area": "engine",
       "pri": "med",
-      "status": "open",
+      "status": "done",
       "why": "",
       "opened": "2026-07-28",
-      "closed": null,
-      "note": ""
+      "closed": "2026-07-28",
+      "note": "fixed by comparing target by index; Godot Dictionary == is a value comparison, probed"
     },
     {
       "id": "LF-056",
