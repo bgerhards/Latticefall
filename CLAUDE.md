@@ -85,7 +85,10 @@ docs/            STATE, BACKLOG, DECISIONS, NOMENCLATURE, STORY
 **Verification hooks, because `--fixed-fps` has nobody to press a key.** `--paused`,
 `--select N`, `--pick <id>`, `--cursor N`, `--options`, `--ui-scale <f>` and
 `--display-defaults` each reach a state that otherwise needs a real input. Add one rather
-than shipping a screen nobody has looked at. `--a11y <path>` must be paired with the
+than shipping a screen nobody has looked at. `--facings` is the same idea for something a
+screenshot *shows* but cannot settle: it prints the yaw every drawable was drawn at, on the
+frame `--shot` captured, because four yaws of one turret differ by which side the muzzle is
+on and 40 px of height. Decision 049. `--a11y <path>` must be paired with the
 `--shot` on the *same frame*: the analyser samples the background out of that PNG, so a
 report taken a frame later describes a screen that was never measured.
 

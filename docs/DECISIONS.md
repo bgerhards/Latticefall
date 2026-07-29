@@ -1568,3 +1568,78 @@ any anchor that already carries its act's escort; `--force` is for deliberately 
 from a re-authored base. Every anchor it touches must be re-swept on lives and re-graded
 behind it. The density gate in `check.py` exists because this is undoable in silence — a
 later sweep or a hand-edited wave table can quietly put the finale back below the tutorial.
+## 049 — Facing is driven by heading, and the heading→yaw mapping is measured
+
+**Date.** 2026-07-28. **Status.** Adopted.
+
+`anchor_view.gd` hardcoded `"yaw": 45` for every drawable, so **156 of the 208 atlas cells
+were never drawn**. Three quarters of the render pipeline — render, mask, pack, import —
+produced pixels nothing could reach, and a defect that only shows at one yaw was invisible
+in the game by construction: that is how the Hollow emissive collapse at yaw 315 (`LF-049`)
+survived being looked at. `LF-050`.
+
+**Units face their direction of travel; emplacements face what they last fired at**, or the
+nearest point on the path when they have nothing to fire at.
+
+**The mapping was measured, not derived.** Every asset is modelled facing Blender world
+**+Y** — pulse_turret's muzzle sphere at (0, 0.63, 0.70), the relay dish, the lance muzzle,
+warden_heavy's eye. pulse_turret's *only* emitter is that muzzle, so the rendered glow pass
+is a direct probe of where +Y lands: its luminance centroid sits at (+41, −20) px
+horizontally from the sprite pivot at yaw 045, (+41, +20) at 135, (−41, +20) at 225 and
+(−41, −20) at 315 — each within a pixel of the projection maths for a 30° camera. The four
+sprites therefore face the four screen diagonals, NE/SE/SW/NW in that order, and since
+`Iso.tile_to_screen` sends tile +x to screen right-down and tile −y to right-up:
+
+```
+yaw 045 → tile ( 0,−1)      yaw 135 → tile (+1, 0)
+yaw 225 → tile ( 0,+1)      yaw 315 → tile (−1, 0)
+```
+
+i.e. **tile-space heading angle = yaw − 135**, which is the whole of `Iso.yaw_for_heading`.
+It lives in `iso.gd` because it is a property of the projection, not of the view. Verified
+in the engine rather than on paper: on anchor-02 at frame 1900 the four turrets report
+225/45/225/315 and the one drone 135, and each is exactly what the slot geometry predicts —
+the two turrets in range of the drone point at it from opposite sides, the two out of range
+watch the nearest path segment, and the drone on the westbound first leg faces down-right.
+
+**Bucketed in tile space, not screen space.** The projection is 2:1, so the four screen
+diagonals sit 53° apart across one axis and 127° across the other; bucketing a screen angle
+would give two of the four sprites most of the circle.
+
+**Flicker, measured.** Unit yaw is a pure function of path distance, so the whole path can
+be swept: anchor-07 changes facing exactly 6 times in 41 tiles, at 12.0/15.0/24.0/27.0/
+36.0/39.0 — its six corners — and never returns to a yaw inside a tile of travel. A centred
+difference over ±0.35 tiles rotates monotonically through a corner, so a unit cannot
+re-cross a boundary it has just crossed and **units need no hysteresis**. Emplacements do:
+tracking a target across a boundary re-buckets 116 times with 40 reversals inside half a
+second over three waves of anchor-07. A 12° hysteresis band takes that to 59 changes and 3
+reversals, and the 3 are real target changes — the leader died and the next one is on the
+other side — not bucketing noise.
+
+**The hysteresis state is on the emplacement record and deliberately not on the unit.**
+Godot 4.7 compares `Dictionary` by value (probed: two dictionaries with identical contents
+are `==`, and `Array.find` matches by value), and `anchor_sim._step` tests `u == target` in
+the splash loop. One extra key on a unit would change which units count as the target and
+break parity with the Python reference, which uses `u is target`. `placed` records are only
+ever compared on their slot.
+
+**Rejected.** *Dropping to one yaw and deleting the other three renders.* It is the smaller
+diff and it is what the atlas currently behaves like, but the sprites already exist, the
+pipeline already produces them, and a board where nine units walking four directions all
+face the same way reads as a bug — visibly so once you have seen the alternative. It would
+also have removed the only way a yaw-specific art defect can ever be seen.
+
+*Selecting the emplacement's target in the view.* The view would have had to re-implement
+"furthest along the path, in range, targetable, revealed" — a rule, and one that exists in
+two languages already. Instead `anchor_sim` records the aim point it has just computed;
+nothing in the sim reads it, it is absent from `sim/engine.py` on purpose, and parity
+compares outcomes.
+
+*Rotating the sprite in the engine instead of picking a rendered yaw.* A 2:1 projection is
+not a rotation in screen space; spinning a flat isometric sprite is the classic tell of a
+faked isometric board.
+
+**Consequence.** All 208 cells are now reachable, which means `LF-049`'s yaw-315 Hollow
+collapse is now visible in game and worth fixing. `--facings` prints the yaw of every
+drawable on the frame `--shot` captures, because which of four near-identical sprites is on
+screen cannot be read reliably out of a 1440x810 PNG.
