@@ -373,7 +373,7 @@ def check_game_renders() -> Result:
     shot = ROOT / ".godot" / "gate-frame.png"
     shot.parent.mkdir(parents=True, exist_ok=True)
     r = run(godot, "--path", str(ROOT), "--fixed-fps", "60",
-            "--", "--shot", str(shot), "120")
+            "--", "--display-defaults", "--shot", str(shot), "120")
     blob = r.stdout + r.stderr
 
     line = next((l for l in blob.splitlines() if l.startswith("FRAME ")), "")
@@ -409,7 +409,7 @@ def check_menu_renders() -> Result:
     shot = ROOT / ".godot" / "gate-menu.png"
     shot.parent.mkdir(parents=True, exist_ok=True)
     r = run(godot, "--path", str(ROOT), "--fixed-fps", "60",
-            "--", "--shot-menu", str(shot), "40")
+            "--", "--display-defaults", "--shot-menu", str(shot), "40")
     blob = r.stdout + r.stderr
 
     line = next((l for l in blob.splitlines() if l.startswith("MENUFRAME ")), "")
@@ -478,8 +478,15 @@ def check_accessibility() -> Result:
     totals, worst = [], []
     for name, extra, shot_flag, frame in cases:
         png, js = out / f"gate-a11y-{name}.png", out / f"gate-a11y-{name}.json"
+        # `--display-defaults` leads, because it resets ui_scale and the per-case
+        # `--ui-scale` after it must win. Without it the gate measures whatever window
+        # mode and resolution happen to be saved in the player's progress.json — a file
+        # outside the repo. The same tree reported coverage 0.56 on one machine and 0.34
+        # on another for exactly that reason, and the a11y analyser samples its background
+        # colours out of these frames.
         r = run(godot, "--path", str(ROOT), "--fixed-fps", "60",
-                "--", *extra, shot_flag, str(png), frame, "--a11y", str(js))
+                "--", "--display-defaults", *extra, shot_flag, str(png), frame,
+                "--a11y", str(js))
         if not js.exists():
             return Result(FAIL, f"{name}: probe wrote no report — the run did not reach "
                                 f"the shot:\n" + (r.stdout + r.stderr).strip()[-800:])

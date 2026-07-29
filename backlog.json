@@ -1,5 +1,5 @@
 {
-  "next_id": 55,
+  "next_id": 56,
   "items": [
     {
       "id": "LF-001",
@@ -702,6 +702,18 @@
       "title": "scripts/main.gd is indented with 4 spaces while every other .gd file uses tabs. Cosmetic, but it makes a whole-file diff out of any tool that normalises indentation",
       "kind": "chore",
       "area": "engine",
+      "pri": "med",
+      "status": "open",
+      "why": "",
+      "opened": "2026-07-28",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-055",
+      "title": "The gate's rendered checks read display state from the player's save. window_mode, resolution and ui_scale live in user://progress.json, which is outside the repo, so game renders / menu renders / accessibility measured whatever the last person left set \u2014 the same tree reported coverage 0.56 and 0.34 on two machines, and the a11y analyser samples its background colours out of those frames. Fixed by leading every rendered check with --display-defaults; kept as the record of why, and because any future verification hook that persists state (the LF-052 board camera especially) has the same hole",
+      "kind": "bug",
+      "area": "tooling",
       "pri": "med",
       "status": "open",
       "why": "",
