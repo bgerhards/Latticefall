@@ -471,6 +471,14 @@ def check_accessibility() -> Result:
                       "--ui-scale", "1.0"], "--shot", "300"),
         ("game-200", ["--autoplay", "--anchor", "anchor-24", "--select", "1",
                       "--ui-scale", "2.0"], "--shot", "300"),
+        # Brutal, because difficulty scales the widest field on the widest row. The threat
+        # panel's trait line is the longest string the interface can be asked to draw, and
+        # THREAT_W is a hand-derived constant sized from it (LF-048); since the panel shows
+        # difficulty-scaled hp (LF-047), a 1.55x multiplier is what would push it over. The
+        # panel scrolls vertically only, so the clipping check treats an over-wide row as a
+        # failure — but only on a screen the gate actually renders.
+        ("game-brutal", ["--autoplay", "--anchor", "anchor-24", "--difficulty", "brutal",
+                         "--select", "1", "--ui-scale", "1.0"], "--shot", "300"),
         ("menu", ["--ui-scale", "2.0"], "--shot-menu", "40"),
         ("options", ["--options", "--ui-scale", "2.0"], "--shot-menu", "40"),
     ]

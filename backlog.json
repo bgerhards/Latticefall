@@ -571,11 +571,11 @@
       "kind": "chore",
       "area": "engine",
       "pri": "med",
-      "status": "open",
+      "status": "done",
       "why": "",
       "opened": "2026-07-28",
-      "closed": null,
-      "note": ""
+      "closed": "2026-07-28",
+      "note": "covered mechanically: the a11y clipping check fails text cut off on a non-scrolling axis, and the gate now renders anchor-24 on brutal, which is where the widest row is widest"
     },
     {
       "id": "LF-049",
