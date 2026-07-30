@@ -305,27 +305,27 @@ func _centre() -> void:
 		return
 	var vp := get_viewport_rect().size
 	var g := Ui.gutter(vp)
-	var board_w := float(w + h) * IsoScript.TILE_W * 0.5
-	var board_h := float(w + h) * IsoScript.TILE_H * 0.5
-
-	# Centre on the free region between the two instrument panels when the board actually
-	# fits inside it — the deliberate framing beside the panels every anchor had before this
-	# fix, and Ui.gutter() is itself viewport-derived so this holds through 100%-200%. When
-	# it does not fit there, centring on that narrow strip anyway is exactly what ran
-	# anchor-13's ring off the window edge — on the default 1440x810 window the strip is
-	# 460px wide against a 1920px board — so the fallback is the *whole* viewport, which is
-	# always at least as roomy as the strip and, for every anchor whose tile bounding box is
-	# no wider than the design viewport (every one of them, at 1920x1080 — see the numbers in
-	# the change that added this), fits it exactly edge to edge.
 	var bottom_reserve := g + Ui.dialog_h() + 8.0
-	var free_w := maxf(vp.x - Ui.COL_W - Ui.THREAT_W - g * 2.0, 120.0)
-	var free_h := maxf(vp.y - g - bottom_reserve, 120.0)
-	var centre_pt: Vector2
-	if board_w <= free_w and board_h <= free_h:
-		centre_pt = Vector2((vp.x + Ui.COL_W - Ui.THREAT_W) * 0.5,
-			(g + (vp.y - bottom_reserve)) * 0.5)
-	else:
-		centre_pt = vp * 0.5
+
+	# The centre of the free region between the two instrument panels: horizontally from the
+	# column's right edge to the threat panel's left edge, vertically from the top gutter to
+	# the dialog band. Not `vp * 0.5` — COL_W and THREAT_W are different widths (420 vs 528),
+	# so the viewport's own centre is 54px right of the strip's, and centring the *board*
+	# there instead of the strip gave the wider threat panel 108px more of the board's right
+	# side than the column got of its left, at every scale: a wide empty gutter beside the
+	# column and the ring, near the board's far corner, crowding the threat panel's edge.
+	#
+	# There used to be a check here for whether the board actually fits inside that region,
+	# falling back to `vp * 0.5` when it does not — added because centring a too-big board on
+	# the strip ran anchor-13's ring off the window edge. But no anchor's tile bounding box is
+	# small enough to fit the strip at any scale (anchor-01's is 1536px against a 940px strip
+	# at 100%), so that branch was never live: every anchor used the `vp * 0.5` fallback,
+	# which is the asymmetry above. One formula, used always, is both the fix and a
+	# simplification: it is already exactly what the "fits" branch computed, so nothing
+	# changes for a board that one day does fit, and the ring is still kept on screen by the
+	# nudge below regardless of which point the board was centred on first.
+	var centre_pt := Vector2((vp.x + Ui.COL_W - Ui.THREAT_W) * 0.5,
+		(g + (vp.y - bottom_reserve)) * 0.5)
 	_origin = centre_pt - mid
 
 	# The centroid is a point of symmetry for an iso-projected rectangle — every corner sits

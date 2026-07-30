@@ -271,16 +271,20 @@ func _build_ui() -> void:
 	var col_h := _build_inspector(col, y + bar_h + PAD, stat_rows, note_lines)
 	col_h = _build_abilities(col, col_h)
 
-	# The scroll region takes what the content wants, or what is left after the pinned verbs
-	# and the dialog band, whichever is smaller. The dialog panel is on a later CanvasLayer
-	# and draws over whatever is beneath it — dialog_reserve() is the same reservation the
-	# threat panel already makes — so without subtracting it here too, a column tall enough
-	# to need the max budget (the Bindstone gauges pushed anchor-13's over it) pins the verbs
-	# right where the dialog band draws over them, and SELL/UPGRADE/the abilities read as
-	# missing rather than merely hidden behind another panel. At 100% nothing scrolls and the
-	# verbs sit directly under the note exactly as before; at 150% and above it scrolls.
+	# The scroll region takes what the content wants, or what is left after the pinned verbs,
+	# whichever is smaller. It must NOT also subtract dialog_reserve(): that reservation
+	# exists because the dialog band and the threat panel share the same x range at narrow
+	# viewports (dialog_rect() starts at g + COL_W + 8, i.e. immediately right of this very
+	# column — dialog_view.gd: "the panel starts where the instrument column ends"), so only
+	# a panel to the *right* of the column can ever be drawn over by it. The column sits
+	# entirely to its left at every viewport width, by construction, so it never needs to
+	# leave room for it. Reserving that band here anyway was the actual bug: it ate
+	# ~130 px this column never needed to give up, which is exactly the gap between the
+	# Bindstone gauges reading and the SELL/UPGRADE row slicing through them at 100% on
+	# anchor-01 the moment the abilities panel gave the column enough content to feel it.
+	# The only bound left is the viewport bottom itself, mirroring the top gutter.
 	col.custom_minimum_size = Vector2(COL_W - Ui.SCROLL_GUTTER, col_h)
-	var col_budget := maxf(vp.y - g - VERBS_H - dialog_reserve(vp), 80.0)
+	var col_budget := maxf(vp.y - g - VERBS_H, 80.0)
 	_col_scroll = Ui.scroller()
 	_col_scroll.position = Vector2(g, g)
 	_col_scroll.size = Vector2(COL_W, minf(col_h, col_budget))
