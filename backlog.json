@@ -1,5 +1,5 @@
 {
-  "next_id": 75,
+  "next_id": 76,
   "items": [
     {
       "id": "LF-001",
@@ -882,6 +882,18 @@
       "title": "scripts/anchor_view.gd's boot() hands sim.setup() Content.towers/Content.enemies/Content.anchor(anchor_id) directly -- scripts/loadout.gd (Loadout.towers()/enemies()/anchor()) is never called anywhere in the codebase. Confirmed by grep. Six of the nine recovery effects (tower_draw_mult, bounty_mult, starting_funds_add, tower_damage_mult, range_mult, and by extension anything Loadout would apply) are therefore completely inert regardless of what the player owns -- only the three effects read directly at their call sites (sell_refund_add, surge_charge_mult, veterancy_mult) do anything, and this session wired those three in (Threshold Surge charge rate, veterancy rank thresholds). Fix is almost certainly three lines in anchor_view.gd's boot(): sim.setup(Loadout.anchor(anchor), Loadout.towers(Content.towers), Loadout.enemies(Content.enemies), difficulty). Left unfixed this session because it is a between-anchor progression system gap discovered while wiring the abilities/pacing/targeting/veterancy task, not part of that task, and scripts/loadout.gd is out of scope to touch.",
       "kind": "bug",
       "area": "engine",
+      "pri": "med",
+      "status": "open",
+      "why": "",
+      "opened": "2026-07-30",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-075",
+      "title": "Rebuilding .godot/ blanks the level for anyone playing out of the same tree. The owner plays from D:\\dev\\Latticefall while agents edit /mnt/d/dev/Latticefall \u2014 the same directory. An agent moved .godot aside to force a cold import and the running game lost every imported texture: menu still drew (plain UI), level came up blank. Diagnosed as a code regression for a full pass before the real cause surfaced. Also: an import performed by the Linux Godot build is not sufficient for the Windows editor, which re-imports on open \u2014 that was the step that actually restored it. Mitigation is documented in CLAUDE.md; a mechanical version would be a guard in tools/ that refuses to touch .godot while a Godot process is live, or a shot.py flag that imports in place rather than cold",
+      "kind": "bug",
+      "area": "tooling",
       "pri": "med",
       "status": "open",
       "why": "",

@@ -116,6 +116,21 @@ editor imports. Skipping this makes a correct art fix look like it did nothing, 
 already cost a full round of misdiagnosis. The order is always: render → `mask_glow` →
 `pack_atlas` → `--import` → screenshot.
 
+**`.godot/` is shared with whoever is playing, and rebuilding it blanks their game.** The
+owner plays out of the same working tree an agent edits — `D:\dev\Latticefall` and
+`/mnt/d/dev/Latticefall` are one directory. Moving or deleting `.godot/` to force a cold
+import therefore pulls every imported texture out from under a running session: the menu
+still draws, because it is plain UI, and **the level comes up blank**, which reads exactly
+like a code regression and is not one. It cost a full diagnosis pass — Windows Godot was
+made to load `main.tscn` and run 300 frames clean, four interface scales were checked, and
+the save was ruled out, before the cause turned out to be the cache being rebuilt mid-play.
+
+Two consequences. **Never rebuild the import cache without saying so first**, and prefer
+`--import` in place over `mv .godot`. And note that an import run by the *Linux* Godot is
+not enough for the Windows editor: opening the project there re-imports again, which is the
+step that actually fixed it. If the owner reports a blank level, ask whether an import has
+just happened before reading any code.
+
 **The board draws from an atlas, not from the loose PNGs.** `pack_atlas.py` packs the 192
 renders into one page per pass, so skipping it is a second way to make a correct art fix
 look like it did nothing — the stale page keeps serving the old pixels. The gate's
