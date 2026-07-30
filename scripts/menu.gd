@@ -10,6 +10,7 @@ extends Control
 ## anything, or the gate's self-screenshot has nothing to screenshot.
 
 const GAME_SCENE := "res://scenes/main.tscn"
+const DRAFT_SCENE := "res://scenes/draft.tscn"
 const DIFFICULTIES := ["standard", "hard", "brutal"]
 ## One anchor button, and the gap between two of them. Named because the grid's column
 ## count is now solved from them against the live viewport width rather than fixed at the
@@ -36,6 +37,7 @@ const C_BONE := Ui.C_BONE
 var _difficulty_buttons: Array[Button] = []
 var _grid: GridContainer
 var _detail: Label
+var _carrying: Label
 var _options: OptionsMenu
 var _body: Control
 
@@ -68,6 +70,14 @@ func _boot_from_cli() -> bool:
 			Progress.selected_anchor = argv[i + 1]
 		elif argv[i] == "--difficulty" and i + 1 < argv.size():
 			Progress.difficulty = argv[i + 1]
+	if argv.has("--draft"):
+		# `-- --draft [--anchor id] [--difficulty d] [--seed n] [--draft-lives L S] --shot …`
+		# opens the debrief/recovery screen directly. It is otherwise unreachable at
+		# `--fixed-fps` — reaching it for real needs a played and won anchor — and a screen
+		# nobody has screenshotted is a screen nobody has looked at. project.godot's
+		# run/main_scene stays menu.tscn, so this scene is where the flag has to be caught.
+		call_deferred("_go_draft")
+		return true
 	if argv.has("--anchor") or argv.has("--shot"):
 		call_deferred("_go")
 		return true
@@ -149,6 +159,13 @@ func _build() -> void:
 		_difficulty_buttons.append(b)
 		drow.add_child(b)
 	col.add_child(drow)
+
+	# What the player is carrying into the run: one compact line, not a panel of its own —
+	# recoveries.gd's design note is explicit that this is meant to accumulate quietly across
+	# twenty-four anchors, not to compete with the anchor grid for the player's attention.
+	_carrying = _label("", Ui.SIZE_BODY, C_MUTED)
+	_carrying.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	col.add_child(_carrying)
 
 	var spacer2 := Control.new()
 	spacer2.custom_minimum_size = Vector2(0, 18)
@@ -234,6 +251,14 @@ func _refresh() -> void:
 		var on := b.text.to_lower() == Progress.difficulty
 		b.add_theme_color_override("font_color", C_AMBER if on else C_MUTED)
 
+	if Progress.owned_recoveries.is_empty():
+		_carrying.text = "CARRYING: nothing recovered yet"
+	else:
+		var names: Array[String] = []
+		for id in Progress.owned_recoveries:
+			names.append(String(Recoveries.pool_entry(id).get("name", id)))
+		_carrying.text = "CARRYING: %s" % "  ·  ".join(names)
+
 	var rows := {}
 	for act in [1, 2, 3]:
 		var r: GridContainer = _grid.get_parent().get_node("Act%d" % act)
@@ -252,7 +277,13 @@ func _refresh() -> void:
 		Ui.style(b, Ui.SIZE_BODY, true)
 		b.custom_minimum_size = Vector2(ANCHOR_W, ANCHOR_H)
 		b.disabled = not Progress.is_unlocked(id)
-		var mark := "HELD" if Progress.is_cleared(id) else ("LOCKED" if b.disabled else "OPEN")
+		# The debrief verdict (data/tuning.json's `grade` block), not a flat "HELD" for any
+		# clear at all — scored on the best fraction of lives kept across every difficulty
+		# this anchor has been cleared on, so a scrappy first clear and a clean replay read
+		# differently on the grid the same way they read differently on the debrief itself.
+		var mark := "LOCKED" if b.disabled else "OPEN"
+		if Progress.is_cleared(id):
+			mark = String(Recoveries.best_grade_for(id).get("verdict", "HELD"))
 		b.text = "ANCHOR %02d\n%s" % [n, mark]
 		if b.disabled:
 			pass
@@ -299,6 +330,10 @@ func _on_continue() -> void:
 
 func _go() -> void:
 	get_tree().change_scene_to_file(GAME_SCENE)
+
+
+func _go_draft() -> void:
+	get_tree().change_scene_to_file(DRAFT_SCENE)
 
 
 func _process(_delta: float) -> void:

@@ -1,0 +1,215 @@
+#!/usr/bin/env python3
+"""
+Look at the game, without a window ever touching the owner's desktop.
+
+Every other verification path that needs a frame — `tools/check.py`'s three rendered
+checks, `tools/test_parity.py`'s reference run, an ad hoc "does this look right" question —
+used to mean a real, focus-stealing Godot window (`docs/STATE.md`, LF-061), because GL
+Compatibility reads back nothing under `--headless`. This is the fix: launch the *native
+Linux* Godot build through `xvfb-run`, which gives it a real GPU-backed (Mesa llvmpipe
+software GL) window on a virtual framebuffer nothing ever presents to a screen. There is no
+compositor and no window to occlude, so the 36-minute occlusion stall this project measured
+once cannot happen here. `tools/toolpaths.godot_argv(..., want_window=False)` is what wires
+the launch up; this file is the everyday front door to it.
+
+    .venv/bin/python tools/shot.py anchor-06 --out /tmp/shot.png
+    .venv/bin/python tools/shot.py anchor-24 --out /tmp/shot.png --ui-scale 2.0 \\
+        --difficulty brutal --a11y /tmp/shot.json
+    .venv/bin/python tools/shot.py anchor-01 --out /tmp/shot.png --no-autoplay \\
+        --extra --paused
+
+Exits non-zero (and prints why) if Godot never reached the shot, if it reported a nonzero
+PNG write error, or if the frame is effectively blank (coverage below 0.02) — a blank frame
+is a failed look at the game, not a successful one that happened to show nothing. Bounds the
+subprocess with a timeout and reaps whatever a timeout leaves behind, because the direct
+child (`xvfb-run`, when invisible capture is in play) surviving a `.kill()` is not the same
+process as the Godot grandchild it wraps — exactly the reparenting problem `tools/reap.py`
+exists for.
+"""
+
+from __future__ import annotations
+
+import argparse
+import subprocess
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "tools"))
+
+import reap        # noqa: E402  — same tool suite; reused directly rather than shelled out to
+import toolpaths    # noqa: E402
+
+DEFAULT_TIMEOUT = 300.0
+TIMED_OUT = 124                       # conventional shell exit code for a timeout
+
+# A blank frame reports coverage near 0.00-0.03 (measured for `check_game_renders`); this
+# tool's job is to hand back a frame worth looking at, not merely a PNG, so it uses the same
+# kind of floor rather than trusting a zero exit code alone.
+MIN_COVERAGE = 0.02
+
+# Lines Godot's `--shot`/`--a11y` path prints that are worth relaying — see `main.gd`'s
+# `_process()` and `menu.gd`. `PARITY_JSON` and other machinery are deliberately not here;
+# this tool is for looking at a frame, not for parity data.
+RELAY_PREFIXES = ("SHOT ", "FRAME ", "STATE ", "AUDIO ", "FACE ", "MENUFRAME ", "CLEARED ")
+
+
+def _out(line: str) -> None:
+    print(line, flush=True)
+
+
+def _err(line: str) -> None:
+    print(line, file=sys.stderr, flush=True)
+
+
+def build_extra_args(args: argparse.Namespace) -> list[str]:
+    """Everything after `--` on Godot's own command line, in the order `main.gd`'s
+    `_setup_cli()` expects it (see `scripts/main.gd`). `--extra` is appended before `--shot`
+    so any positional value it carries (e.g. `--select 1`) cannot be mistaken for the frame
+    count that must immediately follow `--shot <path>`."""
+    extra: list[str] = []
+    if args.autoplay:
+        extra.append("--autoplay")
+    extra += ["--anchor", args.anchor]
+    if args.difficulty:
+        extra += ["--difficulty", args.difficulty]
+    if args.ui_scale is not None:
+        extra += ["--ui-scale", str(args.ui_scale)]
+    if args.facings:
+        extra.append("--facings")
+    if args.a11y:
+        extra += ["--a11y", str(args.a11y)]
+    extra += args.extra
+    extra += ["--shot", str(args.out), str(args.frames)]
+    return extra
+
+
+def run_shot(args: argparse.Namespace) -> int:
+    extra = build_extra_args(args)
+    try:
+        argv = toolpaths.godot_argv(ROOT, ["--fixed-fps", "60", "--", *extra],
+                                    want_window=False)
+    except RuntimeError as exc:
+        _err(f"shot: {exc}")
+        return 1
+
+    args.out.parent.mkdir(parents=True, exist_ok=True)
+    if args.a11y:
+        args.a11y.parent.mkdir(parents=True, exist_ok=True)
+
+    try:
+        r = subprocess.run(argv, capture_output=True, text=True, cwd=str(ROOT),
+                           timeout=args.timeout)
+    except subprocess.TimeoutExpired as exc:
+        # subprocess.run(timeout=...) kills only the direct child. When capture is invisible
+        # that child is `xvfb-run`, not Godot — the wrapper is a shell script whose cleanup
+        # trap does not run under a hard kill, so both `Xvfb` and Godot can reparent to init
+        # and survive. tools/reap.py already knows how to find and kill exactly that.
+        procs = reap.find()
+        killed = reap._kill(procs, quiet=False) if procs else 0
+        _err(f"shot: timed out after {args.timeout:.0f}s; reaped {killed} of "
+             f"{len(procs)} stray process(es)")
+        for p in procs:
+            _err(f"  pid {p['pid']}  {p['kind']}  {p['cmd'][:120]}")
+        out = exc.stdout or ""
+        for line in (out.decode(errors="replace") if isinstance(out, bytes) else out).splitlines():
+            if line.startswith(RELAY_PREFIXES):
+                _out(line)
+        return TIMED_OUT
+
+    blob = r.stdout + r.stderr
+    relayed = [line for line in blob.splitlines() if line.startswith(RELAY_PREFIXES)]
+    for line in relayed:
+        _out(line)
+
+    shot_line = next((l for l in relayed if l.startswith("SHOT ")), "")
+    if not shot_line:
+        _err("shot: Godot never reached the shot — no SHOT line in its output")
+        _err(blob.strip()[-1500:])
+        return 1
+
+    try:
+        err_code = int(shot_line.split("err=")[1].split()[0])
+    except (IndexError, ValueError):
+        _err(f"shot: could not parse the SHOT line: {shot_line!r}")
+        return 1
+    if err_code != 0:
+        _err(f"shot: Godot reported a PNG write error (err={err_code})")
+        return 1
+
+    frame_line = next((l for l in relayed if l.startswith("FRAME ")), "")
+    if frame_line:
+        try:
+            coverage = float(frame_line.split("coverage=")[1].split()[0])
+        except (IndexError, ValueError):
+            _err(f"shot: could not parse the FRAME line: {frame_line!r}")
+            return 1
+        if coverage < MIN_COVERAGE:
+            _err(f"shot: frame is effectively blank (coverage={coverage:.4f}, "
+                 f"min {MIN_COVERAGE}) — that is a failed look at the game, not a "
+                 f"successful one")
+            return 1
+    # A menu shot (`--extra --shot-menu ...`) reports MENUFRAME instead of FRAME, and the
+    # coverage floor there is intentionally not enforced by this tool — `check_menu_renders`
+    # in tools/check.py already knows the menu's own, much lower, floor.
+
+    if r.returncode not in (0, None):
+        _err(f"shot: godot exited {r.returncode}")
+        return 1
+    return 0
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(
+        prog="tools/shot.py",
+        description="Render a frame of Latticefall to a PNG with no visible window — the "
+                     "supported way to look at the game from this session. Launches the "
+                     "native Linux Godot build under an Xvfb virtual framebuffer via "
+                     "tools/toolpaths.godot_argv(); see that module for why the window "
+                     "never reaches the owner's desktop.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=__doc__.split("\n\n", 1)[1] if "\n\n" in __doc__ else "",
+    )
+    ap.add_argument("anchor", help="anchor id to load, e.g. anchor-06")
+    ap.add_argument("--out", required=True, type=Path,
+                    help="where to write the PNG (parent dirs are created)")
+    ap.add_argument("--frames", type=int, default=300,
+                    help="frame number to capture on, i.e. how long to let the sim run "
+                         "before the shot is taken (default: 300)")
+    ap.add_argument("--difficulty", default=None,
+                    help="standard/hard/brutal (default: whatever the game defaults to)")
+    ap.add_argument("--autoplay", dest="autoplay", action="store_true", default=True,
+                    help="auto-build a policy so the board is not empty (default: on)")
+    ap.add_argument("--no-autoplay", dest="autoplay", action="store_false",
+                    help="leave the board exactly as the anchor starts it")
+    ap.add_argument("--a11y", type=Path, default=None,
+                    help="also write a text-inventory report to this path, for the SAME "
+                         "frame the PNG captures (tools/validate/a11y.py samples the PNG "
+                         "for background colour, so the two must come from one run)")
+    ap.add_argument("--facings", action="store_true",
+                    help="print a FACE line per drawable — sprite, chosen yaw, board "
+                         "position — for the captured frame (see decision 049)")
+    ap.add_argument("--ui-scale", type=float, default=None,
+                    help="force an interface scale (e.g. 2.0 for 200%%) without touching "
+                         "the player's saved progress")
+    ap.add_argument("--extra", nargs="*", default=[],
+                    help="additional raw flags forwarded to the game's own CLI, e.g. "
+                         "--extra --select 1 --pick pulse-turret. See scripts/main.gd's "
+                         "_setup_cli() for the full list (--paused, --pick, --scroll, "
+                         "--cursor, ...)")
+    ap.add_argument("--timeout", type=float, default=DEFAULT_TIMEOUT,
+                    help=f"seconds to wait before killing Godot and reaping stragglers "
+                         f"(default: {DEFAULT_TIMEOUT:.0f})")
+    args = ap.parse_args()
+
+    try:
+        sys.stdout.reconfigure(line_buffering=True)
+        sys.stderr.reconfigure(line_buffering=True)
+    except AttributeError:
+        pass  # stdout/stderr already unbuffered (e.g. under `python -u`)
+
+    return run_shot(args)
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

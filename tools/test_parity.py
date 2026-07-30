@@ -29,17 +29,21 @@ sys.path.insert(0, str(ROOT))
 from sim.content import all_anchor_ids, load_anchor, load_enemies, load_towers  # noqa: E402
 from sim.engine import DIFFICULTIES, Sim, standard_policies  # noqa: E402
 
-GODOT = "/Applications/Godot.app/Contents/MacOS/Godot"
+sys.path.insert(0, str(ROOT / "tools"))
+import toolpaths  # noqa: E402
+
 LOAD_TOLERANCE_MW = 0.01
 
 EXACT = ["won", "waves_cleared", "died_on_wave", "lives_left", "leaks", "spend", "built"]
 
 
 def run_godot(anchor: str | None) -> list[dict]:
-    cmd = [GODOT, "--headless", "--path", str(ROOT),
-           "--script", "res://scripts/test/parity.gd"]
+    # `--headless` never opens a window on any build, so `want_window=True` here just means
+    # "don't bother wrapping in Xvfb" — there is nothing for it to hide.
+    extra = ["--headless", "--script", "res://scripts/test/parity.gd"]
     if anchor:
-        cmd += ["--", "--anchor", anchor]
+        extra += ["--", "--anchor", anchor]
+    cmd = toolpaths.godot_argv(ROOT, extra, want_window=True)
     r = subprocess.run(cmd, capture_output=True, text=True, cwd=str(ROOT))
     for line in r.stdout.splitlines():
         if line.startswith("PARITY_JSON "):
@@ -78,8 +82,8 @@ def main() -> int:
     ap.add_argument("--verbose", action="store_true")
     args = ap.parse_args()
 
-    if not Path(GODOT).exists():
-        print(f"godot not found at {GODOT} — skipping parity", file=sys.stderr)
+    if toolpaths.godot() is None:
+        print("godot not found on this machine — skipping parity", file=sys.stderr)
         return 0
 
     ids = [args.anchor] if args.anchor else all_anchor_ids()

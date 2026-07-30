@@ -1,0 +1,165 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Tuning — pacing, abilities, targeting, veterancy and the recovery draft",
+  "type": "object",
+  "required": ["schema", "pacing", "abilities", "targeting", "veterancy", "recoveries", "grade"],
+  "additionalProperties": false,
+  "properties": {
+    "schema": {"const": "tuning"},
+    "note": {"type": "string"},
+
+    "pacing": {
+      "type": "object",
+      "required": ["speeds", "call_bonus_per_sec", "chain_window_s", "chain_bounty_per_kill",
+                   "chain_bounty_max", "clean_sweep_bonus_by_act"],
+      "additionalProperties": false,
+      "properties": {
+        "speeds": {
+          "type": "array", "minItems": 1,
+          "items": {"type": "number", "exclusiveMinimum": 0},
+          "description": "the game-speed multipliers offered to the player"
+        },
+        "call_bonus_per_sec": {"type": "number", "minimum": 0,
+          "description": "funds per second of skipped prep, paid on a wave-skip call"},
+        "chain_window_s": {"type": "number", "exclusiveMinimum": 0,
+          "description": "seconds between kills that still counts as one chain"},
+        "chain_bounty_per_kill": {"type": "number", "minimum": 0,
+          "description": "bounty multiplier added per kill inside the chain window"},
+        "chain_bounty_max": {"type": "number", "minimum": 0,
+          "description": "cap on the chain bounty multiplier"},
+        "clean_sweep_bonus_by_act": {
+          "type": "array", "minItems": 3, "maxItems": 3,
+          "items": {"type": "number", "minimum": 0},
+          "description": "bonus funds for a wave cleared with zero leaks, one entry per act"
+        },
+        "note": {"type": "string"}
+      }
+    },
+
+    "abilities": {
+      "type": "array", "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "name", "label", "charge_max", "charge_per_leak_cost",
+                     "cooldown_s", "duration_s", "trauma"],
+        "additionalProperties": false,
+        "properties": {
+          "id": {"type": "string", "pattern": "^[a-z][a-z0-9-]*$"},
+          "name": {"type": "string"},
+          "label": {"type": "string", "description": "short HUD form, e.g. 'SURGE'"},
+          "charge_max": {"type": "number", "minimum": 0,
+            "description": "0 means the ability is not charge-gated and runs on cooldown_s instead"},
+          "charge_per_leak_cost": {"type": "number", "minimum": 0,
+            "description": "charge gained per leak_cost of a kill, if charge-gated"},
+          "cooldown_s": {"type": "number", "minimum": 0},
+          "duration_s": {"type": "number", "minimum": 0},
+          "trauma": {"type": "number", "minimum": 0,
+            "description": "camera/screen-shake weight on activation"},
+          "damage": {"type": "number", "minimum": 0},
+          "falloff_min": {"type": "number", "minimum": 0, "maximum": 1,
+            "description": "fraction of full damage at the far edge of the effect"},
+          "pushback_tiles": {"type": "number", "minimum": 0},
+          "ignores_shield": {"type": "boolean"},
+          "fire_rate_bonus": {"type": "number", "minimum": 0},
+          "draw_mult": {"type": "number", "exclusiveMinimum": 0},
+          "hold_tiles": {"type": "number", "minimum": 0},
+          "draw_mw": {"type": "number", "minimum": 0},
+          "note": {"type": "string"}
+        }
+      }
+    },
+
+    "targeting": {
+      "type": "object",
+      "required": ["modes", "default"],
+      "additionalProperties": false,
+      "properties": {
+        "modes": {
+          "type": "array", "minItems": 1,
+          "items": {"enum": ["first", "last", "strongest", "weakest"]}
+        },
+        "default": {"enum": ["first", "last", "strongest", "weakest"]},
+        "note": {"type": "string"}
+      }
+    },
+
+    "veterancy": {
+      "type": "object",
+      "required": ["ranks"],
+      "additionalProperties": false,
+      "properties": {
+        "ranks": {
+          "type": "array", "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["kills", "name", "damage_mult", "range_mult"],
+            "additionalProperties": false,
+            "properties": {
+              "kills": {"type": "integer", "minimum": 0,
+                "description": "kills on the placed record required to reach this rank"},
+              "name": {"type": "string", "description": "rank pip label; '' for unranked"},
+              "damage_mult": {"type": "number", "exclusiveMinimum": 0},
+              "range_mult": {"type": "number", "exclusiveMinimum": 0}
+            }
+          }
+        },
+        "note": {"type": "string"}
+      }
+    },
+
+    "recoveries": {
+      "type": "object",
+      "required": ["draft_size", "pool"],
+      "additionalProperties": false,
+      "properties": {
+        "draft_size": {"type": "integer", "minimum": 1,
+          "description": "distinct fragments offered per between-anchor draft"},
+        "pool": {
+          "type": "array", "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["id", "name", "effect", "value", "blurb"],
+            "additionalProperties": false,
+            "properties": {
+              "id": {"type": "string", "pattern": "^[a-z][a-z0-9-]*$"},
+              "name": {"type": "string"},
+              "effect": {
+                "enum": ["tower_draw_mult", "bounty_mult", "starting_funds_add",
+                         "tower_damage_mult", "range_mult", "sell_refund_add",
+                         "lives_add", "surge_charge_mult", "veterancy_mult"],
+                "description": "matches an accessor on the Recoveries autoload"
+              },
+              "value": {"type": "number",
+                "description": "multiplier (identity 1.0) or addend (identity 0), per effect"},
+              "blurb": {"type": "string", "description": "Meridian's one-line description"}
+            }
+          }
+        },
+        "note": {"type": "string"}
+      }
+    },
+
+    "grade": {
+      "type": "object",
+      "required": ["thresholds"],
+      "additionalProperties": false,
+      "properties": {
+        "thresholds": {
+          "type": "array", "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["name", "lives_frac"],
+            "additionalProperties": false,
+            "properties": {
+              "name": {"type": "string", "description": "debrief verdict, e.g. 'HELD'"},
+              "lives_frac": {"type": "number", "minimum": 0, "maximum": 1,
+                "description": "minimum fraction of starting lives kept to earn this verdict"}
+            }
+          },
+          "description": "authored descending by lives_frac; the first threshold a clear's fraction clears is its verdict"
+        },
+        "note": {"type": "string"}
+      }
+    }
+  }
+}

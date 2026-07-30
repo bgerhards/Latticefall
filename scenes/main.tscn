@@ -1,4 +1,4 @@
-[gd_scene load_steps=7 format=3]
+[gd_scene load_steps=11 format=3]
 
 [ext_resource type="Script" path="res://scripts/main.gd" id="1_main"]
 [ext_resource type="Script" path="res://scripts/anchor_view.gd" id="2_view"]
@@ -6,6 +6,10 @@
 [ext_resource type="Script" path="res://scripts/hud.gd" id="4_hud"]
 [ext_resource type="Script" path="res://scripts/dialog_view.gd" id="5_dialog"]
 [ext_resource type="Script" path="res://scripts/pause_menu.gd" id="6_pause"]
+[ext_resource type="Script" path="res://scripts/backdrop.gd" id="7_backdrop"]
+[ext_resource type="Script" path="res://scripts/board_props.gd" id="8_props"]
+[ext_resource type="Script" path="res://scripts/combat_fx.gd" id="9_fx"]
+[ext_resource type="Script" path="res://scripts/fx_additive.gd" id="10_fxadd"]
 
 [node name="Main" type="Node2D"]
 script = ExtResource("1_main")
@@ -15,9 +19,25 @@ script = ExtResource("2_view")
 anchor_id = "anchor-01"
 difficulty = "standard"
 
+[node name="Backdrop" type="Node2D" parent="AnchorView"]
+z_index = -30
+script = ExtResource("7_backdrop")
+
+[node name="BoardProps" type="Node2D" parent="AnchorView"]
+z_index = -1
+script = ExtResource("8_props")
+
+[node name="CombatFx" type="Node2D" parent="AnchorView"]
+z_index = 8
+script = ExtResource("9_fx")
+
 [node name="GlowLayer" type="Node2D" parent="AnchorView"]
 z_index = 10
 script = ExtResource("3_glow")
+
+[node name="FxAdditive" type="Node2D" parent="AnchorView"]
+z_index = 14
+script = ExtResource("10_fxadd")
 
 [node name="Hud" type="CanvasLayer" parent="."]
 script = ExtResource("4_hud")

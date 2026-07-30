@@ -2,7 +2,7 @@
 """Find and kill processes this repo's tooling leaves behind.
 
 This file exists because a Latticefall verification run does not reliably die with the
-thing that started it, and a survivor is not free. Three of them are known:
+thing that started it, and a survivor is not free. Four of them are known:
 
   * `check.py`'s rules-parity check spawns a headless Godot that **survives
     `pkill -f check.py`** — it reparents to init and holds a core at 100% for as long as
@@ -11,6 +11,14 @@ thing that started it, and a survivor is not free. Three of them are known:
   * `tools/audio/serve.py` is `httpd.serve_forever()`. It has no exit condition at all.
   * `sim/run.py --jobs N` and `tools/sweep.py --jobs N` fan out to one worker per core, and
     a killed parent leaves the pool orphaned.
+  * `Xvfb`, the virtual framebuffer `tools/toolpaths.xvfb_prefix()` spins up so Godot can be
+    captured with no window on the owner's desktop (decision 052), can outlive the
+    `xvfb-run` wrapper that started it. `xvfb-run`'s own cleanup is a shell trap, and it does
+    not reliably fire under this project's own concurrency — measured directly on this
+    machine under several simultaneous invisible captures: three `Xvfb` servers were still
+    running, each still spinning a CPU, after the Godot process each of them existed to
+    serve had already exited cleanly. Not a timeout case; the wrapped command finished, the
+    wrapper just never tore down what it started.
 
 A survivor costs real money, not just a hot fan: a background process the agent harness is
 still tracking re-invokes the model when it finally exits or emits, so a forgotten loop
@@ -24,9 +32,17 @@ repository:
   * Python only when the command line names this repo's path *and* one of its own tools.
   * Blender only with `-b` (background) and this repo's path. `blender-mcp`, the editor
     bridge, is excluded by name — it is harness-managed and killing it breaks the session.
+  * `Xvfb`/`xvfb-run` only with the exact screen spec `tools/toolpaths.xvfb_prefix()` uses
+    (`-screen 0 1600x900x24`). `Xvfb`'s own command line never carries this repo's path —
+    there is nothing else to scope it by — so the screen spec is what stops this from
+    matching an unrelated `Xvfb` instance on a machine that runs more than one.
 
 Reports by default and kills nothing. `--kill` is the verb, so that reading the situation is
-never the thing that changes it.
+never the thing that changes it. Note that this still cannot distinguish "leaked" from
+"legitimately mid-capture right now": exactly like the Godot rule above it, a matching
+process is reported (and, with `--kill`, killed) purely by command-line shape — so running
+`--kill` while another agent or process has a capture genuinely in flight will end that
+capture too. That is a pre-existing property of this scoping, not new to `Xvfb`.
 
     .venv/bin/python tools/reap.py             # what is running that should not be
     .venv/bin/python tools/reap.py --kill      # SIGTERM, then SIGKILL what ignores it
@@ -43,6 +59,12 @@ import time
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
+
+## Must match `tools/toolpaths._XVFB_SCREEN_ARGS` joined — this is the one identifying mark
+## an `Xvfb`/`xvfb-run` process carries, since its command line never has this repo's path
+## on it. Duplicated as a literal rather than imported so this file stays dependency-free
+## (it already runs with nothing but the stdlib); keep the two in sync by hand.
+XVFB_SCREEN_SPEC = "-screen 0 1600x900x24"
 
 ## Tool names that are ours, for the python matcher. A bare `.venv/bin/python` running an
 ## interactive shell is not a stray; `.venv/bin/python tools/sweep.py` is.
@@ -104,6 +126,13 @@ def _classify(cmd: str) -> str | None:
     # Godot: only ever a verification run. An editor session carries neither flag.
     if "godot" in low and ("--headless" in cmd or "--fixed-fps" in cmd):
         return "godot (verification run)"
+
+    # Xvfb / xvfb-run: the virtual framebuffer for invisible Godot capture (decision 052).
+    # Scoped on the screen spec, not the repo path — see module docstring for why, and for
+    # why this is measured to leak (`xvfb-run`'s cleanup trap does not reliably fire here)
+    # rather than a theoretical concern.
+    if "xvfb" in low and XVFB_SCREEN_SPEC in cmd:
+        return "xvfb (virtual framebuffer, invisible Godot capture)"
 
     # Blender: background renders only, and only for this repo.
     if "blender" in low and re.search(r"(^|\s)-b(\s|$)", cmd) and repo in cmd:

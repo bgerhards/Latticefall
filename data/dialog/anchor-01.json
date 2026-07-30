@@ -26,12 +26,38 @@
     { "trigger": "first-leak", "speaker": "control", "critical": false,
       "text": "One through. Ring integrity holding. Don't make a habit of it." },
 
+    { "trigger": "low-lives", "speaker": "vasquez", "critical": false,
+      "text": "We're losing lives, not the fight. Cut whatever's expensive and keep shooting." },
+
+    { "trigger": "wards-half", "speaker": "control", "critical": false,
+      "text": "Three wards engaged. Ring's half live." },
+
+    { "trigger": "wards-full", "speaker": "control", "critical": false,
+      "text": "Six of six. Ring's fully engaged." },
+    { "trigger": "wards-full", "speaker": "okonkwo", "critical": false,
+      "text": "Full ring, eleven-year-old hardware, and it still locks true. Somebody built this to last." },
+
+    { "trigger": "surge-ready", "speaker": "control", "critical": false,
+      "text": "Threshold Surge at full charge. Yours to spend." },
+
+    { "trigger": "surge-first", "speaker": "okonkwo", "critical": false,
+      "text": "That's not a function this ring was built with. Or it was, and nobody thought to mention it.",
+      "beat": "the anchor doing something it was not designed to do, underplayed" },
+    { "trigger": "surge-first", "speaker": "vasquez", "critical": false,
+      "text": "Good. Do it again next time you can." },
+
     { "trigger": "debrief", "speaker": "vasquez",
       "text": "Anchor's ours. Okonkwo, the containment order — can you read it?" },
     { "trigger": "debrief", "speaker": "okonkwo",
       "text": "Some of it. It names a thing, and then it names sixty other anchors. This one is number four.",
       "beat": "the campaign's actual premise, delivered flatly" },
     { "trigger": "debrief", "speaker": "vasquez",
-      "text": "Number four of sixty." }
+      "text": "Number four of sixty." },
+
+    { "trigger": "recovery-taken", "speaker": "okonkwo",
+      "text": "Ordinal-made, still live after this long. I'd like to know how it survived and I'm not going to ask right now.",
+      "beat": "fires on the debrief's recovery draft; provisional placement, see report — draft.gd has no dialog firing yet" },
+    { "trigger": "recovery-taken", "speaker": "vasquez",
+      "text": "Take it and move. We've got twenty-three more of these." }
   ]
 }

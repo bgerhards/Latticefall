@@ -101,6 +101,52 @@
               }
             }
           },
+          "fx": {
+            "type": "object",
+            "required": [
+              "class",
+              "colour"
+            ],
+            "additionalProperties": false,
+            "description": "Presentation-only projectile/effect language for the combat FX layer (scripts/combat_fx.gd, scripts/fx_additive.gd). Never read by sim/engine.py or anchor_sim.gd — changing it cannot change a rule. Optional: a tower with no fx block draws with the FX layer's default. 'bolt' travels with real speed and leads its target; 'arc' is an instant chained lightning polyline; 'beam' charges up then snaps out full length; 'flak' is a travelling shell that airbursts at the tower's own splash radius; 'mortar' lobs a shell on a parabola to a ground burst; 'field' fires nothing and instead draws a slow pulse ring at the tower's range, for zero-damage support emplacements.",
+            "properties": {
+              "class": {
+                "enum": [
+                  "bolt",
+                  "arc",
+                  "beam",
+                  "flak",
+                  "mortar",
+                  "field"
+                ]
+              },
+              "colour": {
+                "type": "string",
+                "pattern": "^#[0-9a-fA-F]{6}$",
+                "description": "outer/glow colour, sRGB hex"
+              },
+              "core": {
+                "type": "string",
+                "pattern": "^#[0-9a-fA-F]{6}$",
+                "description": "bright core colour, sRGB hex. Defaults to near-white if absent."
+              },
+              "speed": {
+                "type": "number",
+                "exclusiveMinimum": 0,
+                "description": "tiles/sec of travel, for classes with real travel time (bolt, flak, mortar)"
+              },
+              "width": {
+                "type": "number",
+                "exclusiveMinimum": 0,
+                "description": "stroke width in px, at 1x zoom"
+              },
+              "trail": {
+                "type": "number",
+                "minimum": 0,
+                "description": "seconds of fading after-image behind a travelling projectile"
+              }
+            }
+          },
           "upgrade": {
             "type": "object",
             "required": [

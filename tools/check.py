@@ -27,6 +27,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 PY = sys.executable
 
+sys.path.insert(0, str(ROOT / "tools"))
+import toolpaths                                              # noqa: E402
+
 OK, FAIL, SKIP = "ok", "FAIL", "skip"
 
 
@@ -416,11 +419,16 @@ def check_godot_boots() -> Result:
     A GDScript parse error does not stop the process — Godot logs it and carries on
     with the scene missing. Exit code alone would call that a pass, so the output is
     what has to be asserted on.
+
+    `--headless` never opens a window on any build, so this goes through
+    `toolpaths.godot_argv(..., want_window=True)` purely to pick up whichever binary is
+    installed — there is nothing here for `Xvfb` to hide.
     """
-    godot = "/Applications/Godot.app/Contents/MacOS/Godot"
-    if not Path(godot).exists():
+    if toolpaths.godot() is None:
         return Result(SKIP, "godot not installed")
-    r = run(godot, "--headless", "--path", str(ROOT), "--quit-after", "120")
+    argv = toolpaths.godot_argv(ROOT, ["--headless", "--quit-after", "120"],
+                                want_window=True)
+    r = run(*argv)
     blob = r.stdout + r.stderr
     bad = [l for l in blob.splitlines()
            if "SCRIPT ERROR" in l or "Parse Error" in l or "Compile Error" in l]
@@ -439,17 +447,22 @@ def check_game_renders() -> Result:
     a healthy anchor-01 frame is ~0.39 coverage and a board that failed to load is
     ~0.03, so the bar sits between them with room on both sides.
 
-    This needs a real window: GL Compatibility headless renders nothing to read back.
+    GL Compatibility renders nothing readable under `--headless`, so this needs a real,
+    GPU-backed window — but not a *visible* one. `toolpaths.godot_argv(..., want_window=
+    False)` launches the native Linux build under an `Xvfb` virtual framebuffer instead,
+    which supersedes the old occlusion workaround (LF-061, decision 051): there is no
+    compositor and no window on any real desktop, so nothing can occlude it and nothing
+    steals focus.
     """
-    godot = "/Applications/Godot.app/Contents/MacOS/Godot"
-    if not Path(godot).exists():
+    if toolpaths.godot() is None:
         return Result(SKIP, "godot not installed")
 
     MIN_COVERAGE, MIN_DISTINCT = 0.15, 12
     shot = ROOT / ".godot" / "gate-frame.png"
     shot.parent.mkdir(parents=True, exist_ok=True)
-    r = run(godot, "--path", str(ROOT), "--fixed-fps", "60",
-            "--", "--display-defaults", "--shot", str(shot), "120")
+    argv = toolpaths.godot_argv(ROOT, ["--fixed-fps", "60", "--", "--display-defaults",
+                                      "--shot", str(shot), "120"], want_window=False)
+    r = run(*argv)
     blob = r.stdout + r.stderr
 
     line = next((l for l in blob.splitlines() if l.startswith("FRAME ")), "")
@@ -476,16 +489,18 @@ def check_menu_renders() -> Result:
     `game renders` passes `--shot`, which the menu treats as "go straight to the game" —
     so without this check nothing looks at the screen the player actually sees first, and
     a menu that drew nothing (or listed no anchors) would ship green.
+
+    Same invisible path as `game renders` — see that check's docstring.
     """
-    godot = "/Applications/Godot.app/Contents/MacOS/Godot"
-    if not Path(godot).exists():
+    if toolpaths.godot() is None:
         return Result(SKIP, "godot not installed")
 
     MIN_COVERAGE, WANT_BUTTONS = 0.015, 8
     shot = ROOT / ".godot" / "gate-menu.png"
     shot.parent.mkdir(parents=True, exist_ok=True)
-    r = run(godot, "--path", str(ROOT), "--fixed-fps", "60",
-            "--", "--display-defaults", "--shot-menu", str(shot), "40")
+    argv = toolpaths.godot_argv(ROOT, ["--fixed-fps", "60", "--", "--display-defaults",
+                                      "--shot-menu", str(shot), "40"], want_window=False)
+    r = run(*argv)
     blob = r.stdout + r.stderr
 
     line = next((l for l in blob.splitlines() if l.startswith("MENUFRAME ")), "")
@@ -532,9 +547,11 @@ def check_accessibility() -> Result:
     in a measurement: an 11 px ladder that read as 8 px in the default window, an alert
     colour at 4.00:1, a locked-anchor override under a theme key that does not exist, and a
     note label that drew over the SELL button once its height went to zero.
+
+    Same invisible path as `game renders` — see that check's docstring. Five cases means
+    five separate Godot launches; wrapped invisibly, none of them ever reach a real screen.
     """
-    godot = "/Applications/Godot.app/Contents/MacOS/Godot"
-    if not Path(godot).exists():
+    if toolpaths.godot() is None:
         return Result(SKIP, "godot not installed")
 
     sys.path.insert(0, str(ROOT / "tools" / "validate"))
@@ -568,9 +585,10 @@ def check_accessibility() -> Result:
         # outside the repo. The same tree reported coverage 0.56 on one machine and 0.34
         # on another for exactly that reason, and the a11y analyser samples its background
         # colours out of these frames.
-        r = run(godot, "--path", str(ROOT), "--fixed-fps", "60",
-                "--", "--display-defaults", *extra, shot_flag, str(png), frame,
-                "--a11y", str(js))
+        argv = toolpaths.godot_argv(ROOT, ["--fixed-fps", "60", "--", "--display-defaults",
+                                          *extra, shot_flag, str(png), frame,
+                                          "--a11y", str(js)], want_window=False)
+        r = run(*argv)
         if not js.exists():
             return Result(FAIL, f"{name}: probe wrote no report — the run did not reach "
                                 f"the shot:\n" + (r.stdout + r.stderr).strip()[-800:])
@@ -599,7 +617,7 @@ def check_rules_parity() -> Result:
     script = ROOT / "tools" / "test_parity.py"
     if not script.exists():
         return Result(SKIP, "parity harness missing")
-    if not Path("/Applications/Godot.app/Contents/MacOS/Godot").exists():
+    if toolpaths.godot() is None:
         return Result(SKIP, "godot not installed")
     r = run(PY, str(script), timeout=PARITY_TIMEOUT)
     if r.returncode == TIMED_OUT:
@@ -646,24 +664,31 @@ def check_sprite_atlas() -> Result:
     return Result(OK, f"{cells} cells in {len(atlas.get('pages', {}))} pages, in sync")
 
 
-## The checks that open a real window on the owner's desktop, and therefore the ones that
-## cannot run while somebody is using the machine.
+## The checks that need a real, GPU-backed Godot frame — GL Compatibility renders nothing
+## readable under `--headless`. `godot boots` and `rules parity` pass `--headless` and are
+## not in this set.
 ##
-## GL Compatibility renders nothing readable headlessly, so these three launch a visible
-## Godot — seven windows in total, because `accessibility` walks five cases. `godot boots`
-## and `rules parity` both pass `--headless` and are not affected. That has two costs nobody
-## chose. It steals focus and pops up over whatever the
-## owner is doing — repeatedly, per gate run — and, worse, **macOS throttles a window it
-## considers occluded**: cover or background the window and the frame loop stalls, so
-## `await RenderingServer.frame_post_draw` in main.gd never resolves and the check waits.
-## That is the measured 36-minute `game renders` run in LF-061 — it did not fail, it sat
-## there until the window came back and then passed. Diagnosed by the owner, who watched it
-## happen while working in the foreground.
+## These three used to mean a *visible* window on the owner's desktop: seven of them per
+## gate run, because `accessibility` walks five cases. It stole focus and popped up over
+## whatever the owner was doing, and — worse — **macOS throttled a window it considered
+## occluded**: cover or background it and the frame loop stalled, so
+## `await RenderingServer.frame_post_draw` in main.gd never resolved. That is the measured
+## 36-minute `game renders` run in LF-061 — it did not fail, it sat there until the window
+## came back into view and then passed.
 ##
-## `--no-window` skips exactly these. They report SKIP, and this file's contract is that a
-## skip is never a pass — the summary says so out loud — so using it cannot quietly weaken a
-## commit.
-WINDOWED = {"game renders", "menu renders", "accessibility"}
+## That is fixed, not mitigated: `toolpaths.godot_argv(..., want_window=False)` now launches
+## the native Linux Godot build under an `Xvfb` virtual framebuffer, which is a real
+## GPU-backed (Mesa llvmpipe software GL) window that no compositor ever presents to a
+## screen. There is nothing left to occlude and nothing left to steal focus, so LF-061 is
+## closed rather than merely bounded.
+##
+## `--no-window` still exists, but it is now a *speed* option, not a courtesy: launching
+## Godot five separate times (Xvfb included) is the slowest single stretch of the gate after
+## `rules parity`, so skipping these three is worth reaching for on an otherwise-idle box
+## even though nothing about running them disturbs anyone anymore. They still report SKIP,
+## and this file's contract is unchanged — a skip is never a pass — so reaching for the
+## speed option cannot quietly weaken a commit.
+RENDERED = {"game renders", "menu renders", "accessibility"}
 
 CHECKS = [
     ("python syntax",     check_python_syntax),
@@ -691,32 +716,28 @@ def main() -> int:
     ap = argparse.ArgumentParser(description="Latticefall pre-commit gate.")
     ap.add_argument("--list", action="store_true", help="list checks and exit")
     ap.add_argument("--no-window", action="store_true",
-                    help="skip the checks that open a real window (%s). Use when someone is "
-                         "working on this machine: they steal focus, and macOS stalls a "
-                         "window it thinks is occluded, which hangs the run."
-                         % ", ".join(sorted(WINDOWED)))
+                    help="skip the three checks that render a frame (%s). This is now a "
+                         "SPEED option only, not a courtesy — those checks capture invisibly "
+                         "(no window ever reaches the owner's desktop, LF-061 closed) but "
+                         "still cost five extra Godot launches, the slowest stretch of the "
+                         "gate after rules parity. Reach for this when you want the fast "
+                         "gate, not because anything about the full run disturbs anyone."
+                         % ", ".join(sorted(RENDERED)))
     args = ap.parse_args()
 
     if args.list:
         for name, _ in CHECKS:
-            print(name + ("  [opens a window]" if name in WINDOWED else ""))
+            print(name + ("  [renders a frame]" if name in RENDERED else ""))
         return 0
-
-    if not args.no_window:
-        # Said before the first window appears rather than after, because the whole
-        # complaint is being surprised by it. Cheap, and it makes --no-window discoverable
-        # at the moment it is wanted.
-        print(f"note: {len(WINDOWED)} checks open a real Godot window and will take focus. "
-              f"Do not cover or background it — macOS stalls an occluded window and the run "
-              f"hangs (LF-061). Use --no-window to skip them.")
 
     failed = skipped = by_flag = 0
     t0 = time.time()
     for name, fn in CHECKS:
         start = time.time()
         try:
-            if args.no_window and name in WINDOWED:
-                res = Result(SKIP, "skipped by --no-window (opens a real window)")
+            if args.no_window and name in RENDERED:
+                res = Result(SKIP, "skipped by --no-window (speed option; capture is "
+                                   "invisible either way)")
                 by_flag += 1
             else:
                 res = fn()

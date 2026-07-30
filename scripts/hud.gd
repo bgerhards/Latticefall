@@ -29,6 +29,13 @@ var _stat_funds: Label
 var _stat_lives: Label
 var _stat_leaks: Label
 var _wave: Label
+## Speed control and the kill chain streak, one compact line — "felt, not read" per the
+## spec, so it lives beside the funds/wave readout rather than as a sentence in the note.
+var _pace: Label
+var _target_label: Label
+var _vet_label: Label
+var _ability_labels: Dictionary = {}   ## ability id -> Label
+var _ability_gauges: Dictionary = {}   ## ability id -> ColorRect (the fill)
 var _fault: Label
 var _outcome: Label
 var _outcome_hint: Label
@@ -209,7 +216,12 @@ func _build_ui() -> void:
 	_wave = _make_label(Ui.SIZE_STAT, C_MUTED, true)
 	_wave.position = Vector2(inner_x, y)
 	col.add_child(_wave)
-	y += Ui.line_h(Ui.SIZE_STAT) + PAD * 1.5
+	y += Ui.line_h(Ui.SIZE_STAT) + 2.0
+
+	_pace = _make_label(Ui.SIZE_BODY, C_AMBER, true)
+	_pace.position = Vector2(inner_x, y)
+	col.add_child(_pace)
+	y += Ui.line_h(Ui.SIZE_BODY) + PAD * 1.5
 
 	# Two across, inside the instrument column, rather than one long row. Nine unlocked
 	# emplacements at 126 px each is 1182 px of buttons on a 1920 px viewport — from Act II
@@ -257,14 +269,21 @@ func _build_ui() -> void:
 		note_lines = maxi(note_lines, Ui.wrapped_lines(
 			String(t.get("note", "")), INNER_W, Ui.SIZE_BODY))
 	var col_h := _build_inspector(col, y + bar_h + PAD, stat_rows, note_lines)
+	col_h = _build_abilities(col, col_h)
 
-	# The scroll region takes what the content wants, or what is left after the pinned
-	# verbs, whichever is smaller. At 100% nothing scrolls and the verbs sit directly under
-	# the note exactly as before; at 150% and above the readout scrolls under them.
+	# The scroll region takes what the content wants, or what is left after the pinned verbs
+	# and the dialog band, whichever is smaller. The dialog panel is on a later CanvasLayer
+	# and draws over whatever is beneath it — dialog_reserve() is the same reservation the
+	# threat panel already makes — so without subtracting it here too, a column tall enough
+	# to need the max budget (the Bindstone gauges pushed anchor-13's over it) pins the verbs
+	# right where the dialog band draws over them, and SELL/UPGRADE/the abilities read as
+	# missing rather than merely hidden behind another panel. At 100% nothing scrolls and the
+	# verbs sit directly under the note exactly as before; at 150% and above it scrolls.
 	col.custom_minimum_size = Vector2(COL_W - Ui.SCROLL_GUTTER, col_h)
+	var col_budget := maxf(vp.y - g - VERBS_H - dialog_reserve(vp), 80.0)
 	_col_scroll = Ui.scroller()
 	_col_scroll.position = Vector2(g, g)
-	_col_scroll.size = Vector2(COL_W, minf(col_h, vp.y - g * 2.0 - VERBS_H))
+	_col_scroll.size = Vector2(COL_W, minf(col_h, col_budget))
 	_col_scroll.add_child(col)
 	_root.add_child(_col_scroll)
 
@@ -383,6 +402,19 @@ func _build_inspector(col: Control, top: float, stat_rows: int, note_lines: int)
 	col.add_child(_note)
 	y += note_h + 10.0
 
+	# Targeting priority and veterancy rank — one reserved line each, always, so the panel
+	# never resizes between a support tower (neither applies) and a lance with three kills on
+	# it. Empty text still costs its line height, the same trade _fault already makes.
+	_target_label = _make_label(Ui.SIZE_BODY, C_MUTED, true)
+	_target_label.position = Vector2(inner_x, y)
+	col.add_child(_target_label)
+	y += Ui.line_h(Ui.SIZE_BODY, false)
+
+	_vet_label = _make_label(Ui.SIZE_BODY, C_MUTED, true)
+	_vet_label.position = Vector2(inner_x, y)
+	col.add_child(_vet_label)
+	y += Ui.line_h(Ui.SIZE_BODY, false) + 10.0
+
 	var panel := ColorRect.new()
 	panel.color = C_PANEL
 	panel.position = Vector2(0.0, top)
@@ -391,6 +423,54 @@ func _build_inspector(col: Control, top: float, stat_rows: int, note_lines: int)
 	col.add_child(panel)
 	# Behind the labels it backs, which were added before it. The reactor panel above is a
 	# sibling at a different y and does not overlap, so their relative order is immaterial.
+	col.move_child(panel, 0)
+	return y
+
+
+func _build_abilities(col: Control, top: float) -> float:
+	## Threshold Surge, Overcharge and Shutter: charge/cooldown gauges under the inspector,
+	## in authored order (data/tuning.json `abilities`) so ability 1/2/3 on the keymap always
+	## matches top-to-bottom here. A hard requirement per the brief — "a HUD control showing
+	## charge/cooldown state" for every one of the three.
+	var inner_x := PAD
+	var y := top + PAD
+
+	var title := _make_label(Ui.SIZE_CAPTION, C_MUTED)
+	title.text = "BINDSTONE"
+	title.position = Vector2(inner_x, y)
+	col.add_child(title)
+	y += Ui.line_h(Ui.SIZE_CAPTION, false) + 4.0
+
+	_ability_labels.clear()
+	_ability_gauges.clear()
+	for a in Tuning.abilities():
+		var id := String(a["id"])
+		var row := _make_label(Ui.SIZE_BODY, C_BONE, true)
+		row.position = Vector2(inner_x, y)
+		col.add_child(row)
+		y += Ui.line_h(Ui.SIZE_BODY, false) + 3.0
+
+		var gauge := ColorRect.new()
+		gauge.color = Color(0.07, 0.10, 0.11)
+		gauge.position = Vector2(inner_x, y)
+		gauge.size = Vector2(INNER_W, 8)
+		col.add_child(gauge)
+		var fill := ColorRect.new()
+		fill.color = C_MUTED
+		fill.position = Vector2(inner_x, y)
+		fill.size = Vector2(0, 8)
+		col.add_child(fill)
+		y += 8.0 + 8.0
+
+		_ability_labels[id] = row
+		_ability_gauges[id] = fill
+
+	var panel := ColorRect.new()
+	panel.color = C_PANEL
+	panel.position = Vector2(0.0, top)
+	panel.size = Vector2(COL_W, y - top)
+	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	col.add_child(panel)
 	col.move_child(panel, 0)
 	return y
 
@@ -601,6 +681,16 @@ func refresh() -> void:
 	var total: int = sim.anchor["waves"].size()
 	_wave.text = "wave %d / %d   ·   %s" % [view.wave_number(), total, view.phase()]
 
+	# Speed control and the kill chain streak — "felt, not read": the multiplier is in the
+	# text, but what actually reads at a glance is the amber colour firing every kill and the
+	# number climbing, not a sentence explaining the mechanic.
+	var pace_parts: Array[String] = ["%dx SPEED (`)" % roundi(view.speed)]
+	if view.chain_active():
+		pace_parts.append("CHAIN x%d  +%d%%" % [view.chain_count, roundi(view.chain_mult * 100.0)])
+	_pace.text = "   ·   ".join(pace_parts)
+
+	_refresh_abilities()
+
 	# Two independent signals on one button: dimmed means unaffordable, amber means this is
 	# what a click on a free slot will build. Which one is armed used to be readable only
 	# from a word at the end of the wave line, nowhere near the buttons themselves.
@@ -631,6 +721,43 @@ func refresh() -> void:
 			_next_button.text = "NEXT: ANCHOR %s" % nxt.substr(7)
 
 
+func _refresh_abilities() -> void:
+	if view.abilities == null:
+		return
+	var key_num := 1
+	for a in Tuning.abilities():
+		var id := String(a["id"])
+		var lbl: Label = _ability_labels.get(id)
+		var fill: ColorRect = _ability_gauges.get(id)
+		if lbl == null or fill == null:
+			key_num += 1
+			continue
+		var name := String(a.get("label", id.to_upper()))
+		var frac: float
+		var state_txt: String
+		if view.abilities.is_active(id):
+			frac = view.abilities.active_frac(id)
+			state_txt = "ACTIVE %.1fs" % (frac * float(a.get("duration_s", 0.0)))
+			fill.color = C_VERD
+		elif view.abilities.ready(id):
+			frac = 1.0
+			state_txt = "READY"
+			fill.color = C_AMBER
+		elif view.abilities.is_charge_gated(id):
+			frac = view.abilities.charge_frac(id)
+			state_txt = "CHARGE %d%%" % roundi(frac * 100.0)
+			fill.color = C_MUTED
+		else:
+			frac = 1.0 - view.abilities.cooldown_frac(id)
+			state_txt = "COOLDOWN %.0fs" % (view.abilities.cooldown_frac(id)
+				* float(a.get("cooldown_s", 0.0)))
+			fill.color = C_MUTED
+		lbl.text = "[%d] %s — %s" % [key_num, name, state_txt]
+		lbl.add_theme_color_override("font_color", C_AMBER if view.abilities.ready(id) else C_BONE)
+		fill.size.x = INNER_W * clampf(frac, 0.0, 1.0)
+		key_num += 1
+
+
 # ───────────────────────────────────────────────────────────── threat ──
 
 func _refresh_threat() -> void:
@@ -649,7 +776,11 @@ func _refresh_threat() -> void:
 	# a bounty spent or not spent, so it is the number the player is actually working to.
 	match phase:
 		"prep":
-			_threat_sub.text = "SPAWNS IN %d s" % ceili(view.lead_left())
+			# The bonus on offer, shown before it is spent — CLAUDE.md's own framing for why
+			# this has to be visible *before* the player commits, or CALL WAVE is a surprise
+			# rather than a decision.
+			var bonus: int = view.call_wave_bonus()
+			_threat_sub.text = "SPAWNS IN %d s   ·   CALL (C) +$%d" % [ceili(view.lead_left()), bonus]
 			_threat_sub.add_theme_color_override("font_color", C_AMBER)
 		"combat":
 			_threat_sub.text = "IN PROGRESS · %d STILL UP" % _alive_count()
@@ -773,6 +904,34 @@ func _refresh_inspector() -> void:
 	_power_button.text = ("TAKE OFFLINE — FREES %d MW" % int(t["draw_mw"])) if online \
 			else ("BRING ONLINE — COSTS %d MW" % int(t["draw_mw"]))
 
+	# Targeting priority and veterancy rank only mean anything for a weapon that damages
+	# something — a support tower never fires and never earns a kill.
+	if float(t.get("damage", 0.0)) > 0.0:
+		var mode: String = String(p.get("target_mode", Tuning.targeting_default()))
+		_target_label.text = "target   %s   ·   press T to cycle" % mode.to_upper()
+		var kills: int = int(p.get("kills", 0))
+		var rank: String = _rank_name(sim, p)
+		_vet_label.text = ("rank     %s · %d kills" % [rank, kills]) if rank != "" \
+			else "rank     %d kills" % kills
+	else:
+		_target_label.text = ""
+		_vet_label.text = ""
+
+
+func _rank_name(sim, p: Dictionary) -> String:
+	## sim.veterancy_ranks() is already scaled by Recoveries.veterancy_mult() — set once, at
+	## boot, by scripts/anchor_view.gd — so this reads the same ranks the rules themselves
+	## compare `p`'s kill count against, not the raw data/tuning.json thresholds.
+	var ranks: Array = sim.veterancy_ranks()
+	if ranks.is_empty():
+		return ""
+	var kills: int = int(p.get("kills", 0))
+	var name := ""
+	for r in ranks:
+		if kills >= int(r.get("kills", 0)):
+			name = String(r.get("name", ""))
+	return name
+
 
 func _show_build_selection() -> void:
 	## Nothing selected on the board, so the panel describes what a click would build.
@@ -792,6 +951,8 @@ func _show_build_selection() -> void:
 		_body.text = _stats_text(t, {})
 		_note.text = String(t.get("note", ""))
 
+	_target_label.text = ""
+	_vet_label.text = ""
 	_sell_button.disabled = true
 	_sell_button.text = "SELL  —"
 	_upgrade_button.disabled = true

@@ -45,6 +45,19 @@ const ACTIONS := {
 	## is otherwise unused for anything but its click (lf_power).
 	"lf_panel_up":   {"keys": [KEY_PAGEUP], "axis": [JOY_AXIS_RIGHT_Y, -1.0]},
 	"lf_panel_down": {"keys": [KEY_PAGEDOWN], "axis": [JOY_AXIS_RIGHT_Y, 1.0]},
+
+	## Pacing and the bindstone abilities (data/tuning.json `pacing`/`abilities`) — the
+	## answer to "slow" and to "nothing to press". Bound on keys the board actions above do
+	## not already use, with a gamepad mapping on whatever is left over: BACK/select, the
+	## left stick's own click, MISC1 (present on Xbox Series/DualSense-class pads; a keyboard
+	## always still reaches everything here) and the analogue triggers, which are otherwise
+	## unused by this game entirely.
+	"lf_speed_cycle": {"keys": [KEY_QUOTELEFT], "buttons": [JOY_BUTTON_LEFT_STICK]},
+	"lf_call_wave":   {"keys": [KEY_C], "buttons": [JOY_BUTTON_BACK]},
+	"lf_target":      {"keys": [KEY_T], "buttons": [JOY_BUTTON_MISC1]},
+	"lf_ability_1":   {"keys": [KEY_1], "axis": [JOY_AXIS_TRIGGER_LEFT, 1.0]},
+	"lf_ability_2":   {"keys": [KEY_2], "axis": [JOY_AXIS_TRIGGER_RIGHT, 1.0]},
+	"lf_ability_3":   {"keys": [KEY_3], "buttons": [JOY_BUTTON_TOUCHPAD]},
 }
 
 

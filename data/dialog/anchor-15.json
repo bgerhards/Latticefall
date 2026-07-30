@@ -47,6 +47,9 @@
     { "trigger": "low-lives", "speaker": "vasquez", "critical": false,
       "text": "Everything we have on the ring. Nothing clever." },
 
+    { "trigger": "chain-high", "speaker": "control", "critical": false,
+      "text": "Kill rate's up. Noted, not commented on." },
+
     { "trigger": "debrief", "speaker": "okonkwo",
       "text": "Anchor's held. Their carrier dropped about a minute before the last wave broke." },
     { "trigger": "debrief", "speaker": "vasquez",

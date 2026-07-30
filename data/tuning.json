@@ -1,0 +1,110 @@
+{
+  "schema": "tuning",
+  "note": "Numbers for the things a player does deliberately: pacing controls, the kill chain, the bindstone abilities, per-emplacement targeting, veterancy, and the between-anchor recovery draft. Separate from towers.json and enemies.json because none of it is graded — the Python reference sim never presses a button, so these values are a floor-raiser for a human rather than an input to a grade. See decision 033 for the precedent (sell() is GDScript-only for the same reason). Anything added here must be inert unless the player acts, or the GDScript rules stop matching the Python ones and the game is no longer playing the level that was balanced.",
+
+  "pacing": {
+    "speeds": [1.0, 2.0, 3.0],
+    "call_bonus_per_sec": 3,
+    "chain_window_s": 2.5,
+    "chain_bounty_per_kill": 0.02,
+    "chain_bounty_max": 0.5,
+    "clean_sweep_bonus_by_act": [40, 70, 110],
+    "note": "Prep is twenty seconds of dead air on every wave of every anchor, and the owner's first word about the game was 'slow'. call_bonus_per_sec turns that dead air into a decision: take the money and fight sooner, or take the time and build. Three funds per second saved is worth about a sixth of a pulse turret on a full skip, which is enough to be tempting and never enough to be free. The chain pays for aggression rather than for waiting — kills inside chain_window_s of each other stack a bounty multiplier, capped at chain_bounty_max so a good wave pays half again and never doubles."
+  },
+
+  "abilities": [
+    {
+      "id": "surge",
+      "name": "Threshold Surge",
+      "label": "SURGE",
+      "charge_max": 100,
+      "charge_per_leak_cost": 4,
+      "cooldown_s": 0.0,
+      "duration_s": 0.0,
+      "damage": 130,
+      "falloff_min": 0.35,
+      "pushback_tiles": 1.5,
+      "ignores_shield": true,
+      "trauma": 0.9,
+      "note": "Charged by kills, not by a clock: each kill adds the unit's leak_cost times charge_per_leak_cost, so the surge is paid for by the wave that made it necessary and a player who lets things through never gets one. Fires the threshold back down the lane as one travelling wall of light — full damage at the ring, falling to falloff_min at the exit, because the discharge has to come from the ring for the fiction to hold and a flat number across forty tiles would make it a delete button. Shielding does not stop it; it is the same energy the ring is made of. Survivors are pushed back a fixed 1.5 tiles rather than to the start, which is legible and can never look absurd."
+    },
+    {
+      "id": "overcharge",
+      "name": "Overcharge",
+      "label": "OVERCHARGE",
+      "charge_max": 0,
+      "charge_per_leak_cost": 0,
+      "cooldown_s": 35.0,
+      "duration_s": 7.0,
+      "fire_rate_bonus": 0.6,
+      "draw_mult": 1.35,
+      "trauma": 0.1,
+      "note": "The ability that teaches the brownout curve by playing it. Fire rate is (1 - penalty) * (1 + bonus), and the penalty is priced by overdraw size (decision 022) — so at 70% load overcharge is a clean 1.60x, at 85% it is still 1.25x, and at 100% it is 0.76x and a mistake. Overcharging a saturated bus must be a loss, or the whole power economy collapses into 'press the button'. The number that matters is draw_mult: at 1.6 there was no load at which it paid, at 1.2 there was none at which it hurt."
+    },
+    {
+      "id": "shutter",
+      "name": "Shutter",
+      "label": "SHUTTER",
+      "charge_max": 0,
+      "charge_per_leak_cost": 0,
+      "cooldown_s": 50.0,
+      "duration_s": 5.0,
+      "hold_tiles": 2.5,
+      "draw_mw": 55,
+      "trauma": 0.25,
+      "note": "Plates the ring. Arrivals queue instead of entering and anything inside hold_tiles of the entrance is held at zero speed. It draws 55 MW while it is down, so the relief is bought on the bus like everything else in this game — plating the ring on a tight anchor browns the board out to do it. Queued spawns are released in their original order the instant it lifts, which is the risk: the wave does not go away, it arrives all at once."
+    }
+  ],
+
+  "targeting": {
+    "modes": ["first", "last", "strongest", "weakest"],
+    "default": "first",
+    "note": "Per-emplacement target priority, cycled on the selected emplacement. The rules already pick the unit furthest along the path — that is 'first', and it stays the default so nothing about a graded board changes unless the player touches it. The other three are strictly a human's tool: 'last' holds a lane's tail so a slow gun is not wasted on something already dead, 'strongest' points the lance at the thing only the lance can hurt instead of at whatever walked in front of it, 'weakest' finishes wounded units so the kill chain keeps stacking. This is the cheapest real decision in the game per line of code, and it is the one thing a tower defence player reaches for first and currently cannot find."
+  },
+
+  "veterancy": {
+    "ranks": [
+      {"kills": 0,  "name": "",     "damage_mult": 1.0,  "range_mult": 1.0},
+      {"kills": 8,  "name": "I",    "damage_mult": 1.08, "range_mult": 1.0},
+      {"kills": 22, "name": "II",   "damage_mult": 1.16, "range_mult": 1.05},
+      {"kills": 45, "name": "III",  "damage_mult": 1.25, "range_mult": 1.10}
+    ],
+    "note": "An emplacement that has done work gets slightly better at it, and shows a rank pip on its base. Small numbers on purpose: this is a reason to keep a good gun and defend its slot rather than sell and rebuild every wave, not a power curve. It also gives the player something that accrues *during* a level, which is the thing the minute-to-minute currently lacks — funds go up and down, but nothing goes only up. Kills are counted on the placed record, never on a unit dictionary; annotating a unit breaks the value-comparison the splash loop depends on."
+  },
+
+  "recoveries": {
+    "draft_size": 3,
+    "note": "Between anchors the player picks one of three recovered Ordinal fragments, kept for the rest of the campaign. This is the hook the game has no version of today: twenty-four anchors is a long way to walk with nothing accumulating across them, and an unlock schedule the player did not choose is not progression, it is a calendar. Effects are deliberately small and deliberately in tension with each other — every one of them is paid for somewhere, because the power economy is the game and a recovery that is free is a recovery that deletes it.",
+    "how_effects_apply": "Every effect here is expressible as a change to the DATA the sim is handed, and scripts/loadout.gd applies them to private copies before AnchorSim.setup() ever sees them. None of them is a branch inside scripts/anchor_sim.gd. That is deliberate and it is the whole reason the list looks the way it does: anchor_sim.gd is parity-tested against sim/engine.py on every commit, and a rule that exists in one implementation and not the other is exactly the failure the parity harness is there to catch. Transforming the inputs keeps the sim a pure function of its data, so parity holds by construction rather than by nobody happening to own a recovery when the harness runs. An earlier draft of this pool had a brownout_slope_mult entry; it was cut because BROWNOUT_SLOPE is a constant inside the rules and there is no honest way to express it as data, and 'add one branch to the parity-tested file' is how that guarantee gets lost. It was replaced with tower_damage_mult, which is a field on a tower. sell_refund_add, surge_charge_mult and veterancy_mult are the exceptions and are safe for the opposite reason: selling, the abilities and veterancy are GDScript-only systems that sim/engine.py does not model at all (decision 033).",
+    "pool": [
+      {"id": "tuned-couplings", "name": "Tuned Couplings", "effect": "tower_draw_mult", "value": 0.92,
+       "blurb": "Every emplacement draws 8% less. Okonkwo will not say how."},
+      {"id": "salvage-rights", "name": "Salvage Rights", "effect": "bounty_mult", "value": 1.12,
+       "blurb": "Meridian books the wreckage. Bounties up 12%."},
+      {"id": "cold-start", "name": "Cold Start", "effect": "starting_funds_add", "value": 120,
+       "blurb": "A crate arrives ahead of you. 120 up front, every anchor."},
+      {"id": "hardened-relays", "name": "Hardened Relays", "effect": "tower_damage_mult", "value": 1.06,
+       "blurb": "Ordinal tolerances, read off the ring itself. Every emplacement hits 6% harder."},
+      {"id": "ranging-data", "name": "Ranging Data", "effect": "range_mult", "value": 1.08,
+       "blurb": "Ordinal survey marks, read correctly at last. Reach up 8%."},
+      {"id": "field-repair", "name": "Field Repair", "effect": "sell_refund_add", "value": 0.15,
+       "blurb": "Pull an emplacement without eating the loss. Refund up to 75%."},
+      {"id": "second-wind", "name": "Second Wind", "effect": "lives_add", "value": 2,
+       "blurb": "Two more than the brief promised. Do not ask Control about it."},
+      {"id": "ward-primer", "name": "Ward Primer", "effect": "surge_charge_mult", "value": 1.25,
+       "blurb": "The ring holds a charge between waves. Surge builds 25% faster."},
+      {"id": "long-lens", "name": "Long Lens", "effect": "veterancy_mult", "value": 0.7,
+       "blurb": "Crews learn quicker. Ranks come at 70% of the kills."}
+    ]
+  },
+
+  "grade": {
+    "thresholds": [
+      {"name": "HELD",      "lives_frac": 1.00},
+      {"name": "SECURED",   "lives_frac": 0.80},
+      {"name": "CONTESTED", "lives_frac": 0.50},
+      {"name": "MAULED",    "lives_frac": 0.01}
+    ],
+    "note": "A verdict on the debrief, scored on the fraction of lives kept, so clearing an anchor has a ceiling above 'cleared' and a reason to replay one. Named in Meridian's voice — Control reads a result, it does not award a letter."
+  }
+}

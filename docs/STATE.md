@@ -8,18 +8,28 @@ conversation that produced it. The facts below the AUTO marker are regenerated b
 
 ## Read this first, before running anything
 
-**The gate opens real windows on the owner's desktop, and covering one hangs the run.**
-`game renders`, `menu renders` and `accessibility` launch a *visible* Godot — seven windows
-per gate run, because the a11y check walks five cases — because GL Compatibility reads back
-nothing headlessly. macOS throttles a window it considers occluded, so if the owner keeps
-working in front of it the frame loop stalls and `await RenderingServer.frame_post_draw` in
-`main.gd` never resolves. **The check does not fail. It waits, then passes.** One
-`game renders` took 36 minutes and still reported `ok`, taking the gate from 11 to 47
-minutes; the same check on the same tree took 2.3 seconds when left alone.
+**Godot capture is invisible now — `LF-061` is closed, not bounded.** On this WSL2 machine,
+`tools/toolpaths.godot()` prefers a native Linux Godot build
+(`/mnt/d/godot/linux/Godot_v4.7.1-stable_linux.x86_64`), and
+`tools/toolpaths.godot_argv(..., want_window=False)` runs it under an `Xvfb` virtual
+framebuffer via `xvfb-run` — a real, GPU-backed (Mesa llvmpipe software GL) window that no
+compositor ever presents to a screen. That is the fix, not a mitigation: the old failure
+mode was macOS throttling a window it considered occluded, stalling
+`await RenderingServer.frame_post_draw` in `main.gd` until the window came back into view —
+one `game renders` once took 36 minutes and still reported `ok`. With no desktop in the
+loop, there is nothing to occlude. Decision 052.
 
-So: **ask before running the full gate if the owner is at the machine**, and otherwise use
-`tools/check.py --no-window`, which skips exactly those three and says out loud that it did.
-Decision 051, `LF-061`.
+**`tools/shot.py <anchor-id> --out PATH` is how you look at the game.** It wraps the
+invisible launch, relays Godot's `SHOT`/`FRAME`/`STATE`/`AUDIO`/`FACE` lines, and fails
+loudly on a blank frame or a PNG write error rather than reporting a false pass. `tools/
+check.py`'s `game renders`, `menu renders` and `accessibility`, and `tools/test_parity.py`,
+all go through the same `tools/toolpaths.godot_argv()` now. `tools/check.py --no-window`
+still exists, but it is a **speed** option — skipping five extra Godot launches — not a
+courtesy; nothing about the full gate disturbs anyone at the machine anymore.
+
+A machine with no native Linux Godot build, or no `xvfb-run`, falls back to the old
+Windows-exe/macOS-bundle resolution and a real, visible window — the previous caution about
+asking before running the full gate still applies there.
 
 **Kill what you start.** `tools/reap.py --kill` at every wrap, `tools/reap.py` at every
 start. A session declared wrapped once left processes running for over thirty minutes and
@@ -85,13 +95,6 @@ left work running and spilled their subscription usage into paid credits. Decisi
   forward the skip, and grades anchors with `--jobs 0` instead of serially.
 
 ## What does not exist
-
-**The occlusion stall is bounded, not fixed.** `LF-061`. A real fix makes the capture
-independent of the compositor presenting frames — `RenderingServer.force_draw()` instead of
-awaiting `frame_post_draw`, or capturing through a `SubViewport`. Both need probing against
-Godot 4.7.1 on this machine, and **the stall has to be reproduced deliberately first** (cover
-the window during a `--shot` run) or there is no way to tell a fix from a coincidence. This
-project has been burned by exactly that before: decision 011, and `solve_scale`'s residual.
 
 **Indentation is unsettled, and there is a branch waiting on a decision.**
 `worktree-agent-a1cb438a721b228c6` carries a commit that reindents all 19 `.gd` files from
@@ -228,7 +231,10 @@ Full detail in `CLAUDE.md` and in the decision entries.
 - **Killing `check.py` does not kill its headless Godot.** It reparents to init and holds a
   core at 100%. `tools/reap.py --kill` is now the answer; do not rely on remembering `ps`.
 - **An occluded Godot window stalls the check that opened it, and the check then passes.**
-  See the top of this file. 36 minutes, reported `ok`. `LF-061`, decision 051.
+  36 minutes, reported `ok`, on a real desktop window. `LF-061`, decision 051. Closed by
+  decision 052 on this machine — Godot capture now runs invisibly under `Xvfb`, so there is
+  no window to occlude — but the trap is still real on a machine with no native Linux Godot
+  build or no `xvfb-run`, which falls back to the old visible-window path.
 - **A subagent with no `model:` key inherits Opus.** All five carried none. The `agent models`
   gate check exists so this cannot come back quietly.
 - **`awk`'s record counter persists ACROSS files.** `awk '/^---$/{n++} n==1' .claude/agents/*.md`
