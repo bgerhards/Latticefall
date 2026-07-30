@@ -1879,3 +1879,149 @@ rendered checks no longer disturb anyone, they just cost five extra Godot launch
 is closed. A machine with no native Linux Godot build (or no `xvfb-run`) falls back to
 `godot_argv`'s Windows-exe/macOS-bundle resolution and a real, visible window, exactly as
 before — this decision does not regress that path, it adds a better one ahead of it.
+
+---
+
+## 053 — The fight is drawn from presentation signals, and the rules never learn that it is being watched
+
+**Date.** 2026-07-30.
+
+**Context.** The owner played the build and said: *"No bullets. The turrets are firing and
+health is going down but nothing i can see that can actually provide enough of an edge to
+keep me excited."* That was accurate. `anchor_view.gd` drew sprites, contact shadows and
+health bars, and that was the entire combat presentation — no projectile, no muzzle flash,
+no impact, no death. A wave resolved as numbers quietly falling.
+
+The difficulty is that the thing worth watching lives inside `anchor_sim.gd`, which is a
+port of `sim/engine.py` and is diffed against it over 864 runs on every commit. Anything
+that reaches into the fire loop to draw something risks the one guarantee that keeps the
+game playing the level it was balanced for.
+
+**Decision.** `AnchorSim` emits three **presentation-only** signals — `shot_fired`,
+`unit_damaged`, `splash_landed` — and a separate FX layer renders from them. The signals
+carry a *kind* dictionary and a position, never the mutable unit dictionary. A per-weapon
+`fx` block in `towers.json` chooses the visual class (`bolt`, `arc`, `beam`, `flak`,
+`mortar`, `field`), so a new weapon declares how it looks in data rather than in a branch.
+
+Emitting a signal changes no outcome, which is what makes this safe; the precedent was
+already in the file, where `p["aim"]` is written purely so the view can face a turret and
+its comment says exactly why that is legitimate. Parity was re-run in the foreground after
+the change: 864 runs identical.
+
+The pool is drawn in **two passes** — solid at z 8, additive at z 14 — because a
+`CanvasItem` cannot change blend mode partway through a `_draw()`. Both read one pool, so a
+projectile cannot exist in one pass and not the other.
+
+**Rejected.**
+- *Drawing FX from inside `anchor_view.gd`'s existing `_draw()`.* It already owns board,
+  entities and overlays; adding a particle system would have made the one file that must
+  stay legible the least legible file in the project, and there would still be no way to
+  put emissive FX above the glow layer and debris below it.
+- *Deriving shots by watching `placed[i]["cooldown"]` reset from the view.* Possible, and it
+  needs no signal at all — but it infers an event from a state change, so a shot that fires
+  and is immediately re-armed on the same frame is invisible, and the target is not
+  recoverable at all. The rules know what they shot; asking them is cheaper than guessing.
+- *Modelling projectile travel in the rules.* The reference sim resolves damage at the
+  instant of firing. Giving shots real flight time in the rules would have been a genuine
+  balance change requiring both implementations and a full re-grade, for a purely visual
+  gain. Travel time is therefore a **cosmetic delay** invented by the FX layer: the impact
+  animation waits out the flight, the damage already happened, and nothing reads it back.
+
+**Consequence.** A shot that mostly bounced off a screened target renders as a hard flat
+ricochet rather than a spark, so *"wrong weapon for this target"* became something the
+player sees rather than infers — the rules already taxed unrated damage to 25% (decision
+029) and the game had simply never said so. Adding a weapon now means adding an `fx` block,
+not editing a draw routine.
+
+---
+
+## 054 — Recovery effects transform the sim's inputs; they are never a branch inside the sim
+
+**Date.** 2026-07-30.
+
+**Context.** Twenty-four anchors with nothing accumulating across them, and an unlock
+schedule the player did not choose, which is a calendar rather than progression. The
+between-anchor recovery draft (`recoveries` in `data/tuning.json`) fixes that: after an
+anchor clears, the player keeps one of three recovered fragments for the rest of the
+campaign — cheaper draw, better bounties, more starting funds, longer reach.
+
+Each of those is a number `AnchorSim` reads. The obvious implementation is three characters
+in `online_draw()`: `* Recoveries.tower_draw_mult()`.
+
+**Decision.** No. Recoveries are applied by `scripts/loadout.gd` to **deep copies** of the
+tower, enemy and anchor dictionaries, before `AnchorSim.setup()` is handed them. The sim
+gains no branch and no knowledge that recoveries exist.
+
+The reason is parity. `anchor_sim.gd` and `sim/engine.py` are diffed over 864 runs; a rule
+present in one and absent from the other is precisely the failure that harness exists to
+catch. Multiplying a field inside the sim would not have failed parity *today* — the harness
+runs with nothing owned — which is the problem: it would have made a hard guarantee depend
+on nobody happening to own a recovery at the moment the harness ran. Transforming the inputs
+keeps the sim a pure function of its data, so parity holds **by construction**: hand it the
+same dictionaries and it produces the same run, recoveries or not.
+
+Copies, not mutation: `Content.towers` is a shared autoload dictionary handed to every board
+in the session, so scaling a tower in place would apply the player's recovery to the
+anchor-select preview and to every later anchor — the same trap `AnchorSim.upgrade()`
+already avoids by merging into a duplicate.
+
+**Rejected.**
+- *A `brownout_slope_mult` recovery.* It was in the first draft of the pool and was **cut**,
+  not implemented. `BROWNOUT_SLOPE` is a constant inside the rules and there is no honest way
+  to express it as data; keeping it would have meant exactly the branch this decision exists
+  to forbid. Replaced with `tower_damage_mult`, which is a field on a tower. **An effect that
+  cannot be written as a change to a field does not belong in the pool.**
+- *Scaling enemy hp or speed.* Would move the balance every anchor was graded against.
+  Bounty is scaled instead: meta-progression is allowed to move the player's economy, not
+  the difficulty of the content.
+- *Percentage bonuses to lives and starting funds.* Both are compared against a per-anchor
+  budget a player reasons about — lives against the wave's total `leak_cost`, funds against
+  the price of one emplacement — and a percentage of a quantity ranging from 10 to 52 across
+  the campaign is not a promise anyone can hold in their head. Additive.
+
+**Consequence.** Three effects — `sell_refund_add`, `surge_charge_mult`, `veterancy_mult` —
+are read directly at their call sites, and are safe for the opposite reason: selling, the
+bindstone abilities and veterancy are GDScript-only systems `sim/engine.py` does not model
+at all, the precedent decision 033 set. The rule of thumb is now: if the Python reference
+models it, change the data; if it does not, changing the GDScript is already safe.
+
+---
+
+## 055 — A cosmetic layer may never be able to take the playfield down with it
+
+**Date.** 2026-07-30.
+
+**Context.** Mid-session the entire board collapsed into the top-left corner of the screen —
+every tile, the path, all emplacements, all units. It looked like a projection bug and was
+diagnosed as one by two separate agents for a considerable time.
+
+The actual chain: `scripts/fx_additive.gd` had one `var r := fx.tile_radius_screen(...)`
+where `fx` is held as a bare `Node2D`. GDScript cannot infer a return type through a call
+whose static receiver is a bare engine class, and that is a **parse** error, so the whole
+script fails to load. The `FxAdditive` node then had no script. `AnchorView.boot()` called
+`combat_fx.bind(sim)` **before** `_centre()`, that call died on a missing method, `boot()`
+aborted, `_origin` stayed at `Vector2.ZERO`, and every drawable projected off an origin of
+nothing.
+
+**Decision.** Setup that the board depends on runs before, and independently of, any
+presentation wiring. `boot()` computes `_centre()` first; the FX layer is bound last, and
+only if the node exists and has the method, with a `push_warning` otherwise.
+
+**Rejected.**
+- *Just fixing the annotation and moving on.* It fixes the instance, not the class. The
+  ordering was the defect: a purely cosmetic subsystem was load-bearing for the playfield,
+  and that would have stayed true until the next parse error in any FX file.
+- *Making the FX layer a hard dependency and failing loudly at boot.* Tempting, and it would
+  at least be honest — but a missing particle effect is not a reason to refuse to render a
+  level, and the game already runs correctly with `Sprites.ok == false` by falling back to
+  flat-colour drawing. Degrading is the house style.
+
+**Consequence, and the reason this is worth an entry.** The symptom of a GDScript parse
+error is not an error message at the failure site — Godot silently downgrades the node to a
+scriptless base class, and the *cascading* errors name files that are not broken. This
+pattern cost time five separate times in one session, in five different files, including
+once where it took the game to a hang with no output at all because `main.gd` failed to
+parse and the menu could no longer load the game scene. **Annotate explicitly anything
+reached through an untyped var or a bare `Node2D`.** `--headless --path . --check-only
+--script res://scripts/<f>.gd` parse-checks one file in seconds; note it reports spurious
+"Identifier not found" for autoloads, which are not real.
