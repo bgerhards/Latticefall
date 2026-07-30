@@ -1825,3 +1825,57 @@ the capture independent of the compositor presenting frames; `LF-061` carries th
 summary distinguishes "skipped by the flag" from "subsystem absent", because those are
 different claims and a skip is never a pass. Ask before running the full gate when the owner
 is at the machine.
+
+---
+
+## 052 — Godot capture is invisible on WSL2, and LF-061 is closed rather than bounded
+
+**Date.** 2026-07-30. **Status.** Adopted.
+
+**Decided.** On this machine, every Godot launch that needs a real frame goes through
+`tools/toolpaths.godot_argv(..., want_window=False)`, which resolves the *native Linux*
+Godot build (`/mnt/d/godot/linux/Godot_v4.7.1-stable_linux.x86_64`) and runs it under an
+`Xvfb` virtual framebuffer via `xvfb-run`. The Linux build is now preferred over the Windows
+console exe in `toolpaths.godot()`'s resolution order for exactly this reason: only a native
+Linux process can be handed a framebuffer nothing ever presents to a screen. `tools/shot.py`
+is the front door to this for ad hoc "look at the game" questions; `tools/check.py`'s three
+rendered checks and `tools/test_parity.py` go through the same function.
+
+**Context.** Decision 051 bounded the occlusion stall (`LF-061`) with subprocess timeouts
+and a `--no-window` escape hatch, and said plainly that neither was a fix — a real fix had
+to make the capture independent of the compositor presenting frames. That was written
+against a macOS/Windows-interop machine with no way to interpose between Godot and the
+desktop compositor. WSL2 changes what's available: `Xvfb`/`xvfb-run` give a native Linux
+Godot a complete, working X server that is not attached to any real display — GL
+Compatibility gets the real GPU-backed (Mesa llvmpipe software GL) window it needs to
+resolve `await RenderingServer.frame_post_draw`, and nothing on the owner's actual desktop
+ever receives a frame to occlude in the first place. Verified: `tools/shot.py anchor-06
+--frames 600` reproduces the exact coverage/distinct numbers (`0.6153` / `112`) a visible
+run on the same tree produced, with zero windows shown.
+
+This is a different mechanism from the existing `--quiet-window` off-screen-positioning
+trick in `display_settings.gd` (parks a real window off every monitor, still on the real
+desktop, still real estate a compositor could in principle throttle). `Xvfb` capture has no
+desktop in the loop at all, which is what makes it a closure of LF-061 rather than another
+mitigation layered on top.
+
+**Rejected.**
+- *Fixing it inside Godot* (`RenderingServer.force_draw()`, a `SubViewport` capture) —
+  LF-061's own listed candidates. Both still need a compositor-independent readback path
+  probed against this exact GL Compatibility build, which nobody has done; `Xvfb` sidesteps
+  the question entirely by giving the existing, already-working `frame_post_draw` path a
+  window that was never going to be occluded. Left in `LF-061`'s history as the option to
+  reach for if a machine ever lacks a native Linux Godot build to prefer.
+- *Keeping the Windows exe as the default resolution and layering `--quiet-window` on it.*
+  Still a real window on a real desktop; still, in principle, occludable. Not worth
+  preferring over a build that removes the desktop from the loop altogether.
+- *Making `tools/shot.py` shell out to `tools/reap.py --kill` on timeout.* Rejected in favor
+  of importing `reap` and calling its functions directly — the module was already built to
+  be reused, and shelling out to a second Python process just to reap a first one is the
+  kind of indirection this project's tooling has been trying to remove, not add.
+
+**Consequence.** `tools/check.py --no-window` is now a speed option, not a courtesy — the
+rendered checks no longer disturb anyone, they just cost five extra Godot launches. `LF-061`
+is closed. A machine with no native Linux Godot build (or no `xvfb-run`) falls back to
+`godot_argv`'s Windows-exe/macOS-bundle resolution and a real, visible window, exactly as
+before — this decision does not regress that path, it adds a better one ahead of it.

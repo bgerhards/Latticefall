@@ -844,7 +844,7 @@
       "albedo": "assets/renders/atlas/albedo.png",
       "glow": "assets/renders/atlas/glow.png"
     },
-    "source_digest": "ebb701961df14a3bc423211d788b2f11a58d57d7d9188ae2b8c8acdbe17fd095"
+    "source_digest": "2dc92555dea37b5559699a014319d43d5831c4f6615fd204b5b74e0cf8c35707"
   },
   "cell": 256,
   "elevation_deg": 30.0,

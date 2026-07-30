@@ -13,7 +13,7 @@
         "type": "object", "required": ["trigger", "speaker", "text"], "additionalProperties": false,
         "properties": {
           "trigger": {"type": "string",
-            "pattern": "^(brief|debrief|wave-start:\\d+|wave-clear:\\d+|brownout|first-leak|low-lives)$"},
+            "pattern": "^(brief|debrief|wave-start:\\d+|wave-clear:\\d+|brownout|first-leak|low-lives|surge-first|surge-ready|overcharge-first|shutter-first|wards-half|wards-full|wave-called|chain-high|recovery-taken)$"},
           "speaker": {"enum": ["vasquez", "okonkwo", "control", "ferrar"]},
           "text": {"type": "string", "minLength": 1},
           "beat": {"type": "string", "description": "stage direction, not shown"},

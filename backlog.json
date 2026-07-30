@@ -1,5 +1,5 @@
 {
-  "next_id": 63,
+  "next_id": 75,
   "items": [
     {
       "id": "LF-001",
@@ -727,11 +727,11 @@
       "kind": "bug",
       "area": "tooling",
       "pri": "med",
-      "status": "open",
+      "status": "done",
       "why": "",
       "opened": "2026-07-29",
-      "closed": null,
-      "note": ""
+      "closed": "2026-07-30",
+      "note": "Closed by decision 052: on this WSL2 machine, tools/toolpaths.godot() prefers the native Linux Godot build and tools/toolpaths.godot_argv(want_window=False) runs it under an Xvfb virtual framebuffer via xvfb-run. Verified: tools/shot.py anchor-06 --frames 600 reproduces coverage=0.6153 distinct=112 err=0 with zero windows shown, matching the visible-window baseline exactly. tools/check.py's game renders/menu renders/accessibility and tools/test_parity.py all go through the same path now. A machine with no native Linux Godot build or no xvfb-run still falls back to the old visible-window path, so the trap remains real there."
     },
     {
       "id": "LF-062",
@@ -742,6 +742,150 @@
       "status": "open",
       "why": "",
       "opened": "2026-07-29",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-063",
+      "title": "combat_fx.gd/fx_additive.gd failed to parse during a --autoplay --shot anchor-01 sanity run this session ('Cannot infer the type of pos/from/to/screen/d/r variable', then 'Failed to load script ... Parse error' for both files, then 'Invalid call. Nonexistent function bind in base Node2D'), reproduced twice. Both files are unmodified per git diff/status against HEAD, so this was not caused by this session's changes \u2014 likely a concurrent agent's in-flight edit or a shared .godot import-cache collision from several agents running Godot on the same working tree at once. Not investigated further: both files are outside this task's ownership (recovery draft feature, scripts/progress.gd + menu.gd + recoveries.gd + draft.gd).",
+      "kind": "bug",
+      "area": "engine",
+      "pri": "med",
+      "status": "open",
+      "why": "",
+      "opened": "2026-07-30",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-064",
+      "title": "tools/validate/validate_data.py never calls the new data/schema/tuning.schema.json \u2014 it hardcodes validate_schema() calls for towers/enemies/anchor/dialog only (main(), lines ~223-245) and has no generic 'schema field on doc says which file to use' path. data/tuning.json declares \"schema\": \"tuning\" and the schema file now exists (added this session) and passes when checked by hand (jsonschema.Draft202012Validator direct run), but the gate's validator silently never checks it. Fix is a few lines in validate_data.py's main(): load data/tuning.json and call validate_schema(doc, 'tuning', 'tuning.json', rep).",
+      "kind": "bug",
+      "area": "tooling",
+      "pri": "med",
+      "status": "open",
+      "why": "",
+      "opened": "2026-07-30",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-065",
+      "title": "The between-anchor recovery draft (scripts/recoveries.gd, scripts/draft.gd) has no call site yet turning its accessors into rules. Every accessor's docstring in recoveries.gd names the exact scripts/anchor_sim.gd line to change (online_draw() for tower_draw_mult, _damage() for bounty_mult, setup() for starting_funds_add and lives_add, brownout_penalty() for brownout_slope_mult, the range checks near lines 292/371 for range_mult, sell() for sell_refund_add; surge_charge_mult and veterancy_mult are prospective since Threshold Surge and veterancy are not wired into anchor_sim.gd at all yet). Also unwired: the actual scene transition from a won anchor to scenes/draft.tscn \u2014 hud.gd's _on_next()/outcome flow or main.gd's _on_state_changed() is the natural call site, neither touched this session because both files were owned by another agent concurrently. Until both are wired, recoveries are pickable and persist but do nothing in play.",
+      "kind": "feature",
+      "area": "design",
+      "pri": "med",
+      "status": "open",
+      "why": "",
+      "opened": "2026-07-30",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-066",
+      "title": "board_props.gd's platform edge/ring geometry currently renders as a large opaque shape that covers most of the tile diamond on anchor-06 and anchor-01, leaving only a small unclipped sliver near the board's top corner visible. Observed via tools/shot.py screenshots taken during the combat-FX pass (this session): anchor-06 frame 1800 captured twice about ten minutes apart with identical STATE lines but very different board coverage (first capture showed the full diamond, second showed the cutoff). Not touched by this session -- board_props.gd/backdrop.gd/main.tscn are owned by a concurrent agent's work. Filed for visibility since it currently blocks screenshot-based verification of anything drawn on the board.",
+      "kind": "bug",
+      "area": "engine",
+      "pri": "high",
+      "status": "dropped",
+      "why": "",
+      "opened": "2026-07-30",
+      "closed": "2026-07-30",
+      "note": "Misdiagnosed under time pressure. Root cause was a parse error in this session's own combat_fx.gd/fx_additive.gd: several 'var x := view.to_screen(...)' / 'fx.tile_radius_screen(...)' lines failed GDScript's static type inference because view/fx are held as bare Node2D, which failed the whole script's load. CombatFx.bind() (called from AnchorView.boot() before _centre() at the time) then threw on the missing method, aborting boot() before _origin was computed -- so the board collapsed to a corner and backdrop.gd's horizon glow showed through what looked like an oversized board_props.gd shape. board_props.gd and backdrop.gd were never at fault. Fixed by giving those locals explicit types and by making boot() call combat_fx.bind() last, guarded with has_method(), after _centre()."
+    },
+    {
+      "id": "LF-067",
+      "title": "tools/validate/validate_data.py's STATIC_TRIGGERS set (line 38) hardcodes the allowed dialog trigger list separately from data/schema/dialog.schema.json's regex. The dialog schema was extended this session with surge-first, surge-ready, overcharge-first, shutter-first, wards-half, wards-full, wave-called, chain-high, recovery-taken, and all nine are now authored into anchor-01/02/06/13/15/24's dialog files \u2014 but validate_data.py still only knows brief/debrief/brownout/first-leak/low-lives, so it reports 17 'unknown trigger' errors. Fix is one line: add the nine names to STATIC_TRIGGERS at tools/validate/validate_data.py:38. Not fixed here because tools/ was owned by another agent this session.",
+      "kind": "bug",
+      "area": "tooling",
+      "pri": "med",
+      "status": "done",
+      "why": "",
+      "opened": "2026-07-30",
+      "closed": "2026-07-30",
+      "note": "closed at a85ba06"
+    },
+    {
+      "id": "LF-068",
+      "title": "None of the new mechanics (Threshold Surge, Overcharge, Shutter, wave-called pacing, kill chains, ring wards) have _fire() call sites in anchor_view.gd/anchor_sim.gd yet -- confirmed by grep, only brief/wave-start/wave-clear/debrief/brownout are ever fired. Dialog for surge-first, surge-ready, overcharge-first, shutter-first, wards-half, wards-full, wave-called and chain-high is written and placed (anchor-01, 02, 06, 13, 15, 24) and waiting. Add the matching _fire(\"...\") calls once each ability/mechanic itself is wired into anchor_sim.gd (cross-ref LF-065, which notes Threshold Surge and veterancy aren't wired into anchor_sim.gd at all yet either).",
+      "kind": "feature",
+      "area": "story",
+      "pri": "med",
+      "status": "open",
+      "why": "",
+      "opened": "2026-07-30",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-069",
+      "title": "sim.unit_leaked only plays Audio.sfx('ui_deny') -- anchor_view.gd never calls _fire('first-leak') or _fire('low-lives'), and there is no lives-threshold check calling _fire('low-lives') either, even though both triggers are fully authored across all/nearly all 24 dialog files already. This is the 'leak feedback is a UI blip and nothing else' gap named this session. Wire sim.unit_leaked -> _fire('first-leak') and add a lives-fraction threshold -> _fire('low-lives') in anchor_view.gd.",
+      "kind": "bug",
+      "area": "story",
+      "pri": "med",
+      "status": "open",
+      "why": "",
+      "opened": "2026-07-30",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-070",
+      "title": "recovery-taken (draft screen, between anchors) has no natural home in the per-anchor dialog architecture -- draft.gd has no DialogView instance at all (only main.tscn/anchor_view.gd wires one up), and dialog files are keyed to a specific anchor id that check_dialog() cross-references. The two recovery-taken lines are authored in anchor-01.json as a stopgap and will only ever play there. Proper fix needs either (a) a small reaction display built directly on draft.tscn/draft.gd reading from its own data source, or (b) a real campaign-scoped dialog concept (new anchor-pattern value, validator update) rather than borrowing one anchor's file. Also wire scripts/draft.gd's _on_take() (or whatever call site replaces it) to actually surface the line -- right now nothing on that screen fires dialog_trigger.",
+      "kind": "feature",
+      "area": "story",
+      "pri": "med",
+      "status": "open",
+      "why": "",
+      "opened": "2026-07-30",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-071",
+      "title": "mask_glow.py re-saves every glow PNG in the manifest on every run, not only the ones a render actually changed. PIL's save() does not reproduce identical bytes for identical pixel content across invocations, so re-running it after a partial re-render (e.g. --only one asset) touches every other sprite's LFS blob with a pixel-identical but byte-different file \u2014 confirmed via git-lfs smudge + numpy compare on hollow_column_y045_glow.png: max abs pixel diff 0, but sha256 differs from HEAD. Harmless to the game, but it turns every glow-pass re-render into a full-repo LFS diff and makes 'what actually changed' unreadable from git status. Fix: skip re-saving a glow PNG whose computed output already matches what is on disk, or track per-file content hashes the way pack_atlas.py already does for the atlas page.",
+      "kind": "bug",
+      "area": "art",
+      "pri": "med",
+      "status": "open",
+      "why": "",
+      "opened": "2026-07-30",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-072",
+      "title": "The --autoplay smoke policy (_autobuild_step in anchor_view.gd) fills every free slot with the single highest-priority-affordable tower in Content.unlocked_at() order, so a board never shows a mix of weapon classes -- confirmed while trying to screenshot a mortar/flak burst for the combat-FX pass: anchor-09, anchor-13, anchor-16 and anchor-21 all built out one tower type (arc-node or anchor-damper) and never touched flak-array or mortar-emplacement even many waves in. This is the same root cause LF-053 already names for grading. A '--build <tower-id> <slot-x>,<slot-y>' CLI hook in main.gd would let --shot verify a specific weapon's FX/behaviour on demand without fighting the autobuild policy.",
+      "kind": "chore",
+      "area": "engine",
+      "pri": "med",
+      "status": "open",
+      "why": "",
+      "opened": "2026-07-30",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-073",
+      "title": "tools/shot.py's --extra nargs='*' cannot pass any flag-shaped token (--scroll 3, --paused, --select 1) -- argparse classifies any argv item starting with '-' as option-like and refuses to fold it into nargs='*', so 'unrecognized arguments' aborts before Godot ever launches. Confirmed with a standalone argparse repro, not anchor-specific. The tool's own docstring/epilog example ('--extra --select 1 --pick pulse-turret') has apparently never actually been run. Workaround used this session: invoke the native Linux Godot binary directly under xvfb-run with the same argv tools/toolpaths.godot_argv() builds, bypassing shot.py's argparse. Fix is probably nargs=argparse.REMAINDER (consumes everything after --extra verbatim, order-preserved) rather than nargs='*'.",
+      "kind": "bug",
+      "area": "tooling",
+      "pri": "med",
+      "status": "open",
+      "why": "",
+      "opened": "2026-07-30",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-074",
+      "title": "scripts/anchor_view.gd's boot() hands sim.setup() Content.towers/Content.enemies/Content.anchor(anchor_id) directly -- scripts/loadout.gd (Loadout.towers()/enemies()/anchor()) is never called anywhere in the codebase. Confirmed by grep. Six of the nine recovery effects (tower_draw_mult, bounty_mult, starting_funds_add, tower_damage_mult, range_mult, and by extension anything Loadout would apply) are therefore completely inert regardless of what the player owns -- only the three effects read directly at their call sites (sell_refund_add, surge_charge_mult, veterancy_mult) do anything, and this session wired those three in (Threshold Surge charge rate, veterancy rank thresholds). Fix is almost certainly three lines in anchor_view.gd's boot(): sim.setup(Loadout.anchor(anchor), Loadout.towers(Content.towers), Loadout.enemies(Content.enemies), difficulty). Left unfixed this session because it is a between-anchor progression system gap discovered while wiring the abilities/pacing/targeting/veterancy task, not part of that task, and scripts/loadout.gd is out of scope to touch.",
+      "kind": "bug",
+      "area": "engine",
+      "pri": "med",
+      "status": "open",
+      "why": "",
+      "opened": "2026-07-30",
       "closed": null,
       "note": ""
     }

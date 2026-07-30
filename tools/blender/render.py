@@ -72,6 +72,64 @@ STONE_WARM = (0.185, 0.150, 0.095)
 RUST = (0.235, 0.130, 0.070)
 
 
+def _hex_rgb(h: str) -> tuple:
+    h = h.lstrip("#")
+    return tuple(int(h[i:i + 2], 16) / 255.0 for i in (0, 2, 4))
+
+
+def _load_fx() -> dict:
+    """Per-emplacement glow colour, sourced from `data/towers.json`'s `fx` block rather
+    than duplicated here. Every tower already carries a distinct `colour` (its projectile
+    or field tint) and, for the five weapons, a `core` (a near-white hot tone for the
+    muzzle) — the same authored palette the combat-FX layer draws tracers and beams in.
+    Reusing it means an emplacement's own light and the shots it fires are always the
+    same hue by construction, and it is what breaks the defect this pass exists to fix:
+    five of the nine emplacements previously emitted the *identical* teal (VERD_LIT), so
+    even once the geometry read as distinct shapes, colour gave the player nothing to
+    tell them apart by. Keyed by asset name (`pulse_turret`), not tower id
+    (`pulse-turret`), to match this file's ASSETS dict.
+    """
+    path = os.path.join(ROOT, "data", "towers.json")
+    with open(path, encoding="utf-8") as f:
+        doc = json.load(f)
+    out = {}
+    for t in doc["towers"]:
+        fx = t.get("fx", {})
+        out[t["id"].replace("-", "_")] = {
+            "colour": _hex_rgb(fx["colour"]) if "colour" in fx else None,
+            "core": _hex_rgb(fx["core"]) if "core" in fx else None,
+        }
+    return out
+
+
+FX = _load_fx()
+
+
+def glow_point(prefix, loc, colour, core=None, r_halo=0.075, r_core=0.032,
+               s_halo=0.40, s_core=0.85, segs=14, rings=8):
+    """One small emitter with a genuine hot centre and a dim surrounding halo, built into
+    the geometry rather than left entirely to Bloom.
+
+    This is the fix for LF's "lightbulb on a post" defect: the old rig was one large,
+    uniformly-bright sphere (up to 0.24 world-radius — ~40px, the single biggest emitter
+    in the library) fed into a Glare Bloom with `Size=7.0`, a blur radius on the order of
+    half the 256px cell. Structure and falloff both came out flat because there was
+    neither in the source. `glow_point` guarantees the falloff exists before Bloom ever
+    touches it: a tiny bright `core` sphere (near-white on weapons, via `core=`) nested
+    inside a larger, much dimmer `colour` halo. Bloom (now `Size=3.0`, see
+    `setup_compositor`) then adds a soft spread on top of a shape that already has a hot
+    centre and a real gradient, instead of being the only thing providing either.
+    `core=None` (used by every instrument emplacement) collapses this to a single-tone
+    point — steady light, not a muzzle flash, which is the visual difference between
+    "shoots something" and "shoots nothing" this pass is also trying to restore.
+    """
+    sphere(r_halo, loc, segments=segs, rings=rings,
+           material=mat(prefix + "h", colour, 0.0, 0.3, emit=colour, emit_strength=s_halo))
+    sphere(r_core, loc, segments=max(8, segs - 4), rings=max(6, rings - 2),
+           material=mat(prefix + "c", core or colour, 0.0, 0.2,
+                        emit=core or colour, emit_strength=s_core))
+
+
 def wipe() -> None:
     for o in list(bpy.data.objects):
         bpy.data.objects.remove(o, do_unlink=True)
@@ -206,8 +264,12 @@ def a_pulse_turret():
     cyl(6, 0.40, 0.36, (0, 0, 0.42), material=mat("th", BONE, 0.30, 0.45))
     cyl(16, 0.085, 0.9, (0.0, 0.30, 0.56), rot=(math.radians(76), 0, 0),
         material=mat("tr", STEEL, 0.9, 0.25))
-    sphere(0.10, (0.0, 0.63, 0.70), material=mat("tt", AMBER, 0.0, 0.3,
-                                                 emit=(1.0, 0.62, 0.15), emit_strength=1.3))
+    fx = FX["pulse_turret"]
+    glow_point("tt", (0.0, 0.63, 0.70), fx["colour"], core=fx["core"])
+    # A thin armed-status band around the head — the turret should read as machinery
+    # with a light on it, not as a light with a barrel attached.
+    torus(0.405, 0.014, (0, 0, 0.42),
+          material=mat("tband", fx["colour"], 0.0, 0.3, emit=fx["colour"], emit_strength=0.30))
     for s in (-1, 1):
         cube(0.13, (s * 0.34, -0.1, 0.5), scale=(0.5, 1.5, 1.7),
              material=mat("tf%d" % s, STEEL_LT, 0.7, 0.35))
@@ -215,12 +277,25 @@ def a_pulse_turret():
 
 def a_arc_node():
     cyl(8, 0.55, 0.2, (0, 0, 0.1), material=mat("nb", STEEL, 0.5, 0.5))
+    posts = []
     for i in range(3):
         a = math.radians(i * 120)
+        posts.append(a)
         cube(0.1, (math.cos(a) * 0.34, math.sin(a) * 0.34, 0.45), scale=(1, 1, 3.2),
              rot_z=a, material=mat("np%d" % i, STEEL_LT, 0.75, 0.3))
-    sphere(0.24, (0, 0, 0.86), material=mat("nc", VERD_LIT, 0.0, 0.25,
-                                            emit=(0.35, 0.95, 0.80), emit_strength=1.5))
+    fx = FX["arc_node"]
+    # A small hub spark, not a ball on a stick. The old single 0.24-radius sphere here
+    # was the single biggest emitter in the whole library — the exact source of the
+    # "lightbulb on a post" defect this pass exists to fix. Replaced with a small hub
+    # plus a tiny contact light at each post tip: "three prongs feeding a spark cluster",
+    # the shape the unit's own name describes, rather than a dot floating above
+    # unrelated machinery.
+    glow_point("nc", (0, 0, 0.66), fx["colour"], core=fx["core"], r_halo=0.065, r_core=0.028,
+               s_halo=0.35, s_core=0.80)
+    for i, a in enumerate(posts):
+        sphere(0.028, (math.cos(a) * 0.34, math.sin(a) * 0.34, 0.62), segments=10, rings=6,
+               material=mat("ncp%d" % i, fx["colour"], 0.0, 0.25,
+                            emit=fx["colour"], emit_strength=0.30))
 
 
 def a_scan_relay():
@@ -235,9 +310,13 @@ def a_scan_relay():
              material=mat("rs%d" % s, STEEL, 0.6, 0.5))
     cone(20, 0.34, 0.05, 0.22, (0, 0.10, 1.10), rot=(math.radians(58), 0, 0),
          material=mat("rd", STEEL_LT, 0.7, 0.35))
+    fx = FX["scan_relay"]
     cone(20, 0.29, 0.04, 0.04, (0, 0.155, 1.13), rot=(math.radians(58), 0, 0),
-         material=mat("rf", VERD_LIT, 0.0, 0.35,
-                      emit=(0.22, 0.66, 0.54), emit_strength=1.1))
+         material=mat("rf", fx["colour"], 0.0, 0.35, emit=fx["colour"], emit_strength=0.55))
+    # A small steady tip light, the kind a real mast carries. Instrument, not weapon, so
+    # it stays single-tone rather than getting a hot core the way the five guns do.
+    sphere(0.032, (0, 0.02, 1.14), segments=10, rings=6,
+           material=mat("rt", fx["colour"], 0.0, 0.3, emit=fx["colour"], emit_strength=0.35))
 
 
 def a_shield_wall():
@@ -248,10 +327,14 @@ def a_shield_wall():
         cube(0.26, (s * 0.36, 0, 0.40), scale=(1.0, 1.0, 2.6),
              material=mat("wp%d" % s, STEEL, 0.55, 0.45))
         cyl(6, 0.10, 0.14, (s * 0.36, 0, 0.75), material=mat("wc%d" % s, STEEL_LT, 0.8, 0.3))
-    # the screen itself: thin, upright, and the only emissive surface
-    cube(1.0, (0, 0, 0.46), scale=(0.62, 0.03, 0.52),
-         material=mat("ws", VERD_LIT, 0.1, 0.25,
-                      emit=(0.16, 0.52, 0.44), emit_strength=1.0))
+    # The field itself: three thin bands rather than one solid slab, so it reads as an
+    # energy screen with structure — a grid, not a lit rectangle — and dim enough that
+    # the wall, the biggest draw in Act I, does not out-glow the units it slows.
+    fx = FX["shield_wall"]
+    for i, z in enumerate((0.30, 0.46, 0.62)):
+        cube(1.0, (0, 0, z), scale=(0.60 - i * 0.03, 0.025, 0.05),
+             material=mat("ws%d" % i, fx["colour"], 0.1, 0.25,
+                          emit=fx["colour"], emit_strength=0.42))
     for s in (-1, 1):
         cube(0.07, (s * 0.36, 0, 0.14), scale=(1.0, 2.4, 1.0),
              material=mat("wf%d" % s, STEEL_LT, 0.7, 0.4))
@@ -264,14 +347,17 @@ def a_ion_lance():
     cube(0.52, (0, -0.06, 0.34), scale=(1.0, 0.9, 0.8), material=mat("lh", STONE, 0.35, 0.6))
     cyl(14, 0.115, 1.34, (0.0, 0.34, 0.72), rot=(math.radians(68), 0, 0),
         material=mat("lr", STEEL_LT, 0.9, 0.22))
+    fx = FX["ion_lance"]
+    # The breech collar carries a dim charge glow of its own — a tube reads as ordnance
+    # rather than plumbing once it has two lit points along its length instead of one at
+    # the tip.
     cyl(14, 0.16, 0.20, (0.0, 0.06, 0.44), rot=(math.radians(68), 0, 0),
-        material=mat("lc", STEEL, 0.85, 0.3))
+        material=mat("lc", fx["colour"], 0.0, 0.3, emit=fx["colour"], emit_strength=0.30))
     for s in (-1, 1):                                   # recoil rails along the barrel
         cube(0.06, (s * 0.17, 0.24, 0.60), scale=(1.0, 1.0, 7.0),
              rot_z=0.0, material=mat("lg%d" % s, STEEL, 0.7, 0.35))
-    sphere(0.115, (0.0, 0.80, 1.02), segments=16, rings=10,
-           material=mat("lm", VERD_LIT, 0.0, 0.25,
-                        emit=(0.30, 0.86, 0.78), emit_strength=1.4))
+    glow_point("lm", (0.0, 0.80, 1.02), fx["colour"], core=fx["core"],
+               r_halo=0.075, r_core=0.032, s_halo=0.40, s_core=0.85)
 
 
 def a_warden_drone():
@@ -335,16 +421,22 @@ def a_flak_array():
     # in the game, because it is the one that covers a lane rather than a point.
     cyl(8, 0.60, 0.22, (0, 0, 0.11), material=mat("kb", STEEL, 0.5, 0.5))
     cube(0.46, (0, -0.04, 0.36), scale=(1.5, 0.9, 0.7), material=mat("kh", STEEL_LT, 0.6, 0.4))
+    fx = FX["flak_array"]
     for i, s in enumerate((-1, 1)):
         for j, z in enumerate((0.46, 0.62)):
             cyl(10, 0.055, 0.68, (s * 0.20, 0.26, z), rot=(math.radians(74), 0, 0),
                 material=mat("kr%d%d" % (i, j), STEEL_LT, 0.9, 0.25))
+            # A tiny live tip on every barrel instead of one ball balanced between all
+            # four — this is the widest weapon silhouette in the game and should read as
+            # four points of light across an arc, not one point in the middle of them.
+            tip = (s * 0.20, 0.26 + 0.34 * math.sin(math.radians(74)),
+                   z + 0.34 * math.cos(math.radians(74)))
+            sphere(0.024, tip, segments=8, rings=6,
+                   material=mat("kt%d%d" % (i, j), fx["core"] or fx["colour"], 0.0, 0.2,
+                                emit=fx["core"] or fx["colour"], emit_strength=0.62))
     for s in (-1, 1):                                   # ammo cans, so it reads crewed
         cube(0.22, (s * 0.46, -0.18, 0.28), scale=(1.0, 1.4, 0.9),
              material=mat("kc%d" % s, STONE_WARM, 0.2, 0.75))
-    sphere(0.075, (0, 0.10, 0.66), segments=12, rings=8,
-           material=mat("kt", AMBER, 0.0, 0.3,
-                        emit=(1.0, 0.66, 0.18), emit_strength=1.2))
 
 
 def a_anchor_damper():
@@ -360,12 +452,14 @@ def a_anchor_damper():
         a = math.radians(i * 120)
         cube(0.06, (math.cos(a) * 0.30, math.sin(a) * 0.30, 0.74), scale=(1, 1, 3.4),
              rot_z=a, material=mat("ds%d" % i, STEEL_LT, 0.7, 0.35))
-    # Small and dim on purpose. At major 0.40 / strength 1.5 the field ring was brighter
-    # and wider than the anchor ring's own wards, and a board with four dampers on it
-    # read as four objectives.
+    # Violet, not the teal the arc node/lance/relay/wall all shared before this pass —
+    # the damper suppresses drain rather than doing anything electrical or optical, and
+    # needed a hue nothing else in the library uses. Small and dim on purpose: at major
+    # 0.40 / strength 1.5 the field ring was brighter and wider than the anchor ring's
+    # own wards, and a board with four dampers on it read as four objectives.
+    fx = FX["anchor_damper"]
     torus(0.28, 0.032, (0, 0, 0.94),
-          material=mat("dr", VERD_LIT, 0.2, 0.3,
-                       emit=(0.20, 0.60, 0.50), emit_strength=0.85))
+          material=mat("dr", fx["colour"], 0.2, 0.3, emit=fx["colour"], emit_strength=0.45))
 
 
 def a_mortar_emplacement():
@@ -375,17 +469,19 @@ def a_mortar_emplacement():
     cyl(8, 0.40, 0.24, (0, -0.06, 0.24), material=mat("mm", STEEL, 0.5, 0.5))
     cyl(14, 0.20, 0.86, (0.0, 0.16, 0.62), rot=(math.radians(28), 0, 0),
         material=mat("mt", STEEL_LT, 0.85, 0.3))
+    fx = FX["mortar_emplacement"]
+    # Same pattern as the ion lance's collar: a dim charge glow at the breech, so the
+    # tube reads as ordnance with two lit points rather than plumbing with one.
     cyl(14, 0.24, 0.12, (0.0, 0.02, 0.30), rot=(math.radians(28), 0, 0),
-        material=mat("mc", STEEL, 0.8, 0.35))
+        material=mat("mc", fx["colour"], 0.0, 0.3, emit=fx["colour"], emit_strength=0.28))
     for s in (-1, 1):                                   # recoil spades
         cube(0.10, (s * 0.40, -0.28, 0.16), scale=(1.0, 2.2, 1.2),
              material=mat("mp%d" % s, BONE, 0.4, 0.6))
     for s in (-1, 1):                                   # shell rack
         cube(0.12, (s * 0.30, -0.40, 0.24), scale=(1.0, 1.0, 2.0),
              material=mat("mr%d" % s, STONE_WARM, 0.2, 0.7))
-    sphere(0.065, (0.0, 0.44, 0.86), segments=12, rings=8,
-           material=mat("mg", AMBER, 0.0, 0.3,
-                        emit=(1.0, 0.58, 0.14), emit_strength=1.1))
+    glow_point("mg", (0.0, 0.44, 0.86), fx["colour"], core=fx["core"],
+               r_halo=0.062, r_core=0.026, s_halo=0.35, s_core=0.78)
 
 
 # Sable Reach units. Human contractors, so the language is plate, scaffolding and
@@ -507,9 +603,13 @@ def a_restorer():
              material=mat("rf%d" % i, STEEL_LT, 0.8, 0.3))
     # The core stands *proud of* the cabinet. At y=0.16 it was inside it and the
     # brightest element in the asset rendered as nothing at all from three yaws.
+    # Mint, not amber — restoring capacity is the one unambiguously positive act in the
+    # kit, and amber collided with every weapon's muzzle glow. Dimmer than before, per
+    # this pass's brief that no emplacement should outshine a unit, but still a hot core
+    # against a dim cabinet so it reads as the thing everything else is plugged into.
+    fx = FX["restorer"]
     cyl(12, 0.17, 0.62, (0, 0.34, 0.66),
-        material=mat("rk", AMBER, 0.0, 0.25,
-                     emit=(1.0, 0.70, 0.24), emit_strength=1.6))
+        material=mat("rk", fx["colour"], 0.0, 0.25, emit=fx["colour"], emit_strength=0.9))
     cyl(12, 0.21, 0.06, (0, 0.34, 1.00), material=mat("rt", BONE, 0.7, 0.35))
     for s in (-1, 1):                                   # conduit down to the deck
         cyl(6, 0.045, 0.42, (s * 0.34, 0.02, 0.24),
@@ -675,9 +775,16 @@ def setup_compositor(sc):
     # being fed display values and every emitter was ~3x too bright in linear terms
     # (see srgb()); at correct levels that muted the slot rings and anchor wards
     # entirely. Emitters now land at 0.2–1.3 linear, so 0.08 separates cleanly.
-    # Size is the spread in the 256px cell.
+    # Size is the Bloom blur radius, roughly 2^Size px. It was 7.0 — a ~128px blur on a
+    # 256px cell — which is the mechanical cause of LF's "lightbulb on a post" defect:
+    # every emitter, regardless of its own shape, came out as one flat uniform disc with
+    # no falloff, because the blur radius was half the canvas. 3.0 (~8px) lets Bloom add
+    # a soft spread around a shape that already has structure (see glow_point) instead of
+    # being the only source of any spread at all. Strength dropped with it, 1.0 -> 0.8,
+    # so the bloom's own contribution sits under the emplacements' newly-lowered base
+    # emission rather than re-inflating it back to unit brightness or past it.
     for k, v in (("Type", "Bloom"), ("Quality", "High"), ("Threshold", 0.08),
-                 ("Strength", 1.0), ("Size", 7.0)):
+                 ("Strength", 0.8), ("Size", 3.0)):
         glare.inputs[k].default_value = v
     ng.links.new(rl.outputs["Emission"], glare.inputs["Image"])
     out = ng.nodes.new("NodeGroupOutput")
@@ -887,7 +994,18 @@ def main() -> int:
         entry = {}
         for yaw in YAWS:
             paths = render_pair(sc, ng, name, yaw, OUT_DIR)
-            entry["y%03d" % yaw] = {k: os.path.relpath(v, ROOT) for k, v in paths.items()}
+            # Forward slashes always, regardless of the OS this process is running on.
+            # On this project's Windows Blender install (driven through WSL interop —
+            # see tools/toolpaths.py), os.path.relpath returns backslash-separated
+            # paths, which is correct for *this* process but poisons the manifest for
+            # every downstream *nix reader: mask_glow.py and pack_atlas.py join these
+            # onto a POSIX ROOT with pathlib, which treats a whole backslash string as
+            # one opaque path component rather than splitting it, so `ROOT / rel` names
+            # a file that does not exist. The manifest is a cross-platform contract; the
+            # process that writes it is not always on the platform that reads it.
+            entry["y%03d" % yaw] = {
+                k: os.path.relpath(v, ROOT).replace("\\", "/") for k, v in paths.items()
+            }
         manifest["sprites"][name] = entry
         print("RENDERED %s (%d yaws x 2 passes)" % (name, len(YAWS)))
 

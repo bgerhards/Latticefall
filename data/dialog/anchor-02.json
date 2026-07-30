@@ -35,6 +35,14 @@
     { "trigger": "low-lives", "speaker": "vasquez", "critical": false,
       "text": "Ring's taking it. Cut something you like." },
 
+    { "trigger": "overcharge-first", "speaker": "vasquez", "critical": false,
+      "text": "That's us overdrawing our own bus. Nobody's doing that to us." },
+    { "trigger": "overcharge-first", "speaker": "okonkwo", "critical": false,
+      "text": "Thirty-five seconds before you can do that again. Spend the window." },
+
+    { "trigger": "wave-called", "speaker": "vasquez", "critical": false,
+      "text": "Called it early. Money's better spent than idle." },
+
     { "trigger": "debrief", "speaker": "vasquez",
       "text": "Held. Okonkwo — eleven years, and they still fly a pattern." },
     { "trigger": "debrief", "speaker": "okonkwo",

@@ -15,6 +15,14 @@
       ],
       "unlocked_at": "anchor-01",
       "note": "Baseline. Cheap to run \u2014 the one you leave online during a brownout. Engages air, but only what a scan relay is revealing, so on anchor-02 cutting the relay blinds every gun on the board rather than disarming them.",
+      "fx": {
+        "class": "bolt",
+        "colour": "#ffb648",
+        "core": "#fff4e0",
+        "speed": 26.0,
+        "width": 3.5,
+        "trail": 0.12
+      },
       "upgrade": {
         "cost": 90,
         "draw_mw": 18,
@@ -36,6 +44,12 @@
       ],
       "unlocked_at": "anchor-03",
       "note": "Chains. Draw is high enough that two of them force a real decision.",
+      "fx": {
+        "class": "arc",
+        "colour": "#bfe8ff",
+        "core": "#ffffff",
+        "width": 2.5
+      },
       "upgrade": {
         "cost": 160,
         "draw_mw": 38,
@@ -57,6 +71,12 @@
       ],
       "unlocked_at": "anchor-06",
       "note": "Only reliable answer to shielded units. Cannot be left running casually.",
+      "fx": {
+        "class": "beam",
+        "colour": "#5ec8ff",
+        "core": "#eaf7ff",
+        "width": 7.0
+      },
       "upgrade": {
         "cost": 280,
         "draw_mw": 48,
@@ -80,6 +100,10 @@
       "effect": {
         "type": "slow",
         "value": 0.28
+      },
+      "fx": {
+        "class": "field",
+        "colour": "#5ec2a8"
       },
       "upgrade": {
         "cost": 200,
@@ -106,6 +130,10 @@
       "effect": {
         "type": "reveal"
       },
+      "fx": {
+        "class": "field",
+        "colour": "#7fb2ff"
+      },
       "upgrade": {
         "cost": 70,
         "draw_mw": 12,
@@ -127,6 +155,13 @@
       ],
       "unlocked_at": "anchor-09",
       "note": "Act II. Bursts over a lane rather than hitting one unit, so it answers the skiff-and-drone packs Sable Reach leads with. Still needs a relay to see air \u2014 splash does not find what the board cannot see.",
+      "fx": {
+        "class": "flak",
+        "colour": "#ffd27a",
+        "core": "#fff6e0",
+        "speed": 18.0,
+        "width": 3.0
+      },
       "upgrade": {
         "cost": 190,
         "draw_mw": 32,
@@ -150,6 +185,10 @@
       "effect": {
         "type": "damp",
         "value": 0.6
+      },
+      "fx": {
+        "class": "field",
+        "colour": "#c98bff"
       },
       "upgrade": {
         "cost": 230,
@@ -176,6 +215,13 @@
       ],
       "unlocked_at": "anchor-13",
       "note": "Act II. Long reach and a wide burst, but slow and blind to air. Reaches across a board the lance cannot cover twice.",
+      "fx": {
+        "class": "mortar",
+        "colour": "#ff8a4a",
+        "core": "#ffe1c2",
+        "speed": 9.0,
+        "width": 6.0
+      },
       "upgrade": {
         "cost": 290,
         "draw_mw": 42,
@@ -199,6 +245,10 @@
       "effect": {
         "type": "restore",
         "value": 44
+      },
+      "fx": {
+        "class": "field",
+        "colour": "#7fffb0"
       },
       "upgrade": {
         "cost": 320,

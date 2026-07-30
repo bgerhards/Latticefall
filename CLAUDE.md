@@ -77,12 +77,23 @@ docs/            STATE, BACKLOG, DECISIONS, NOMENCLATURE, STORY
 .venv/bin/python tools/blender/pack_atlas.py       # ALWAYS run after mask_glow
 /Applications/Godot.app/Contents/MacOS/Godot --headless --path . --import
                                                    # ALWAYS run after pack_atlas
-/Applications/Godot.app/Contents/MacOS/Godot --path . --fixed-fps 60 \
-  -- --autoplay --shot /tmp/shot.png 1800          # the build screenshots itself
-/Applications/Godot.app/Contents/MacOS/Godot --path . --fixed-fps 60 \
-  -- --autoplay --anchor anchor-24 --ui-scale 2.0 \
-     --shot /tmp/s.png 300 --a11y /tmp/s.json      # frame + its text inventory
+.venv/bin/python tools/shot.py anchor-01 --out /tmp/shot.png --frames 1800
+                                                   # look at the game — no window, ever
+.venv/bin/python tools/shot.py anchor-24 --ui-scale 2.0 --out /tmp/s.png \
+  --frames 300 --a11y /tmp/s.json                  # frame + its text inventory
 ```
+
+**`tools/shot.py` is how this session looks at the game.** It launches Godot through
+`tools/toolpaths.godot_argv(..., want_window=False)`, which on this machine means the
+*native Linux* Godot build under an `Xvfb` virtual framebuffer — a real, GPU-backed (Mesa
+llvmpipe software GL) window that no compositor ever presents to a screen, so nothing pops
+up and nothing can be occluded. This is what closed LF-061; see decision 052 and
+`tools/toolpaths.py`'s module docstring for the mechanics. `toolpaths.godot()` also resolves
+whichever Godot binary the current machine actually has — macOS bundle, Windows console
+exe, or the preferred Linux build — so a raw `/Applications/Godot.app/...` invocation is no
+longer the right way to reach for a screenshot on any machine this project runs on. Reach
+for the raw binary only for something `shot.py` does not wrap yet, such as
+`--headless --import` after a re-render.
 
 **Verification hooks, because `--fixed-fps` has nobody to press a key.** `--paused`,
 `--select N`, `--pick <id>`, `--cursor N`, `--scroll N`, `--options`, `--ui-scale <f>` and
@@ -229,20 +240,23 @@ re-invokes the model when it finally exits or emits**, so a forgotten loop bills
 against a session that everyone believed was over. This has already spilled the owner's
 subscription usage into paid credits once. Treat it as a money bug, not as hygiene.
 
-**The gate opens real windows on the owner's desktop, and an occluded window hangs it.**
-`game renders`, `menu renders` and `accessibility` launch a *visible* Godot — seven windows
-per run, because the a11y check walks five cases — since GL Compatibility reads back nothing
-headlessly. They steal focus, and **macOS throttles a window it considers occluded**: cover
-it, background it, or simply keep working in front of it and the frame loop stalls, so
-`await RenderingServer.frame_post_draw` in `main.gd` never resolves. The check does not fail
-— it waits until the window is visible again and then *passes*, which is how one
-`game renders` took **36 minutes** and still reported ok. LF-061.
+**Godot capture is invisible now — `LF-061` is closed, not bounded.** `game renders`,
+`menu renders` and `accessibility` need a real GPU-backed Godot frame (GL Compatibility
+reads back nothing headlessly), but on this machine that no longer means a window on the
+owner's desktop. `tools/toolpaths.godot_argv(..., want_window=False)` prefers the native
+Linux Godot build and runs it under an `Xvfb` virtual framebuffer via `xvfb-run` — a real
+window that no compositor ever presents to a screen, so nothing steals focus and nothing can
+be occluded. That was the actual mechanism behind the old failure mode: **macOS throttled a
+window it considered occluded**, stalling `await RenderingServer.frame_post_draw` in
+`main.gd` until the window was visible again — which is how one `game renders` once took
+**36 minutes** and still reported ok. With no desktop in the loop, that stall cannot happen.
+Decision 052; `tools/shot.py` is the everyday way to reach this from a session.
 
-So: **ask before running the full gate when the owner is at the machine**, and offer
-`tools/check.py --no-window`, which skips exactly those three and says out loud that it did.
-Never background a gate run and leave it to surface windows over someone's work. The
-subprocess timeouts turn a stall into a red run rather than a silent wait, but they do not
-make the windows welcome.
+`tools/check.py --no-window` still exists, but it is now a **speed** option: skipping five
+extra Godot launches on an otherwise fast gate, not a courtesy to whoever is at the machine.
+Reach for it when time matters more than completeness — not out of politeness. A machine
+with no native Linux Godot build or no `xvfb-run` installed falls back to a real, visible
+window exactly as before, so the old caution still applies there.
 
 **Prefer the foreground, and never leave a watch armed.** Background a command only when the
 task genuinely cannot continue without it running concurrently — not to avoid a timeout on

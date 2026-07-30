@@ -38,6 +38,14 @@
     { "trigger": "low-lives", "speaker": "vasquez", "critical": false,
       "text": "Ring first. The rock can wait." },
 
+    { "trigger": "shutter-first", "speaker": "okonkwo", "critical": false,
+      "text": "Ring's plated. Nothing gets in — and nothing waiting out there decided to leave. It's queued, not gone." },
+    { "trigger": "shutter-first", "speaker": "vasquez", "critical": false,
+      "text": "Fine. I'd rather pick the moment." },
+
+    { "trigger": "chain-high", "speaker": "vasquez", "critical": false,
+      "text": "That's a clean run. Don't get used to it." },
+
     { "trigger": "debrief", "speaker": "control",
       "text": "Good work. Survey team's inbound for the seam." },
     { "trigger": "debrief", "speaker": "vasquez",

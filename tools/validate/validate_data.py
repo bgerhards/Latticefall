@@ -34,8 +34,26 @@ SCHEMA = DATA / "schema"
 ## power decision is thin; at 1.0 it does not exist. Act I sits at 29-38%.
 SATURATION_WARN = 0.80
 
-# valid dialog triggers that do not depend on wave count
-STATIC_TRIGGERS = {"brief", "debrief", "brownout", "first-leak", "low-lives"}
+# Valid dialog triggers that do not depend on wave count.
+#
+# This set and the `trigger` pattern in data/schema/dialog.schema.json are two allowlists
+# for one fact, and they have already drifted once: nine new triggers were added to the
+# schema and every dialog file quoting one failed here with "unknown trigger" while the
+# schema itself passed. Keep them in step, or better, collapse them (LF-067).
+#
+# The player-action triggers below fire at most once per anchor, like every other trigger
+# (see AnchorView._fire()), so they are one-time beats rather than repeatable barks.
+STATIC_TRIGGERS = {
+    "brief", "debrief", "brownout", "first-leak", "low-lives",
+    # the ring charging across a level
+    "wards-half", "wards-full",
+    # the three bindstone abilities, on first use
+    "surge-ready", "surge-first", "overcharge-first", "shutter-first",
+    # pacing: the player skipped prep for money, or ran a long kill chain
+    "wave-called", "chain-high",
+    # a recovery picked up between anchors
+    "recovery-taken",
+}
 
 
 class Report:

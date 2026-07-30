@@ -67,6 +67,14 @@ const UI_SCALES: Array[float] = [1.0, 1.1, 1.25, 1.5, 1.75, 2.0]
 const GLOW_LABELS := {0.0: "OFF", 0.5: "REDUCED", 1.0: "FULL"}
 const GLOW_LEVELS: Array[float] = [0.0, 0.5, 1.0]
 
+## Screen-shake accommodation, same shape as glow's: `shake` already existed as a field
+## (`Display.shake` above, `set_shake()` below) with nowhere in the options panel to reach
+## it — LF-063. Reusing GLOW_LEVELS' 0/0.5/1.0 ladder rather than inventing a new one: the
+## two accommodations read the same way (off / reduced / full) and a player who wants one
+## reduced usually wants the other reduced too.
+const SHAKE_LABELS := {0.0: "OFF", 0.5: "REDUCED", 1.0: "FULL"}
+const SHAKE_LEVELS: Array[float] = [0.0, 0.5, 1.0]
+
 var window_mode: String = MODE_WINDOWED
 var resolution: Vector2i = Vector2i(1440, 810)
 var vsync: bool = true
@@ -75,12 +83,25 @@ var ui_scale: float = 1.0
 ## Emissive layer strength. Not only a graphics knob: the additive glow is the brightest
 ## thing on screen, and turning it down is the obvious accommodation for light sensitivity.
 var glow: float = 1.0
+## Screen-shake multiplier. combat_fx.gd's trauma sources (heavy kills, mortar impacts,
+## leaks) still fire at 0 — this scales how much of it reaches AnchorView.position, down to
+## nothing for a player who finds camera shake disorienting. Reached from the options panel's
+## SCREEN SHAKE row (options_menu.gd), same cycler shape as EMISSIVE GLOW. Closes LF-063.
+var shake: float = 1.0
 
 var _headless: bool = false
 ## Set when the command line dictated the display state. The save is then not allowed to
 ## overwrite it: a verification run that asks for 200% and silently gets the developer's
 ## saved 100% back is a run that proves nothing.
 var _cli_locked: bool = false
+## `-- --quiet-window`, paired with the engine's builtin `--position <X>,<Y>` (applied at
+## window creation, before any script runs — see main.gd's `--shot` doc). GL Compatibility
+## reads back nothing headless (LF-061), so a self-screenshot needs a real GPU-backed
+## window, but verification must not steal the owner's cursor or sit over their desktop.
+## This is the owner of window mode/flags/position, so it is where `--quiet-window` is
+## read and acted on, not main.gd — by the time main.tscn's own _ready runs, the window
+## has already been shown once as the menu's boot scene.
+var quiet_window: bool = false
 
 
 func settings_locked() -> bool:
@@ -111,6 +132,8 @@ func _read_cli() -> void:
 			resolution = Vector2i(1440, 810)
 			ui_scale = 1.0
 			glow = 1.0
+		elif argv[i] == "--quiet-window":
+			quiet_window = true
 
 
 # ───────────────────────────────────────────────────────────────── apply ──
@@ -123,6 +146,13 @@ func apply() -> void:
 	if _headless:
 		changed.emit()
 		return
+
+	if quiet_window:
+		# NO_FOCUS stops the window ever taking keyboard focus; MOUSE_PASSTHROUGH stops it
+		# eating clicks meant for whatever is under it. Re-applied on every apply() (not
+		# just once at boot) so nothing later in this function can silently reactivate it.
+		DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_NO_FOCUS, true)
+		DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_MOUSE_PASSTHROUGH, true)
 
 	Engine.max_fps = max_fps
 	DisplayServer.window_set_vsync_mode(
@@ -139,7 +169,11 @@ func apply() -> void:
 			if DisplayServer.window_get_mode() != DisplayServer.WINDOW_MODE_WINDOWED:
 				DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
 			DisplayServer.window_set_size(_fitted(resolution))
-			_centre()
+			# Centring would drag the window back over the screen that --quiet-window (and
+			# the caller's --position, applied by the engine before any script ran) just
+			# parked it off of.
+			if not quiet_window:
+				_centre()
 	changed.emit()
 
 
@@ -192,6 +226,11 @@ func set_glow(g: float) -> void:
 	_persist()
 
 
+func set_shake(s: float) -> void:
+	shake = s
+	_persist()
+
+
 func _persist() -> void:
 	apply()
 	Progress.save_state()
@@ -213,5 +252,5 @@ func available_resolutions() -> Array[Vector2i]:
 
 
 func report() -> String:
-	return "display %s %dx%d ui %.2fx glow %.1f" % [
-		window_mode, resolution.x, resolution.y, ui_scale, glow]
+	return "display %s %dx%d ui %.2fx glow %.1f shake %.1f" % [
+		window_mode, resolution.x, resolution.y, ui_scale, glow, shake]

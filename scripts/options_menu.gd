@@ -125,6 +125,8 @@ func _build() -> void:
 		func(step: int): _cycle_ui_scale(step))
 	_add_cycler("EMISSIVE GLOW", func(): return Display.GLOW_LABELS.get(Display.glow, "FULL"),
 		func(step: int): _cycle_glow(step))
+	_add_cycler("SCREEN SHAKE", func(): return Display.SHAKE_LABELS.get(Display.shake, "FULL"),
+		func(step: int): _cycle_shake(step))
 
 	_col.add_child(_gap(10))
 	_col.add_child(_section("AUDIO"))
@@ -245,6 +247,10 @@ func _cycle_ui_scale(step: int) -> void:
 
 func _cycle_glow(step: int) -> void:
 	Display.set_glow(float(_cycle(Display.GLOW_LEVELS, Display.glow, step)))
+
+
+func _cycle_shake(step: int) -> void:
+	Display.set_shake(float(_cycle(Display.SHAKE_LEVELS, Display.shake, step)))
 
 
 func _cycle_fps(step: int) -> void:

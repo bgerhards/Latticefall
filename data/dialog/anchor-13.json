@@ -47,6 +47,9 @@
     { "trigger": "low-lives", "speaker": "vasquez", "critical": false,
       "text": "Hold. Forty minutes was the number and we're at thirty-one." },
 
+    { "trigger": "wave-called", "speaker": "vasquez", "critical": false,
+      "text": "Don't wait on my count. Call it the second you're ready." },
+
     { "trigger": "debrief", "speaker": "control",
       "text": "Anchor held. Sable Reach personnel evacuated: nine. Meridian losses: four." },
     { "trigger": "debrief", "speaker": "vasquez",

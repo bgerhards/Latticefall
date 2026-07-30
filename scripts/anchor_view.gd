@@ -20,6 +20,10 @@ const AnchorSimScript := preload("res://scripts/anchor_sim.gd")
 const IsoScript := preload("res://scripts/iso.gd")
 const AnchorDataScript := preload("res://scripts/anchor_data.gd")
 const SpritesScript := preload("res://scripts/sprites.gd")
+## Preloaded rather than referenced by its `class_name` — a new class_name is invisible
+## until the editor has imported once (the symptom is a hang, not an error; see CLAUDE.md),
+## and a preload sidesteps depending on the global class cache's timing at all.
+const AbilityStateScript := preload("res://scripts/abilities.gd")
 
 signal state_changed
 signal dialog_trigger(trigger: String)
@@ -62,10 +66,57 @@ var _fired_triggers: Dictionary = {}
 var _origin: Vector2 = Vector2.ZERO
 var _sim_t: float = 0.0          # total simulated seconds, for reproducibility checks
 var glow_layer: Node2D
+var combat_fx: Node2D
+var fx_additive: Node2D
+
+# ────────────────────────────────────────────────────────────── pacing ──
+#
+# data/tuning.json's `pacing` block. See its own "note" for the reasoning: prep is twenty
+# seconds of dead air on every wave, and none of this touches sim/engine.py — see the
+# GDScript-only state block atop anchor_sim.gd for the parity argument this all rests on.
+
+## Game-speed multiplier — cycled by the player, defaults to the slowest authored speed.
+## Applied in _process() by stepping AnchorSimScript.DT more times per real second, never by
+## changing DT itself, which is what keeps a run reproducible for tools/test_parity.py: DT is
+## the same 1/30 s a graded run ticks at regardless of what a *player's* clock is doing.
+var speed: float = 1.0
+var _speeds: Array = [1.0]
+
+const LOW_LIVES_FRAC := 0.5      ## mirrors tuning.json grade.thresholds' CONTESTED cutoff
+const CHAIN_HIGH_STREAK := 5     ## kills chained together before Control remarks on it
+
+var chain_count: int = 0
+var chain_mult: float = 0.0
+var _chain_last_t: float = -999.0
+var _wave_start_leaks: int = 0
+
+# ─────────────────────────────────────────────────────────── abilities ──
+#
+## Charge/cooldown/duration bookkeeping for Threshold Surge, Overcharge and Shutter —
+## see scripts/abilities.gd's own docstring for why this is a plain object rather than an
+## autoload, and why the rules it triggers live on AnchorSim itself.
+var abilities = null
+## Enemy ids queued while Shutter is down, in the order they would have spawned — released
+## in that order the instant the plate lifts (data/tuning.json's own note on Shutter).
+var _shutter_held: Array = []
+
+## Screen shake. Applied to this node's own `position` — every other draw call in this file
+## adds `_origin` to points instead of using the node transform, which left `position` sitting
+## completely unused, and every child layer (glow, board props, combat FX) inherits it for
+## free as a result. `add_trauma()` is combat_fx.gd's only way to reach this.
+const TRAUMA_DECAY: float = 1.7      # per second
+const TRAUMA_MAX_OFFSET: float = 16.0  # px — capped hard; this must never fight readability
+var _trauma: float = 0.0
+var _shake_t: float = 0.0
+var _shake_noise := FastNoiseLite.new()
 
 
 func _ready() -> void:
 	glow_layer = get_node_or_null("GlowLayer")
+	combat_fx = get_node_or_null("CombatFx")
+	fx_additive = get_node_or_null("FxAdditive")
+	_shake_noise.seed = 1337
+	_shake_noise.frequency = 1.0
 	set_process(false)
 	if Engine.is_editor_hint():
 		# A tool script would otherwise tick and take input inside the editor.
@@ -88,16 +139,53 @@ func boot(aid: String, diff: String) -> void:
 		push_error("anchor_view: no data for %s" % anchor_id)
 		return
 	sim = AnchorSimScript.new()
-	sim.setup(anchor, Content.towers, Content.enemies, difficulty)
+	# The player's recovered fragments are applied to the *data* here, not as branches inside
+	# AnchorSim — see scripts/loadout.gd for why that keeps parity with sim/engine.py holding
+	# by construction. Without this call the whole recovery draft is inert (LF-074).
+	sim.setup(Loadout.anchor(anchor), Loadout.towers(Content.towers),
+			Loadout.enemies(Content.enemies), difficulty)
 	sim.brownout_changed.connect(_on_brownout)
 	sim.unit_killed.connect(_on_unit_killed)
 	sim.unit_leaked.connect(func(_u): Audio.sfx("ui_deny"))
+	sim.unit_leaked.connect(_on_unit_leaked_dialog)
+	sim.built.connect(_on_built)
+
+	# Abilities: GDScript-only bookkeeping (scripts/abilities.gd), fed from data/tuning.json
+	# via the Tuning autoload — never read by AnchorSim itself (see the GDScript-only state
+	# block atop anchor_sim.gd).
+	abilities = AbilityStateScript.new(Tuning.abilities())
+	_speeds = Tuning.speeds()
+	speed = float(_speeds[0]) if _speeds.size() > 0 else 1.0
+
+	# Veterancy ranks, resolved once here rather than read from inside anchor_sim.gd: the
+	# kill thresholds are scaled by Recoveries.veterancy_mult() (a save-file concern the
+	# parity-tested file must not touch — see Recoveries' own docstring), so this is where
+	# `kills * mult` actually happens, and the sim is handed the final numbers.
+	var vet_mult := Recoveries.veterancy_mult()
+	var ranks: Array = []
+	for r in Tuning.veterancy_ranks():
+		ranks.append({
+			"kills": roundi(float(r.get("kills", 0)) * vet_mult),
+			"damage_mult": float(r.get("damage_mult", 1.0)),
+			"range_mult": float(r.get("range_mult", 1.0)),
+		})
+	sim.set_veterancy_ranks(ranks)
 
 	var unlocked: Array = Content.unlocked_at(anchor_id)
 	selected_tower = String(unlocked[0]) if unlocked.size() > 0 else ""
 
+	# Everything the board itself needs is done above this line. combat_fx.bind() wires a
+	# cosmetic layer and goes last, guarded, for exactly the failure this project just had:
+	# a parse error in combat_fx.gd left the CombatFx node scriptless, `combat_fx.bind(sim)`
+	# died on a missing method, and because it used to run *before* _centre() the whole board
+	# collapsed to a corner over one bad type inference in the FX layer. A presentation node
+	# failing to load must never be able to take the playfield down with it.
 	_centre()
 	queue_redraw()
+	if combat_fx and combat_fx.has_method("bind"):
+		combat_fx.bind(sim)
+	elif combat_fx:
+		push_warning("anchor_view: CombatFx node has no bind() — its script failed to load; combat FX will be silent this run")
 
 
 func _editor_refresh() -> void:
@@ -193,7 +281,18 @@ func _tex(sprite_name: String, yaw: int, pass_name: String) -> Texture2D:
 
 
 func _centre() -> void:
-	## Centre the board so the whole diamond fits the viewport.
+	## Centre the board so as much of it stays on screen as a translation-only placement can
+	## manage, then nudge that placement just far enough that the ring specifically — the far
+	## end of the path, where a leak actually costs a life — never runs past the window edge,
+	## even when the board as a whole cannot possibly fit: anchor-13's tile bounding box is
+	## 1920px wide and the default window is 1440.
+	##
+	## No `scale` here, however tempting a shrink-to-fit looks. This node's scale is inherited
+	## by every child, including Backdrop, which sizes itself to get_viewport_rect().size
+	## independently of the board and is not a file this task may touch — scaling AnchorView
+	## would leave Backdrop covering only part of the screen. A real "shrink the board only"
+	## needs a wrapper node the board layer alone sits under, which is exactly the scene
+	## change LF-052's deferred pan/zoom camera is waiting on the owner for.
 	var grid: Dictionary = _anchor_data().get("grid", {"w": 12, "h": 10})
 	var w: int = int(grid["w"])
 	var h: int = int(grid["h"])
@@ -205,7 +304,51 @@ func _centre() -> void:
 		_origin = -mid
 		return
 	var vp := get_viewport_rect().size
-	_origin = Vector2(vp.x * 0.5, vp.y * 0.42) - mid
+	var g := Ui.gutter(vp)
+	var board_w := float(w + h) * IsoScript.TILE_W * 0.5
+	var board_h := float(w + h) * IsoScript.TILE_H * 0.5
+
+	# Centre on the free region between the two instrument panels when the board actually
+	# fits inside it — the deliberate framing beside the panels every anchor had before this
+	# fix, and Ui.gutter() is itself viewport-derived so this holds through 100%-200%. When
+	# it does not fit there, centring on that narrow strip anyway is exactly what ran
+	# anchor-13's ring off the window edge — on the default 1440x810 window the strip is
+	# 460px wide against a 1920px board — so the fallback is the *whole* viewport, which is
+	# always at least as roomy as the strip and, for every anchor whose tile bounding box is
+	# no wider than the design viewport (every one of them, at 1920x1080 — see the numbers in
+	# the change that added this), fits it exactly edge to edge.
+	var bottom_reserve := g + Ui.dialog_h() + 8.0
+	var free_w := maxf(vp.x - Ui.COL_W - Ui.THREAT_W - g * 2.0, 120.0)
+	var free_h := maxf(vp.y - g - bottom_reserve, 120.0)
+	var centre_pt: Vector2
+	if board_w <= free_w and board_h <= free_h:
+		centre_pt = Vector2((vp.x + Ui.COL_W - Ui.THREAT_W) * 0.5,
+			(g + (vp.y - bottom_reserve)) * 0.5)
+	else:
+		centre_pt = vp * 0.5
+	_origin = centre_pt - mid
+
+	# The centroid is a point of symmetry for an iso-projected rectangle — every corner sits
+	# exactly as far from it as its opposite — so a board bigger than the viewport overflows
+	# equally on both sides no matter where the centroid lands. Symmetric is the fair answer
+	# for the board as a whole, but the ring is not at the board's geometric centre on every
+	# anchor, and it is the one tile that must never be the one that goes missing: nudge the
+	# whole placement, after centring, just far enough that the ring stays inside a margin.
+	var pts: Array = _anchor_data().get("path", [])
+	if pts.size() > 0:
+		var ring: Array = pts[pts.size() - 1]
+		var ring_screen := IsoScript.tile_to_screen(float(ring[0]), float(ring[1])) + _origin
+		var margin := maxf(g, 24.0)
+		var nudge := Vector2.ZERO
+		if ring_screen.x < margin:
+			nudge.x = margin - ring_screen.x
+		elif ring_screen.x > vp.x - margin:
+			nudge.x = (vp.x - margin) - ring_screen.x
+		if ring_screen.y < margin:
+			nudge.y = margin - ring_screen.y
+		elif ring_screen.y > vp.y - margin:
+			nudge.y = (vp.y - margin) - ring_screen.y
+		_origin += nudge
 
 
 # ─────────────────────────────────────────────────────────────── clock ──
@@ -213,15 +356,31 @@ func _centre() -> void:
 func _process(delta: float) -> void:
 	if sim == null or _phase in ["done", "lost"]:
 		return
-	_accum += minf(delta, 0.25)      # clamp so a stall cannot fast-forward the level
+	# `speed` steps AnchorSimScript.DT more times per real second; DT itself never changes —
+	# see the field's own doc. Clamped before the multiply so a stall is still bounded in
+	# real seconds first, then scaled, rather than a stall at 3x fast-forwarding 3x further.
+	_accum += minf(delta, 0.25) * speed
 	while _accum >= AnchorSimScript.DT:
 		_accum -= AnchorSimScript.DT
 		_sim_t += AnchorSimScript.DT
 		_advance()
+	_update_shake(delta)
 	queue_redraw()
+	# GlowLayer, CombatFx and FxAdditive are separate CanvasItems: queue_redraw() on this
+	# node does not propagate to children, so without this the additive glow pass drew
+	# once on the first frame and never again — brownout dimming (decision 007) never
+	# actually reached the screen. Combat FX needs the same per-frame redraw to animate.
+	if glow_layer:
+		glow_layer.queue_redraw()
+	if combat_fx:
+		combat_fx.queue_redraw()
+	if fx_additive:
+		fx_additive.queue_redraw()
 
 
 func _advance() -> void:
+	_tick_abilities()
+
 	if _phase == "prep":
 		_lead_left -= AnchorSimScript.DT
 		sim.tick()
@@ -233,7 +392,13 @@ func _advance() -> void:
 
 	if _phase == "combat":
 		while _qi < _queue.size() and float(_queue[_qi][0]) <= _wave_t + 1e-9:
-			sim.spawn(String(_queue[_qi][1]))
+			# Shutter: "arrivals queue instead of spawning" is entirely a caller-side
+			# decision — spawning was already driven from here, not from inside AnchorSim —
+			# so withholding the call is the whole implementation. See set_shutter()'s doc.
+			if abilities != null and abilities.is_active("shutter"):
+				_shutter_held.append(_queue[_qi][1])
+			else:
+				sim.spawn(String(_queue[_qi][1]))
 			_qi += 1
 		sim.tick()
 		_wave_t += AnchorSimScript.DT
@@ -247,6 +412,14 @@ func _advance() -> void:
 		if _qi >= _queue.size() and not sim.any_alive():
 			sim.prune_dead()
 			_fire("wave-clear:%d" % (_wave_index + 1))
+			# Clean sweep: this wave's own leak count, not the run's — the delta since
+			# _begin_wave() snapshotted it. GDScript-only funds, exactly like the kill chain.
+			if sim.leaks == _wave_start_leaks:
+				var bonus := Tuning.clean_sweep_bonus(int(sim.anchor.get("act", 1)))
+				if bonus > 0:
+					sim.funds += bonus
+					sim.funds_changed.emit(sim.funds)
+					Audio.sfx("clean_sweep")
 			if _wave_index + 1 >= sim.anchor["waves"].size():
 				_phase = "done"
 				Audio.stinger("SYS-WIN")
@@ -256,9 +429,68 @@ func _advance() -> void:
 			state_changed.emit()
 
 
+func _tick_abilities() -> void:
+	if abilities == null:
+		return
+	for id in abilities.tick(AnchorSimScript.DT):
+		match String(id):
+			"overcharge":
+				sim.set_overcharge(false)
+				Audio.sfx("overcharge_off")
+				state_changed.emit()
+			"shutter":
+				sim.set_shutter(false)
+				Audio.sfx("shutter_up")
+				# Released in original queued order — a plain Array pop-from-front already
+				# preserves that, so there is nothing more to get right here.
+				for enemy_id in _shutter_held:
+					sim.spawn(String(enemy_id))
+				_shutter_held.clear()
+				state_changed.emit()
+			_:
+				pass
+
+
+func add_trauma(amount: float) -> void:
+	## combat_fx.gd's only way to shake the camera. Sources: heavy kills, mortar impacts,
+	## and — the biggest by far — a leak, the worst thing that can happen to the player.
+	_trauma = clampf(_trauma + amount, 0.0, 1.0)
+
+
+func _update_shake(delta: float) -> void:
+	## offset = trauma^2 * max_offset, so a small hit barely moves the camera and only a
+	## leak or a heavy kill earns the full amount — a trauma system, not a jitter. Two
+	## octaves of noise rather than raw sine so it reads as a shake rather than a wobble.
+	## `Display.shake` is the accommodation: 0 disables this outright.
+	_shake_t += delta
+	_trauma = maxf(0.0, _trauma - TRAUMA_DECAY * delta)
+	var shake: float = _trauma * _trauma * TRAUMA_MAX_OFFSET * Display.shake
+	if shake <= 0.001:
+		position = Vector2.ZERO
+		return
+	var nx := _shake_noise.get_noise_1d(_shake_t * 24.0) \
+		+ _shake_noise.get_noise_1d(_shake_t * 55.0 + 41.0) * 0.5
+	var ny := _shake_noise.get_noise_1d(_shake_t * 24.0 + 97.0) \
+		+ _shake_noise.get_noise_1d(_shake_t * 55.0 + 133.0) * 0.5
+	position = Vector2(nx, ny) * shake
+
+
+func to_screen(tile: Vector2) -> Vector2:
+	## Presentation helper for combat_fx/fx_additive: the same projection _draw_board() and
+	## drawables() use, exposed so the FX layer never has to duplicate or re-derive _origin.
+	return IsoScript.tile_to_screen(tile.x, tile.y) + _origin
+
+
+func drawable_texture(sprite_name: String, yaw: int, pass_name: String) -> Texture2D:
+	## Read-only accessor so fx_additive can redraw a unit's own albedo for a hit flash
+	## without reaching into _sprite_lib() directly.
+	return _tex(sprite_name, yaw, pass_name)
+
+
 func _begin_wave(index: int) -> void:
 	_wave_index = index
 	sim.begin_wave(index)          # Act III: the bus loses its decay before the prep phase
+	_wave_start_leaks = sim.leaks  # clean sweep is scored against this wave's own leaks
 	if _autobuild:
 		_autobuild_step()
 	_queue = sim.wave_queue(index)
@@ -276,6 +508,169 @@ func _on_unit_killed(u: Dictionary) -> void:
 	Audio.sfx("warden_death")
 	if float(u["kind"].get("hp", 0.0)) >= 150.0:
 		Audio.sfx("debris_settle", -5.0)
+	_charge_surge(u)
+	_advance_chain(u)
+
+
+func _charge_surge(u: Dictionary) -> void:
+	## Threshold Surge charges on kills, not on a clock: leak_cost * charge_per_leak_cost,
+	## scaled by Recoveries.surge_charge_mult() — a save-file concern read here rather than
+	## inside anchor_sim.gd for the same reason veterancy's ranks are resolved in boot().
+	if abilities == null:
+		return
+	var cfg := Tuning.ability("surge")
+	var per := float(cfg.get("charge_per_leak_cost", 0.0))
+	if per <= 0.0:
+		return
+	var leak_cost := int(u["kind"].get("leak_cost", 1))
+	# `abilities` is untyped (see its declaration's own doc — a new class_name is invisible
+	# until the editor has imported once, and typing this var AbilityState risks the same
+	# parse-time hang), so `:=` on anything read through it cannot infer a type and fails to
+	# parse the whole file. Explicit `bool` sidesteps that, matching the trap CLAUDE.md
+	# documents for `sim` and any other untyped/Node2D-through receiver.
+	var was_ready: bool = abilities.ready("surge")
+	abilities.add_charge("surge", float(leak_cost) * per * Recoveries.surge_charge_mult())
+	if not was_ready and abilities.ready("surge"):
+		Audio.sfx("surge_ready")
+		_fire("surge-ready")
+
+
+func _advance_chain(u: Dictionary) -> void:
+	## Kills inside chain_window_s of each other stack a bounty multiplier, capped at
+	## chain_bounty_max (data/tuning.json `pacing`). GDScript-only funds layered on top of
+	## the bounty AnchorSim._damage() already paid — see the note atop anchor_sim.gd's new
+	## state block; this file is never read by tools/test_parity.py at all.
+	var window := Tuning.chain_window_s()
+	chain_count = (chain_count + 1) if (_sim_t - _chain_last_t) <= window else 1
+	_chain_last_t = _sim_t
+	chain_mult = minf(Tuning.chain_bounty_max(), Tuning.chain_bounty_per_kill() * float(chain_count))
+	Audio.sfx("chain_up_%d" % clampi(chain_count, 1, 8))
+	if chain_mult > 0.0:
+		var base := int(float(u["kind"].get("bounty", 0.0)) * sim.bounty_mult)
+		var bonus := roundi(float(base) * chain_mult)
+		if bonus > 0:
+			sim.funds += bonus
+			sim.funds_changed.emit(sim.funds)
+	if chain_count >= CHAIN_HIGH_STREAK:
+		_fire("chain-high")
+
+
+func debug_set_chain(n: int) -> void:
+	## Verification-only: main.gd's `-- --chain N` CLI flag. Reaching a real N-kill streak
+	## needs N kills inside chain_window_s of each other, which --fixed-fps has no player to
+	## produce — the same reasoning every other CLI verification hook in main.gd is built on.
+	chain_count = n
+	_chain_last_t = _sim_t
+	chain_mult = minf(Tuning.chain_bounty_max(), Tuning.chain_bounty_per_kill() * float(n))
+
+
+func chain_active() -> bool:
+	## Whether the streak is still "live" for display purposes — chain_count itself never
+	## resets except on the next kill, so a HUD reading it directly would show a stale streak
+	## forever between waves.
+	return chain_count > 0 and (_sim_t - _chain_last_t) <= Tuning.chain_window_s()
+
+
+func _on_unit_leaked_dialog(_u: Dictionary) -> void:
+	## first-leak and low-lives are authored on nearly every anchor and, before this, never
+	## fired — a leak read as a UI blip (a deny tone) and nothing else.
+	_fire("first-leak")
+	var starting := int(sim.anchor.get("lives", 10))
+	if starting > 0 and float(sim.lives) / float(starting) <= LOW_LIVES_FRAC:
+		_fire("low-lives")
+
+
+func _on_built(_tower_id: String, _slot: Vector2i) -> void:
+	## "Ward" is Control's word for a built emplacement (data/dialog's wards-half/wards-full
+	## lines) — ward_engage_{1..6} is an indexed, counted cue, played on every build, and the
+	## two dialog thresholds are the ring being half and fully engaged.
+	# `sim` is untyped by this file's existing convention (see the field's own declaration
+	# and CLAUDE.md's note on the parse-time trap), so both need an explicit type rather
+	# than `:=`.
+	var total: int = sim.placed.size() + sim.free_slots.size()
+	var n: int = sim.placed.size()
+	Audio.sfx("ward_engage_%d" % clampi(n, 1, 6))
+	if total > 0 and n * 2 >= total:
+		_fire("wards-half")
+	if total > 0 and n >= total:
+		_fire("wards-full")
+
+
+func call_wave() -> void:
+	## Skip the rest of prep and take call_bonus_per_sec funds per second not spent waiting —
+	## twenty seconds of dead air turned into a decision (data/tuning.json `pacing`'s note).
+	if sim == null or _phase != "prep":
+		Audio.sfx("ui_deny")
+		return
+	var bonus := call_wave_bonus()
+	sim.funds += bonus
+	sim.funds_changed.emit(sim.funds)
+	_lead_left = 0.0
+	Audio.sfx("wave_call")
+	_fire("wave-called")
+	state_changed.emit()
+
+
+func call_wave_bonus() -> int:
+	## The bonus on offer *right now* — shown before the player commits, so calling the wave
+	## is a decision rather than a surprise (the spec's own framing).
+	return roundi(Tuning.call_bonus_per_sec() * lead_left())
+
+
+func cycle_speed() -> void:
+	if _speeds.is_empty():
+		return
+	var i := _speeds.find(speed)
+	var ni := wrapi(i + 1, 0, _speeds.size())
+	Audio.sfx("speed_up" if ni > maxi(i, 0) else "speed_down")
+	speed = float(_speeds[ni])
+	state_changed.emit()
+
+
+func cycle_targeting() -> void:
+	## First/last/strongest/weakest, cycled on the selected emplacement. "first" — furthest
+	## along the path — is what an untouched placed record already does (see the comment in
+	## anchor_sim.gd's _step()), so this never has to write a value for an anchor nobody has
+	## touched targeting on.
+	var i := placed_index_at(selected_slot)
+	if i < 0:
+		Audio.sfx("ui_deny")
+		return
+	var modes: Array = Tuning.targeting_modes()
+	if modes.is_empty():
+		return
+	var p: Dictionary = sim.placed[i]
+	var cur := String(p.get("target_mode", Tuning.targeting_default()))
+	var mi := modes.find(cur)
+	p["target_mode"] = String(modes[wrapi(mi + 1, 0, modes.size())])
+	Audio.sfx("ui_click")
+	state_changed.emit()
+
+
+func activate_ability(id: String) -> void:
+	if sim == null or abilities == null or not abilities.ready(id):
+		Audio.sfx("ui_deny")
+		return
+	var cfg := Tuning.ability(id)
+	match id:
+		"surge":
+			sim.fire_surge(cfg)
+			Audio.sfx("surge_fire")
+		"overcharge":
+			sim.set_overcharge(true, float(cfg.get("fire_rate_bonus", 0.0)),
+				float(cfg.get("draw_mult", 1.0)))
+			Audio.sfx("overcharge_on")
+		"shutter":
+			sim.set_shutter(true, float(cfg.get("hold_tiles", 0.0)),
+				float(cfg.get("draw_mw", 0.0)))
+			Audio.sfx("shutter_down")
+		_:
+			return
+	add_trauma(float(cfg.get("trauma", 0.0)))
+	abilities.began(id)
+	if abilities.first_fire(id):
+		_fire("%s-first" % id)
+	state_changed.emit()
 
 
 func _on_brownout(active: bool) -> void:
@@ -337,6 +732,18 @@ func _action_input(event: InputEvent) -> void:
 		_cycle_tower(1)
 	elif event.is_action_pressed("lf_prev"):
 		_cycle_tower(-1)
+	elif event.is_action_pressed("lf_speed_cycle"):
+		cycle_speed()
+	elif event.is_action_pressed("lf_call_wave"):
+		call_wave()
+	elif event.is_action_pressed("lf_target"):
+		cycle_targeting()
+	elif event.is_action_pressed("lf_ability_1"):
+		activate_ability("surge")
+	elif event.is_action_pressed("lf_ability_2"):
+		activate_ability("overcharge")
+	elif event.is_action_pressed("lf_ability_3"):
+		activate_ability("shutter")
 
 
 func _slot_screen(slot: Vector2i) -> Vector2:
@@ -730,6 +1137,27 @@ func _draw_entities() -> void:
 			_draw_tower(d["ref"], dim)
 		else:
 			_draw_unit(d["ref"])
+		if d["kind"] == "tower":
+			_draw_rank_pip(d["ref"], d["at"])
+
+
+func _draw_rank_pip(p: Dictionary, at: Vector2) -> void:
+	## Veterancy (data/tuning.json `veterancy`): "shows a rank pip on its base" per the note.
+	## Empty rank (no ranks set, or no kills yet) draws nothing — an untouched board looks
+	## exactly as it always has.
+	var ranks: Array = sim.veterancy_ranks()
+	if ranks.is_empty():
+		return
+	var kills := int(p.get("kills", 0))
+	var name := ""
+	for r in ranks:
+		if kills >= int(r.get("kills", 0)):
+			name = String(r.get("name", ""))
+	if name == "":
+		return
+	var c := at + Vector2(-26, -48)
+	draw_circle(c, 9.0, Color(C_AMBER, 0.92))
+	_label(c + Vector2(0, 4), name, Color(0.09, 0.07, 0.03))
 
 
 func _draw_editor_overlay(anchor: Dictionary) -> void:
