@@ -110,6 +110,52 @@ var _trauma: float = 0.0
 var _shake_t: float = 0.0
 var _shake_noise := FastNoiseLite.new()
 
+# ────────────────────────────────────────────────────────────── camera ──
+#
+# CAM-01. The transform split promised above is now load-bearing: `scale` is zoom,
+# `_origin` is pan (derived from the two fields below, not written to directly any more),
+# `position` stays shake's alone — `_update_shake()` never touches these and this section
+# never touches `position`, so the two systems compose instead of fighting.
+#
+# `_cam_target` is a board-*projected* point — the same units `IsoScript.tile_to_screen()`
+# returns, i.e. `_origin`'s own units before this issue, not a tile coordinate — namely the
+# point that is placed at the strip's centre on screen. `Vector2` (float32) is fine here
+# per this issue's own risk note: the camera is presentation, and a camera-space quantity
+# must never leak into anchor_sim.gd or sim/engine.py, where float64 is required.
+
+## Decision 056: fitting a big board into the strip is the camera's job, not the sprite
+## library's — raising Iso.TILE_W/TILE_H or re-authoring the atlas were both rejected.
+## `ZOOM_MIN` is therefore *derived* every time the camera is applied, from the loaded
+## board's own tile-space extent against the strip that is actually available right now
+## (`_min_zoom_for_board()`), never a literal: a 24-anchor board and a future 64x64
+## theatre-scale board need different floors, and a hardcoded one for today's boards would
+## silently stop fitting the day a bigger one ships. This constant is only the absolute
+## floor beneath *that* derivation, so the projection cannot degenerate to a point when the
+## strip itself is nearly zero-width (200% interface scale — LF-057/045: the two panels
+## alone want 948 of the 960px design space there, leaving the strip formula almost nothing
+## to fit into). Detail loss at the floor is accepted; see decision 056.
+const ZOOM_MIN_FLOOR := 0.05
+## 1.0 is the hard ceiling: the atlas is one orthographic scale (see this file's own header
+## doc, decision 056's closing paragraph), so past 1.0 sprites soften and the only real fix
+## is re-rendering 224 sprites for a feature whose value is inspection.
+const ZOOM_MAX := 1.0
+const ZOOM_WHEEL_FACTOR := 1.15  ## multiplicative, per wheel notch, about the cursor
+const ZOOM_KEY_RATE := 1.6       ## exponential per second, held lf_zoom_in/out, about the strip centre
+const EDGE_SCROLL_MARGIN := 48.0     ## px of the *strip's* own edge, not the window's
+const EDGE_SCROLL_MAX_SPEED := 900.0 ## board px/sec at full depth into the margin, at zoom 1
+const CURSOR_FOLLOW_INSET := 40.0    ## px kept clear of the strip edge when following the cursor
+
+var _cam_target: Vector2 = Vector2.ZERO
+var _cam_zoom: float = 1.0
+var _zoom_min: float = ZOOM_MIN_FLOOR
+var _cam_initialised: bool = false
+var _default_cam_target: Vector2 = Vector2.ZERO  ## what lf_camera_reset returns to
+var _panning: bool = false                        ## middle-drag in progress
+var _mouse_seen: bool = false  ## a real (or synthetic --mouse-at) pointer has been placed;
+                                ## edge-scroll stays off until then so a --shot run with no
+                                ## mouse input at all — e.g. sitting at (0,0) in Xvfb — cannot
+                                ## silently drift the camera and make two identical runs differ.
+
 
 func _ready() -> void:
 	glow_layer = get_node_or_null("GlowLayer")
@@ -183,10 +229,10 @@ func boot(aid: String, diff: String) -> void:
 	# Everything the board itself needs is done above this line. combat_fx.bind() wires a
 	# cosmetic layer and goes last, guarded, for exactly the failure this project just had:
 	# a parse error in combat_fx.gd left the CombatFx node scriptless, `combat_fx.bind(sim)`
-	# died on a missing method, and because it used to run *before* _centre() the whole board
-	# collapsed to a corner over one bad type inference in the FX layer. A presentation node
-	# failing to load must never be able to take the playfield down with it.
-	_centre()
+	# died on a missing method, and because it used to run *before* _apply_camera() the whole
+	# board collapsed to a corner over one bad type inference in the FX layer. A presentation
+	# node failing to load must never be able to take the playfield down with it.
+	_apply_camera()
 	queue_redraw()
 	if combat_fx and combat_fx.has_method("bind"):
 		combat_fx.bind(sim)
@@ -198,7 +244,7 @@ func _editor_refresh() -> void:
 	## Editor-only. No sim, no audio, no clock — just re-centre and repaint.
 	if not is_inside_tree():
 		return
-	_centre()
+	_apply_camera()
 	queue_redraw()
 	if glow_layer:
 		glow_layer.queue_redraw()
@@ -286,80 +332,234 @@ func _tex(sprite_name: String, yaw: int, pass_name: String) -> Texture2D:
 	return lib.get_tex(sprite_name, yaw, pass_name)
 
 
-func _centre() -> void:
-	## Centre the board so as much of it stays on screen as a translation-only placement can
-	## manage, then nudge that placement just far enough that the ring specifically — the far
-	## end of the path, where a leak actually costs a life — never runs past the window edge,
-	## even when the board as a whole cannot possibly fit: anchor-13's tile bounding box is
-	## 1920px wide and the default window is 1440.
+func _strip_geometry(vp: Vector2) -> Dictionary:
+	## The free region between the two instrument panels, and its screen centre — the same
+	## quantity the old `_centre()` computed as `centre_pt`, factored out because zoom-to-fit,
+	## the pan clamp, edge-scroll and cursor-follow all need it. Not `vp * 0.5` — COL_W and
+	## THREAT_W are different widths (420 vs 528), so the viewport's own centre sits 54px right
+	## of the strip's; see the historical note this replaced in git blame for the full story of
+	## why the asymmetric alternative was wrong.
+	var g := Ui.gutter(vp)
+	var bottom_reserve := g + Ui.dialog_h() + 8.0
+	var w := vp.x - 2.0 * g - Ui.COL_W - Ui.THREAT_W
+	var h := vp.y - g - bottom_reserve
+	var centre := Vector2((vp.x + Ui.COL_W - Ui.THREAT_W) * 0.5,
+		(g + (vp.y - bottom_reserve)) * 0.5)
+	return {"centre": centre, "w": maxf(w, 1.0), "h": maxf(h, 1.0), "g": g}
+
+
+func _min_zoom_for_board(strip: Dictionary, gw: int, gh: int) -> float:
+	## Decision 056: the zoom floor is whatever it takes to fit *this* board's tile-space
+	## extent into the strip that is actually available right now — never a literal. See the
+	## field doc on `ZOOM_MIN_FLOOR` for the absolute floor beneath this and why it exists.
+	var board_w: float = float(gw + gh) * IsoScript.TILE_W * 0.5
+	var board_h: float = float(gw + gh) * IsoScript.TILE_H * 0.5
+	if board_w <= 0.0 or board_h <= 0.0:
+		return ZOOM_MAX
+	return clampf(minf(strip["w"] / board_w, strip["h"] / board_h), ZOOM_MIN_FLOOR, ZOOM_MAX)
+
+
+func _default_target(vp: Vector2, mid: Vector2, strip: Dictionary) -> Vector2:
+	## Reproduces the old `_centre()`'s framing at zoom 1.0 exactly: the board's own centre,
+	## nudged just far enough that the ring specifically — the far end of the path, where a
+	## leak actually costs a life — never runs past the strip's margin, even on a board that
+	## cannot possibly fit as a whole. Seeds `_cam_target` once, at boot; panning after that is
+	## the player's to correct, not the camera's to keep re-imposing.
+	var pts: Array = _anchor_data().get("path", [])
+	if pts.is_empty():
+		return mid
+	var ring: Array = pts[pts.size() - 1]
+	var strip_centre: Vector2 = strip["centre"]
+	var ring_screen: Vector2 = IsoScript.tile_to_screen(float(ring[0]), float(ring[1])) \
+		+ (strip_centre - mid)
+	var margin: float = maxf(strip["g"], 24.0)
+	var nudge := Vector2.ZERO
+	if ring_screen.x < margin:
+		nudge.x = margin - ring_screen.x
+	elif ring_screen.x > vp.x - margin:
+		nudge.x = (vp.x - margin) - ring_screen.x
+	if ring_screen.y < margin:
+		nudge.y = margin - ring_screen.y
+	elif ring_screen.y > vp.y - margin:
+		nudge.y = (vp.y - margin) - ring_screen.y
+	return mid - nudge
+
+
+func _clamp_target(strip: Dictionary, gw: int, gh: int, mid: Vector2) -> void:
+	## The board's tile bounding box can never leave the strip entirely: the target ranges
+	## over the board's own extent, inset by a margin, so some of the strip always still shows
+	## board rather than letting the whole thing scroll out from under it.
 	##
-	## No `scale` here, but the three transform terms this board camera will use are all
-	## already spoken for and split apart, not fought over: `_origin` (below) is the camera's
-	## pan term — every draw call in this file adds it by hand instead of using the node
-	## transform — `scale` is its zoom term, and `position` is reserved for screen-shake
-	## trauma (`_update_shake()`, below) and must never be reused as a camera pan. `scale` was
-	## off-limits before CAM-02: it is inherited by every child, and Backdrop used to be one
-	## of them, sizing itself to get_viewport_rect().size independently of the board — zooming
-	## AnchorView would have left the sky covering only part of the screen. CAM-02 moved
-	## Backdrop to a sibling of this node under Main so it no longer inherits anything from
-	## here; BoardProps, CombatFx, GlowLayer and FxAdditive are still children and still
-	## inherit `scale`, which is exactly what {{CAM-01}}'s zoom needs them to do.
+	## Deliberately never a hard lock to `mid`, even on an axis where the board already fits
+	## the strip at this zoom (an anchor's board is never square, so this is most of the
+	## range for one axis or the other). A hard lock was tried and rejected: `_zoom_at()`
+	## solves for the exact target that keeps a specific board point under the cursor, and a
+	## same-frame lock overwrote that solution back to centre, which broke the more specific,
+	## player-facing, tested-to-the-pixel acceptance criterion ("the tile under the pointer
+	## stays under the pointer... at every step from 1.0 down to ZOOM_MIN") in favour of a
+	## framing convenience nobody asked to keep mid-interaction. The range below already
+	## contains `mid`, so "centred when nothing has panned it" holds as the resting state —
+	## seeded at boot by `_default_target()` — without fighting a live zoom or drag.
+	var board_w: float = float(gw + gh) * IsoScript.TILE_W * 0.5
+	var board_h: float = float(gw + gh) * IsoScript.TILE_H * 0.5
+	var margin: float = maxf(strip["g"], 24.0)
+	var kx: float = maxf((strip["w"] * 0.5 - margin) / _cam_zoom, 0.0)
+	_cam_target.x = clampf(_cam_target.x, mid.x - board_w * 0.5 - kx, mid.x + board_w * 0.5 + kx)
+	var ky: float = maxf((strip["h"] * 0.5 - margin) / _cam_zoom, 0.0)
+	_cam_target.y = clampf(_cam_target.y, mid.y - board_h * 0.5 - ky, mid.y + board_h * 0.5 + ky)
+
+
+func _apply_camera() -> void:
+	## The single place that turns `_cam_target`/`_cam_zoom` into `_origin`/`scale`. Every
+	## camera input (pan, wheel/key zoom, edge-scroll, cursor-follow, `--camera`) mutates the
+	## two fields above and then calls this — it never writes `_origin` or `scale` itself.
+	##
+	## `scale` was off-limits before CAM-02: it is inherited by every child, and Backdrop used
+	## to be one of them, sizing itself to get_viewport_rect().size independently of the board
+	## — zooming AnchorView would have left the sky covering only part of the screen. CAM-02
+	## moved Backdrop to a sibling of this node under Main so it no longer inherits anything
+	## from here; BoardProps, CombatFx, GlowLayer and FxAdditive are still children and still
+	## inherit `scale`, which is exactly what this issue's zoom needs them to do.
 	var grid: Dictionary = _anchor_data().get("grid", {"w": 12, "h": 10})
-	var w: int = int(grid["w"])
-	var h: int = int(grid["h"])
-	var mid := IsoScript.tile_to_screen(float(w) * 0.5, float(h) * 0.5)
+	var gw: int = int(grid["w"])
+	var gh: int = int(grid["h"])
+	var mid := IsoScript.tile_to_screen(float(gw) * 0.5, float(gh) * 0.5)
 	if Engine.is_editor_hint():
 		# There is no game viewport while editing, and get_viewport_rect() would
 		# return the editor's. Hang the board off this node's own origin instead,
 		# so it is centred on wherever the node sits in the scene.
+		_cam_zoom = 1.0
+		scale = Vector2.ONE
+		_cam_target = mid
 		_origin = -mid
 		return
 	var vp := get_viewport_rect().size
-	var g := Ui.gutter(vp)
-	var bottom_reserve := g + Ui.dialog_h() + 8.0
+	var strip := _strip_geometry(vp)
+	_zoom_min = _min_zoom_for_board(strip, gw, gh)
+	if not _cam_initialised:
+		_cam_target = _default_target(vp, mid, strip)
+		_default_cam_target = _cam_target
+		_cam_initialised = true
+	_cam_zoom = clampf(_cam_zoom, _zoom_min, ZOOM_MAX)
+	_clamp_target(strip, gw, gh, mid)
+	scale = Vector2(_cam_zoom, _cam_zoom)
+	# See the derivation in this file's own camera section doc: for a board-projected point
+	# p, screen = position + (p + origin) * scale must put _cam_target at the strip's centre,
+	# i.e. (target + origin) * zoom == strip.centre, which solves to this.
+	_origin = strip["centre"] / _cam_zoom - _cam_target
 
-	# The centre of the free region between the two instrument panels: horizontally from the
-	# column's right edge to the threat panel's left edge, vertically from the top gutter to
-	# the dialog band. Not `vp * 0.5` — COL_W and THREAT_W are different widths (420 vs 528),
-	# so the viewport's own centre is 54px right of the strip's, and centring the *board*
-	# there instead of the strip gave the wider threat panel 108px more of the board's right
-	# side than the column got of its left, at every scale: a wide empty gutter beside the
-	# column and the ring, near the board's far corner, crowding the threat panel's edge.
-	#
-	# There used to be a check here for whether the board actually fits inside that region,
-	# falling back to `vp * 0.5` when it does not — added because centring a too-big board on
-	# the strip ran anchor-13's ring off the window edge. But no anchor's tile bounding box is
-	# small enough to fit the strip at any scale (anchor-01's is 1536px against a 940px strip
-	# at 100%), so that branch was never live: every anchor used the `vp * 0.5` fallback,
-	# which is the asymmetry above. One formula, used always, is both the fix and a
-	# simplification: it is already exactly what the "fits" branch computed, so nothing
-	# changes for a board that one day does fit, and the ring is still kept on screen by the
-	# nudge below regardless of which point the board was centred on first.
-	var centre_pt := Vector2((vp.x + Ui.COL_W - Ui.THREAT_W) * 0.5,
-		(g + (vp.y - bottom_reserve)) * 0.5)
-	_origin = centre_pt - mid
 
-	# The centroid is a point of symmetry for an iso-projected rectangle — every corner sits
-	# exactly as far from it as its opposite — so a board bigger than the viewport overflows
-	# equally on both sides no matter where the centroid lands. Symmetric is the fair answer
-	# for the board as a whole, but the ring is not at the board's geometric centre on every
-	# anchor, and it is the one tile that must never be the one that goes missing: nudge the
-	# whole placement, after centring, just far enough that the ring stays inside a margin.
-	var pts: Array = _anchor_data().get("path", [])
-	if pts.size() > 0:
-		var ring: Array = pts[pts.size() - 1]
-		var ring_screen := IsoScript.tile_to_screen(float(ring[0]), float(ring[1])) + _origin
-		var margin := maxf(g, 24.0)
-		var nudge := Vector2.ZERO
-		if ring_screen.x < margin:
-			nudge.x = margin - ring_screen.x
-		elif ring_screen.x > vp.x - margin:
-			nudge.x = (vp.x - margin) - ring_screen.x
-		if ring_screen.y < margin:
-			nudge.y = margin - ring_screen.y
-		elif ring_screen.y > vp.y - margin:
-			nudge.y = (vp.y - margin) - ring_screen.y
-		_origin += nudge
+func _board_to_screen_global(tile: Vector2) -> Vector2:
+	## The true on-screen (global/viewport) position of a tile, after both `_origin`/`scale`
+	## (pan/zoom) and `position` (shake) — what cursor-follow and edge-scroll compare against
+	## the strip rect, which is itself in that same global space.
+	return position + to_screen(tile) * _cam_zoom
+
+
+func _zoom_at(mouse_global: Vector2, factor: float) -> void:
+	## Wheel zoom: the board point under the pointer stays under the pointer. Solve for the
+	## `_cam_target` that keeps `board_pt` (the point currently under the cursor, read off the
+	## *current* `_origin`) mapped to the same screen position once the new zoom is applied.
+	var new_zoom := clampf(_cam_zoom * factor, _zoom_min, ZOOM_MAX)
+	if is_equal_approx(new_zoom, _cam_zoom):
+		return
+	var vp := get_viewport_rect().size
+	var strip := _strip_geometry(vp)
+	var board_pt := to_local(mouse_global) - _origin
+	_cam_target = board_pt - (mouse_global - position - strip["centre"]) / new_zoom
+	_cam_zoom = new_zoom
+	_apply_camera()
+
+
+func _zoom_key(rate_dt: float) -> void:
+	## Keyboard/gamepad zoom: about the strip's own centre, not the cursor — there is no
+	## pointer to anchor to from a gamepad, and the mouse is irrelevant to this input path.
+	_cam_zoom = clampf(_cam_zoom * exp(rate_dt), _zoom_min, ZOOM_MAX)
+	_apply_camera()
+
+
+func _cam_reset() -> void:
+	_cam_target = _default_cam_target
+	_cam_zoom = 1.0
+	Audio.sfx("ui_click")
+	_apply_camera()
+
+
+func _follow_cursor() -> void:
+	## Keyboard/gamepad board navigation pans just enough to keep the cursor inside an inset
+	## of the strip. Deliberately not wired to the mouse — see `_unhandled_input`'s
+	## InputEventMouseMotion branch, which updates `hovered_slot` on hover but never calls
+	## this — panning on every hover would fight the player's own hand on the wheel or the
+	## middle-drag. This is the *only* path that gives keyboard/gamepad panning, on purpose
+	## (LF-052): it needs no separate pan control of its own.
+	if Engine.is_editor_hint():
+		return
+	var vp := get_viewport_rect().size
+	var strip := _strip_geometry(vp)
+	var inset: float = maxf(strip["g"], CURSOR_FOLLOW_INSET)
+	var rect := Rect2(strip["centre"] - Vector2(strip["w"], strip["h"]) * 0.5,
+		Vector2(strip["w"], strip["h"])).grow(-inset)
+	var pt := _board_to_screen_global(Vector2(hovered_slot))
+	var shift := Vector2.ZERO
+	if pt.x < rect.position.x:
+		shift.x = pt.x - rect.position.x
+	elif pt.x > rect.end.x:
+		shift.x = pt.x - rect.end.x
+	if pt.y < rect.position.y:
+		shift.y = pt.y - rect.position.y
+	elif pt.y > rect.end.y:
+		shift.y = pt.y - rect.end.y
+	if shift == Vector2.ZERO:
+		return
+	_cam_target += shift / _cam_zoom
+	_apply_camera()
+
+
+func _edge_scroll(delta: float) -> void:
+	## Pointer within EDGE_SCROLL_MARGIN of the *strip's* own edge scrolls at a rate
+	## proportional to depth into the margin — not the window edge, because the instrument
+	## panels are opaque and sit at the window edge, so a window-edge margin would be
+	## unreachable without the pointer first crossing an opaque panel.
+	if Engine.is_editor_hint() or _panning or not _mouse_seen:
+		return
+	var vp := get_viewport_rect().size
+	var strip := _strip_geometry(vp)
+	var rect := Rect2(strip["centre"] - Vector2(strip["w"], strip["h"]) * 0.5,
+		Vector2(strip["w"], strip["h"]))
+	var m := get_global_mouse_position()
+	var push := Vector2.ZERO
+	if m.x < rect.position.x + EDGE_SCROLL_MARGIN:
+		push.x = -clampf((rect.position.x + EDGE_SCROLL_MARGIN - m.x) / EDGE_SCROLL_MARGIN, 0.0, 1.0)
+	elif m.x > rect.end.x - EDGE_SCROLL_MARGIN:
+		push.x = clampf((m.x - (rect.end.x - EDGE_SCROLL_MARGIN)) / EDGE_SCROLL_MARGIN, 0.0, 1.0)
+	if m.y < rect.position.y + EDGE_SCROLL_MARGIN:
+		push.y = -clampf((rect.position.y + EDGE_SCROLL_MARGIN - m.y) / EDGE_SCROLL_MARGIN, 0.0, 1.0)
+	elif m.y > rect.end.y - EDGE_SCROLL_MARGIN:
+		push.y = clampf((m.y - (rect.end.y - EDGE_SCROLL_MARGIN)) / EDGE_SCROLL_MARGIN, 0.0, 1.0)
+	if push == Vector2.ZERO:
+		return
+	_cam_target += push * (EDGE_SCROLL_MAX_SPEED / _cam_zoom) * delta
+	_apply_camera()
+
+
+func set_camera_override(tile: Vector2, zoom: float) -> void:
+	## CAM-03's `--camera <x> <y> <zoom>` hook: point the camera at a board tile coordinate
+	## directly, bypassing every interactive path, so a verification run's frame depends on
+	## the flag alone. Called after boot() so it wins over the default framing boot() just
+	## seeded; zoom is clamped the same as every other path (`_apply_camera()`), so an
+	## out-of-range value clamps rather than producing an unreachable state.
+	_cam_initialised = true
+	_cam_target = IsoScript.tile_to_screen(tile.x, tile.y)
+	_cam_zoom = zoom
+	_apply_camera()
+
+
+func camera_state() -> Dictionary:
+	## What main.gd's CAMERA report line and the --a11y header read: the board tile the
+	## camera is centred on, and the zoom — self-describing, so a report or a screenshot is
+	## never silently paired with the wrong frame (CAM-03).
+	var t := IsoScript.screen_to_tile(_cam_target)
+	return {"x": t.x, "y": t.y, "zoom": _cam_zoom}
 
 
 # ─────────────────────────────────────────────────────────────── clock ──
@@ -376,6 +576,17 @@ func _process(delta: float) -> void:
 		_sim_t += AnchorSimScript.DT
 		_advance()
 	_update_shake(delta)
+	if _panning and not Input.is_mouse_button_pressed(MOUSE_BUTTON_MIDDLE):
+		# The button-up event does not always reach this window — releasing outside it while
+		# it is unfocused is the case this exists for. Checked every frame rather than only on
+		# an event so a drag can never stay latched past the release itself.
+		_panning = false
+	if Display.edge_scroll:
+		_edge_scroll(delta)
+	if Input.is_action_pressed("lf_zoom_in"):
+		_zoom_key(ZOOM_KEY_RATE * delta)
+	elif Input.is_action_pressed("lf_zoom_out"):
+		_zoom_key(-ZOOM_KEY_RATE * delta)
 	queue_redraw()
 	# GlowLayer, CombatFx and FxAdditive are separate CanvasItems: queue_redraw() on this
 	# node does not propagate to children, so without this the additive glow pass drew
@@ -725,14 +936,30 @@ func _fire(trigger: String) -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion:
-		var t := IsoScript.screen_to_tile(get_global_mouse_position() - _origin)
+		_mouse_seen = true
+		var t := IsoScript.screen_to_tile(to_local(get_global_mouse_position()) - _origin)
 		hovered_slot = Vector2i(roundi(t.x), roundi(t.y))
+		if _panning:
+			# Board space, not screen space: at zoom != 1 a screen-pixel drag has to move the
+			# camera target by more (zoomed out) or less (zoomed in) than the mouse moved, or
+			# the board visibly slides at the wrong speed under the cursor.
+			_cam_target -= event.relative / _cam_zoom
+			_apply_camera()
 		queue_redraw()
-	elif event is InputEventMouseButton and event.pressed:
-		if event.button_index == MOUSE_BUTTON_LEFT:
+	elif event is InputEventMouseButton:
+		if event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
 			_click(hovered_slot)
-		elif event.button_index == MOUSE_BUTTON_RIGHT:
+		elif event.button_index == MOUSE_BUTTON_RIGHT and event.pressed:
 			toggle_at(hovered_slot)
+		elif event.button_index == MOUSE_BUTTON_MIDDLE:
+			# Never left-drag: left click arms builds and selects emplacements (`_click()`
+			# below), so drag-to-pan on it would turn every slipped click into a camera move
+			# (LF-052). Middle is free for exactly this.
+			_panning = event.pressed
+		elif event.button_index == MOUSE_BUTTON_WHEEL_UP and event.pressed:
+			_zoom_at(get_global_mouse_position(), ZOOM_WHEEL_FACTOR)
+		elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN and event.pressed:
+			_zoom_at(get_global_mouse_position(), 1.0 / ZOOM_WHEEL_FACTOR)
 	else:
 		_action_input(event)
 
@@ -776,6 +1003,8 @@ func _action_input(event: InputEvent) -> void:
 		activate_ability("overcharge")
 	elif event.is_action_pressed("lf_ability_3"):
 		activate_ability("shutter")
+	elif event.is_action_pressed("lf_camera_reset"):
+		_cam_reset()
 
 
 func _slot_screen(slot: Vector2i) -> Vector2:
@@ -795,6 +1024,7 @@ func _step_cursor(dir: Vector2) -> void:
 	if not all.has(hovered_slot):
 		hovered_slot = all[0]              # first press with no cursor lands somewhere real
 		queue_redraw()
+		_follow_cursor()
 		return
 	var from := _slot_screen(hovered_slot)
 	var perp := Vector2(-dir.y, dir.x)
@@ -815,6 +1045,7 @@ func _step_cursor(dir: Vector2) -> void:
 		hovered_slot = best
 		Audio.sfx("ui_hover", -12.0)
 		queue_redraw()
+		_follow_cursor()
 
 
 func _cycle_tower(step: int) -> void:

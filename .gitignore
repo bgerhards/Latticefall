@@ -21,6 +21,14 @@
 __pycache__/
 *.pyc
 
+# Gate reports written by the pre-commit/pre-push hooks (tools/hooks/, PRC-08) — local
+# scratch, not build output anyone commits.
+/.cache/
+/gate.json
+/gate.md
+/gate-tier4.json
+/gate-tier4.md
+
 # Music masters live outside the repo (see assets/audio/music_manifest.json
 # for their sha256). Only the encoded Ogg is versioned.
 assets/audio/source/

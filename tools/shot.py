@@ -57,7 +57,8 @@ MIN_COVERAGE = 0.02
 # Lines Godot's `--shot`/`--a11y` path prints that are worth relaying — see `main.gd`'s
 # `_process()` and `menu.gd`. `PARITY_JSON` and other machinery are deliberately not here;
 # this tool is for looking at a frame, not for parity data.
-RELAY_PREFIXES = ("SHOT ", "FRAME ", "STATE ", "AUDIO ", "FACE ", "MENUFRAME ", "CLEARED ")
+RELAY_PREFIXES = ("SHOT ", "FRAME ", "STATE ", "AUDIO ", "FACE ", "MENUFRAME ", "CLEARED ",
+                  "CAMERA ", "DRAG ", "WHEEL ")
 
 
 def _out(line: str) -> None:

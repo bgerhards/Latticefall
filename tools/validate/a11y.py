@@ -342,6 +342,9 @@ def audit(report: Path, shot: Path | None) -> tuple[list[Finding], dict]:
     summary = {
         "scene": doc.get("scene", "?"),
         "anchor": doc.get("anchor"),
+        "camera": doc.get("camera"),   # {x, y, zoom} written by main.gd, CAM-03 — absent on
+                                        # a report captured before that hook existed, which is
+                                        # exactly what makes a stale report identifiable
         "viewport": [vw, vh],
         "window": [doc["window"]["width"], doc["window"]["height"]],
         "items": len(items),
@@ -374,11 +377,15 @@ def main() -> int:
 
     findings, summary = audit(args.report, args.shot)
 
+    cam = summary["camera"]
+    cam_text = (f"  ·  camera ({cam['x']:.2f},{cam['y']:.2f}) {cam['zoom']:.3f}x"
+                if cam else "  ·  camera UNKNOWN (report predates CAM-03)")
     head = (f"{summary['scene']}"
             + (f" {summary['anchor']}" if summary["anchor"] else "")
             + f"  ·  {summary['items']} text items"
             + f"  ·  viewport {summary['viewport'][0]:.0f}x{summary['viewport'][1]:.0f}"
-            + f"  ·  window {summary['window'][0]}x{summary['window'][1]}")
+            + f"  ·  window {summary['window'][0]}x{summary['window'][1]}"
+            + cam_text)
     print(head)
     print("-" * len(head))
 

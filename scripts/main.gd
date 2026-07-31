@@ -88,6 +88,39 @@ var _press_at: Array = []        ## [{frame:int, action:String, fired:bool}]
 ## inside chain_window_s of each other, which nothing at --fixed-fps can produce on its own.
 var _chain_cli: int = 0
 
+## `-- --camera <x> <y> <zoom>` (CAM-03): point the board camera at a tile coordinate at a
+## chosen zoom, bypassing pan/zoom/edge-scroll/cursor-follow entirely so a `--shot` and its
+## paired `--a11y` report depend on the flag alone rather than on default framing that CAM-01
+## can keep changing. Applied after `view.boot()`, which is what seeds the default framing
+## this is meant to override — see AnchorView.set_camera_override()'s own doc.
+var _camera_cli: Dictionary = {}       ## {} means "not passed"; else {x, y, zoom}, all float
+## `-- --mouse-at <x> <y>` (logical viewport pixels): places the pointer at boot, the way a
+## `--cursor` press places the board cursor — edge-scroll and wheel-zoom-about-cursor are
+## otherwise unscreenshottable at --fixed-fps, because both need to know where the mouse
+## actually is, and nothing moves it on its own. Warps the real cursor (so later frames'
+## `get_global_mouse_position()` reads keep reporting it) and also dispatches one synthetic
+## motion event, so AnchorView's own "a pointer has been seen at all" gate opens the same way
+## a real move would.
+var _mouse_at: Vector2 = Vector2.ZERO
+var _has_mouse_at: bool = false
+## `-- --drag <dx> <dy>` (logical viewport pixels): a synthetic middle-button drag of that
+## screen-space delta, starting at `--mouse-at` (or the viewport centre if that was not
+## given) — the only way to reach CAM-01's pan path without a real mouse.
+var _drag_delta: Vector2 = Vector2.ZERO
+var _has_drag: bool = false
+## `-- --wheel <n>` (repeatable notches, negative zooms out): synthetic wheel ticks at
+## `--mouse-at` (or the viewport centre) — reaches CAM-01's zoom-about-the-cursor path, which
+## a held key or a stick axis (both zoom about the strip centre instead) cannot exercise.
+var _wheel_steps: int = 0
+## `-- --hold <action>` (repeatable): `Input.action_press()`, not a synthetic InputEvent —
+## lf_zoom_in/lf_zoom_out are read every frame via `Input.is_action_pressed()` (a held-key
+## zoom, not an edge-triggered step like the board cursor's), which only the Input singleton's
+## own tracked state satisfies. Dispatching an InputEventAction the way `--cursor`/`--press-at`
+## do never reaches it, because that calls AnchorView's handler directly and never touches
+## Input at all. Held for the rest of the run — a --shot process quits right after capturing,
+## so there is no matching --release and none is needed.
+var _hold_actions: Array[String] = []
+
 ## Verification-only bookkeeping for `--ability-at`: how long after a fire to keep printing
 ## `ABILITY-LIVE` samples (bus load, shots/sec, shutter queue) — long enough to cover
 ## overcharge's 7s duration and shutter's 5s at real time, with margin.
@@ -113,6 +146,10 @@ func _ready() -> void:
 
     view.state_changed.connect(_on_state_changed)
     view.boot(anchor_id, difficulty)
+    if not _camera_cli.is_empty():
+        # After boot(), which is what seeds the default framing this overrides — see
+        # AnchorView.set_camera_override()'s own doc for why the order matters.
+        view.set_camera_override(Vector2(_camera_cli["x"], _camera_cli["y"]), _camera_cli["zoom"])
     hud.bind(view)
     dialog.bind(view)
     # Verification-only: dialog_view.gd already connects this to show the line on screen, but
@@ -143,6 +180,14 @@ func _ready() -> void:
         press.action = "lf_right"
         press.pressed = true
         view._action_input(press)
+    if _has_mouse_at:
+        _synth_mouse_at(_mouse_at)
+    if _has_drag:
+        _synth_drag(_mouse_at if _has_mouse_at else get_viewport_rect().size * 0.5, _drag_delta)
+    if _wheel_steps != 0:
+        _synth_wheel(_mouse_at if _has_mouse_at else get_viewport_rect().size * 0.5, _wheel_steps)
+    for a in _hold_actions:
+        Input.action_press(a)
     if _speed_cli > 0.0:
         view.speed = _speed_cli
     for aid in _ability_ids:
@@ -239,6 +284,27 @@ func _setup_cli() -> void:
             "--chain":
                 if i + 1 < argv.size() and argv[i + 1].is_valid_int():
                     _chain_cli = int(argv[i + 1])
+            "--camera":
+                # One shape, parsed with is_valid_float() exactly as --speed is above: three
+                # positional values or reject, no omitted-zoom / omitted-target shorthand.
+                if i + 3 < argv.size() and argv[i + 1].is_valid_float() \
+                        and argv[i + 2].is_valid_float() and argv[i + 3].is_valid_float():
+                    _camera_cli = {"x": float(argv[i + 1]), "y": float(argv[i + 2]),
+                        "zoom": float(argv[i + 3])}
+            "--mouse-at":
+                if i + 2 < argv.size() and argv[i + 1].is_valid_float() and argv[i + 2].is_valid_float():
+                    _mouse_at = Vector2(float(argv[i + 1]), float(argv[i + 2]))
+                    _has_mouse_at = true
+            "--drag":
+                if i + 2 < argv.size() and argv[i + 1].is_valid_float() and argv[i + 2].is_valid_float():
+                    _drag_delta = Vector2(float(argv[i + 1]), float(argv[i + 2]))
+                    _has_drag = true
+            "--wheel":
+                if i + 1 < argv.size() and argv[i + 1].is_valid_int():
+                    _wheel_steps = int(argv[i + 1])
+            "--hold":
+                if i + 1 < argv.size():
+                    _hold_actions.append(argv[i + 1])
 
 
 func _place_requested() -> void:
@@ -337,17 +403,23 @@ func _process(_delta: float) -> void:
         var img := get_viewport().get_texture().get_image()
         var err := img.save_png(_shot_path)
         print("SHOT %s err=%d %dx%d" % [_shot_path, err, img.get_width(), img.get_height()])
+        # Alongside SHOT/FRAME/STATE/AUDIO/FACE, whether or not --camera was passed (CAM-03):
+        # a report that does not say where the camera was is the problem this exists to fix.
+        var cam: Dictionary = view.camera_state()
+        print("CAMERA %.3f %.3f %.4f" % [cam["x"], cam["y"], cam["zoom"]])
         if _a11y_path != "":
             A11yProbe.write(_a11y_path, A11yProbe.capture(self, get_viewport(), {
                 "scene": "game", "anchor": anchor_id, "shot": _shot_path,
+                "camera": {"x": cam["x"], "y": cam["y"], "zoom": cam["zoom"]},
             }))
         var stats := _frame_stats(img)
         print("FRAME coverage=%.4f distinct=%d" % [stats["coverage"], stats["distinct"]])
         # What the sim actually reached by this frame. A screenshot is only evidence
         # if the state it captured is known and repeatable — see LF-028.
-        print("STATE frame=%d sim_t=%.3f wave=%d phase=%s lives=%d leaks=%d funds=%d"
+        print("STATE frame=%d sim_t=%.3f wave=%d phase=%s lives=%d leaks=%d funds=%d hover=(%d,%d)"
             % [_frame, view.sim_time(), view.wave_number(), view.phase(),
-               view.sim.lives, view.sim.leaks, view.sim.funds])
+               view.sim.lives, view.sim.leaks, view.sim.funds,
+               view.hovered_slot.x, view.hovered_slot.y])
         print("BUS load=%.1f cap=%.1f draw=%.1f penalty=%.3f overcharge=%s shutter=%s shutter_queue=%d"
             % [view.sim.bus_load(), view.sim.capacity(), view.sim.online_draw(),
                view.sim.penalty_now(), view.sim.overcharge_active, view.sim.shutter_active,
@@ -591,3 +663,62 @@ func _unhandled_input(event: InputEvent) -> void:
             get_tree().quit()
         else:
             pause_menu.toggle()
+
+
+# ────────────────────────────────────────────────────────── camera CLI ──
+#
+# `--mouse-at`/`--drag`/`--wheel`: synthetic mouse input for CAM-01's pointer-driven paths
+# (edge-scroll, zoom-about-cursor, middle-drag pan), which --fixed-fps otherwise has nobody
+# to produce. `Viewport.warp_mouse()` — not `Input.warp_mouse()`, which takes *window/screen*
+# pixels — moves the real tracked pointer in this viewport's own (stretched, logical) space,
+# the same space `get_global_mouse_position()` and every `InputEvent.position` here use, so
+# later per-frame reads (edge-scroll's `get_global_mouse_position()`) keep seeing it exactly
+# where this function put it. The synthetic events alongside it are what AnchorView's own
+# input handlers react to, exactly as `--cursor`'s synthetic `lf_right` presses above call
+# `view._action_input()` directly rather than going through the engine's input queue.
+
+func _synth_mouse_at(p: Vector2) -> void:
+    get_viewport().warp_mouse(p)
+    var m := InputEventMouseMotion.new()
+    m.position = p
+    m.global_position = p
+    m.relative = Vector2.ZERO
+    view._unhandled_input(m)
+
+
+func _synth_drag(start: Vector2, delta: Vector2) -> void:
+    get_viewport().warp_mouse(start)
+    var press := InputEventMouseButton.new()
+    press.button_index = MOUSE_BUTTON_MIDDLE
+    press.pressed = true
+    press.position = start
+    press.global_position = start
+    view._unhandled_input(press)
+
+    var move := InputEventMouseMotion.new()
+    move.position = start + delta
+    move.global_position = start + delta
+    move.relative = delta
+    view._unhandled_input(move)
+    get_viewport().warp_mouse(start + delta)
+
+    var release := InputEventMouseButton.new()
+    release.button_index = MOUSE_BUTTON_MIDDLE
+    release.pressed = false
+    release.position = start + delta
+    release.global_position = start + delta
+    view._unhandled_input(release)
+    print("DRAG from=(%.0f,%.0f) delta=(%.0f,%.0f)" % [start.x, start.y, delta.x, delta.y])
+
+
+func _synth_wheel(p: Vector2, steps: int) -> void:
+    get_viewport().warp_mouse(p)
+    var dir := MOUSE_BUTTON_WHEEL_UP if steps > 0 else MOUSE_BUTTON_WHEEL_DOWN
+    for _i in range(absi(steps)):
+        var tick := InputEventMouseButton.new()
+        tick.button_index = dir
+        tick.pressed = true
+        tick.position = p
+        tick.global_position = p
+        view._unhandled_input(tick)
+    print("WHEEL at=(%.0f,%.0f) steps=%d" % [p.x, p.y, steps])

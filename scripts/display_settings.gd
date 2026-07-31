@@ -89,6 +89,12 @@ var glow: float = 1.0
 ## SCREEN SHAKE row (options_menu.gd), same cycler shape as EMISSIVE GLOW. Closes LF-063.
 var shake: float = 1.0
 
+## CAM-01: pointer-near-strip-edge auto-scroll. Defaults on, but toggleable — an always-on
+## edge scroll is hostile to a trackpad (the pointer rests near an edge constantly while
+## moving to it) and to a screen magnifier (the magnified viewport is itself near an edge
+## most of the time). See anchor_view.gd's `_edge_scroll()`.
+var edge_scroll: bool = true
+
 var _headless: bool = false
 ## Set when the command line dictated the display state. The save is then not allowed to
 ## overwrite it: a verification run that asks for 200% and silently gets the developer's
@@ -231,6 +237,11 @@ func set_shake(s: float) -> void:
 	_persist()
 
 
+func set_edge_scroll(on: bool) -> void:
+	edge_scroll = on
+	_persist()
+
+
 func _persist() -> void:
 	apply()
 	Progress.save_state()
@@ -252,5 +263,6 @@ func available_resolutions() -> Array[Vector2i]:
 
 
 func report() -> String:
-	return "display %s %dx%d ui %.2fx glow %.1f shake %.1f" % [
-		window_mode, resolution.x, resolution.y, ui_scale, glow, shake]
+	return "display %s %dx%d ui %.2fx glow %.1f shake %.1f edge_scroll %s" % [
+		window_mode, resolution.x, resolution.y, ui_scale, glow, shake,
+		"on" if edge_scroll else "off"]

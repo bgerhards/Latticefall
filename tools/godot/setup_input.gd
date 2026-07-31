@@ -46,6 +46,17 @@ const ACTIONS := {
 	"lf_panel_up":   {"keys": [KEY_PAGEUP], "axis": [JOY_AXIS_RIGHT_Y, -1.0]},
 	"lf_panel_down": {"keys": [KEY_PAGEDOWN], "axis": [JOY_AXIS_RIGHT_Y, 1.0]},
 
+	## LF-057: hides the instrument column and threat panel so the board is visible under
+	## them at high interface scale — at 200% they are 420 + 528 px of a 960 px design
+	## space. Every action either panel exposes (build, sell, upgrade, power, tower select,
+	## targeting, abilities) already has a keyboard/gamepad path elsewhere in this table
+	## that does not touch a HUD widget, so hiding them costs only the readouts. PADDLE1
+	## rather than a face/shoulder button because all of those are already spoken for; it
+	## is the same trade already made for lf_target (MISC1) and lf_ability_3 (TOUCHPAD) —
+	## present only on Xbox Elite/DualSense Edge-class pads, with the keyboard as the
+	## binding every pad still has.
+	"lf_hud_toggle": {"keys": [KEY_H], "buttons": [JOY_BUTTON_PADDLE1]},
+
 	## Pacing and the bindstone abilities (data/tuning.json `pacing`/`abilities`) — the
 	## answer to "slow" and to "nothing to press". Bound on keys the board actions above do
 	## not already use, with a gamepad mapping on whatever is left over: BACK/select, the
@@ -58,6 +69,17 @@ const ACTIONS := {
 	"lf_ability_1":   {"keys": [KEY_1], "axis": [JOY_AXIS_TRIGGER_LEFT, 1.0]},
 	"lf_ability_2":   {"keys": [KEY_2], "axis": [JOY_AXIS_TRIGGER_RIGHT, 1.0]},
 	"lf_ability_3":   {"keys": [KEY_3], "buttons": [JOY_BUTTON_TOUCHPAD]},
+
+	## CAM-01: the board camera. lf_next/lf_prev already took both shoulders (tower cycling),
+	## so zoom goes on the right stick's X axis instead — it is otherwise unused; Y already
+	## drives lf_panel_up/down above. Held either direction zooms continuously, the same feel
+	## as the mouse wheel a step at a time. lf_camera_reset gets PADDLE2 on the same trade
+	## lf_hud_toggle already made for PADDLE1: no face or shoulder button is free, this one is
+	## present only on Xbox Elite/DualSense Edge-class pads, and the keyboard binding is the
+	## one every pad still has.
+	"lf_zoom_in":      {"keys": [KEY_EQUAL], "axis": [JOY_AXIS_RIGHT_X, 1.0]},
+	"lf_zoom_out":     {"keys": [KEY_MINUS], "axis": [JOY_AXIS_RIGHT_X, -1.0]},
+	"lf_camera_reset": {"keys": [KEY_HOME], "buttons": [JOY_BUTTON_PADDLE2]},
 }
 
 
