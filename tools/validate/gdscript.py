@@ -42,7 +42,13 @@ third-party code this project does not own or edit.
 This is a parse check, not a lint, and it does not catch a `class_name` the editor has not
 yet imported — that failure is also a hang, but for a different reason (the global class
 cache has no entry, per CLAUDE.md), and `--check-only` in isolation cannot see it. A clean
-run here is not proof of that.
+run here is not proof of that: this module never runs an import itself, so a caller with a
+`.godot/` from a previous editor session (any workstation) reads clean, and a caller with
+none (a fresh `git clone`) reads every `class_name` reference as an undeclared identifier —
+same script, same commit, opposite verdict. `.github/workflows/gate.yml`'s "Import project"
+step exists precisely to make CI's fresh checkout behave like the workstation case before
+this module ever runs; removing that step does not make this check stricter, it makes it
+wrong.
 
     .venv/bin/python tools/validate/gdscript.py              # every tracked script
     .venv/bin/python tools/validate/gdscript.py scripts/hud.gd scripts/iso.gd

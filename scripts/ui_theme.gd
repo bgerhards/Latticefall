@@ -81,6 +81,20 @@ const THREAT_INNER_W := THREAT_W - SCROLL_GUTTER - PAD * 2.0
 ## A floor, not a target: below this the dialog is not a line of prose, it is a word ladder.
 const DIALOG_MIN_W := 200.0
 
+# ── board readouts ──────────────────────────────────────────────────────────
+# Presentation drawn directly on the board rather than inside an instrument panel, but
+# still accessibility policy per decisions 045/046 — the geometry is named here rather
+# than as a literal beside a `draw_arc()` call. ART-06's per-emplacement reload readout
+# is the first user; its colour is `C_AMBER` above (unchanged — "armed, attention, cost"
+# already describes a gun mid-reload) rather than a new one.
+const BOARD_ARC_R := 14.0    ## px. Small enough to sit inside a placed emplacement's own
+                              ## tile without reaching the 1.0-scale selection diamond's
+                              ## edge (roughly 32px half-height) or the rank pip (LF-… at
+                              ## (-26,-48) from the sprite's screen point).
+const BOARD_ARC_W := 3.0     ## px stroke. Thinner than the 2px selection ring would read
+                              ## as noise at zoom-out; this is thin enough not to compete
+                              ## with it while still being visible at 100%.
+
 
 func scroller() -> ScrollContainer:
 	## The one way a panel is allowed to hold more than fits.

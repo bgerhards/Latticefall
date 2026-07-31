@@ -1,5 +1,5 @@
 {
-  "next_id": 160,
+  "next_id": 163,
   "items": [
     {
       "id": "LF-001",
@@ -1903,6 +1903,42 @@
       "kind": "chore",
       "area": "tooling",
       "pri": "low",
+      "status": "open",
+      "why": "",
+      "opened": "2026-07-31",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-160",
+      "title": "ART-06 shipped two of three emplacement readings and the third is blocked on WAR-10. Idle reads as no arc and no recoil, firing as a cycling reload arc plus recoil, and offline as the existing grey tint with the arc suppressed. SUPPRESSED cannot be distinguished from idle because WAR-10 has not landed: no emp_until or equivalent field exists on the placed record in either engine, so there is nothing for the view to read. This blocks ART-06's own acceptance criterion of three states with three readings. Once WAR-10 adds the field the view side is small -- a separate colour or state on the reload arc, and refusing traverse while suppressed. Hand this to whoever picks up WAR-10.",
+      "kind": "feature",
+      "area": "engine",
+      "pri": "med",
+      "status": "open",
+      "why": "",
+      "opened": "2026-07-31",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-161",
+      "title": "OWNER FEEDBACK, high: moving the cursor to the build palette scrolls the board away. Root cause found in anchor_view.gd _edge_scroll() and it is worse than a margin being too large -- it is unbounded on the panel side. The function measures depth into EDGE_SCROLL_MARGIN (48 px) from the STRIP's edge, correctly avoiding the window edge because the instrument panels are opaque, but it never checks that the pointer is actually INSIDE the strip. So 'm.x < rect.position.x + 48' is true for every x to the left of that line, including the far side of the left panel, and the depth clamp saturates at 1.0 -- which means entering the build palette produces a FULL-SPEED push of 900 board px per second, immediately, in the direction of the panel you just moved toward. Same on all four sides. The minimal fix is a containment guard, but the owner has asked for the input design to be reconsidered rather than patched: they expect to select a turret without the view moving, and suggested keyboard or another modality. Material already in place to build on -- lf_up/down/left/right exist in the action map, middle-drag pans, the minimap supports drag-to-pan and arrow stepping while focused, cursor-follow carries the camera, and Display.edge_scroll is already an options toggle. Research genre convention before choosing; do not guess.",
+      "kind": "bug",
+      "area": "engine",
+      "pri": "med",
+      "status": "open",
+      "why": "",
+      "opened": "2026-07-31",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-162",
+      "title": "The fonts are LFS-tracked and ui_theme.gd preloads them, which is why a clean checkout cascades. Under lfs:false the four .ttf files are pointer text, so the Ui autoload's preload() resolves to a broken FontFile and every script reading Ui.SANS follows it down -- hud.gd, menu.gd, pause_menu.gd, main.gd, draft.gd. CI is green now because gate.yml imports the project first and a parse check does not care that the FontFile has junk in it, but that is tolerating the symptom. The same blanket .gitattributes rule caused the chronicle images to deploy as pointer text. Fonts are small and are source rather than build output, unlike the sprite renders: consider excluding them from LFS the way docs/chronicle/assets was, which would make a clean checkout actually correct instead of merely parseable. Check total size first.",
+      "kind": "chore",
+      "area": "build",
+      "pri": "med",
       "status": "open",
       "why": "",
       "opened": "2026-07-31",

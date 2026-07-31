@@ -2,9 +2,15 @@
 name: Deploy static content to Pages
 
 on:
-  # Runs on pushes targeting the default branch
+  # Runs on pushes targeting the default branch. Path-filtered: the site is pre-generated
+  # and committed, so a push that does not touch it cannot change what would be deployed,
+  # and an unconditional trigger just queues redundant deployments behind each other on
+  # the shared `pages` concurrency group.
   push:
     branches: ["main"]
+    paths:
+      - 'docs/chronicle/**'
+      - '.github/workflows/gh-pages.yml'
 
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
@@ -31,6 +37,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # This repo's 224 sprite renders are git-LFS build output against a 1 GB quota,
+          # and the chronicle's own images are ordinary tracked files precisely so
+          # publishing never touches LFS. Without this, every push to main pulls ~31 MB of
+          # sprite blobs the page does not use.
+          lfs: false
       - name: Setup Pages
         uses: actions/configure-pages@v5
       - name: Upload artifact
