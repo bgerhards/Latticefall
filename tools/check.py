@@ -1212,6 +1212,22 @@ SCENARIO_FILES: tuple[str, ...] = (
     "lf161_edge_scroll_contained.json", "gamepad_build.json",
 )
 
+## Raised 120 -> 300 s by PRC-17, from a measurement rather than a guess. `scenario smoke`
+## takes ~32 s on this 16-core box and was the ONLY check still red on the container job's
+## second real CI run (30662293364, `tier 3 — 33 passed · 1 failed`): it reached the scenario
+## and emitted `DIALOG-TRIGGER brief frame=0`, then hit the 120 s bound. Not a failed
+## assertion — a bound calibrated on this machine crossing a hosted runner roughly 4x slower.
+##
+## 300 s matches what `game renders`, `menu renders` and `accessibility` already get, and all
+## three pass comfortably in the same container, so the scenario bound was simply the odd one
+## out rather than 300 being a new indulgence.
+##
+## The cost of a looser bound is that a genuinely wedged scenario burns 5 minutes instead of
+## 2. That is accepted: the rendered checks already make the same trade, and a timeout is a
+## liveness bound, not a quality threshold — unlike `TIER_BUDGET_MS`, which LF-178 says must
+## NOT be raised again to accommodate a measurement.
+SCENARIO_TIMEOUT_S = 300
+
 
 def _run_scenario_check(filename: str) -> Result:
     """One `data/scenarios/<filename>` through `tools/scenario.py` itself.
@@ -1225,7 +1241,7 @@ def _run_scenario_check(filename: str) -> Result:
     scenario = ROOT / "data" / "scenarios" / filename
     if not scenario.exists():
         return Result(SKIP, f"no {filename} authored")
-    r = run(PY, str(ROOT / "tools" / "scenario.py"), str(scenario), "--timeout", "120")
+    r = run(PY, str(ROOT / "tools" / "scenario.py"), str(scenario), "--timeout", str(SCENARIO_TIMEOUT_S))
     if r.returncode != 0:
         return Result(FAIL, (r.stdout + r.stderr).strip()[-1500:])
     line = next((l for l in r.stdout.splitlines() if l.startswith("SCENARIO ")), "")

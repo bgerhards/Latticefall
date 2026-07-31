@@ -1,0 +1,47 @@
+name: Freshness
+
+# PRC-17. "The workflow file exists" and "the workflow ran" turned out to be different
+# claims on this project — docs/STATE.md called `nightly.yml` "inert behind a repo
+# variable" and that read as a one-flag fix; the measured reality was zero registered
+# runners and zero runs in the workflow's entire history. Nothing caught the gap between
+# those two sentences until someone ran `gh run list` by hand.
+#
+# This workflow is the mechanical version of that check, via `tools/ci/freshness_check.py`
+# (stdlib + `gh` only — no dependency install, so there is nothing here to silently stop
+# working). It asks GitHub's own API for the most recent SUCCESSFUL run of the workflow(s)
+# that matter and fails loudly — not a log line, a red run — when the answer is older than
+# 48h or does not exist. GitHub emails the schedule's owner by default when a scheduled
+# workflow run fails, so a stale gate becomes a notification, not something that has to be
+# noticed by reading the Actions tab.
+#
+# Default target is `parity-shard.yml` (PRC-17's hosted sharded-parity workflow), not
+# `nightly.yml` — see that script's own module docstring for why: this project's
+# self-hosted-runner path was deliberately declined (docs/STATE.md/docs/DECISIONS.md), so
+# `nightly.yml` staying permanently red here would be reporting a known, already-decided
+# fact rather than a new problem. If that decision is ever reversed, point `--workflow` at
+# `nightly.yml` too (or instead) rather than editing the script's default.
+
+on:
+  schedule:
+    # Every 6 hours. A 48h staleness window only needs checking a few times a day —
+    # this is about noticing eventually, not about racing the window's own edge.
+    - cron: "0 */6 * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  freshness:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (script only — no LFS content involved)
+        uses: actions/checkout@v4
+        with:
+          lfs: false
+
+      - name: Check parity freshness
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 tools/ci/freshness_check.py --max-age-hours 48

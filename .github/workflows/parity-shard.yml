@@ -1,0 +1,104 @@
+name: Parity (sharded, hosted)
+
+# PRC-17. `rules parity` is, in the gate's own words, "the one thing making a balance claim
+# in this project falsifiable" (PRD S1, docs/DECISIONS.md) — and until this workflow, it had
+# run in CI zero times. `nightly.yml` assumes a self-hosted runner that does not exist (zero
+# registered runners, zero runs in nightly.yml's history — see docs/STATE.md and PRC-17's
+# own report). PRC-05 already built the tool this workflow needed: `tools/test_parity.py
+# --shard I/N` (LPT cost-balanced bin-packing across the 24 anchors, verified equivalent to
+# a serial run). This wires that into a hosted matrix, which needs no self-hosted
+# infrastructure decision at all.
+#
+# ## The numbers this shard count is based on
+#
+# Measured directly (not estimated) on a 16-core WSL2 dev box, git-lfs clone, current
+# `main` (commit b241835, post ability-charge-accrual): `tools/test_parity.py --shard 0/4`
+# took 3m14s wall, `--shard 2/4` took 3m17s — consistent across two of the four shards,
+# cost cache cold (round-robin split, not LPT-balanced; a warm cache would balance this
+# further, not worsen it). Both langs run concurrently inside one shard process
+# (`ThreadPoolExecutor(max_workers=2)` in `test_parity.py`), so wall-clock is roughly
+# max(python side, godot side) per shard, not their sum.
+#
+# **This was not measured on an actual GitHub-hosted runner** — this repo's workflows do
+# not push code, and a real hosted measurement needs a run to exist first. The honest
+# extrapolation: hosted `ubuntu-latest` runners are 4 vCPU with materially slower
+# single-thread performance than a dedicated desktop/workstation CPU (commonly cited at
+# 1.5-2.5x slower per core for this class of runner) — this workload is a SERIAL
+# per-anchor loop (one Godot cold start at a time, see `run_godot()`'s own docstring on
+# why), so core COUNT going from 16 to 4 should barely matter; per-core CLOCK SPEED is what
+# would slow this down. Even a pessimistic 2.5x per-shard slowdown puts each of these 4
+# shards at ~8 minutes — comfortably inside any reasonable CI budget, run in parallel
+# across 4 jobs rather than serially. If a real run comes back far outside that band,
+# that is new information this comment's numbers do not have yet — check the actual run
+# before trusting the estimate over it.
+#
+# ## Why this doesn't run on every PR
+#
+# ~3-8 minutes x 4 parallel jobs is real cost for something most PRs do not touch. Gated
+# to PRs that touch what parity actually verifies — `sim/**` (the Python reference),
+# `scripts/anchor_sim.gd`/`scripts/test/parity.gd` (the GDScript side and its harness), and
+# `data/**` (the content parity runs against) — plus a daily schedule so a drift introduced
+# any other way (an autoload change, a Godot upgrade) is still caught within 24h, and
+# `tools/ci/freshness_check.py` (see freshness.yml) says loudly if even that stops running.
+#
+# ## The image
+#
+# Uses the floating `:tier3` tag `gate.yml`'s `build-ci-image` job publishes on every push
+# to `main` — not a per-SHA rebuild the way `gate.yml`'s own tier-3 job does. A Dockerfile
+# change and a rules/data change landing in the same PR is the one case this misses (this
+# job would use the PREVIOUS image, not one built from this PR's own Dockerfile edit) — a
+# per-shard rebuild would multiply the image-build cost by 4 for a case that has not
+# happened yet and is easy to catch by eye (a `tools/ci/**` diff sitting next to a
+# `sim/**`/`data/**` diff in the same PR). Revisit if that combination ever actually lands.
+#
+# ## The Windows leg
+#
+# `rules parity (windows)` (BAL-06/LF-105) stays out of scope here. It needs a Windows
+# Godot binary, which means a `windows-latest` hosted runner rather than this Linux
+# container — a separate, larger workstream, not a shard-count tweak. BAL-06 already
+# confirmed CPython/Linux-Godot/Windows-Godot three-way parity (1440/1440 identical) as of
+# this workflow's own writing, so the Linux leg here is not standing in for an unverified
+# claim about Windows — it is standing in for the leg this project actually re-runs on
+# every relevant change, which the Windows leg, by its own ~9-11 minute cost, is not.
+
+on:
+  schedule:
+    # 09:30 UTC daily — offset from nightly.yml's 09:00 so the two do not start in the same
+    # minute if nightly.yml is ever enabled (docs/STATE.md has the current decision).
+    - cron: "30 9 * * *"
+  workflow_dispatch: {}
+  pull_request:
+    paths:
+      - "sim/**"
+      - "scripts/anchor_sim.gd"
+      - "scripts/test/parity.gd"
+      - "data/**"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: parity-shard-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  parity:
+    name: Parity shard ${{ matrix.shard }}/4
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/${{ github.repository_owner }}/latticefall-ci:tier3
+    permissions:
+      contents: read
+      packages: read
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3]
+    steps:
+      - name: Checkout (with LFS — parity reads real data/sprite bytes via check_terrain etc.)
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Run parity shard ${{ matrix.shard }}/4
+        run: python -u tools/test_parity.py --shard ${{ matrix.shard }}/4
