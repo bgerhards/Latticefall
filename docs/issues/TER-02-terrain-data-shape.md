@@ -1,6 +1,7 @@
 id: TER-02
 title: Terrain data shape — regions, ramps, and one shared resolution algorithm
 labels: content, rules, tooling, phase-2
+depends: PRC-10
 blocks: TER-01, TER-08
 milestone: E4 Terrain
 ---

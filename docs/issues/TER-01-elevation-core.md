@@ -2,7 +2,7 @@ id: TER-01
 title: Elevation core — LEVEL_PX blit offset and z on every drawable
 labels: engine, art, phase-2
 depends: TER-02
-blocks: TER-03, TER-04, TER-05, TER-06, TER-07, TER-09, TER-12, TER-13, TER-14
+blocks: TER-03, TER-04, TER-05, TER-06, TER-07, TER-09, TER-12, TER-13
 milestone: E4 Terrain
 ---
 ## Problem

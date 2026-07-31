@@ -1,8 +1,8 @@
 id: PLC-01
 title: Free placement core — a continuous float64 position replaces the slot
 labels: phase-2, rules, engine
-depends: CAM-01, PLC-05
-blocks: PLC-02, PLC-03, PLC-04, PLC-06, PLC-07
+depends: BAL-07, CAM-01, PLC-05
+blocks: PLC-02, PLC-03
 milestone: E3 Placement
 ---
 ## Problem

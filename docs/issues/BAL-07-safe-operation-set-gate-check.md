@@ -2,7 +2,7 @@ id: BAL-07
 title: Gate check banning the unsafe operation set from the rules
 labels: phase-0, tooling, rules, risk
 depends: PRC-02
-blocks: PLC-01, TER-01
+blocks: PLC-01
 milestone: E7 Balance
 ---
 ## Problem

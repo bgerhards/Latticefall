@@ -1,7 +1,7 @@
 id: PRC-10
 title: Generic schema dispatch in validate_data.py — data/tuning.json is validated by nothing
 labels: phase-0, tooling, content
-blocks: TER-01
+blocks: TER-02
 milestone: E1 Process
 ---
 ## Problem

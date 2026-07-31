@@ -2,7 +2,7 @@ id: PRC-12
 title: Scenario and assertion harness — one --scenario file replacing fourteen CLI flags
 labels: phase-1, tooling, engine
 depends: PRC-09
-blocks: CAM-01, CAM-04, BAL-05
+blocks: BAL-05
 milestone: E1 Process
 ---
 ## Problem

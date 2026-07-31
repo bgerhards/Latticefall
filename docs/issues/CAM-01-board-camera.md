@@ -2,7 +2,7 @@ id: CAM-01
 title: Board camera — pan, zoom, edge-scroll, cursor-follow
 labels: phase-1, engine, ui
 depends: CAM-02, CAM-05
-blocks: CAM-03, CAM-04, CAM-06, PLC-01, PLC-06, TER-01
+blocks: CAM-03, CAM-04, CAM-06, PLC-01, PLC-06
 milestone: E2 Camera
 ---
 ## Problem

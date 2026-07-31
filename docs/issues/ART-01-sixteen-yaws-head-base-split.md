@@ -1,7 +1,7 @@
 id: ART-01
 title: 16-yaw facing with heads rendered separately from bases
 labels: art, engine, tooling, phase-3
-depends: ART-02, CAM-05, PRC-13
+depends: ART-02, CAM-05, PRC-13, PRC-14
 blocks: ART-06, ART-08
 milestone: E6 Fidelity
 ---

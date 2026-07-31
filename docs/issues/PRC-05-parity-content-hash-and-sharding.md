@@ -2,7 +2,6 @@ id: PRC-05
 title: Content-hash gating and cost-balanced sharding for the parity check
 labels: phase-1, tooling, perf, risk
 depends: PRC-04
-blocks: WAR-01
 milestone: E1 Process
 ---
 ## Problem

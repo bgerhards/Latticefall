@@ -2,7 +2,6 @@ id: BAL-05
 title: Performance budget in the gate
 labels: phase-3, tooling, perf
 depends: PRC-04, PRC-12
-blocks: WAR-03
 milestone: E7 Balance
 ---
 ## Problem
