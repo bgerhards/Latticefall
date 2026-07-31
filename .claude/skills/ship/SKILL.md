@@ -35,7 +35,16 @@ and the one the owner cares most about, so it is step 4 of 8 rather than an afte
    The message says *why*, names the measurement, and records what was **not** done. A
    commit body is the chronicler's primary source — write it for that reader.
 
-4. **Journal it.** Invoke the `chronicler` agent with what landed. It appends to
+4. **Journal it — now, in this PR, not in a batch later.** Invoke the `chronicler` agent
+   with what landed.
+
+   This is the step that failed first when it was only a rule. Three "editions" got written
+   in bulk at the end of a session instead of one entry per PR, which produces a story
+   written *about* the work rather than *during* it and loses the pivots and wrong turns
+   that are the most interesting part of it. `tools/check.py`'s `chronicle current` check
+   now fails when more than a dozen commits have landed since the newest journalled one —
+   it warns rather than hard-blocks on content, because a gate that hard-fails on a
+   judgement gets satisfied with an empty entry, which is worse than a late one. It appends to
    `docs/chronicle/chronicle.json` and regenerates; it never rewrites an existing entry.
    Give it the numbers and the failures, not a summary — an entry that only records the win
    is worth less than no entry.
