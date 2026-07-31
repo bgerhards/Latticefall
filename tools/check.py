@@ -9,10 +9,46 @@ not cheapness. For "does it feel finished", use the `verify` skill and the
 Checks that cannot run yet (because the subsystem does not exist) report SKIP rather than
 passing silently. A green run that quietly skipped half the suite is worse than a red one.
 
-    .venv/bin/python tools/check.py
+    .venv/bin/python tools/check.py                    # tier 4 — everything, ~9 min
+    .venv/bin/python tools/check.py --tier 1            # pre-commit, ~6 s
+    .venv/bin/python tools/check.py --tier 2            # pre-push, ~14 s
+    .venv/bin/python tools/check.py --tier 3            # PR, ~66 s
     .venv/bin/python tools/check.py --list
     .venv/bin/python tools/check.py --json /tmp/gate.json   # machine-readable, human table too
     .venv/bin/python tools/check.py --json                  # machine-readable to stdout only
+
+## Tiers
+
+A tier is a minimum: a check assigned tier 1 also runs at `--tier 2`, `--tier 3` and the
+untiered default (which is tier 4, unchanged from before tiering existed — the default must
+never become weaker than what CLAUDE.md promises). A check the selected tier excludes does
+**not** run at all; it is reported `skip`, `skipped_reason: "tier"`, so the JSON record still
+names it rather than omitting it, which would read as a pass to anything consuming the file.
+`--no-window` is orthogonal to `--tier`: it always skips the three rendered checks regardless
+of tier, so `--tier 3 --no-window` runs exactly tier 2 plus nothing.
+
+Measured on this machine, after {{PRC-01}} (`git ls-files`, no `SKIP_DIRS`) and {{PRC-02}}
+(enumeration fix) both landed. Tier 1 and tier 2 were re-measured live for this change; tier
+3 and 4's per-check figures are carried forward from `docs/STATE.md`'s last full gate record,
+taken before {{PRC-01}}/{{PRC-02}} landed — none of `game renders`, `menu renders`,
+`accessibility` or `rules parity` touch file enumeration, so the figures should not have
+moved, but they were not re-run for this change (see PRC-04's report for which number is
+which and why).
+
+- **tier 1 (~6 s, pre-commit), 9 checks:** `python syntax`, `json parses`, `gdscript parses`,
+  `game data`, `wave density`, `dialog capacity`, `backlog rendered`, `agent models`,
+  `banned terms`. No Godot window opens.
+- **tier 2 (~14 s, pre-push), 15 checks:** tier 1 + `sim determinism`, `sprite atlas`,
+  `sprite coverage`, `music manifest`, `sfx determinism`, `godot boots`.
+- **tier 3 (~66 s, PR), 18 checks:** tier 2 + `game renders` (6.5 s), `menu renders` (4.8 s),
+  `accessibility` (41.2 s).
+- **tier 4 (~9 min, nightly/release), 19 checks — the default:** tier 3 + `rules parity`
+  (542 s). The one thing making a balance claim in this project falsifiable; never move it
+  below tier 4 because it is "usually fine".
+
+`--budget` asserts the tier-1 and tier-2 contracts: with it set, exceeding 10 s at `--tier 1`
+or 25 s at `--tier 2` fails the run even if every check passed, because a tier whose budget
+silently doubles is a tier nobody will keep running.
 
 `--json`'s shape, for `tools/session.py` and `tools/gate_report.py` (and eventually CI —
 there is no `.github/` directory yet):
@@ -21,21 +57,26 @@ there is no `.github/` directory yet):
       "schema": "latticefall-gate", "version": 1,
       "started_at": "<UTC ISO 8601>", "duration_ms": <float>,
       "root_commit": "<sha or null>", "dirty": <bool>,
-      "tier": null,                        # reserved; no tiering exists yet
+      "tier": <int>,                       # the --tier this run was asked for (1-4)
       "checks": [
-        {"name": str, "status": "ok"|"FAIL"|"skip", "ms": float, "detail": str,
-         "skipped_reason": null|"subsystem"|"flag"|"cached"}, ...
+        {"name": str, "status": "ok"|"FAIL"|"skip", "ms": float, "detail": str, "tier": int,
+         "skipped_reason": null|"subsystem"|"flag"|"tier"}, ...
       ],
       "summary": {"passed": int, "failed": int, "skipped": int, "skipped_by_flag": int,
-                  "total": int, "duration_ms": float, "text": "<the printed tally line>"}
+                  "skipped_by_tier": int, "total": int, "duration_ms": float,
+                  "text": "<the printed tally line>"}
     }
 
-`detail` carries the check's *full* multi-line detail, not just the first line the human
-table prints — a PR comment needs all of it. `skipped_reason` exists because a skip because
-a subsystem does not exist yet is not the same claim as a skip because `--no-window` was
-passed, and the plain exit code cannot tell them apart; `--json` with no path still runs the
-three rendered checks (only `--no-window` skips them) — a JSON run that quietly skipped half
-the suite would be exactly the failure mode this whole file exists to prevent.
+`checks` always lists all 19 — a check a lower tier excluded is present with
+`status: "skip"` rather than dropped from the array, for the same reason `--no-window`'s
+skips are present: an absent entry reads as a pass to anything consuming the file. `detail`
+carries the check's *full* multi-line detail, not just the first line the human table prints
+— a PR comment needs all of it. `skipped_reason` distinguishes three unrelated claims the
+plain exit code cannot tell apart: a subsystem that does not exist yet, `--no-window`'s
+choice not to open a window, and `--tier`'s choice not to run a check this tier excludes.
+`--json` with no path still runs everything the selected tier includes (only `--no-window`
+and `--tier` skip checks) — a JSON run that quietly skipped work its own flags didn't ask
+for would be exactly the failure mode this whole file exists to prevent.
 """
 
 from __future__ import annotations
@@ -47,6 +88,8 @@ import py_compile
 import subprocess
 import sys
 import time
+from collections.abc import Callable
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -163,7 +206,16 @@ def check_game_data() -> Result:
     if r.returncode != 0:
         return Result(FAIL, (r.stderr + r.stdout).strip())
     warns = [l for l in r.stdout.splitlines() if l.strip().startswith("warn")]
-    return Result(OK, f"{len(warns)} warning(s)" if warns else "no warnings")
+    # The validator dispatches generically now — every tracked data/**/*.json is checked
+    # against the schema its own "schema" key names, and a schema no document exercises is an
+    # error. It prints that tally unconditionally, even under --quiet, precisely so this line
+    # can say what was validated rather than only how many complaints came back. A gate line
+    # reading "no warnings" is compatible with having validated nothing at all, which is
+    # exactly how data/tuning.json went unchecked for a session (LF-064).
+    counts = next((l.strip() for l in r.stdout.splitlines()
+                   if "documents against" in l), "")
+    warned = f"{len(warns)} warning(s)" if warns else "no warnings"
+    return Result(OK, f"{counts} · {warned}" if counts else warned)
 
 
 ## No act may run at less than this fraction of the busiest act's screen presence. It is a
@@ -715,6 +767,30 @@ def check_accessibility() -> Result:
                       f"{min(worst):.2f}:1" if worst else f"{sum(totals)} text items clean")
 
 
+def check_terrain_parity() -> Result:
+    """`sim/content.py`'s `resolve_terrain()` against `scripts/content.gd`'s, on one fixture.
+
+    PRD risk #10 is the two independent anchor parsers disagreeing on region-to-height
+    resolution, invisibly. This is the cheap, targeted proof — one small board, both
+    resolvers, diffed tile for tile — and it exists because the expensive proof is a bad
+    place to learn it: `rules parity` would surface a one-tile drift nine minutes in, as an
+    unexplained leak with no pointer to terrain at all.
+
+    The fixture is diffed against the expected grid *and* the two resolvers against each
+    other, so a typo in the fixture cannot hide a real disagreement behind two matching
+    wrong answers. Decision 057.
+    """
+    script = ROOT / "tools" / "terrain_parity.py"
+    if not script.exists():
+        return Result(SKIP, "terrain parity harness missing")
+    if toolpaths.godot() is None:
+        return Result(SKIP, "godot not installed")
+    r = run(PY, str(script))
+    if r.returncode != 0:
+        return Result(FAIL, (r.stderr + r.stdout).strip()[-1200:])
+    return Result(OK, r.stdout.strip())
+
+
 def check_rules_parity() -> Result:
     """The rules exist twice, in Python and GDScript. Prove they agree.
 
@@ -797,26 +873,45 @@ def check_sprite_atlas() -> Result:
 ## speed option cannot quietly weaken a commit.
 RENDERED = {"game renders", "menu renders", "accessibility"}
 
+
+@dataclass(frozen=True)
+class Check:
+    """One gate check. `tier` is a minimum — see the module docstring's `## Tiers` section
+    for the assignment table and the measured cost behind each number; this is the data an
+    eventual re-tier edits, not an argument anyone has to win."""
+    name: str
+    tier: int
+    fn: Callable[[], Result]
+
+
+## Budget in ms for `--budget`, tier 1 and 2 only — PRC-04's acceptance criteria. Tier 3 and
+## 4 have no asserted budget: a nightly 9-minute run doubling to 18 is a different problem
+## than a "fast" tier nobody can trust to still be fast.
+TIER_BUDGET_MS: dict[int, float] = {1: 10_000.0, 2: 25_000.0}
+
 CHECKS = [
-    ("python syntax",     check_python_syntax),
-    ("json parses",       check_json_parses),
-    ("game data",         check_game_data),
-    ("wave density",      check_wave_density),
-    ("dialog capacity",   check_dialog_capacity),
-    ("banned terms",      check_banned_terms),
-    ("sfx determinism",   check_sfx_reproducible),
-    ("music manifest",    check_music_manifest),
-    ("sprite atlas",      check_sprite_atlas),
-    ("sprite coverage",   check_sprite_coverage),
-    ("backlog rendered",  check_backlog_rendered),
-    ("agent models",      check_agent_models),
-    ("sim determinism",   check_sim),
-    ("gdscript parses",   check_gdscript_parses),
-    ("godot boots",       check_godot_boots),
-    ("game renders",      check_game_renders),
-    ("menu renders",      check_menu_renders),
-    ("accessibility",     check_accessibility),
-    ("rules parity",      check_rules_parity),
+    Check("python syntax",     1, check_python_syntax),
+    Check("json parses",       1, check_json_parses),
+    Check("game data",         1, check_game_data),
+    Check("wave density",      1, check_wave_density),
+    Check("dialog capacity",   1, check_dialog_capacity),
+    Check("banned terms",      1, check_banned_terms),
+    Check("sfx determinism",   2, check_sfx_reproducible),
+    Check("music manifest",    2, check_music_manifest),
+    Check("sprite atlas",      2, check_sprite_atlas),
+    Check("sprite coverage",   2, check_sprite_coverage),
+    Check("backlog rendered",  1, check_backlog_rendered),
+    Check("agent models",      1, check_agent_models),
+    Check("sim determinism",   2, check_sim),
+    Check("gdscript parses",   1, check_gdscript_parses),
+    Check("godot boots",       2, check_godot_boots),
+    Check("game renders",      3, check_game_renders),
+    Check("menu renders",      3, check_menu_renders),
+    Check("accessibility",     3, check_accessibility),
+    # Deliberately the fast-tier sibling of `rules parity`, and placed next to it so the
+    # relationship is visible: same class of risk, a fraction of the cost.
+    Check("terrain parsers agree", 2, check_terrain_parity),
+    Check("rules parity",      4, check_rules_parity),
 ]
 
 
@@ -837,13 +932,32 @@ _JSON_STDOUT = "-"
 def main() -> int:
     ap = argparse.ArgumentParser(description="Latticefall pre-commit gate.")
     ap.add_argument("--list", action="store_true", help="list checks and exit")
+    ap.add_argument("--tier", type=int, default=4, choices=(1, 2, 3, 4),
+                    help="run only checks assigned this tier or lower (a tier is a minimum — "
+                         "see module docstring's '## Tiers' for the assignment table and "
+                         "measured cost of each). 1=pre-commit ~6s (9 checks), 2=pre-push "
+                         "~14s (15), 3=PR ~66s (18), 4=nightly/release ~9min (19, the "
+                         "default — unchanged from today's behaviour with no flags). "
+                         "Orthogonal to --no-window: --tier 3 --no-window runs exactly tier "
+                         "2 plus nothing, since the three rendered checks are all tier 3. "
+                         "A check a lower tier excludes reports skip, skipped_reason=tier — "
+                         "it did not run and is not a pass.")
+    ap.add_argument("--budget", action="store_true",
+                    help="assert the tier-1 (10s) and tier-2 (25s) wall-clock budgets; fail "
+                         "the run if the selected tier exceeds its budget even when every "
+                         "check passed. No-op at --tier 3 or 4, which have no asserted "
+                         "budget. Exists so a tier whose cost silently doubles turns red "
+                         "instead of quietly becoming a tier nobody runs.")
     ap.add_argument("--no-window", action="store_true",
                     help="skip the three checks that render a frame (%s). This is now a "
                          "SPEED option only, not a courtesy — those checks capture invisibly "
                          "(no window ever reaches the owner's desktop, LF-061 closed) but "
                          "still cost five extra Godot launches, the slowest stretch of the "
                          "gate after rules parity. Reach for this when you want the fast "
-                         "gate, not because anything about the full run disturbs anyone."
+                         "gate, not because anything about the full run disturbs anyone. "
+                         "All three checks are tier 3, so this only has an effect at "
+                         "--tier 3 or the tier-4 default — it is a no-op at --tier 1 or 2, "
+                         "which never reach them."
                          % ", ".join(sorted(RENDERED)))
     ap.add_argument("--json", nargs="?", const=_JSON_STDOUT, default=None, metavar="PATH",
                     help="emit a machine-readable gate result (see module docstring for the "
@@ -854,8 +968,9 @@ def main() -> int:
     args = ap.parse_args()
 
     if args.list:
-        for name, _ in CHECKS:
-            print(name + ("  [renders a frame]" if name in RENDERED else ""))
+        for c in CHECKS:
+            tag = "  [renders a frame]" if c.name in RENDERED else ""
+            print(f"{c.name}  (tier {c.tier}){tag}")
         return 0
 
     emit_json = args.json is not None
@@ -866,18 +981,22 @@ def main() -> int:
     quiet = json_to_stdout
 
     started_at = datetime.now(timezone.utc).isoformat()
-    failed = skipped = by_flag = 0
+    failed = skipped = by_flag = by_tier = 0
     t0 = time.time()
     records: list[dict] = []
-    for name, fn in CHECKS:
+    for check in CHECKS:
         start = time.time()
         try:
-            if args.no_window and name in RENDERED:
+            if check.tier > args.tier:
+                res = Result(SKIP, f"excluded by --tier {args.tier} (this check is tier "
+                                   f"{check.tier}) — did not run", skipped_reason="tier")
+                by_tier += 1
+            elif args.no_window and check.name in RENDERED:
                 res = Result(SKIP, "skipped by --no-window (speed option; capture is "
                                    "invisible either way)", skipped_reason="flag")
                 by_flag += 1
             else:
-                res = fn()
+                res = check.fn()
                 # Every other SKIP in this file is a fact about the project (a subsystem
                 # that does not exist yet), not a choice about this run — set the reason
                 # here, once, rather than touching every check function that returns SKIP.
@@ -888,7 +1007,7 @@ def main() -> int:
         ms = (time.time() - start) * 1000
         mark = {OK: "  ok  ", FAIL: " FAIL ", SKIP: " skip "}[res.status]
         if not quiet:
-            print(f"[{mark}] {name:<20s} {ms:6.0f}ms  "
+            print(f"[{mark}] {check.name:<20s} {ms:6.0f}ms  "
                   f"{res.detail.splitlines()[0] if res.detail else ''}")
         if res.status == FAIL:
             failed += 1
@@ -897,23 +1016,35 @@ def main() -> int:
                     print(f"           {line}")
         elif res.status == SKIP:
             skipped += 1
-        records.append({"name": name, "status": res.status, "ms": round(ms, 1),
-                        "detail": res.detail, "skipped_reason": res.skipped_reason})
+        records.append({"name": check.name, "status": res.status, "ms": round(ms, 1),
+                        "detail": res.detail, "tier": check.tier,
+                        "skipped_reason": res.skipped_reason})
 
     total = (time.time() - t0) * 1000
-    summary_line = (f"{len(CHECKS) - failed - skipped} passed · {failed} failed · "
-                    f"{skipped} skipped · {total:.0f}ms")
+    summary_line = (f"tier {args.tier} — {len(CHECKS) - failed - skipped} passed · "
+                    f"{failed} failed · {skipped} skipped · {total:.0f}ms")
+    budget = TIER_BUDGET_MS.get(args.tier)
+    budget_blown = bool(args.budget and budget is not None and total > budget)
     if not quiet:
         print(f"\n{summary_line}")
-        # The two reasons a check can skip are not the same claim and must not share a
-        # line: a missing subsystem is a fact about the project, --no-window is a choice
-        # about this run.
-        if skipped > by_flag:
+        # Three reasons a check can skip, and they are not the same claim: a missing
+        # subsystem is a fact about the project, --no-window is a choice about this run,
+        # --tier is a different choice about this run. None share a line.
+        if skipped > by_flag + by_tier:
             print("skipped checks are not passes — the subsystem does not exist yet")
         if by_flag:
             print(f"--no-window skipped {by_flag} rendered check(s): they did NOT run and "
                   f"are NOT passes. Run the full gate before committing anything that "
                   f"touches the interface, the board or a sprite.")
+        if by_tier:
+            excluded = [c.name for c in CHECKS if c.tier > args.tier]
+            print(f"--tier {args.tier} excluded {by_tier} check(s) that did NOT run and are "
+                  f"NOT passes: {', '.join(excluded)}. Run a higher --tier before trusting "
+                  f"this as more than a fast, partial signal.")
+        if budget is not None:
+            verdict = "BLOWN" if budget_blown else "ok"
+            print(f"tier {args.tier} budget: {total:.0f}ms of {budget:.0f}ms ({verdict})"
+                 + ("" if args.budget else " [not asserted — pass --budget to fail on this]"))
 
     if emit_json:
         doc = {
@@ -926,12 +1057,12 @@ def main() -> int:
             # first — see module docstring's caller, tools/gate_report.py: do not treat
             # False here as proof of anything.
             "dirty": bool(_git_line("status", "--porcelain")),
-            "tier": None,          # reserved for {{PRC-04}}'s tier budgets; none exist yet
+            "tier": args.tier,
             "checks": records,
             "summary": {
                 "passed": len(CHECKS) - failed - skipped, "failed": failed,
-                "skipped": skipped, "skipped_by_flag": by_flag, "total": len(CHECKS),
-                "duration_ms": round(total, 1), "text": summary_line,
+                "skipped": skipped, "skipped_by_flag": by_flag, "skipped_by_tier": by_tier,
+                "total": len(CHECKS), "duration_ms": round(total, 1), "text": summary_line,
             },
         }
         text = json.dumps(doc, indent=2)
@@ -940,7 +1071,7 @@ def main() -> int:
         if json_to_stdout:
             print(text)
 
-    return 1 if failed else 0
+    return 1 if (failed or budget_blown) else 0
 
 
 if __name__ == "__main__":

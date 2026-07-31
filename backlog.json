@@ -1,5 +1,5 @@
 {
-  "next_id": 115,
+  "next_id": 116,
   "items": [
     {
       "id": "LF-001",
@@ -1362,6 +1362,18 @@
       "title": "Before ART-04 raises the atlas cell, probe GL_MAX_TEXTURE_SIZE on this machine under GL Compatibility. pack_atlas.py's COLS=12 makes a 1024px-cell page 12288px wide; the GL spec floor is 2048 and nothing here has measured what Mesa llvmpipe and the owner's Windows GPU actually report. A page that exceeds it does not warn, it fails to upload. Flagged in a pack_atlas.py comment rather than asserted, because it is unmeasured.",
       "kind": "risk",
       "area": "art",
+      "pri": "med",
+      "status": "open",
+      "why": "",
+      "opened": "2026-07-30",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-115",
+      "title": "tools/session.py's gate() does not forward --tier to the check.py subprocess (it forwards --no-window only). Harmless today because the default is tier 4, which is what a STATE.md regeneration wants \u2014 but a 'fast STATE regen' workflow is the obvious next ask and it would silently record a tier-1 result as though it were the full gate. If --tier is ever forwarded, the gate block STATE.md writes must also record which tier produced it.",
+      "kind": "chore",
+      "area": "tooling",
       "pri": "med",
       "status": "open",
       "why": "",

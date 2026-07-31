@@ -59,7 +59,10 @@ docs/            STATE, BACKLOG, DECISIONS, NOMENCLATURE, STORY
 ```bash
 .venv/bin/python tools/reap.py                     # what of ours is still running
 .venv/bin/python tools/reap.py --kill              # kill it. run at every wrap.
-.venv/bin/python tools/check.py                    # the gate. run before every commit.
+.venv/bin/python tools/check.py                    # the gate, tier 4 (everything). ~9 min
+.venv/bin/python tools/check.py --tier 1            # pre-commit, ~5 s, 9 checks
+.venv/bin/python tools/check.py --tier 2            # pre-push, ~14 s, 16 checks
+.venv/bin/python tools/check.py --tier 3            # PR, ~66 s, 19 checks
 .venv/bin/python tools/check.py --json /tmp/g.json # same run, machine-readable
 .venv/bin/python tools/gate_report.py /tmp/g.json  # render that as a markdown table
 .venv/bin/python tools/validate/gdscript.py        # parse every .gd, without the full gate
@@ -169,6 +172,19 @@ reports it as something else entirely; the parse check names the file and line. 
 `tools/validate/gdscript.py`, launches one `--check-only` per script concurrently (31 scripts
 in under two seconds), and filters the spurious "Identifier not found" that autoloads produce
 when a script is checked in isolation.
+
+**The gate is tiered, and a tier is a *minimum*.** A tier-1 check also runs at 2, 3 and 4;
+no flag means tier 4, which is exactly what the gate did before tiering existed and must
+never become weaker. A check the tier excluded reports `skip` with `skipped_reason: "tier"`
+and stays in the JSON array — **it is not a pass**, and the tally line names every check that
+did not run, because a green partial run that reads like a full one is the failure this whole
+file exists to prevent. `--budget` turns tier 1's 10 s and tier 2's 25 s into assertions, so a
+tier whose cost silently doubles fails rather than quietly stops being used.
+
+**`terrain parsers agree` is the fast-tier sibling of `rules parity`**, and it sits next to it
+for that reason: the same class of risk — two implementations of one rule drifting — at a
+fraction of the cost. `rules parity` would surface a one-tile terrain drift nine minutes in,
+as an unexplained leak with no pointer to terrain at all. Decision 057.
 
 **`--json [PATH]` makes the gate machine-readable.** `tools/gate_report.py` renders it as a
 table for a PR comment, and `tools/session.py` prefers the JSON artefact over scraping the

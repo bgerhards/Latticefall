@@ -30,9 +30,13 @@ def render(doc: dict) -> str:
     checks = doc.get("checks", [])
     summary = doc.get("summary", {})
     duration = summary.get("duration_ms", doc.get("duration_ms", 0))
+    # `tier` was added by {{PRC-04}}; a JSON artefact from before that lands has no key at
+    # all (older readers must not choke on it either way — a missing key is not "tier 1").
+    tier = doc.get("tier")
+    tier_tag = f"tier {tier} — " if tier is not None else ""
 
     lines = [
-        f"### Gate — {summary.get('passed', '?')} passed · "
+        f"### Gate — {tier_tag}{summary.get('passed', '?')} passed · "
         f"{summary.get('failed', '?')} failed · {summary.get('skipped', '?')} skipped "
         f"· {duration:.0f}ms",
         "",
