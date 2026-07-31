@@ -763,11 +763,11 @@
       "kind": "bug",
       "area": "tooling",
       "pri": "med",
-      "status": "open",
+      "status": "done",
       "why": "",
       "opened": "2026-07-30",
-      "closed": null,
-      "note": ""
+      "closed": "2026-07-30",
+      "note": "closed at b001551"
     },
     {
       "id": "LF-065",

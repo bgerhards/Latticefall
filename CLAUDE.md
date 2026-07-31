@@ -333,5 +333,9 @@ say plainly what was left and why.
   `project.godot`**, because a typo in a serialized `InputEvent` produces an action that
   silently never fires rather than an error. Decision 042.
 - Data: `snake_case` keys, IDs are `kebab-case`, every file has `"schema"` naming its schema.
+  That key is now **load-bearing, not decorative**: `validate_data.py` discovers every tracked
+  `data/**/*.json` and dispatches on it, so a new content type is a schema file plus a `"schema"`
+  key and **no validator edit**. It also asserts the reverse — a schema no document exercises is
+  an error, which is how `data/tuning.json` sat unvalidated for a session (`LF-064`).
 - Commits: conventional prefix, subject under 72 chars, body explains *why* and lists any
   API traps discovered so the next session does not rediscover them.

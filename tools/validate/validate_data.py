@@ -12,6 +12,25 @@ Two layers, because schemas only catch half the problems:
 The second layer is the one that earns its keep. A level can be perfectly well-formed
 JSON and still be unplayable, and finding that out in the engine is expensive.
 
+Schema dispatch is generic, not a hardcoded per-type list (PRC-10 / LF-064): every
+document under data/ names its own schema via a top-level `"schema"` key, and
+`schema_for()` resolves that name to `data/schema/<name>.schema.json`. A new content
+type is therefore a schema file plus a `"schema"` key on the documents that use it —
+no edit to this file. Documents are discovered with `git ls-files` rather than a
+directory walk, so an untracked file is invisible here exactly as it would be to
+anyone who clones the repo, and a completeness assertion in `main()` catches both a
+schema nothing exercises and a document whose named schema does not exist.
+
+`assets/renders/sprites.json` and `assets/audio/music_manifest.json` are deliberately
+out of scope here: they are generated build output (PRC-10 asked whether they should
+get schemas — decided yes in principle, generated files are exactly what silently
+changes shape without anyone editing them on purpose, but they live under `assets/`,
+not `data/`, and this validator's discovery walk and completeness assertion are both
+scoped to `data/`. Pulling them in belongs to a follow-up that also decides how a
+schema under `data/schema/` reaches over to validate a document outside `data/`
+without breaking the "every schema is exercised by a document `git ls-files data`
+finds" invariant the completeness assertion relies on.
+
     .venv/bin/python tools/validate/validate_data.py
     .venv/bin/python tools/validate/validate_data.py --quiet
 """
@@ -21,6 +40,7 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import subprocess
 import sys
 from pathlib import Path
 
@@ -34,26 +54,26 @@ SCHEMA = DATA / "schema"
 ## power decision is thin; at 1.0 it does not exist. Act I sits at 29-38%.
 SATURATION_WARN = 0.80
 
-# Valid dialog triggers that do not depend on wave count.
-#
-# This set and the `trigger` pattern in data/schema/dialog.schema.json are two allowlists
-# for one fact, and they have already drifted once: nine new triggers were added to the
-# schema and every dialog file quoting one failed here with "unknown trigger" while the
-# schema itself passed. Keep them in step, or better, collapse them (LF-067).
-#
-# The player-action triggers below fire at most once per anchor, like every other trigger
-# (see AnchorView._fire()), so they are one-time beats rather than repeatable barks.
-STATIC_TRIGGERS = {
-    "brief", "debrief", "brownout", "first-leak", "low-lives",
-    # the ring charging across a level
-    "wards-half", "wards-full",
-    # the three bindstone abilities, on first use
-    "surge-ready", "surge-first", "overcharge-first", "shutter-first",
-    # pacing: the player skipped prep for money, or ran a long kill chain
-    "wave-called", "chain-high",
-    # a recovery picked up between anchors
-    "recovery-taken",
-}
+
+def _static_triggers_from_schema() -> set[str]:
+    """Derive the valid non-wave-numbered dialog triggers from the schema's own regex.
+
+    This used to be a hand-maintained set that duplicated the `trigger` pattern in
+    data/schema/dialog.schema.json, and the two drifted once: nine new triggers were
+    added to the schema and every dialog file quoting one failed here with "unknown
+    trigger" while the schema itself passed (LF-067). Reading the pattern back out of
+    the schema means there is exactly one place these names are authored — removing a
+    trigger from the schema now fails the dialog files that use it, instead of failing
+    silently here.
+    """
+    pattern = load(SCHEMA / "dialog.schema.json")["properties"]["lines"]["items"] \
+        ["properties"]["trigger"]["pattern"]
+    body = pattern.removeprefix("^").removesuffix("$")
+    assert body.startswith("(") and body.endswith(")"), \
+        f"dialog schema trigger pattern has an unexpected shape: {pattern!r}"
+    # wave-start:\d+ / wave-clear:\d+ are checked against the anchor's wave count
+    # instead (see check_dialog); everything else is a literal, static trigger name.
+    return {alt for alt in body[1:-1].split("|") if "\\d" not in alt}
 
 
 class Report:
@@ -72,6 +92,51 @@ def load(p: Path) -> dict:
     return json.loads(p.read_text())
 
 
+STATIC_TRIGGERS = _static_triggers_from_schema()
+
+
+class SchemaDispatchError(Exception):
+    """A document cannot be routed to a schema at all — missing key or dangling name."""
+
+
+def schema_for(doc: dict, path: Path) -> str:
+    """Read the schema a document names for itself and resolve it to a schema file.
+
+    Every document under data/ carries a top-level `"schema"` key (CLAUDE.md's "game
+    content is data … validated against a schema"); this is the one place that key is
+    read, so adding a content type never means editing this validator (PRC-10 / LF-064).
+    Raises rather than returning a sentinel — the caller turns that into a Report error,
+    never a warning, because a document nothing validates is a silent coverage gap.
+    """
+    name = doc.get("schema")
+    if not isinstance(name, str) or not name:
+        raise SchemaDispatchError(f'{path.relative_to(ROOT)}: no top-level "schema" key')
+    sp = SCHEMA / f"{name}.schema.json"
+    if not sp.exists():
+        raise SchemaDispatchError(
+            f'{path.relative_to(ROOT)}: "schema": "{name}" names {sp.name}, '
+            f"which does not exist")
+    return name
+
+
+def discover_documents() -> list[Path]:
+    """Every JSON document under data/, sourced from `git ls-files` rather than a
+    directory walk (PRC-02).
+
+    Tracked-only is deliberate: a file that exists on disk but was never `git add`ed is
+    invisible here exactly as it would be to anyone who clones the repo. data/tuning.json
+    was untracked for part of a session; a directory walk would have validated it anyway
+    and hidden that the gate everyone else runs was seeing zero documents. The
+    completeness assertion in main() is what turns "untracked" into a loud failure
+    instead of a silent one.
+    """
+    out = subprocess.run(
+        ["git", "ls-files", "-z", "data"], cwd=ROOT, capture_output=True, check=True,
+    ).stdout
+    paths = [ROOT / rel for rel in out.decode().split("\0") if rel.endswith(".json")]
+    return sorted(p for p in paths if SCHEMA not in p.parents)
+
+
 def validate_schema(doc: dict, schema_name: str, where: str, rep: Report) -> bool:
     sp = SCHEMA / f"{schema_name}.schema.json"
     if not sp.exists():
@@ -80,7 +145,10 @@ def validate_schema(doc: dict, schema_name: str, where: str, rep: Report) -> boo
     v = Draft202012Validator(load(sp))
     ok = True
     for e in sorted(v.iter_errors(doc), key=lambda e: list(e.path)):
-        loc = "/".join(str(x) for x in e.path) or "(root)"
+        # A real JSON pointer, not just a breadcrumb: e.message already names the
+        # offending value for most jsonschema failures ("'fast' is not of type
+        # 'array'"), so pointer + message together say both where and what.
+        loc = "/" + "/".join(str(x) for x in e.path) if e.path else "(root)"
         rep.err(where, f"{loc}: {e.message}")
         ok = False
     return ok
@@ -236,40 +304,72 @@ def main() -> int:
     args = ap.parse_args()
     rep = Report()
 
-    tdoc = load(DATA / "towers.json")
-    edoc = load(DATA / "enemies.json")
-    validate_schema(tdoc, "towers", "towers.json", rep)
-    validate_schema(edoc, "enemies", "enemies.json", rep)
-    towers = {t["id"]: t for t in tdoc.get("towers", [])}
-    enemies = {e["id"]: e for e in edoc.get("enemies", [])}
+    schema_paths = sorted(SCHEMA.glob("*.schema.json"))
+    schema_names = {p.name[: -len(".schema.json")] for p in schema_paths}
+    exercised: set[str] = set()
 
-    for coll, name in ((towers, "tower"), (enemies, "enemy")):
-        if len(coll) != len({k for k in coll}):
-            rep.err(f"{name}s", "duplicate ids")
-
+    towers: dict[str, dict] = {}
+    enemies: dict[str, dict] = {}
     anchors: dict[str, dict] = {}
-    for p in sorted((DATA / "anchors").glob("anchor-*.json")):
-        doc = load(p)
-        if validate_schema(doc, "anchor", p.name, rep):
+    dialogs: list[tuple[Path, dict]] = []
+
+    docs = discover_documents()
+    for path in docs:
+        doc = load(path)
+        where = str(path.relative_to(ROOT))
+        try:
+            name = schema_for(doc, path)
+        except SchemaDispatchError as e:
+            rep.err(where, str(e))
+            continue
+        exercised.add(name)
+        if not validate_schema(doc, name, where, rep):
+            continue
+
+        # Type-specific handling, routed by the schema a document declared for itself
+        # rather than by where on disk it lives. check_anchor/check_dialog below are
+        # the semantic cross-reference layer this dispatch does not replace.
+        if name == "towers":
+            towers = {t["id"]: t for t in doc.get("towers", [])}
+        elif name == "enemies":
+            enemies = {e["id"]: e for e in doc.get("enemies", [])}
+        elif name == "anchor":
             anchors[doc["id"]] = doc
-            if doc["id"] != p.stem:
-                rep.err(p.name, f"id '{doc['id']}' does not match filename")
+            if doc["id"] != path.stem:
+                rep.err(where, f"id '{doc['id']}' does not match filename")
+        elif name == "dialog":
+            dialogs.append((path, doc))
+        # "tuning" (and any future data-only schema) needs no further handling: shape
+        # validation above is the entire check — see the module docstring on why its
+        # values are inert to the Python sim by design.
+
+    for coll, label in ((towers, "tower"), (enemies, "enemy")):
+        if len(coll) != len({k for k in coll}):
+            rep.err(f"{label}s", "duplicate ids")
 
     for doc in anchors.values():
         check_anchor(doc, towers, enemies, rep)
 
-    for p in sorted((DATA / "dialog").glob("anchor-*.json")):
-        doc = load(p)
-        if validate_schema(doc, "dialog", p.name, rep):
-            check_dialog(doc, anchors, rep)
+    for _, doc in sorted(dialogs, key=lambda pd: pd[0]):
+        check_dialog(doc, anchors, rep)
 
     for aid in anchors:
         if not (DATA / "dialog" / f"{aid}.json").exists():
             rep.warn(aid, "no dialog file")
 
+    # Completeness assertion (PRC-10): a schema nothing exercises, or a document whose
+    # named schema does not exist (already an error out of schema_for above), are both
+    # coverage gaps and both fail the gate rather than passing silently.
+    for missing in sorted(schema_names - exercised):
+        rep.err(f"data/schema/{missing}.schema.json", "schema is not exercised by any document")
+
     if not args.quiet:
         print(f"{len(towers)} emplacements · {len(enemies)} enemies · "
-              f"{len(anchors)} anchors · {len(list((DATA/'dialog').glob('*.json')))} dialog files")
+              f"{len(anchors)} anchors · {len(dialogs)} dialog files")
+    # Always printed, even under --quiet: tools/check.py's game data check runs this
+    # script with --quiet and needs these counts for its detail line.
+    print(f"{len(docs)} documents against {len(schema_names)} schemas "
+          f"({len(exercised)} exercised)")
     for w in rep.warnings:
         print(f"  warn  {w}")
     for e in rep.errors:

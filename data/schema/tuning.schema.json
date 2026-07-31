@@ -114,6 +114,8 @@
       "properties": {
         "draft_size": {"type": "integer", "minimum": 1,
           "description": "distinct fragments offered per between-anchor draft"},
+        "how_effects_apply": {"type": "string",
+          "description": "author commentary on where each effect's accessor is applied; same role as note, kept separate because recoveries already has a note of its own"},
         "pool": {
           "type": "array", "minItems": 1,
           "items": {
