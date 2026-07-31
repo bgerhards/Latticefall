@@ -89,11 +89,31 @@ var glow: float = 1.0
 ## SCREEN SHAKE row (options_menu.gd), same cycler shape as EMISSIVE GLOW. Closes LF-063.
 var shake: float = 1.0
 
-## CAM-01: pointer-near-strip-edge auto-scroll. Defaults on, but toggleable — an always-on
-## edge scroll is hostile to a trackpad (the pointer rests near an edge constantly while
-## moving to it) and to a screen magnifier (the magnified viewport is itself near an edge
-## most of the time). See anchor_view.gd's `_edge_scroll()`.
-var edge_scroll: bool = true
+## CAM-01: pointer-near-strip-edge auto-scroll. Off by default; still toggleable for a
+## player who wants it (LF-161: direct owner feedback — moving the pointer to the build
+## palette to pick a tower panned the board out from under them, "undesired... unexpected").
+## Two independent reasons this is now opt-in rather than opt-out, not only the one report:
+##
+## 1. The margin is measured from the *strip's* own edge (anchor_view.gd's own doc on why —
+##    the instrument panels are opaque and sit at the window edge), so the strip is the
+##    entire safe zone. At 200% interface scale that strip is measured at 4 px wide on
+##    anchor-24 (the two panels' own widths, COL_W + THREAT_W = 948, do not shrink with
+##    scale, so they eat nearly all of a 960px-wide design space), which is smaller than
+##    `EDGE_SCROLL_MARGIN` (48px) by an order of magnitude: there is no non-edge region
+##    left to rest the pointer in at all. No margin tuning fixes this — the strip itself is
+##    the problem — so "off unless asked for" is the only setting that behaves the same at
+##    every scale this game supports.
+## 2. It was also outright broken (unbounded, not merely large): `_edge_scroll()` measured
+##    depth into the margin without first checking the pointer was inside the strip, so
+##    every position past the strip's edge — including deep into a panel — clamped to a
+##    full-speed push. Fixed in `_edge_scroll()` itself (a containment guard), independent
+##    of this default, since a player who re-enables the option deserves a bounded feature.
+##
+## Middle-drag, the keyboard/gamepad board cursor (which carries the camera with it — see
+## `_follow_cursor()`), `lf_camera_reset` and the minimap's own pan/focus already cover
+## every axis edge-scroll used to be the only way to reach, so nothing is lost by defaulting
+## it off. See anchor_view.gd's `_edge_scroll()`.
+var edge_scroll: bool = false
 
 var _headless: bool = false
 ## Set when the command line dictated the display state. The save is then not allowed to
@@ -124,7 +144,8 @@ func _ready() -> void:
 
 
 const CliArgsScript := preload("res://scripts/cli_args.gd")
-const KNOWN_FLAGS := {"--ui-scale": 1, "--display-defaults": 0, "--quiet-window": 0}
+const KNOWN_FLAGS := {"--ui-scale": 1, "--display-defaults": 0, "--quiet-window": 0,
+	"--edge-scroll": 1}
 
 
 func _read_cli() -> void:
@@ -147,6 +168,13 @@ func _read_cli() -> void:
 		glow = 1.0
 	if CliArgsScript.has(p, "--quiet-window"):
 		quiet_window = true
+	if CliArgsScript.has(p, "--edge-scroll"):
+		# LF-161 verification: edge_scroll now defaults off (see the field's own doc), so a
+		# scenario proving the *contained* fix still holds for a player who opts back in
+		# needs a way to force it on without writing to the save (mirrors `--ui-scale`'s own
+		# `_cli_locked` contract — a verification run must never touch progress.json).
+		edge_scroll = CliArgsScript.int_val(p, "--edge-scroll", 0, 1 if edge_scroll else 0) != 0
+		_cli_locked = true
 
 
 # ───────────────────────────────────────────────────────────────── apply ──

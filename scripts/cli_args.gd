@@ -36,6 +36,7 @@ const ALL_FLAGS := {
 	"--draft": 0, "--shot-menu": [1, 2], "--options": 0,
 	"--seed": 1, "--draft-lives": 2, "--focus-card": 1, "--auto-take": 0,
 	"--ui-scale": 1, "--display-defaults": 0, "--quiet-window": 0,
+	"--edge-scroll": 1,
 }
 
 ## Returns `{flag: Array[Array]}` — one inner Array per *occurrence* of a repeatable flag
