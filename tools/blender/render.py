@@ -48,7 +48,16 @@ import bpy
 
 # ── projection (decision 017 — measured, not derived) ───────────────────────
 ELEVATION_DEG = 30.0            # arcsin(0.5). A 1x1 tile lands on exactly 2:1.
-YAWS = (45, 135, 225, 315)
+
+# LF-108/ART-02: the Python-side source of truth for the yaw count. scripts/iso.gd carries
+# its own independent YAW_COUNT (the GDScript-side source — the two processes don't share a
+# constant across the Blender/Godot boundary), and sprites.gd refuses to load a manifest
+# whose "yaw_count" disagrees with it. Before this, YAWS below was a bare literal tuple and
+# nothing tied its length to anything the game asserted against — a game asking for a yaw
+# count this file did not render, or a render producing yaws the game never asks for, was
+# silent. YAWS is derived from this rather than typed out a second time.
+YAW_COUNT = 4
+YAWS = tuple(45 + round(i * 360.0 / YAW_COUNT) for i in range(YAW_COUNT))
 CELL = 256                      # render canvas, px. Overridable with --cell (ART-03);
                                  # TILE_W and ORTHO_SCALE_NOMINAL are re-derived from it
                                  # by set_cell() before setup_scene()/calibrate() run.
@@ -1241,6 +1250,10 @@ def main() -> int:
     manifest = {
         "elevation_deg": ELEVATION_DEG,
         "yaws": list(YAWS),
+        # LF-108/ART-02: explicit yaw count, so sprites.gd can assert against it without
+        # inferring one from len(yaws) — a 0-length "yaws" from a malformed manifest would
+        # otherwise silently read as "0 yaws expected" instead of "no manifest".
+        "yaw_count": YAW_COUNT,
         "cell": CELL,
         "tile_px": [TILE_W, TILE_W // 2],
         "ortho_scale": ORTHO_SCALE,

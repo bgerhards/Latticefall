@@ -61,6 +61,22 @@ func load_library() -> void:
 		push_error("sprites: manifest tile %s but Iso is %dx%d — art and game disagree"
 			% [tile_px, int(iso.TILE_W), int(iso.TILE_H)])
 		return
+
+	# LF-108/ART-02: the yaw count used to be encoded independently in render.py, in this
+	# manifest's own "yaws" list, and (via the bucket width it implies) in iso.gd's
+	# hysteresis maths — nothing checked the three agreed, so a game built against a
+	# library rendered at a different count would silently miss every texture whose slot
+	# name it never asks for. `render.py` now writes "yaw_count" explicitly (falling back
+	# to `len(yaws)` for a manifest rendered before that field existed); this is the one
+	# place that compares it against `Iso.YAW_COUNT`, the GDScript-side source of truth.
+	var manifest_yaw_count: int = int(doc.get("yaw_count", (doc.get("yaws", []) as Array).size()))
+	if manifest_yaw_count != int(iso.YAW_COUNT):
+		push_error(("sprites: manifest has %d yaw(s) but Iso.YAW_COUNT is %d — art and game " +
+			"disagree on the yaw count") % [manifest_yaw_count, int(iso.YAW_COUNT)])
+		return
+	assert(iso.YAW_HYSTERESIS_FRAC < 0.5,
+			"Iso.YAW_HYSTERESIS_FRAC must stay below 0.5 (LF-108) — at or above it the " +
+			"hysteresis band exceeds a bucket's own half-width and every facing freezes")
 	_load_atlas(doc.get("atlas", {}))
 	ok = _entries.size() > 0
 

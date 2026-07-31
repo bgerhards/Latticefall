@@ -1,5 +1,5 @@
 {
-  "next_id": 141,
+  "next_id": 143,
   "items": [
     {
       "id": "LF-001",
@@ -1291,11 +1291,11 @@
       "kind": "bug",
       "area": "engine",
       "pri": "med",
-      "status": "open",
+      "status": "done",
       "why": "Raising yaw count silently freezes every turret facing",
       "opened": "2026-07-30",
-      "closed": null,
-      "note": ""
+      "closed": "2026-07-31",
+      "note": "closed at f03b93b"
     },
     {
       "id": "LF-109",
@@ -1674,6 +1674,30 @@
       "title": "Disabled SELL/UPGRADE button text (C_DIM on C_PANEL, 'SELL \u2014' / 'UPGRADE \u2014') measures 4.6-4.7:1 \u2014 passes AA but fails the AAA/7:1 bar the rest of the type ladder was solved for (decisions 045/046). a11y.py flags it as a warning on every HUD capture.",
       "kind": "polish",
       "area": "design",
+      "pri": "med",
+      "status": "open",
+      "why": "",
+      "opened": "2026-07-31",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-141",
+      "title": "Wire a gate check for YAW_HYSTERESIS_FRAC < 0.5 into tools/check.py. The constant is now a FRACTION of a bucket rather than a bare degree count, which is what makes it survive a change to YAW_COUNT -- but a fraction at or above 0.5 exceeds half a bucket and freezes every emplacement's facing permanently, which is exactly the LF-108 failure the fraction was introduced to prevent. sprites.gd asserts it at boot, so the game catches it; the gate does not. About five lines: read scripts/iso.gd, extract the constant, assert it is under 0.5. Was not added with ART-02 because check.py belonged to another workstream that hour.",
+      "kind": "chore",
+      "area": "tooling",
+      "pri": "med",
+      "status": "open",
+      "why": "",
+      "opened": "2026-07-31",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-142",
+      "title": "tools/yaw_band.py and scripts/test/facing.gd read anchor_sim.gd's wave_queue() and spawn() shapes directly, so they break silently whenever those change -- and one such break was hit and fixed during the same session that introduced them, when the multi-lane migration changed wave_queue() to emit [time, lane, enemy_id]. Neither file is run by any gate tier, so the next drift will be discovered by whoever next needs a facing measurement, mid-task, exactly as it was this time. Either give them a cheap smoke check in the gate or make them consume a shared accessor rather than the tuple layout.",
+      "kind": "chore",
+      "area": "tooling",
       "pri": "med",
       "status": "open",
       "why": "",
