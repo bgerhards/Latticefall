@@ -16,6 +16,18 @@ LF-066 was then misdiagnosed for a full pass on the back of it. Four separate ba
 (LF-063, LF-064, LF-065, LF-074) each say some version of *"not fixed because that file was
 owned by another agent this session"* — ownership was real, and it was invisible to every tool.
 
+**Observed since, and worse than a collision: `git` itself is shared state.** With seven agents
+in one tree, one of them ran `git stash` to get a clean baseline for a before/after comparison.
+The stash took **eleven files across five workstreams** and left the tree at `HEAD`. It was
+popped and nothing was lost, but for the minutes in between every other agent was reading `HEAD`
+content instead of its own edits — which does not error, it silently makes every measurement
+taken in that window describe code nobody wrote. The index is shared too: a stray `git add` or
+`git reset` changes what a central committer captures, and here it cost a commit outright and
+then made a retry loop commit nothing twelve times in a row without ever failing. The rule
+("an agent never runs stash, reset, checkout or add") is now in `CLAUDE.md`, but that is a
+remembered rule, and decision 051 exists precisely because remembered rules fail. A worktree
+per workstream makes it structurally impossible instead.
+
 Concurrency also breaks the gate mechanically. `tools/check.py` writes **fixed** artefact
 paths — `.godot/gate-frame.png` (`check.py:461`), `.godot/gate-menu.png` (`check.py:499`),
 `.godot/gate-a11y-<case>.{png,json}` (`check.py:581`) — and then `unlink`s them
