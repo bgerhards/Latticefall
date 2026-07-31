@@ -1,5 +1,5 @@
 {
-  "next_id": 105,
+  "next_id": 109,
   "items": [
     {
       "id": "LF-001",
@@ -1245,6 +1245,54 @@
       "pri": "high",
       "status": "open",
       "why": "The camera cannot fix what the art cannot show",
+      "opened": "2026-07-30",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-105",
+      "title": "PARITY BLIND SPOT: the gate never tests the build the owner plays. tools/test_parity.py goes through toolpaths.godot_argv(), and toolpaths.godot() prefers the native Linux build, so all 864 parity runs compare CPython against LINUX Godot. The owner plays the WINDOWS build. MEASURED across 100000 float64 samples on three runtimes: sqrt, fmod, +-*/, floor, round and manual hypot are byte-identical on all three, but Windows Godot (MSVC UCRT) diverges from CPython and Linux Godot (glibc) on atan2 0.084 percent, sin 0.133, cos 0.120, pow 0.130, log 0.031, exp 0.069 and tan 4.32 percent of samples. The rules currently use none of those ops so parity holds today BY ACCIDENT, not by design. Two fixes, both cheap: run test_parity.py against the Windows build at least once per release, and add a gate check that greps anchor_sim.gd and engine.py for the unsafe op set",
+      "kind": "risk",
+      "area": "tooling",
+      "pri": "blocker",
+      "status": "open",
+      "why": "The build that ships is never compared against the reference",
+      "opened": "2026-07-30",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-106",
+      "title": "DECISION 030 IS PARTLY WRONG AND IT IS BLOCKING WORK. It says square roots are unsafe in the rules. MEASURED: IEEE-754 requires sqrt to be correctly rounded, both runtimes issue SQRTSD, and sqrt matched 100000 of 100000 samples across CPython, Linux Godot and Windows Godot. The actual culprit in decision 030 was Vector2.distance_to, a FLOAT32 helper: for 2 million points placed exactly on an integer radius, float32 and float64 disagree on the <= r test 10.2 percent of the time. So the rule to carry forward is float64 and never Vector2, NOT never sqrt. This matters because it unblocks off-grid geometry: continuous positions with sqrt-normalised directions ran 4000 ticks x 64 units bit-identical on all three runtimes. Supersede decision 030 with an entry that names the safe op set (+ - * / sqrt fmod floor min max comparisons) and the banned set (atan2 sin cos tan pow log exp, and anything through Vector2)",
+      "kind": "risk",
+      "area": "engine",
+      "pri": "high",
+      "status": "open",
+      "why": "A wrong rule is blocking a feature it was never about",
+      "opened": "2026-07-30",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-107",
+      "title": "Free placement removes the denominator from the board saturation invariant. validate_data.py bounds capacity_mw against len(slots) x max_draw, and CLAUDE.md plus STATE.md both record this as a trap that already bit once: anchor-24 reached 103 percent of what would run every slot at maximum draw and the power decision the whole game is about had stopped existing on five levels. With no slots, board saturation is unbounded and the check has nothing to divide by. It must be re-derived from something else before free placement ships: a hard emplacement cap, buildable area divided by footprint area, or funds. This is the single biggest non-obvious cost of free placement and it attacks the core hook directly",
+      "kind": "risk",
+      "area": "design",
+      "pri": "blocker",
+      "status": "open",
+      "why": "Free placement silently deletes the guard protecting the power economy",
+      "opened": "2026-07-30",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-108",
+      "title": "YAW_HYSTERESIS_DEG is 12.0 in iso.gd, which is LARGER than half a bucket at 16 yaws (11.25 degrees). If the yaw count is raised to 16 without changing it, an emplacement facing locks permanently and never re-buckets. Decision 049 measured that band empirically at 4 yaws (116 changes with 40 reversals became 59 changes with 3 reversals); the measurement has to be redone at the new bucket width. Also note three places independently encode the yaw count: render.py YAWS, iso.gd's 90 * roundi(deg/90) bucketing, and iso.gd's 45.0 + hysteresis test",
+      "kind": "bug",
+      "area": "engine",
+      "pri": "med",
+      "status": "open",
+      "why": "Raising yaw count silently freezes every turret facing",
       "opened": "2026-07-30",
       "closed": null,
       "note": ""

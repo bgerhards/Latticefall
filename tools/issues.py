@@ -127,6 +127,9 @@ def load_specs() -> list[dict]:
     if dupes:
         sys.exit(f"duplicate issue ids: {', '.join(sorted(dupes))}")
     known = set(ids)
+    # Derive the inverse edge from `depends`, which is authoritative.
+    for s in specs:
+        s["_blocked"] = sorted(o["id"] for o in specs if s["id"] in o["depends"])
     for s in specs:
         for dep in s["depends"] + s["blocks"]:
             if dep not in known:
@@ -159,8 +162,15 @@ def render_body(spec: dict, mapping: dict) -> str:
     if spec["depends"]:
         refs = ", ".join(f"#{mapping[d]}" if d in mapping else d for d in spec["depends"])
         lines.append(f"**Blocked by:** {refs}")
-    if spec["blocks"]:
-        refs = ", ".join(f"#{mapping[b]}" if b in mapping else b for b in spec["blocks"])
+    # `blocks` is DERIVED, never taken from the header. Two hand-authored lists describing
+    # one edge drift the moment either side is edited, and they did: of 13 hand-written
+    # `blocks:` claims in the first pass, most were merely transitive and three contradicted
+    # the other issue's own `depends` outright — one spec asserted it blocked work that the
+    # PRD deliberately wants running in parallel. `depends` is the single source of truth;
+    # the header's `blocks` is kept only so `plan` can report the disagreement.
+    inverse = spec.get("_blocked", [])
+    if inverse:
+        refs = ", ".join(f"#{mapping[b]}" if b in mapping else b for b in inverse)
         lines.append(f"**Blocks:** {refs}")
     if lines:
         body += "\n\n---\n\n### Dependencies\n\n" + "\n\n".join(lines) + "\n"
@@ -177,6 +187,14 @@ def cmd_plan(_a) -> None:
     unknown = [l for l in labels if l not in LABEL_COLOURS]
     if unknown:
         print(f"  (no declared colour for: {', '.join(unknown)} — will be created grey)")
+    stale = [(s["id"], b) for s in specs for b in s["blocks"]
+             if s["id"] not in next(o for o in specs if o["id"] == b)["depends"]]
+    if stale:
+        print(f"\n{len(stale)} hand-written 'blocks:' claim(s) the other issue does not "
+              f"confirm — ignored, `depends` wins:")
+        for a, b in stale:
+            print(f"  {a} claims it blocks {b}; {b} does not list {a} in depends")
+        print()
     for s in specs:
         state = f"#{mapping[s['id']]}" if s["id"] in mapping else "NEW"
         dep = f"  <- {', '.join(s['depends'])}" if s["depends"] else ""
