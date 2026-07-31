@@ -1767,6 +1767,120 @@
           "text": "The probe held the line on what must still deny — `git stash`, `git stash push -m`, `git reset --hard`, `git checkout -- <path>`, `git checkout .`, every wide `git add` form, `rm -rf` and `mv` on the import cache, a redirect write into it, a raw versioned engine binary, a bare `blender` — while confirming the five false positives now allow: `git add <one path>`, the `ps | grep`, the `git commit -m`, the `gh pr comment`, and `git commit -F`. `tools/check.py` needed no change of its own: its `hooks configured` check parses the pass/total straight out of the selftest output rather than hardcoding 31, so it now reports 45/45 with no edit at all."
         }
       ]
+    },
+    {
+      "id": "counted-not-argued",
+      "date": "2026-07-31",
+      "time": "15:26",
+      "title": "Counted, not argued",
+      "summary": "PRC-16 was filed because the gate's own documentation had drifted from the gate, and STATE.md's tier block had been wrong on the same day it was generated. In one session the gate went from 29 checks to 38 and tier 3 from a documented ~66s to a measured 187s. Check counts are now asserted against the live registry; wall-clock costs were deleted from the prose rather than kept honest, because nothing here can assert a number that only exists at runtime.",
+      "tags": [
+        "PRC"
+      ],
+      "commits": [
+        {
+          "hash": "da33126",
+          "subject": "docs(gate): assert the gate's own counts, and delete the costs that rotted"
+        }
+      ],
+      "body": [
+        {
+          "type": "p",
+          "text": "PRC-16 (#82) was filed on a simple premise: the gate's documentation had drifted from the gate, and `docs/STATE.md`'s tier block had been wrong on the same day it was generated. This session made the premise far worse and, for once, far easier to see. In one session the gate went from 29 checks to 38, and tier 3 from a documented ~66s to a measured ~187s. Every number in `CLAUDE.md`'s command block was wrong — not stale by a little, wrong by more than double."
+        },
+        {
+          "type": "h3",
+          "text": "Counts are now asserted"
+        },
+        {
+          "type": "p",
+          "text": "A new tier-1 check, `tier counts`, parses `tools/check.py`'s own docstring for its \"tier N (...), C checks\" bullets and asserts each against the live `CHECKS` registry. A stale number is now a red run instead of a slow discovery. It found real drift immediately: the tier-1 bullet said 14 and did not mention `chronicle current` at all."
+        },
+        {
+          "type": "p",
+          "text": "Proved red three separate times, which is the standard here. First by perturbing only the docstring's stated count, which produced `tier 1: docstring says 15 checks, CHECKS has 16 at tier <= 1`. Second by adding a throwaway `Check()` with no matching docstring edit, which turned all four tiers red at once: `tier 1: 16 vs 17; tier 2: 26 vs 27; tier 3: 35 vs 36; tier 4: 38 vs 39`. Third, independently, by the coordinator — who restored `tools/check.py` byte-identical afterward and verified it stayed that way."
+        },
+        {
+          "type": "quote",
+          "text": "A clever general doc-parser would just be a second thing to get wrong. It is a tripwire, not a documentation engine.",
+          "attribution": "check_gate_docs_consistent's own docstring"
+        },
+        {
+          "type": "p",
+          "text": "The check names its own limits in that docstring rather than pretending to more coverage than it has: it reads only that one phrasing, and it asserts counts only, so a re-tier that moves a check between tiers without changing any total is an accepted, named gap — not a hole nobody noticed."
+        },
+        {
+          "type": "h3",
+          "text": "Costs are deleted, not maintained"
+        },
+        {
+          "type": "p",
+          "text": "The part worth dwelling on is what got deleted rather than fixed. Wall-clock numbers cannot be asserted against any registry — they exist only at runtime and are machine- and load-dependent. `LF-178` is the proof: the same tier-2 gate measured 27,852ms and 28,751ms on two runs both fairly called clean. A generator that kept a docstring's timings honest would need its own caching subsystem just to answer a question the docstring did not need to ask. So every hardcoded cost is gone from the prose, replaced by pointers to `--list` and `--tier N --json`. Three fewer numbers that are all true beats a generator nobody maintains."
+        },
+        {
+          "type": "p",
+          "text": "The same instinct closed decision 017 — the isometric camera angle that was wrong for six sessions because it was derived from memory rather than measured — and decision 067, which deleted `PRESSURE_FLOOR` rather than raised it. Precision that rots is a liability, not an asset."
+        },
+        {
+          "type": "h3",
+          "text": "Where generation was cheap, it was taken"
+        },
+        {
+          "type": "p",
+          "text": "Not everything hand-typed was deleted — some of it was generated instead. The `--tier` and `--budget` argparse help text used to hand-type the same figures as the docstring and was independently wrong: `--budget` claimed tier 2 was 25s when `TIER_BUDGET_MS` already said 28,000. Both are now built from `CHECKS` and `TIER_BUDGET_MS` at parser-construction time, so they cannot drift from the registry they describe."
+        },
+        {
+          "type": "h3",
+          "text": "The measured table"
+        },
+        {
+          "type": "table",
+          "headers": [
+            "Tier",
+            "Checks",
+            "Measured",
+            "Budget"
+          ],
+          "rows": [
+            [
+              "1",
+              "16",
+              "6,564–6,639 ms",
+              "10,000 ms"
+            ],
+            [
+              "2",
+              "26",
+              "27,852 ms",
+              "28,000 ms — still marginal, LF-178"
+            ],
+            [
+              "3",
+              "35",
+              "187,256 ms (~3m7s)",
+              "none"
+            ],
+            [
+              "4",
+              "38",
+              "not re-measured",
+              "none"
+            ]
+          ]
+        },
+        {
+          "type": "h3",
+          "text": "The honest half"
+        },
+        {
+          "type": "p",
+          "text": "Tier 2's budget was not raised, even though it is sitting right on it. `LF-178` records that the answer is to move a check out of tier 2, not to move the number again — it was already raised once earlier this session, from 25,000, and raising it a second time in the same session would have made the budget decorative rather than a contract."
+        },
+        {
+          "type": "p",
+          "text": "Two traps from elsewhere in the session were folded into `CLAUDE.md` by the coordinator in the same commit, worth recording here because neither is about the gate at all. `LF-180`: `git commit --only` is for modifications to already-tracked files — it cannot add and cannot remove, and it fails silently at both. `LF-175`: `--user-data-dir` is silently ignored by this Godot build, so a tool that believes it isolated the save is quietly writing to the real one; the fix is `XDG_DATA_HOME`, asserted against the default location afterward."
+        }
+      ]
     }
   ]
 }
