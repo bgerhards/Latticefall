@@ -1532,6 +1532,82 @@
           "text": "Two items closed on the way past rather than opened new. `LF-134` turned out to already be fixed — the parity harness's own subprocess had carried a timeout since an earlier commit, and the backlog item had simply never been marked done. Worth recording as its own small lesson: an argument for closing an item at the commit that fixes it, not at the next wrap that happens to notice. And `LF-115` was a latent trap rather than a live bug — the STATE regeneration tool never forwarded its tier flag to the gate, which cost nothing only because the default was the full gate regardless of what was asked for. This change is exactly what would have made that silent default dangerous, so it was fixed in the same commit that created the hazard, not left for the next session to rediscover."
         }
       ]
+    },
+    {
+      "id": "the-headline-did-not-survive",
+      "date": "2026-07-31",
+      "time": "16:20",
+      "title": "The headline did not survive its own follow-up",
+      "summary": "‘largest-hole-closes’ published Threshold Surge flipping 9 of 72 anchor-by-difficulty cells from loss to win, with its own caveat attached: charge accrual was unmodelled, and the next regrade could not start until it was. LF-163 modelled it. The claim does not reproduce — zero cells flip — and the reason is not that boards fail to earn charge. This is that correction, appended rather than edited in, the way the rule says it has to be.",
+      "tags": [
+        "BAL"
+      ],
+      "body": [
+        {
+          "type": "p",
+          "text": "This entry corrects ‘The largest hole in the project closes: a grade that presses buttons’ (`largest-hole-closes`, commit `4daeb7c`, #89), published earlier the same day. That entry is not edited — nothing in it is wrong about what it measured, and the chronicle does not rewrite a past entry when a later one overturns it. It gets a new one, linked back, the same way `docs/DECISIONS.md` never edits a settled decision. This is that entry."
+        },
+        {
+          "type": "p",
+          "text": "The published finding was precise: Threshold Surge, fired on a deterministic schedule with no charge, cooldown or cost modelled, flipped 9 of 72 anchor-by-difficulty cells from loss to win — sweeping all three difficulties on both anchor-12 and anchor-13 — and was 0 worse across all 72. The entry declined to read that as mispricing. It named the gap plainly — charge accrual did not exist in `sim/engine.py` at all — and it named the follow-up: `LF-163`, model charge, re-run those nine cells, and block `BAL-04`'s regrade on it. `LF-163` is now closed."
+        },
+        {
+          "type": "h3",
+          "text": "The first finding reframes the task"
+        },
+        {
+          "type": "p",
+          "text": "The gap was never in the rules. `scripts/abilities.gd`'s `AbilityState` already tracked Surge's charge in full — `charge_max`, `charge_per_leak_cost`, `ready()`, `began()` — and `scripts/anchor_view.gd`'s `_charge_surge()` was already wired to `AnchorSim`'s `unit_killed` signal, live, on every kill. That code sits deliberately outside `anchor_sim.gd` itself, on the same precedent decision 033 already set for `sell()`. What was unmodelled was `sim/engine.py`'s and `scripts/test/parity.gd`'s own scheduled-dispatch layer — the machinery `BAL-01` built to press buttons on a fixed clock. Both files carried the same admission in their own words: Surge \"has no charge/cooldown model in this file at all.\" The rule itself was never in question. `scripts/anchor_sim.gd` has a zero diff."
+        },
+        {
+          "type": "p",
+          "text": "The port is the existing rule, not a new one: `charge += leak_cost * charge_per_leak_cost` on every kill from either `_damage()` or Surge's own `_fire_surge()`, clamped at `charge_max`, ready at `>= charge_max`, reset to zero on an actual cast. A scheduled cast whose time arrives before a full charge has accrued is still consumed off the schedule but does nothing — mirroring `anchor_view.gd`'s `activate_ability()` returning nothing and playing a deny cue on a press that isn't ready yet."
+        },
+        {
+          "type": "h3",
+          "text": "Proved red before it was trusted"
+        },
+        {
+          "type": "p",
+          "text": "A gate that silently no-oped would have reproduced the original 9-of-72 result exactly and looked like confirmation rather than correction. It did not: anchor-12, brutal, `surge-on-peak` — 12 scheduled attempts, 3 actually fired, 9 denied for insufficient charge, with charge reaching the full 100 only at t=135s, 295s and 415s of the run."
+        },
+        {
+          "type": "p",
+          "text": "All 72 cells were then regraded charge-gated against ungated, run twice — byte-identical both times — and cross-checked against the `sim.run` CLI with 0 mismatches. **Zero cells flip.**"
+        },
+        {
+          "type": "h3",
+          "text": "Why zero, and the real finding underneath it"
+        },
+        {
+          "type": "p",
+          "text": "Not because boards fail to earn charge — they don't. Anchor-12 at brutal difficulty earns three full charges from ordinary combat across a roughly 470-second run, which is exactly what the original entry's own design note predicted when it estimated the wins needed five to fourteen casts rather than one. The actual reason is that **`surge-on-peak` is not the sole winner on any of the 72 cells under today's ruleset, gated or not.** Gating drops it out of 7 cells' winner lists — anchor-11 standard, and anchor-12 and anchor-13 at all three difficulties, exactly where the original entry flagged its own concern, so the location of the worry was real — but every one of those 7 cells is already won independently by a conventional build with no ability involved at all: `mortar-core`, `burst`, `flak-screen` or `intel-first`, depending on the anchor. The loss-without-Surge premise the whole “flips 9” headline rested on is gone. “0 worse across all 72” still holds."
+        },
+        {
+          "type": "h3",
+          "text": "Two loose ends, on the record rather than buried in a backlog item"
+        },
+        {
+          "type": "p",
+          "text": "Nobody knows why the winner lists moved between the two measurements. The obvious explanation is ruled out: `BAL-01`'s own report says the four capped-core policies — `mortar-core` among them — were already in its 16-policy baseline when it ran, so their arrival is not what changed. Candidates not yet investigated: the balance fixes `LF-098`, `LF-129`, `LF-130` and `LF-136` landed in between, or a content edit to anchor-12 or anchor-13 itself. Unresolved, filed as part of `LF-172`."
+        },
+        {
+          "type": "p",
+          "text": "And three of the nine cells were never written down. `BAL-01` said nine. Only six are named anywhere — anchor-12 and anchor-13 at three difficulties each — across the issue spec, the original chronicle entry, `docs/DECISIONS.md` and the backlog. The other three cannot be checked, because nobody recorded which cells they were. That is a finding about how a measurement gets written down here, not just about Surge."
+        },
+        {
+          "type": "h3",
+          "text": "The angle"
+        },
+        {
+          "type": "p",
+          "text": "This is a good day for the method. A result was published with its own caveat attached and a named follow-up; the follow-up was done; the result did not survive; the correction is a new entry rather than a quiet edit to the old one. That loop working — catching its own headline rather than letting it stand uncontested — is the entire point of keeping the chronicle and the backlog this way. The uncomfortable half is just as real: a measurement can rot in a single day of otherwise good work, and this one did, and three of its nine data points were never recorded well enough to even check."
+        },
+        {
+          "type": "p",
+          "text": "The practical upshot: `BAL-04` is unblocked. No grade in the current 72-cell table depends on Surge being available on demand. But it inherits no evidence either way about whether the 130-damage, 35%-falloff numbers are correctly tuned — nothing in this regrade exercised that question, because nothing in the current winner lists depends on the ability at all. “The grader has no evidence either way, because nothing depends on the ability” is what `BAL-04` actually gets handed. That is a different, and more useful, thing to hand it than either “trust it” or “don't.”"
+        }
+      ]
     }
   ]
 }
