@@ -64,10 +64,24 @@ MIN_COVERAGE = 0.02
 ## That happened to `LANE` the day it was added: `--lanes` ran, produced nothing visible, and
 ## looked like a broken hook rather than a missing prefix. Add the prefix in the same change
 ## that adds the hook.
-RELAY_PREFIXES = ("SHOT ", "FRAME ", "STATE ", "AUDIO ", "FACE ", "LANE ", "MENUFRAME ",
-                  "CLEARED ", "CAMERA ", "DRAG ", "WHEEL ", "DIALOG-TRIGGER ",
-                  "DEBRIEF-PRESS ", "DEBRIEF-PRESSED ", "DRAFT-BOOT ", "AUTO-TAKE ",
-                  "RECOVERY-TAKEN ", "PLACEHOLDER ")
+RELAY_PREFIXES = ("SHOT ", "MENUSHOT ", "DRAFTSHOT ", "FRAME ", "STATE ", "AUDIO ", "FACE ",
+                  "LANE ", "MENUFRAME ", "CLEARED ", "CAMERA ", "DRAG ", "WHEEL ",
+                  "DIALOG-TRIGGER ", "DEBRIEF-PRESS ", "DEBRIEF-PRESSED ", "DRAFT-BOOT ",
+                  "AUTO-TAKE ", "RECOVERY-TAKEN ", "PLACEHOLDER ")
+
+# LF-153: the three screens that can end a run with a saved PNG, each printing its own
+# "<X> <path> err=<n> <w>x<h>" confirmation line — `main.gd`'s `SHOT`, `menu.gd`'s
+# `MENUSHOT`, `draft.gd`'s `DRAFTSHOT`. `run_shot()` used to look only for `SHOT `, so a
+# capture that reached the menu or the draft screen (structurally unreachable through this
+# tool today per LF-109, but reachable by anything driving Godot with the same argv shape
+# this module builds, and by a future caller) reported failure despite the PNG having been
+# written correctly. Each screen's own per-frame stats line differs too — `main.gd`'s
+# `FRAME coverage=.. distinct=..`, `menu.gd`'s `MENUFRAME coverage=.. buttons=..`,
+# `draft.gd` prints no stats line at all — so the blank-frame floor below is only enforced
+# where a coverage figure actually exists, the same "lower floor" precedent
+# `tools/check.py`'s `check_menu_renders` already sets for the menu case.
+CAPTURE_PREFIXES = ("SHOT ", "MENUSHOT ", "DRAFTSHOT ")
+STATS_PREFIX_FOR = {"SHOT ": "FRAME ", "MENUSHOT ": "MENUFRAME ", "DRAFTSHOT ": None}
 
 
 def _out(line: str) -> None:
@@ -155,43 +169,53 @@ def run_shot(args: argparse.Namespace) -> int:
     for line in relayed:
         _out(line)
 
-    shot_line = next((l for l in relayed if l.startswith("SHOT ")), "")
-    if not shot_line:
-        _err("shot: Godot never reached the shot — no SHOT line in its output")
+    # LF-153: recognise a capture success under whichever of the three markers actually
+    # fired, not only "SHOT " — see CAPTURE_PREFIXES' own doc.
+    capture_prefix = next((pfx for pfx in CAPTURE_PREFIXES
+                            if any(l.startswith(pfx) for l in relayed)), None)
+    if capture_prefix is None:
+        _err("shot: Godot never reached a capture — no SHOT/MENUSHOT/DRAFTSHOT line in "
+             "its output")
         _err(blob.strip()[-1500:])
         return 1
+    shot_line = next(l for l in relayed if l.startswith(capture_prefix))
 
     try:
         err_code = int(shot_line.split("err=")[1].split()[0])
     except (IndexError, ValueError):
-        _err(f"shot: could not parse the SHOT line: {shot_line!r}")
+        _err(f"shot: could not parse the {capture_prefix.strip()} line: {shot_line!r}")
         return 1
     if err_code != 0:
         _err(f"shot: Godot reported a PNG write error (err={err_code})")
         return 1
 
-    frame_line = next((l for l in relayed if l.startswith("FRAME ")), "")
+    stats_prefix = STATS_PREFIX_FOR[capture_prefix]
+    frame_line = next((l for l in relayed if stats_prefix and l.startswith(stats_prefix)), "")
     if frame_line:
         try:
             coverage = float(frame_line.split("coverage=")[1].split()[0])
         except (IndexError, ValueError):
-            _err(f"shot: could not parse the FRAME line: {frame_line!r}")
+            _err(f"shot: could not parse the {stats_prefix.strip()} line: {frame_line!r}")
             return 1
         if coverage < MIN_COVERAGE:
             _err(f"shot: frame is effectively blank (coverage={coverage:.4f}, "
                  f"min {MIN_COVERAGE}) — that is a failed look at the game, not a "
                  f"successful one")
             return 1
-    # `--extra --shot-menu ...` does NOT reach the menu through this tool — verified, not
-    # assumed. `build_extra_args()` unconditionally forwards `--anchor <id>` and
-    # `--shot <path> <frames>`, and `menu.gd`'s `_boot_from_cli()` checks `argv.has
-    # ("--anchor") or argv.has("--shot")` *before* it ever looks at `--shot-menu`, so a
-    # forwarded `--shot-menu` is silently dropped and the run screenshots the game as usual
-    # (a `SHOT`/`FRAME` pair comes back, never `MENUFRAME`). `check_menu_renders` in
-    # tools/check.py reaches the real menu shot by calling `toolpaths.godot_argv()` directly
-    # with only `--shot-menu` on the line — never through this tool. If this tool is ever
-    # made to support a menu shot, the coverage floor below should stay unenforced for it,
-    # same as `check_menu_renders`' own lower floor.
+    # `--extra --shot-menu ...` still does NOT reach the menu through this tool — that part
+    # of LF-109 is unchanged and still open, verified not assumed: `build_extra_args()`
+    # unconditionally forwards `--anchor <id>` and `--shot <path> <frames>`, and `menu.gd`'s
+    # `_boot_from_cli()` checks `argv.has("--anchor") or argv.has("--shot")` *before* it
+    # ever looks at `--shot-menu`, so a forwarded `--shot-menu` is silently dropped and the
+    # run screenshots the game as usual (a `SHOT`/`FRAME` pair, never `MENUSHOT`/
+    # `MENUFRAME`). What LF-153 fixes is narrower and orthogonal: the recognition logic
+    # above no longer *assumes* "SHOT " is the only marker a successful capture can print,
+    # so the day something other than this tool drives Godot into the menu or draft screen
+    # with this same argv shape (`tools/scenario.py`, or a future `--menu` mode here),
+    # `MENUSHOT`/`DRAFTSHOT` are already recognised rather than silently read as failure.
+    # `check_menu_renders` in tools/check.py reaches the real menu shot today by calling
+    # `toolpaths.godot_argv()` directly with only `--shot-menu` on the line — never through
+    # this tool.
 
     if r.returncode not in (0, None):
         _err(f"shot: godot exited {r.returncode}")

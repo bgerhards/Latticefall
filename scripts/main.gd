@@ -13,6 +13,13 @@ extends Node2D
 ## their _ready(). Setup is therefore explicit: boot() the view once the CLI is parsed,
 ## bind() the listeners, then start().
 
+## PRC-12: the scenario runner and the shared CLI tokeniser. Preloaded, not `class_name` —
+## same reasoning as `AbilityStateScript`/`MinimapScript` elsewhere: a new `class_name` is
+## invisible until the editor has imported once, and the symptom is a hang, not an error
+## (CLAUDE.md).
+const ScenarioScript := preload("res://scripts/scenario.gd")
+const CliArgsScript := preload("res://scripts/cli_args.gd")
+
 @export var anchor_id: String = "anchor-01"
 @export var difficulty: String = "standard"
 
@@ -107,6 +114,16 @@ var _chain_cli: int = 0
 var _debrief_at: int = -1
 var _debrief_fired: bool = false
 
+## `-- --scenario <path>` (PRC-12): one file, driving a timeline of actions and assertions
+## instead of a boot-time flag per screen. `_scenario` is untyped (a `ScenarioScript`
+## instance or `null`) for the same reason `sim`/`abilities` are untyped elsewhere in this
+## codebase — see anchor_view.gd's own note. Its `shot`/`a11y`/`facings` actions, if any,
+## are folded into the legacy `_shot_path`/`_a11y_path`/`_dump_facings` fields above at load
+## time (see `_load_scenario()`), so the existing, already-verified capture code path in
+## `_process()` below runs unmodified for a scenario exactly as it does for `--shot`.
+var _scenario = null
+var _scenario_finished: bool = false
+
 ## `-- --profile <frames>` (CAM-06/CAM-07): print mean/p95 milliseconds per draw layer
 ## (AnchorView, GlowLayer, FxAdditive, CombatFx) over this many rendered frames, then exit.
 ## The performance claims in those two issues need a falsifiable number, not a feeling —
@@ -193,6 +210,12 @@ func _ready() -> void:
         # AnchorView.set_camera_override()'s own doc for why the order matters.
         view.set_camera_override(Vector2(_camera_cli["x"], _camera_cli["y"]), _camera_cli["zoom"])
     hud.bind(view)
+    if _profile_frames > 0:
+        # LF-150: the minimap (hud.gd's own Control child, scripts/minimap.gd) is HUD
+        # content with its own _draw() — bind() is what creates it, so profiling can only
+        # start after it, unlike the four board layers above which exist as soon as
+        # view.boot() returns.
+        hud.start_profiling()
     dialog.bind(view)
     # Verification-only: dialog_view.gd already connects this to show the line on screen, but
     # nothing prints that a trigger actually fired — several of them (first-leak, low-lives,
@@ -218,10 +241,7 @@ func _ready() -> void:
     if _scroll_steps != 0:
         hud.scroll_panels(_scroll_steps)
     for _i in range(_cursor_steps):
-        var press := InputEventAction.new()
-        press.action = "lf_right"
-        press.pressed = true
-        view._action_input(press)
+        _dispatch_action_press("lf_right")
     if _has_mouse_at:
         _synth_mouse_at(_mouse_at)
     if _has_drag:
@@ -247,119 +267,77 @@ func _ready() -> void:
         pause_menu.show_menu()
 
 
+## Every flag `_setup_cli()` reads, and its arity — see `scripts/cli_args.gd`'s own doc for
+## the `int` vs `[min, max]` shape. Documentation only: `_setup_cli()` tokenises against
+## `CliArgsScript.ALL_FLAGS` (the union across all four CLI-reading scripts), not this local
+## copy, so a flag meant for `menu.gd`/`draft.gd`/`display_settings.gd` never spuriously
+## warns here — see `ALL_FLAGS`'s own doc for why one shared registry is what
+## the four independent parsers actually need. Every flag below is a **deprecated shim**
+## over `--scenario` per PRC-12's own task list — kept working exactly as before, not
+## removed, because CLAUDE.md, tools/check.py and tools/shot.py all still name them.
+const KNOWN_FLAGS := {
+    "--shot": [1, 2], "--a11y": 1, "--facings": 0, "--lanes": 0, "--dump-placeholder": 0,
+    "--anchor": 1, "--autoplay": 0, "--paused": 0, "--select": 1, "--pick": 1,
+    "--scroll": 1, "--cursor": 1, "--build": 1, "--difficulty": 1, "--speed": 1,
+    "--ability": 1, "--ability-at": 2, "--press-at": 2, "--chain": 1, "--debrief-at": 1,
+    "--camera": 3, "--mouse-at": 2, "--drag": 2, "--wheel": 1, "--hold": 1, "--profile": 1,
+    "--scenario": 1,
+}
+
+
 func _setup_cli() -> void:
     var argv := OS.get_cmdline_user_args()
-    for i in range(argv.size()):
-        match argv[i]:
-            "--shot":
-                if i + 1 < argv.size():
-                    _shot_path = argv[i + 1]
-                if i + 2 < argv.size() and argv[i + 2].is_valid_int():
-                    _shot_at = int(argv[i + 2])
-            "--a11y":
-                if i + 1 < argv.size():
-                    _a11y_path = argv[i + 1]
-            "--facings":
-                # One line per drawable with the shot: sprite, chosen yaw and board
-                # position. A facing is not legible from a 1440x810 PNG — the four yaws of
-                # a turret differ by which side its muzzle sits on and by 40 px of height —
-                # so the screenshot alone cannot say whether a sprite is pointing where the
-                # thing it is tracking actually is. This makes that falsifiable. LF-050.
-                _dump_facings = true
-            "--lanes":
-                # One line per alive unit with the shot: which lane index it resolved to,
-                # its distance along that lane, and where that projected on screen — see
-                # `_dump_lanes`'s own doc. LF-116/WAR-01.
-                _dump_lanes = true
-            "--dump-placeholder":
-                _dump_placeholder = true
-            "--anchor":
-                if i + 1 < argv.size():
-                    anchor_id = argv[i + 1]
-            "--autoplay":
-                _autoplay = true
-            "--paused":
-                # Opens the pause overlay at boot so a screenshot can show it. The
-                # overlay is the one screen that cannot be reached by playing at
-                # --fixed-fps, because reaching it requires a key press.
-                _open_pause = true
-            "--select":
-                # Point the inspector at the Nth built emplacement. The inspector's
-                # populated state is unreachable at --fixed-fps for the same reason the
-                # pause overlay is: getting there needs a click, and a UI panel that is
-                # never screenshotted is a UI panel nobody has looked at.
-                if i + 1 < argv.size() and argv[i + 1].is_valid_int():
-                    _select_nth = int(argv[i + 1])
-            "--pick":
-                # Arm an emplacement in the build bar, exactly as clicking its button
-                # does. Paired with --select it proves the board selection is dropped
-                # when the bar is used, which is the whole of that interaction.
-                if i + 1 < argv.size():
-                    _pick_tower = argv[i + 1]
-            "--scroll":
-                # Scroll the instrument panels N steps, exactly as lf_panel_down does.
-                # Above 125% interface scale both panels hold more than fits, and the
-                # scrolled state is unreachable at --fixed-fps for the same reason the
-                # pause overlay and the inspector are: it takes a real key press.
-                if i + 1 < argv.size() and argv[i + 1].is_valid_int():
-                    _scroll_steps = int(argv[i + 1])
-            "--cursor":
-                # Press lf_right N times at boot. Gamepad and keyboard board navigation
-                # is otherwise unscreenshottable at --fixed-fps for the same reason the
-                # pause overlay and the inspector are: it takes a real input to reach.
-                if i + 1 < argv.size() and argv[i + 1].is_valid_int():
-                    _cursor_steps = int(argv[i + 1])
-            "--build":
-                # Repeatable. `--build mortar-emplacement --build flak-array` puts one of
-                # each on the next two free slots, which is the only way to photograph the
-                # weapons autobuild never reaches. See _place_requested().
-                if i + 1 < argv.size():
-                    _build_ids.append(argv[i + 1])
-            "--difficulty":
-                if i + 1 < argv.size():
-                    difficulty = argv[i + 1]
-            "--speed":
-                if i + 1 < argv.size() and argv[i + 1].is_valid_float():
-                    _speed_cli = float(argv[i + 1])
-            "--ability":
-                if i + 1 < argv.size():
-                    _ability_ids.append(argv[i + 1])
-            "--ability-at":
-                if i + 2 < argv.size() and argv[i + 1].is_valid_int():
-                    _ability_at.append({"frame": int(argv[i + 1]), "id": argv[i + 2], "fired": false})
-            "--press-at":
-                if i + 2 < argv.size() and argv[i + 1].is_valid_int():
-                    _press_at.append({"frame": int(argv[i + 1]), "action": argv[i + 2], "fired": false})
-            "--chain":
-                if i + 1 < argv.size() and argv[i + 1].is_valid_int():
-                    _chain_cli = int(argv[i + 1])
-            "--debrief-at":
-                if i + 1 < argv.size() and argv[i + 1].is_valid_int():
-                    _debrief_at = int(argv[i + 1])
-            "--camera":
-                # One shape, parsed with is_valid_float() exactly as --speed is above: three
-                # positional values or reject, no omitted-zoom / omitted-target shorthand.
-                if i + 3 < argv.size() and argv[i + 1].is_valid_float() \
-                        and argv[i + 2].is_valid_float() and argv[i + 3].is_valid_float():
-                    _camera_cli = {"x": float(argv[i + 1]), "y": float(argv[i + 2]),
-                        "zoom": float(argv[i + 3])}
-            "--mouse-at":
-                if i + 2 < argv.size() and argv[i + 1].is_valid_float() and argv[i + 2].is_valid_float():
-                    _mouse_at = Vector2(float(argv[i + 1]), float(argv[i + 2]))
-                    _has_mouse_at = true
-            "--drag":
-                if i + 2 < argv.size() and argv[i + 1].is_valid_float() and argv[i + 2].is_valid_float():
-                    _drag_delta = Vector2(float(argv[i + 1]), float(argv[i + 2]))
-                    _has_drag = true
-            "--wheel":
-                if i + 1 < argv.size() and argv[i + 1].is_valid_int():
-                    _wheel_steps = int(argv[i + 1])
-            "--hold":
-                if i + 1 < argv.size():
-                    _hold_actions.append(argv[i + 1])
-            "--profile":
-                if i + 1 < argv.size() and argv[i + 1].is_valid_int():
-                    _profile_frames = int(argv[i + 1])
+    var p := CliArgsScript.parse(argv, CliArgsScript.ALL_FLAGS)
+
+    # --shot / --a11y / --facings / --lanes / --dump-placeholder — see each field's own
+    # doc above for why each exists; only the parsing moved.
+    _shot_path = CliArgsScript.str_val(p, "--shot", 0, _shot_path)
+    _shot_at = CliArgsScript.int_val(p, "--shot", 1, _shot_at)
+    _a11y_path = CliArgsScript.str_val(p, "--a11y", 0, _a11y_path)
+    _dump_facings = CliArgsScript.has(p, "--facings")
+    _dump_lanes = CliArgsScript.has(p, "--lanes")
+    _dump_placeholder = CliArgsScript.has(p, "--dump-placeholder")
+
+    if CliArgsScript.has(p, "--anchor"):
+        anchor_id = CliArgsScript.str_val(p, "--anchor", 0, anchor_id)
+    _autoplay = CliArgsScript.has(p, "--autoplay")
+    _open_pause = CliArgsScript.has(p, "--paused")
+    _select_nth = CliArgsScript.int_val(p, "--select", 0, _select_nth)
+    _pick_tower = CliArgsScript.str_val(p, "--pick", 0, _pick_tower)
+    _scroll_steps = CliArgsScript.int_val(p, "--scroll", 0, _scroll_steps)
+    _cursor_steps = CliArgsScript.int_val(p, "--cursor", 0, _cursor_steps)
+    # Repeatable: `--build mortar-emplacement --build flak-array` puts one of each on the
+    # next two free slots — the only way to photograph the weapons autobuild never reaches.
+    # See _place_requested().
+    _build_ids = CliArgsScript.all_str(p, "--build", 0)
+    if CliArgsScript.has(p, "--difficulty"):
+        difficulty = CliArgsScript.str_val(p, "--difficulty", 0, difficulty)
+    _speed_cli = CliArgsScript.float_val(p, "--speed", 0, _speed_cli)
+    _ability_ids = CliArgsScript.all_str(p, "--ability", 0)
+    for occ in p.get("--ability-at", []):
+        _ability_at.append({"frame": int(occ[0]), "id": String(occ[1]), "fired": false})
+    for occ in p.get("--press-at", []):
+        _press_at.append({"frame": int(occ[0]), "action": String(occ[1]), "fired": false})
+    _chain_cli = CliArgsScript.int_val(p, "--chain", 0, _chain_cli)
+    _debrief_at = CliArgsScript.int_val(p, "--debrief-at", 0, _debrief_at)
+    if CliArgsScript.has(p, "--camera"):
+        _camera_cli = {
+            "x": CliArgsScript.float_val(p, "--camera", 0),
+            "y": CliArgsScript.float_val(p, "--camera", 1),
+            "zoom": CliArgsScript.float_val(p, "--camera", 2),
+        }
+    if CliArgsScript.has(p, "--mouse-at"):
+        _mouse_at = Vector2(CliArgsScript.float_val(p, "--mouse-at", 0),
+            CliArgsScript.float_val(p, "--mouse-at", 1))
+        _has_mouse_at = true
+    if CliArgsScript.has(p, "--drag"):
+        _drag_delta = Vector2(CliArgsScript.float_val(p, "--drag", 0),
+            CliArgsScript.float_val(p, "--drag", 1))
+        _has_drag = true
+    _wheel_steps = CliArgsScript.int_val(p, "--wheel", 0, _wheel_steps)
+    _hold_actions = CliArgsScript.all_str(p, "--hold", 0)
+    _profile_frames = CliArgsScript.int_val(p, "--profile", 0, _profile_frames)
+
     if _profile_frames > 0:
         # Profiling needs the run to still be going at frame _profile_frames — extending
         # _shot_at (rather than adding a second, separate quit condition) reuses the single
@@ -367,6 +345,48 @@ func _setup_cli() -> void:
         # also passed. See _process()'s own note on why render_loop_enabled also has to stay
         # on for the whole window when profiling, not just the last few frames before a shot.
         _shot_at = maxi(_shot_at, _profile_frames)
+
+    if CliArgsScript.has(p, "--scenario"):
+        _load_scenario(CliArgsScript.str_val(p, "--scenario", 0, ""))
+
+
+## PRC-12: `-- --scenario <path>` loads and validates the file (`scripts/scenario.gd`), then
+## folds its anchor/difficulty/ui_scale and its (at most one) shot/a11y/facings action into
+## the exact same fields `_setup_cli()`'s legacy flags already populate — so the rest of
+## this file's boot and capture logic runs completely unmodified for a scenario. A load
+## failure (bad JSON, unknown schema, an unsupported action verb, a shot/a11y frame
+## mismatch) is a **hard failure**, printed and non-zero, never a silent no-op — PRC-12's
+## own acceptance criterion.
+func _load_scenario(path: String) -> void:
+    var s = ScenarioScript.new()
+    if not s.load_file(path):
+        push_error("scenario: %s" % s.error())
+        print("SCENARIO-LOAD-FAIL %s" % s.error())
+        call_deferred("_quit_with", 1)
+        return
+    _scenario = s
+    anchor_id = s.anchor_id
+    if s.difficulty != "":
+        difficulty = s.difficulty
+    if s.has_ui_scale:
+        # Mirrors display_settings.gd's own `-- --ui-scale` handling (Display._read_cli()):
+        # set the fields directly and mark CLI-locked rather than call set_ui_scale(), which
+        # also persists to the save file — a verification run must not touch the player's
+        # progress.json (see Display.settings_locked()'s own doc).
+        Display.ui_scale = s.ui_scale
+        Display._cli_locked = true
+        Display.apply()
+    if s.shot_frame >= 0:
+        _shot_path = s.shot_path
+        _shot_at = s.shot_frame
+    if s.a11y_frame >= 0:
+        _a11y_path = s.a11y_path
+    if s.facings_frame >= 0:
+        _dump_facings = true
+
+
+func _quit_with(code: int) -> void:
+    get_tree().quit(code)
 
 
 func _place_requested() -> void:
@@ -384,25 +404,66 @@ func _place_requested() -> void:
     if _build_ids.is_empty() or view.sim == null:
         return
     for tid in _build_ids:
-        if not Content.towers.has(tid):
-            push_warning("main: --build %s is not a tower id" % tid)
-            continue
+        _build_one(tid)
+    view.queue_redraw()
+
+
+## PRC-12: shared by `_place_requested()` (boot-time `--build`) and the scenario runner's
+## `build` action — one place funding-grants and places a tower, so the two paths cannot
+## silently diverge on what a verification build actually does to the sim. `slot_override`
+## is `NO_SLOT` (view.NO_SLOT) for "next free slot", which is the only thing `--build` itself
+## has ever offered; the scenario `build` verb may name a specific slot instead.
+func _build_one(tid: String, slot_override: Vector2i = Vector2i(-999, -999)) -> void:
+    if not Content.towers.has(tid):
+        push_warning("main: --build %s is not a tower id" % tid)
+        return
+    var slot: Vector2i
+    if slot_override != Vector2i(-999, -999):
+        if not Array(view.sim.free_slots).has(slot_override):
+            push_warning("main: --build %s slot (%d,%d) is not free" % [tid, slot_override.x, slot_override.y])
+            return
+        slot = slot_override
+    else:
         if view.sim.free_slots.is_empty():
             push_warning("main: --build %s has no free slot left" % tid)
-            break
-        var cost := int(Content.tower(tid)["cost"])
-        if cost > int(view.sim.funds):
-            # Annotated, not inferred: `view.sim` is an untyped var, so `view.sim.funds` is a
-            # Variant and `:=` cannot infer at PARSE time — which fails the whole script, so
-            # menu.gd cannot load main.tscn and the game hangs on the menu instead of
-            # reporting anything. Same trap that took the playfield down via fx_additive.gd.
-            var granted: int = cost - int(view.sim.funds)
-            view.sim.funds += granted
-            print("BUILD-GRANT %s +%d" % [tid, granted])
-        var slot: Vector2i = view.sim.free_slots[0]
-        if view.sim.build_at(tid, slot):
-            print("BUILD %s at (%d,%d)" % [tid, slot.x, slot.y])
-    view.queue_redraw()
+            return
+        slot = view.sim.free_slots[0]
+    var cost := int(Content.tower(tid)["cost"])
+    if cost > int(view.sim.funds):
+        # Annotated, not inferred: `view.sim` is an untyped var, so `view.sim.funds` is a
+        # Variant and `:=` cannot infer at PARSE time — which fails the whole script, so
+        # menu.gd cannot load main.tscn and the game hangs on the menu instead of
+        # reporting anything. Same trap that took the playfield down via fx_additive.gd.
+        var granted: int = cost - int(view.sim.funds)
+        view.sim.funds += granted
+        print("BUILD-GRANT %s +%d" % [tid, granted])
+    if view.sim.build_at(tid, slot):
+        print("BUILD %s at (%d,%d)" % [tid, slot.x, slot.y])
+
+
+## LF-139: `--press-at` and `--cursor` used to call `view._action_input(press)` directly,
+## which reaches only `AnchorView`'s own input handling — an action handled by a *different*
+## node's `_unhandled_input()` (`hud.gd`'s `lf_hud_toggle`, `lf_minimap_focus`,
+## `lf_panel_up`/`down`) was invisible to it, which is why both needed their own bespoke
+## boot flag (`--hud-hidden`, `--minimap-focus`/`--minimap-step`) instead of just being
+## reachable through the general mechanism. `Input.parse_input_event()` is the real input
+## pipeline every actual keypress/pad button goes through — it reaches every node's
+## `_unhandled_input()` in the engine's own dispatch order, honouring `set_input_as_handled()`
+## exactly as a real press would, so this one call now reaches anything a real key can reach.
+##
+## VERIFIED, not assumed (CLAUDE.md's own rule): `Input.parse_input_event()` queues the
+## event rather than dispatching it inline, so its effect is not observable until the
+## *following* frame, never the one the press was issued on. Measured with a scenario that
+## pressed `lf_hud_toggle` at frame 10 and asserted `hud.hud_hidden` — `true` at frame 10
+## itself failed (still `false`), `true` at frame 11 passed. A `--press-at N action` or a
+## scenario `press` action therefore needs its assertion scheduled at frame N+1 or later,
+## not frame N — documented in `data/schema/scenario.schema.json`'s own description of the
+## `press`/`cursor` verbs so a scenario author does not have to rediscover this the same way.
+func _dispatch_action_press(action: String) -> void:
+    var press := InputEventAction.new()
+    press.action = action
+    press.pressed = true
+    Input.parse_input_event(press)
 
 
 func _bed_for(aid: String) -> String:
@@ -424,7 +485,27 @@ const SHOT_WARMUP_FRAMES: int = 3
 
 
 func _process(_delta: float) -> void:
+    ## PRC-12: frame-time instrumentation for the `SCENARIO` summary — mean/p95/min/max
+    ## milliseconds of this node's own per-frame work (this file's scheduling, AnchorView's
+    ## sim step, every draw layer). `t0` is timestamped unconditionally (one syscall-free
+    ## `Time.get_ticks_usec()`) but only ever turned into a recorded sample by
+    ## `_record_frame_time()`, which is a no-op when no scenario is running — so this changes
+    ## nothing about an ordinary run or a legacy `--shot`.
+    ##
+    ## Deliberately still ONE function, not a wrapper `await`-ing a renamed body: an earlier
+    ## version of this split `_process()` into a thin timing wrapper around `_process_frame()`
+    ## and `await`ed the call, on the theory that `await`ing an already-resolved return value
+    ## is free. Empirically it was not safe here — every capture, including an ordinary
+    ## `--shot` with no scenario involved at all, stopped completing at all after the split.
+    ## Reverted; `_record_frame_time()` is called at each of this function's existing early
+    ## returns instead, which changes no control flow at all, only adds a call.
+    ## There is no separate physics step to time here — the whole sim and every draw layer
+    ## are driven from this single `_process()`, not from `_physics_process()` (this project
+    ## has none), so a scenario's frame-time report is one number, not the process/physics
+    ## pair the issue's task list imagined.
+    var t0 := Time.get_ticks_usec()
     if _shot_taken:
+        _record_frame_time(t0)
         return
     _frame += 1
     # Scheduled verification hooks run every frame regardless of whether a shot was
@@ -441,6 +522,11 @@ func _process(_delta: float) -> void:
         # that function just made *in this same frame* (its own write runs first, then this
         # function's un-guarded fall-through used to run right over it). Returning here is
         # what makes that reset actually stick for whatever scene loads next.
+        _record_frame_time(t0)
+        return
+    _process_scenario_frame()
+    if _scenario_finished:
+        _record_frame_time(t0)
         return
     if _frame - _last_ability_fire_frame >= 0 \
             and _frame - _last_ability_fire_frame <= ABILITY_LIVE_WINDOW_FRAMES \
@@ -453,6 +539,7 @@ func _process(_delta: float) -> void:
             _shot_taken = true
             _print_profile_stats()
             get_tree().quit()
+        _record_frame_time(t0)
         return
     # Draw only the frames that end up in the PNG.
     #
@@ -521,7 +608,20 @@ func _process(_delta: float) -> void:
                     % [d["sprite"], int(u["lane"]), float(u["dist"]), d["at"].x, d["at"].y])
         if _profile_frames > 0:
             _print_profile_stats()
-        get_tree().quit()
+        if _scenario != null:
+            # PRC-12: a scenario's `shot` action reuses this exact capture code (see
+            # `_load_scenario()`'s own doc) rather than a second implementation — the only
+            # thing scenario-specific left is which quit() this is, since a real STATE/BUS/
+            # CAMERA/AUDIO report was just printed above regardless of which flow produced it.
+            _finish_scenario(not _scenario.failed())
+        else:
+            get_tree().quit()
+    _record_frame_time(t0)
+
+
+func _record_frame_time(t0: int) -> void:
+    if _scenario != null:
+        _scenario.record_frame_time(float(Time.get_ticks_usec() - t0) / 1000.0)
 
 
 func _frame_stats(img: Image) -> Dictionary:
@@ -684,10 +784,7 @@ func _process_press_schedule() -> void:
         elif action == "lf_call_wave":
             print("CALL-WAVE-BEFORE frame=%d funds=%d lead_left=%.2f phase=%s"
                 % [_frame, view.sim.funds, view.lead_left(), view.phase()])
-        var press := InputEventAction.new()
-        press.action = action
-        press.pressed = true
-        view._action_input(press)
+        _dispatch_action_press(action)
         print("PRESS-AT frame=%d action=%s" % [_frame, action])
         if action == "lf_target":
             var idx2: int = view.placed_index_at(view.selected_slot)
@@ -696,6 +793,94 @@ func _process_press_schedule() -> void:
         elif action == "lf_call_wave":
             print("CALL-WAVE-AFTER frame=%d funds=%d lead_left=%.2f phase=%s"
                 % [_frame, view.sim.funds, view.lead_left(), view.phase()])
+
+
+# ───────────────────────────────────────────────────────────── scenario ──
+#
+# PRC-12. `_scenario` is null on any run that did not pass `--scenario`, so every function
+# here is a no-op guarded at the top — none of this changes an ordinary run or a legacy-flag
+# `--shot`.
+
+func _process_scenario_frame() -> void:
+    if _scenario == null or _scenario_finished:
+        return
+    for a in _scenario.actions_at(_frame):
+        _run_scenario_action(String(a["action"]), a["args"])
+    # Annotated, not inferred: `_scenario` is untyped (see its declaration's own doc), so
+    # `.run_asserts_at()` returns a Variant and `:=` cannot infer at PARSE time — which fails
+    # the whole script to LOAD, not merely this call, and the symptom is a hang or a blank
+    # frame at a completely different line (CLAUDE.md; the same trap `_place_requested()`'s
+    # own `granted` annotation avoids for the same reason).
+    var fail: Dictionary = _scenario.run_asserts_at(_frame, view, hud)
+    if not fail.is_empty():
+        print("ASSERT FAIL frame=%d expr=%s got=%s want=%s"
+            % [int(fail["frame"]), String(fail["expr"]), str(fail["got"]), str(fail["expect"])])
+        _finish_scenario(false)
+        return
+    # A scenario with no `shot` action has no other quit condition — main.gd's ordinary
+    # `--shot` machinery is what ends every other run. See scenario.gd's own doc for why a
+    # `shot` action's frame is instead where this always happens (the legacy capture code
+    # quits right after taking it).
+    if _scenario.shot_frame < 0 and _frame >= _scenario.max_frame():
+        _finish_scenario(true)
+
+
+func _run_scenario_action(verb: String, args: Array) -> void:
+    ## The action-verb dispatcher backing every entry in `data/schema/scenario.schema.json`
+    ## except `shot`/`a11y`/`facings`, which `_load_scenario()` folds into this file's
+    ## existing per-run fields instead (see that function's doc). Every branch here calls
+    ## the exact same method a legacy flag or a real player action already calls — this is a
+    ## frame-scheduled dispatcher, not a second implementation of what any of them do.
+    match verb:
+        "build":
+            var tid := String(args[0])
+            if args.size() >= 3:
+                _build_one(tid, Vector2i(int(args[1]), int(args[2])))
+            else:
+                _build_one(tid)
+            view.queue_redraw()
+        "select":
+            if view.sim != null:
+                var n := int(args[0])
+                if n > 0 and view.sim.placed.size() >= n:
+                    view.selected_slot = view.sim.placed[n - 1]["slot"]
+        "pick":
+            view.select(String(args[0]))
+        "press":
+            # LF-139: routed through the real input pipeline (see _dispatch_action_press()'s
+            # own doc), so a `press` action reaches an action handled outside AnchorView —
+            # hud.gd's lf_hud_toggle/lf_minimap_focus/lf_panel_up/down — exactly as
+            # `--press-at` now does.
+            _dispatch_action_press(String(args[0]))
+            print("PRESS-AT frame=%d action=%s" % [_frame, String(args[0])])
+        "ability":
+            _fire_ability_at(String(args[0]))
+        "speed":
+            view.speed = float(args[0])
+        "scroll":
+            hud.scroll_panels(int(args[0]))
+        "cursor":
+            for _i in range(int(args[0])):
+                _dispatch_action_press("lf_right")
+        "pause":
+            process_mode = Node.PROCESS_MODE_ALWAYS
+            pause_menu.show_menu()
+        "camera":
+            view.set_camera_override(Vector2(float(args[0]), float(args[1])), float(args[2]))
+        _:
+            # Unreachable in practice: scenario.gd's load_file() already rejects any verb
+            # outside KNOWN_ACTIONS before this dispatcher ever runs. Guarded anyway rather
+            # than trusted, per the same reasoning as every other "this should not happen"
+            # branch in this file.
+            push_error("scenario: action %s reached dispatch with no handler" % verb)
+
+
+func _finish_scenario(passed: bool) -> void:
+    if _scenario_finished:
+        return
+    _scenario_finished = true
+    print(_scenario.summary_json())
+    get_tree().quit(0 if passed else 1)
 
 
 func _process_debrief_schedule() -> void:
@@ -801,6 +986,9 @@ func _print_profile_stats() -> void:
         _print_layer_stats("FxAdditive._draw", view.fx_additive.profile_stats())
     if view.combat_fx:
         _print_layer_stats("CombatFx._draw", view.combat_fx.profile_stats())
+    # LF-150: the minimap is HUD content, not a board layer, but it has its own _draw()
+    # and its own performance budget — see hud.gd's start_profiling()/profile_stats().
+    _print_layer_stats("Hud.Minimap._draw", hud.profile_stats())
     print("DRAWABLES rebuilds=%d" % view.drawables_rebuild_count())
 
 

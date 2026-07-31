@@ -137,39 +137,27 @@ func _load_reaction_lines() -> Array:
 	return doc.get("lines", [])
 
 
+const CliArgsScript := preload("res://scripts/cli_args.gd")
+const KNOWN_FLAGS := {
+	"--anchor": 1, "--difficulty": 1, "--seed": 1, "--draft-lives": 2, "--shot": [1, 2],
+	"--a11y": 1, "--focus-card": 1, "--auto-take": 0,
+}
+
+
 func _parse_cli() -> void:
 	_anchor_id = Progress.selected_anchor
 	_difficulty = Progress.difficulty
-	var argv := OS.get_cmdline_user_args()
-	for i in range(argv.size()):
-		match argv[i]:
-			"--anchor":
-				if i + 1 < argv.size():
-					_anchor_id = argv[i + 1]
-			"--difficulty":
-				if i + 1 < argv.size():
-					_difficulty = argv[i + 1]
-			"--seed":
-				if i + 1 < argv.size() and argv[i + 1].is_valid_int():
-					_seed = int(argv[i + 1])
-			"--draft-lives":
-				if i + 1 < argv.size() and argv[i + 1].is_valid_int():
-					_override_left = int(argv[i + 1])
-				if i + 2 < argv.size() and argv[i + 2].is_valid_int():
-					_override_started = int(argv[i + 2])
-			"--shot":
-				if i + 1 < argv.size():
-					_shot_path = argv[i + 1]
-				if i + 2 < argv.size() and argv[i + 2].is_valid_int():
-					_shot_at = int(argv[i + 2])
-			"--a11y":
-				if i + 1 < argv.size():
-					_a11y_path = argv[i + 1]
-			"--focus-card":
-				if i + 1 < argv.size() and argv[i + 1].is_valid_int():
-					_focus_card = int(argv[i + 1])
-			"--auto-take":
-				_auto_take = true
+	var p := CliArgsScript.parse(OS.get_cmdline_user_args(), CliArgsScript.ALL_FLAGS)
+	_anchor_id = CliArgsScript.str_val(p, "--anchor", 0, _anchor_id)
+	_difficulty = CliArgsScript.str_val(p, "--difficulty", 0, _difficulty)
+	_seed = CliArgsScript.int_val(p, "--seed", 0, _seed)
+	_override_left = CliArgsScript.int_val(p, "--draft-lives", 0, _override_left)
+	_override_started = CliArgsScript.int_val(p, "--draft-lives", 1, _override_started)
+	_shot_path = CliArgsScript.str_val(p, "--shot", 0, _shot_path)
+	_shot_at = CliArgsScript.int_val(p, "--shot", 1, _shot_at)
+	_a11y_path = CliArgsScript.str_val(p, "--a11y", 0, _a11y_path)
+	_focus_card = CliArgsScript.int_val(p, "--focus-card", 0, _focus_card)
+	_auto_take = CliArgsScript.has(p, "--auto-take")
 	if _seed == -1:
 		_seed = hash(_anchor_id)
 

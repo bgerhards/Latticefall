@@ -1,0 +1,87 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Scenario — a verification run as data, not a CLI flag (PRC-12)",
+  "description": "One `--scenario <path>` replaces the growing pile of ad-hoc main.gd flags (--paused, --select, --pick, --cursor, --scroll, --build, --speed, --chain, --ability-at, --press-at, --camera, --facings, ...). A scenario boots one anchor at one difficulty, drives a timeline of actions at chosen frames, and checks assertions against a small exported state dictionary instead of a human reading a PNG. `tools/scenario.py <path>` runs one through Godot; `--scenario` also loads directly in `scripts/main.gd`. See docs/issues/PRC-12-scenario-assertion-harness.md.\n\nFrame vs sim time: `frame` is main.gd's own per-rendered-tick counter (what `--shot <path> <frame>` has always captured against), not sim seconds. The game runs `--fixed-fps 60`; the rules tick at DT=1/30s (sim/engine.py); the in-game speed control multiplies further (1x/2x/3x). A scenario's `frame` numbers are therefore specific to running at the default (slowest authored) speed unless a `speed` action changes it earlier in the timeline — changing speed mid-scenario changes how much sim time later frame numbers represent.\n\nAction verb -> legacy flag mapping (each verb is a thin wrapper over the same code path the flag already used): build -> --build, select -> --select, pick -> --pick, press -> --press-at (routed through the real input pipeline, Input.parse_input_event — LF-139 — so it reaches any node's _unhandled_input, not only AnchorView's), ability -> --ability-at, speed -> --speed, scroll -> --scroll, cursor -> --cursor, pause -> --paused, camera -> --camera, shot -> --shot, a11y -> --a11y, facings -> --facings.\n\nAt most one `shot` action per scenario, and it must be the LAST frame anything happens on: main.gd's existing --shot machinery freezes the frame, awaits the compositor, saves the PNG and quits the process (unchanged by PRC-12) — nothing scheduled after it will ever run. An `a11y` action must share the exact same frame as the `shot` action, because the a11y analyser samples its background colours out of that PNG (CLAUDE.md).",
+  "type": "object",
+  "required": ["schema", "anchor", "timeline"],
+  "additionalProperties": false,
+  "properties": {
+    "schema": {"const": "scenario"},
+    "note": {"type": "string"},
+    "anchor": {"type": "string", "pattern": "^anchor-[0-9]{2}$"},
+    "difficulty": {"enum": ["standard", "hard", "brutal"], "default": "standard"},
+    "ui_scale": {"type": "number", "minimum": 0.5, "maximum": 3.0,
+      "description": "forces Display.ui_scale, same contract as -- --ui-scale"},
+    "seed": {"type": "integer",
+      "description": "reserved for a future scenario that reaches the recovery draft (draft.gd's --seed); unused by the anchor timeline today, since AnchorSim carries no RNG"},
+    "timeline": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/entry"}
+    }
+  },
+  "$defs": {
+    "entry": {
+      "type": "object",
+      "properties": {
+        "frame": {"type": "integer", "minimum": 0},
+        "action": {"enum": ["build", "select", "pick", "press", "ability", "speed",
+                             "scroll", "cursor", "pause", "camera", "shot", "a11y", "facings"]},
+        "args": {"type": "array"},
+        "assert": {"enum": ["==", "!=", "<", "<=", ">", ">="]},
+        "expr": {"type": "string", "pattern": "^[a-z_][a-zA-Z0-9_]*(\\.[a-zA-Z0-9_]+)*$",
+          "description": "dotted path into the exported state dictionary — sim.lives, sim.bus_load, sim.units_alive, sim.units.0.hp, view.camera.zoom, hud.selected, ... See AnchorView.export_state()/Hud.export_state() for the full shape. Not an expression language: no arithmetic, no arbitrary GDScript Expression — a scenario file is content (CLAUDE.md), and content that can execute is a different kind of object."},
+        "expect": {"description": "number, string or boolean the resolved expr is compared against"},
+        "tolerance": {"type": "number", "minimum": 0,
+          "description": "only meaningful for == and != on numeric expr/expect; absolute difference within this counts as equal"}
+      },
+      "required": ["frame"],
+      "additionalProperties": false,
+      "oneOf": [
+        {"required": ["action"]},
+        {"required": ["assert", "expr", "expect"]}
+      ],
+      "allOf": [
+        {"if": {"required": ["action"], "properties": {"action": {"const": "build"}}},
+         "then": {"properties": {"args": {"type": "array", "minItems": 1, "maxItems": 3,
+           "items": {"type": ["string", "integer"]}}},
+           "description": "[tower_id] or [tower_id, slot_x, slot_y]"}},
+        {"if": {"required": ["action"], "properties": {"action": {"const": "select"}}},
+         "then": {"properties": {"args": {"type": "array", "minItems": 1, "maxItems": 1,
+           "items": {"type": "integer"}}}}},
+        {"if": {"required": ["action"], "properties": {"action": {"const": "pick"}}},
+         "then": {"properties": {"args": {"type": "array", "minItems": 1, "maxItems": 1,
+           "items": {"type": "string"}}}}},
+        {"if": {"required": ["action"], "properties": {"action": {"const": "press"}}},
+         "then": {"properties": {"args": {"type": "array", "minItems": 1, "maxItems": 1,
+           "items": {"type": "string", "pattern": "^lf_[a-z_0-9]+$",
+             "description": "an lf_* input action, dispatched through Input.parse_input_event() (LF-139) so it reaches any node's _unhandled_input(), not only AnchorView's. VERIFIED: the event is queued, not delivered inline, so its effect is observable starting the FOLLOWING frame, never the frame the press itself was scheduled on -- an assertion checking what a press action did must be scheduled at press_frame + 1 or later. The cursor verb below has the same one-frame delay, for the same reason."}}}}},
+        {"if": {"required": ["action"], "properties": {"action": {"const": "ability"}}},
+         "then": {"properties": {"args": {"type": "array", "minItems": 1, "maxItems": 1,
+           "items": {"type": "string"}}}}},
+        {"if": {"required": ["action"], "properties": {"action": {"const": "speed"}}},
+         "then": {"properties": {"args": {"type": "array", "minItems": 1, "maxItems": 1,
+           "items": {"type": "number", "exclusiveMinimum": 0}}}}},
+        {"if": {"required": ["action"], "properties": {"action": {"const": "scroll"}}},
+         "then": {"properties": {"args": {"type": "array", "minItems": 1, "maxItems": 1,
+           "items": {"type": "integer"}}}}},
+        {"if": {"required": ["action"], "properties": {"action": {"const": "cursor"}}},
+         "then": {"properties": {"args": {"type": "array", "minItems": 1, "maxItems": 1,
+           "items": {"type": "integer", "minimum": 0}}}}},
+        {"if": {"required": ["action"], "properties": {"action": {"const": "pause"}}},
+         "then": {"properties": {"args": {"type": "array", "maxItems": 0}}}},
+        {"if": {"required": ["action"], "properties": {"action": {"const": "camera"}}},
+         "then": {"properties": {"args": {"type": "array", "minItems": 3, "maxItems": 3,
+           "items": {"type": "number"}}}}},
+        {"if": {"required": ["action"], "properties": {"action": {"const": "shot"}}},
+         "then": {"properties": {"args": {"type": "array", "minItems": 1, "maxItems": 1,
+           "items": {"type": "string"}}}}},
+        {"if": {"required": ["action"], "properties": {"action": {"const": "a11y"}}},
+         "then": {"properties": {"args": {"type": "array", "minItems": 1, "maxItems": 1,
+           "items": {"type": "string"}}}}},
+        {"if": {"required": ["action"], "properties": {"action": {"const": "facings"}}},
+         "then": {"properties": {"args": {"type": "array", "maxItems": 0}}}}
+      ]
+    }
+  }
+}

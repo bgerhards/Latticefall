@@ -1,0 +1,26 @@
+{
+  "schema": "scenario",
+  "note": "Reproduces data/tuning.json's own ability claims as assertions instead of prose (PRC-12): Overcharge's draw_mult (1.35x a 12 MW Pulse Turret is 16.2 MW online draw) and Shutter's flat 55 MW while raised, both additive on top of whatever is placed (anchor_sim.gd online_draw()) -- neither needs a live enemy, so both are checked in the first few frames on an otherwise-empty board. Threshold Surge does need a live target: its falloff is full at the ring (dist == path_length) and falloff_min (0.35) at the lane's mouth (dist == 0) -- scripts/anchor_sim.gd's fire_surge(), read directly rather than assumed from the ability note's own prose -- so this scenario also builds one Pulse Turret (needed for the Overcharge/Shutter draw numbers anyway) and lets it get a few real shots in on wave 1's first Warden Drone before Surge fires at frame 510 (--speed 3x is used so wave 1 arrives without waiting through the full 25s lead-in at 1x). The turret's own fire is why the pre-surge hp below is 31, not the enemy's pristine 40 -- measured empirically (both this run and an earlier turret-free probe), not assumed. dealt = 130 * lerp(0.35, 1.0, dist/path_length) = 47.1782638888889 at dist 0.44-0.48 -- the sim does not clamp a killed unit's hp to 0, so the exact falloff-scaled damage is legible in the resulting negative hp (31 - 47.178 = -16.178), checked below to four decimal places. Pushback (1.5 tiles) could not be exercised on this roster: Warden Drone's <=40 hp is below the falloff floor's own minimum damage (130*0.35=45.5), so every Warden Drone Surge hits outright kills and pushback only ever applies to a survivor -- noted rather than faked; a future scenario against a tougher early enemy is the way to close this.",
+  "anchor": "anchor-01",
+  "difficulty": "standard",
+  "timeline": [
+    { "frame": 1, "action": "speed", "args": [3.0] },
+    { "frame": 1, "action": "build", "args": ["pulse-turret"] },
+    { "frame": 2, "assert": "==", "expr": "sim.bus_load", "expect": 12, "tolerance": 0.01 },
+
+    { "frame": 3, "action": "ability", "args": ["overcharge"] },
+    { "frame": 3, "assert": "==", "expr": "sim.bus_load", "expect": 16.2, "tolerance": 0.01 },
+
+    { "frame": 4, "action": "ability", "args": ["shutter"] },
+    { "frame": 4, "assert": "==", "expr": "sim.bus_load", "expect": 71.2, "tolerance": 0.01 },
+
+    { "frame": 509, "assert": "==", "expr": "sim.units.0.alive", "expect": true },
+    { "frame": 509, "assert": "==", "expr": "sim.units.0.hp", "expect": 31.0, "tolerance": 0.01 },
+    { "frame": 509, "assert": "==", "expr": "sim.units.0.dist", "expect": 0.44, "tolerance": 0.05 },
+
+    { "frame": 510, "action": "ability", "args": ["surge"] },
+    { "frame": 510, "assert": "==", "expr": "sim.units.0.alive", "expect": false },
+    { "frame": 510, "assert": "==", "expr": "sim.units.0.hp", "expect": -16.1783, "tolerance": 0.001 },
+    { "frame": 510, "assert": "==", "expr": "sim.lives", "expect": 10 }
+  ]
+}

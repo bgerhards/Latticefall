@@ -2416,3 +2416,51 @@ change:** `parity.gd`'s `_try_build()` calls `build_at()` and sets `placed_one =
 *without checking the return value*, which is safe only while `build_at()` cannot fail. The
 moment a cap can refuse a build, that becomes an infinite loop — `free_slots` never shrinks
 and `placed_one` never goes false.
+
+---
+
+## 064 — A verification is a data file with assertions, not another flag
+
+**Date.** 2026-07-31.
+
+**Context.** `PRC-12`. `--fixed-fps` has nobody to press a key, so every state a screenshot
+needed to reach became a new flag on `scripts/main.gd`: `--paused`, `--select`, `--pick`,
+`--cursor`, `--scroll`, `--build`, `--speed`, `--chain`, `--ability-at`, `--press-at`,
+`--camera`, `--lanes`, `--facings`, `--profile`, `--hud-hidden`, `--minimap-focus`,
+`--minimap-step`, `--debrief-at`, `--draft`, `--auto-take`, `--dump-placeholder`. Each was
+justified on its own and the set is now unmaintainable, several duplicate each other, and a
+flag can only reach a state — it cannot say what should be *true* there.
+
+**Decision.** A scenario is a JSON document: an anchor, a timeline of actions at frames, and
+**assertions** at frames. Verbs are thin wrappers over the exact code path the equivalent flag
+already used, and `shot`/`a11y`/`facings` feed `main.gd`'s existing capture code rather than a
+second implementation of it. Assertions are a dotted path into `export_state()` with a
+comparator and an optional tolerance — deliberately **not** an expression evaluator, because a
+verification harness that can execute arbitrary expressions is a second language to maintain
+and to get wrong.
+
+**Rejected.** *Keep adding flags.* That is the status quo at twenty-one and counting, and it
+had already produced two flags that existed only because `--press-at` could not reach an
+action handled outside `AnchorView`.
+
+**The flags do not get deleted in the same change.** Several landed hours earlier and are the
+only evidence path for work just committed. Removal is its own deliberate change; the
+superseded list is recorded so it can be done deliberately rather than by attrition.
+
+**Two things this immediately made falsifiable.** `data/tuning.json`'s ability numbers are now
+assertions rather than prose — Overcharge 12 to 16.2 MW exact, Shutter +55 MW flat, and
+Threshold Surge's falloff read out of `fire_surge()` and asserted to four decimals, rather
+than described in a comment nobody re-checks. And `a11y-worst.json` pins the worst case —
+anchor-24 at 200% interface scale, built, selected and scrolled, with the a11y report taken on
+the same frame as the shot, which is the pairing the analyser requires and which no flag
+enforced.
+
+**A timing fact worth more than the feature.** Routing synthetic input through
+`Input.parse_input_event()` — which `LF-139` needed, so a press could reach a node other than
+`AnchorView` — means the event is **queued, not delivered inline**. Asserting on the same
+frame as the press fails; one frame later passes. Measured, and written into the schema, the
+runner and the dispatcher, so the next author does not rediscover it.
+
+**Consequence.** The gate gains `scenarios pass` at tier 3, not tier 2. Measured at about 30 s
+against tier 2's whole 25 s budget — putting it there would have doubled that tier silently,
+which is exactly what the budget exists to catch.

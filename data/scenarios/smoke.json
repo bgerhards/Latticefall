@@ -1,0 +1,13 @@
+{
+  "schema": "scenario",
+  "note": "PRC-12 smoke test. Builds two Pulse Turrets on anchor-01 at boot, then asserts the run is still alive and has not leaked by frame 1800 -- 30 seconds of game time at the default (slowest) speed, which anchor-01's own 20s prep lead-in means is still wave 1. This is the harness's own proof of life: build/select-equivalent actions execute, the frame counter advances, and an assertion at a late frame is evaluated and passes -- not a claim about anchor-01's balance.",
+  "anchor": "anchor-01",
+  "difficulty": "standard",
+  "timeline": [
+    { "frame": 1, "action": "build", "args": ["pulse-turret"] },
+    { "frame": 2, "action": "build", "args": ["pulse-turret"] },
+    { "frame": 3, "assert": "==", "expr": "sim.funds", "expect": 100 },
+    { "frame": 1800, "assert": "==", "expr": "sim.lives", "expect": 10 },
+    { "frame": 1800, "assert": "==", "expr": "sim.leaks", "expect": 0 }
+  ]
+}

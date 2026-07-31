@@ -165,6 +165,43 @@ func bind(v: Node2D) -> void:
 	refresh()
 
 
+func export_state() -> Dictionary:
+	## PRC-12: the HUD's own slice of the scenario state dictionary — merged under `"hud"`
+	## by `Scenario.snapshot()` (scripts/scenario.gd). Narrow on purpose: "selected" is
+	## whichever emplacement the inspector is actually describing (the selected board slot
+	## if one is chosen, else the armed build-bar tower — the same precedence
+	## `_refresh_inspector()`/`_show_build_selection()` already read), and the other two
+	## fields are this file's own toggle state (LF-057, CAM-04).
+	var selected := ""
+	if view != null and view.sim != null:
+		# Annotated, not inferred: `view` is typed `Node2D` here (see its own declaration),
+		# so `.placed_index_at()` — an AnchorView method the static type checker cannot see
+		# through a Node2D reference — returns a Variant and `:=` cannot infer at PARSE
+		# time. Same trap `main.gd`'s `_place_requested()`/`_run_scenario_action()` already
+		# annotate around.
+		var idx: int = view.placed_index_at(view.selected_slot)
+		if idx >= 0:
+			selected = String(view.sim.placed[idx]["tower"]["id"])
+		else:
+			selected = view.selected_tower
+	return {"selected": selected, "hud_hidden": _hud_hidden, "minimap_focused": _minimap_focused}
+
+
+## LF-150: PRC-12's `-- --profile <frames>` used to instrument only the four board layers
+## (AnchorView, GlowLayer, FxAdditive, CombatFx), so the minimap — HUD content with its own
+## `_draw()`, `scripts/minimap.gd` — could not be measured against its own budget. Delegates
+## to the child Control the same way `main.gd` already delegates to `view.glow_layer` etc.;
+## guarded because `bind()` (which creates `_minimap`) may not have run yet if this is ever
+## called before it.
+func start_profiling() -> void:
+	if _minimap != null:
+		_minimap.start_profiling()
+
+
+func profile_stats() -> Dictionary:
+	return _minimap.profile_stats() if _minimap != null else {"mean": 0.0, "p95": 0.0, "n": 0}
+
+
 func _queue_relayout() -> void:
 	## Godot emits `size_changed` more than once for a single window change, and once per
 	## frame while a resize is dragged. Rebuilding on each one frees nodes out from under an

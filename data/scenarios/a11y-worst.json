@@ -1,0 +1,15 @@
+{
+  "schema": "scenario",
+  "note": "The worst-case accessibility screen expressed as data instead of tools/check.py's own hand-built argv list (PRC-12's own task: convert the hardest-to-reach screens to scenario files). Anchor-24 at 200% interface scale is the smallest logical viewport (960x540) against the widest instrument column and threat panel this game has (nine unlocked emplacements, the longest wave table) -- decision 048's own worst case. Builds and selects an emplacement so the inspector is populated, scrolls both instrument panels so the scrolled state (not just the top of the scroll region) is what gets captured, then shot+a11y on the same frame, as CLAUDE.md's own pairing rule requires.",
+  "anchor": "anchor-24",
+  "difficulty": "standard",
+  "ui_scale": 2.0,
+  "timeline": [
+    { "frame": 1, "action": "build", "args": ["pulse-turret"] },
+    { "frame": 2, "action": "select", "args": [1] },
+    { "frame": 3, "assert": "==", "expr": "hud.selected", "expect": "pulse-turret" },
+    { "frame": 4, "action": "scroll", "args": [2] },
+    { "frame": 300, "action": "shot", "args": [".godot/scenario-a11y-worst.png"] },
+    { "frame": 300, "action": "a11y", "args": [".godot/scenario-a11y-worst.json"] }
+  ]
+}

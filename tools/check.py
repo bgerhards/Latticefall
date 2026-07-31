@@ -51,14 +51,19 @@ which and why).
   does not.
 - **tier 3 (~66 s, PR), 26 checks:** tier 2 + `game renders` (6.5 s), `menu renders` (4.8 s),
   `accessibility` (41.2 s).
-- **tier 4 (~9 min, nightly/release), 27 checks — the default:** tier 3 + `rules parity`
-  (measured ~594 s at 1152 runs, growing with every policy/anchor). The one thing making a
-  balance claim in this project falsifiable; never move it below tier 4 because it is
-  "usually fine". PRC-05: that cost is now gated behind a content-hash digest over exactly
-  what can move a parity outcome (`tools/test_parity.py`'s `parity_inputs_digest()`) — an
-  unchanged tree reports `skip, skipped_reason: "cached"` in under a second instead of
-  re-running, and `--force`/`--no-cache` bypass it. A cached skip is still not a pass; see
-  the loud-skip note a few paragraphs down.
+- **tier 4 (~9 min or more, nightly/release), 28 checks — the default:** tier 3 +
+  `rules parity` (measured ~594 s at 1152 runs, growing with every policy/anchor) +
+  `rules parity (windows)` (BAL-06 — the same 1152 runs again, against the Windows binary
+  the owner actually plays rather than the Linux build `rules parity` uses; skips loudly
+  with `skipped_reason: "subsystem"` on a machine with no Windows Godot, e.g. a Linux CI
+  box, rather than silently passing). The one thing making a balance claim in this project
+  falsifiable; never move either below tier 4 because it is "usually fine". PRC-05: both
+  are gated behind their OWN content-hash digest over exactly what can move a parity
+  outcome (`tools/test_parity.py`'s `parity_inputs_digest()`), in SEPARATE cache files
+  (`.cache/parity.json`, `.cache/parity-windows.json`) so a clean run of one can never
+  suppress the other — an unchanged tree reports `skip, skipped_reason: "cached"` in under
+  a second instead of re-running, and `--force`/`--no-cache` bypass it. A cached skip is
+  still not a pass; see the loud-skip note a few paragraphs down.
 
 `--budget` asserts the tier-1 and tier-2 contracts: with it set, exceeding 10 s at `--tier 1`
 or 25 s at `--tier 2` fails the run even if every check passed, because a tier whose budget
@@ -81,7 +86,7 @@ silently doubles is a tier nobody will keep running.
                   "duration_ms": float, "text": "<the printed tally line>"}
     }
 
-`checks` always lists all 24 — a check a lower tier excluded is present with
+`checks` always lists all 28 — a check a lower tier excluded is present with
 `status: "skip"` rather than dropped from the array, for the same reason `--no-window`'s
 skips are present: an absent entry reads as a pass to anything consuming the file. `detail`
 carries the check's *full* multi-line detail, not just the first line the human table prints
@@ -1026,6 +1031,31 @@ def check_gdscript_parses() -> Result:
     return Result(OK, f"{len(files)} scripts parse clean")
 
 
+def check_scenarios_pass() -> Result:
+    """`data/scenarios/smoke.json` through `tools/scenario.py` itself.
+
+    Driven through the real tool rather than a hand-rolled subprocess, so this check fails
+    exactly the way running it by hand fails — a gate that reimplements the thing it is
+    checking can pass while the thing is broken.
+
+    Tier 3, not tier 2, and the reason is measured rather than aesthetic: the scenario takes
+    about 30 s and tier 2's whole asserted budget is 25 s. Putting it there would have
+    doubled that tier silently, which is precisely what `TIER_BUDGET_MS` exists to prevent —
+    so it goes where a 30 s check belongs, beside the other checks that render frames.
+    """
+    if toolpaths.godot() is None:
+        return Result(SKIP, "godot not installed")
+    scenario = ROOT / "data" / "scenarios" / "smoke.json"
+    if not scenario.exists():
+        return Result(SKIP, "no scenarios authored")
+    r = run(PY, str(ROOT / "tools" / "scenario.py"), str(scenario), "--timeout", "120")
+    if r.returncode != 0:
+        return Result(FAIL, (r.stdout + r.stderr).strip()[-1500:])
+    line = next((l for l in r.stdout.splitlines() if l.startswith("SCENARIO ")), "")
+    n = len(json.loads(line[len("SCENARIO "):]).get("assertions", [])) if line else 0
+    return Result(OK, f"smoke.json: {n} assertion(s) passed")
+
+
 def check_godot_boots() -> Result:
     """Load the main scene headlessly and assert no script errors.
 
@@ -1283,6 +1313,51 @@ def check_rules_parity(force: bool = False, no_cache: bool = False) -> Result:
     return Result(OK, out.replace("parity ok — ", ""))
 
 
+def check_rules_parity_windows(force: bool = False, no_cache: bool = False) -> Result:
+    """BAL-06 / LF-105 (PRD risk 2, blocker). `rules parity` above proves the rules agree
+    against whichever Godot `toolpaths.godot()` prefers — the native LINUX build on this
+    machine. The owner plays the WINDOWS build, and that check has never once run against
+    it. Measured across 100,000 float64 samples on CPython, Linux Godot and Windows Godot
+    (`docs/DECISIONS.md`): `+ - * /`, `sqrt`, `fmod`, `floor`, comparisons are byte-identical
+    on all three, but Windows Godot's MSVC UCRT diverges from CPython and Linux Godot's
+    glibc on `atan2` (0.084%), `sin`/`cos` (0.133%/0.120%), `pow`/`log`/`exp`
+    (0.130%/0.031%/0.069%), and `tan` (4.32%). The rules use none of those ops today
+    (decision 061's `safe operations` check above is what keeps that true by design rather
+    than by accident) — this check is the other half: actually run parity against the
+    Windows binary, at least once per release.
+
+    Skips loudly — never falls back to Linux and calls that a pass — when no Windows build
+    resolves on this machine (`toolpaths.resolve_for_platform("windows")`), which is the
+    ordinary case on a Linux-only CI box. A skip here must read as "not verified", never as
+    "verified clean", so it is reported with `skipped_reason="subsystem"` like any other
+    missing-subsystem skip in this file — not `"cached"`, which would misstate why nothing
+    ran, and not silently folded into `rules parity`'s own result.
+
+    Uses `tools/test_parity.py --platform windows`, which keeps its own cache file
+    (`.cache/parity-windows.json`) so a clean Linux `rules parity` run can never suppress
+    this one, or vice versa — PRC-05's digest cache is per-platform, not global.
+    """
+    script = ROOT / "tools" / "test_parity.py"
+    if not script.exists():
+        return Result(SKIP, "parity harness missing")
+    if toolpaths.resolve_for_platform("windows") is None:
+        return Result(SKIP, "no Windows Godot resolvable")
+    cmd = [PY, str(script), "--platform", "windows"]
+    if no_cache:
+        cmd.append("--no-cache")
+    elif force:
+        cmd.append("--force")
+    r = run(*cmd, timeout=PARITY_TIMEOUT)
+    if r.returncode == TIMED_OUT:
+        return Result(FAIL, r.stderr)
+    if r.returncode != 0:
+        return Result(FAIL, (r.stderr + r.stdout).strip()[-1200:])
+    out = r.stdout.strip()
+    if out.startswith("parity cached"):
+        return Result(SKIP, out, skipped_reason="cached")
+    return Result(OK, out.replace("parity ok — ", ""))
+
+
 def check_sprite_atlas() -> Result:
     """The packed atlas must still match the renders it was packed from.
 
@@ -1382,6 +1457,7 @@ CHECKS = [
     Check("sim determinism",   2, check_sim),
     Check("gdscript parses",   1, check_gdscript_parses),
     Check("godot boots",       2, check_godot_boots),
+    Check("scenarios pass",    3, check_scenarios_pass),
     Check("game renders",      3, check_game_renders),
     Check("menu renders",      3, check_menu_renders),
     Check("accessibility",     3, check_accessibility),
@@ -1389,6 +1465,11 @@ CHECKS = [
     # relationship is visible: same class of risk, a fraction of the cost.
     Check("terrain parsers agree", 2, check_terrain_parity),
     Check("rules parity",      4, check_rules_parity),
+    # BAL-06 / LF-105 (PRD risk 2, blocker): the check above proves parity against
+    # whichever Godot toolpaths.godot() prefers (Linux on this machine) — this is the
+    # other half, against the WINDOWS build the owner actually plays. Same tier: both are
+    # the ~9-minute-class check, and there is no cheaper tier this belongs at.
+    Check("rules parity (windows)", 4, check_rules_parity_windows),
     # BAL-07, LF-148, LF-141 — all three cost a real diagnosis pass once already; all three
     # are pure text/AST analysis over a handful of known files, so tier 1 costs them nothing.
     Check("safe operations",   1, check_safe_ops),
@@ -1427,8 +1508,9 @@ def main() -> int:
                     help="run only checks assigned this tier or lower (a tier is a minimum — "
                          "see module docstring's '## Tiers' for the assignment table and "
                          "measured cost of each). 1=pre-commit ~6s (14 checks), 2=pre-push "
-                         "~21s (23), 3=PR ~66s (26), 4=nightly/release ~9min (27, the "
-                         "default — unchanged from today's behaviour with no flags). "
+                         "~21s (23), 3=PR ~66s (26), 4=nightly/release ~9min or more (28, "
+                         "the default — BAL-06 added a second, Windows-binary parity run "
+                         "alongside the Linux one that was already there). "
                          "Orthogonal to --no-window: --tier 3 --no-window runs exactly tier "
                          "2 plus nothing, since the three rendered checks are all tier 3. "
                          "A check a lower tier excludes reports skip, skipped_reason=tier — "
@@ -1457,14 +1539,15 @@ def main() -> int:
                          "still prints to stdout — CI wants the file, a human running this "
                          "by hand still wants the table. Never implies --no-window.")
     ap.add_argument("--force", action="store_true",
-                    help="PRC-05: ignore rules parity's content-hash cache and run the full "
-                         "1152-run comparison even if nothing that can affect it has moved. "
-                         "Forwarded to tools/test_parity.py's own --force. Does not affect "
-                         "any other check.")
+                    help="PRC-05/BAL-06: ignore rules parity's (and rules parity "
+                         "(windows)'s — separate cache files, both bypassed) content-hash "
+                         "cache and run the full 1152-run comparison even if nothing that "
+                         "can affect it has moved. Forwarded to tools/test_parity.py's own "
+                         "--force. Does not affect any other check.")
     ap.add_argument("--no-cache", action="store_true",
-                    help="PRC-05: like --force, but rules parity also does not RECORD this "
-                         "run's digest afterward — for a one-off/experimental gate run whose "
-                         "result the next run should not trust. Forwarded to "
+                    help="PRC-05/BAL-06: like --force, but neither parity check RECORDS "
+                         "this run's digest afterward — for a one-off/experimental gate "
+                         "run whose result the next run should not trust. Forwarded to "
                          "tools/test_parity.py's own --no-cache.")
     args = ap.parse_args()
 
@@ -1496,13 +1579,16 @@ def main() -> int:
                 res = Result(SKIP, "skipped by --no-window (speed option; capture is "
                                    "invisible either way)", skipped_reason="flag")
                 by_flag += 1
-            elif check.name == "rules parity":
-                # The one check with its own cache (PRC-05) — --force/--no-cache only
-                # ever mean anything to this check; every other check.fn() takes no args.
-                res = check_rules_parity(force=args.force, no_cache=args.no_cache)
+            elif check.name in ("rules parity", "rules parity (windows)"):
+                # The two checks with their own cache (PRC-05, BAL-06) — --force/
+                # --no-cache only ever mean anything to these; every other check.fn()
+                # takes no args.
+                fn = check_rules_parity if check.name == "rules parity" \
+                    else check_rules_parity_windows
+                res = fn(force=args.force, no_cache=args.no_cache)
                 # Every other SKIP in this file is a fact about the project (a subsystem
                 # that does not exist yet) unless the check itself already named a more
-                # specific reason (here, "cached" — set inside check_rules_parity itself).
+                # specific reason (here, "cached" — set inside the check function itself).
                 if res.status == SKIP and res.skipped_reason is None:
                     res.skipped_reason = "subsystem"
                 if res.skipped_reason == "cached":

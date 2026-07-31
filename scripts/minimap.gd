@@ -152,7 +152,45 @@ func _pan_to(local_pt: Vector2) -> void:
 	view.set_camera_override(tile, float(view.camera_state()["zoom"]))
 
 
+## LF-150: `-- --profile <frames>` (main.gd) previously instrumented only the four board
+## layers (AnchorView, GlowLayer, FxAdditive, CombatFx) — this Control's own `_draw()` is
+## HUD content and had no hook reaching it at all, so the minimap could not be measured
+## against its own budget and no future HUD performance work could be either. Same pattern
+## as the four board layers (see glow_layer.gd's own doc on why it is duplicated per file
+## rather than shared through a base class: each profiled script already has a different
+## parent type).
+var _profile_ticks: PackedFloat64Array = PackedFloat64Array()
+var _profiling: bool = false
+
+
+func start_profiling() -> void:
+	_profiling = true
+	_profile_ticks.clear()
+
+
+func profile_stats() -> Dictionary:
+	if _profile_ticks.is_empty():
+		return {"mean": 0.0, "p95": 0.0, "n": 0}
+	var sorted := _profile_ticks.duplicate()
+	sorted.sort()
+	var n := sorted.size()
+	var total := 0.0
+	for v in sorted:
+		total += v
+	var idx := clampi(int(ceil(0.95 * float(n))) - 1, 0, n - 1)
+	return {"mean": total / float(n), "p95": sorted[idx], "n": n}
+
+
 func _draw() -> void:
+	if not _profiling:
+		_draw_impl()
+		return
+	var t0 := Time.get_ticks_usec()
+	_draw_impl()
+	_profile_ticks.append(float(Time.get_ticks_usec() - t0) / 1000.0)
+
+
+func _draw_impl() -> void:
 	if view == null or view.sim == null:
 		return
 	if _anchor_cached != view.anchor_id:

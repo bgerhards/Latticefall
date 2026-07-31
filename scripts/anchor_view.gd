@@ -1830,3 +1830,57 @@ func lead_left() -> float:
 
 func sim_time() -> float:
 	return _sim_t
+
+
+func export_state() -> Dictionary:
+	## PRC-12: the small state dictionary `scripts/scenario.gd`'s assertions read via a
+	## dotted path (`sim.lives`, `view.camera.zoom`, ...). Deliberately narrow — this is
+	## what a scenario file is allowed to *see*, not a general debug dump — but wide enough
+	## to express every legacy verification hook's own printed state (STATE/BUS/CAMERA in
+	## main.gd's `_process()`) plus per-unit and per-emplacement lookups
+	## (`sim.units.<i>.hp`, `sim.placed.<i>.kills`) for the surge/veterancy assertions
+	## `data/scenarios/abilities.json` needs. `hud.gd`'s `export_state()` is merged in
+	## under `"hud"` by `Scenario.snapshot()`, not here — this file has no reference to the
+	## HUD node (see the class doc's note on no `get_node()` chains across scene boundaries).
+	if sim == null:
+		return {"sim": {}, "view": {}}
+	var units: Array = []
+	for u in sim.units:
+		units.append({
+			"hp": float(u["hp"]), "dist": float(u["dist"]), "alive": bool(u["alive"]),
+			"lane": int(u["lane"]), "kind": String(u["kind"]["id"]),
+		})
+	var placed: Array = []
+	for p in sim.placed:
+		var s: Vector2i = p["slot"]
+		placed.append({
+			"tower": String(p["tower"]["id"]), "online": bool(p["online"]),
+			"kills": int(p.get("kills", 0)),
+			"target_mode": String(p.get("target_mode", Tuning.targeting_default())),
+			"slot_x": s.x, "slot_y": s.y,
+		})
+	var cam := camera_state()
+	return {
+		"sim": {
+			"lives": int(sim.lives), "leaks": int(sim.leaks), "funds": int(sim.funds),
+			"bus_load": sim.bus_load(), "capacity": sim.capacity(),
+			"penalty": sim.penalty_now(), "brownout": bool(sim.brownout),
+			"wave": wave_number(), "phase": phase(), "units_alive": _units_alive_count(),
+			"chain_count": chain_count, "chain_active": chain_active(),
+			"units": units, "placed": placed,
+		},
+		"view": {
+			"camera": {"x": cam["x"], "y": cam["y"], "zoom": cam["zoom"]},
+			"selected_tower": selected_tower,
+			"selected_slot": {"x": selected_slot.x, "y": selected_slot.y},
+			"speed": speed, "phase": phase(), "wave": wave_number(),
+		},
+	}
+
+
+func _units_alive_count() -> int:
+	var n := 0
+	for u in sim.units:
+		if bool(u["alive"]):
+			n += 1
+	return n

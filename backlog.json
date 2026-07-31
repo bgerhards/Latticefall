@@ -1,5 +1,5 @@
 {
-  "next_id": 159,
+  "next_id": 160,
   "items": [
     {
       "id": "LF-001",
@@ -1891,6 +1891,18 @@
       "kind": "chore",
       "area": "art",
       "pri": "med",
+      "status": "open",
+      "why": "",
+      "opened": "2026-07-31",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-159",
+      "title": "data/scenarios/abilities.json cannot exercise Threshold Surge's 1.5-tile pushback: every enemy in anchor-01's wave 1 (Warden Drone, <=40 hp) dies outright to the falloff floor's own minimum damage (130*0.35=45.5), and pushback only applies to a unit that survives the hit (anchor_sim.gd fire_surge()). Needs a scenario against a tougher early enemy (or a different anchor/wave) that lands a survivable hit, asserting sim.units.<i>.dist decreases by exactly 1.5 (clamped at 0) rather than only hp/alive. Found verifying PRC-12.",
+      "kind": "chore",
+      "area": "tooling",
+      "pri": "low",
       "status": "open",
       "why": "",
       "opened": "2026-07-31",

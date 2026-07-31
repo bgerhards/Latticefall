@@ -123,23 +123,30 @@ func _ready() -> void:
 	apply()
 
 
+const CliArgsScript := preload("res://scripts/cli_args.gd")
+const KNOWN_FLAGS := {"--ui-scale": 1, "--display-defaults": 0, "--quiet-window": 0}
+
+
 func _read_cli() -> void:
 	## `-- --ui-scale 2.0` forces a scale for verification without touching the save. The
 	## a11y clipping check needs to reach 200% on demand; asking a human to set it in the
 	## options screen first is exactly the kind of step that never gets run.
-	var argv := OS.get_cmdline_user_args()
-	for i in range(argv.size()):
-		if argv[i] == "--ui-scale" and i + 1 < argv.size():
-			ui_scale = clampf(float(argv[i + 1]), 0.5, 3.0)
-			_cli_locked = true
-		elif argv[i] == "--display-defaults":
-			_cli_locked = true
-			window_mode = MODE_WINDOWED
-			resolution = Vector2i(1440, 810)
-			ui_scale = 1.0
-			glow = 1.0
-		elif argv[i] == "--quiet-window":
-			quiet_window = true
+	##
+	## PRC-12: tokenised through `scripts/cli_args.gd` now, the shared parser also used by
+	## `main.gd`/`menu.gd`/`draft.gd` — this file used to walk `OS.get_cmdline_user_args()`
+	## by hand in its own `if/elif` dialect, one of four that had all drifted slightly.
+	var p := CliArgsScript.parse(OS.get_cmdline_user_args(), CliArgsScript.ALL_FLAGS)
+	if CliArgsScript.has(p, "--ui-scale"):
+		ui_scale = clampf(CliArgsScript.float_val(p, "--ui-scale", 0, ui_scale), 0.5, 3.0)
+		_cli_locked = true
+	if CliArgsScript.has(p, "--display-defaults"):
+		_cli_locked = true
+		window_mode = MODE_WINDOWED
+		resolution = Vector2i(1440, 810)
+		ui_scale = 1.0
+		glow = 1.0
+	if CliArgsScript.has(p, "--quiet-window"):
+		quiet_window = true
 
 
 # ───────────────────────────────────────────────────────────────── apply ──

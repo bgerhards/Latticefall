@@ -61,16 +61,28 @@ func _ready() -> void:
 	Audio.music("A1-BLD_carrier_signal.ogg")
 
 
+const CliArgsScript := preload("res://scripts/cli_args.gd")
+## PRC-12: `--draft` forwards its own trailing flags (`--seed`, `--draft-lives`, `--shot`,
+## `--a11y`) straight to `draft.gd`'s own parser rather than reading them here — this file
+## only needs to know that `--draft` itself takes none, and that its *own* `--shot`/
+## `--anchor`/`--difficulty` still have to be readable before deferring, since Progress is
+## set from here.
+const KNOWN_FLAGS := {
+	"--anchor": 1, "--difficulty": 1, "--draft": 0, "--shot": [1, 2],
+	"--shot-menu": [1, 2], "--a11y": 1, "--options": 0,
+}
+
+
 func _boot_from_cli() -> bool:
 	## `--anchor`/`--shot` skip the menu entirely. Verification runs the real game, not
 	## a menu screenshot, and a player who launches with an explicit anchor means it.
 	var argv := OS.get_cmdline_user_args()
-	for i in range(argv.size()):
-		if argv[i] == "--anchor" and i + 1 < argv.size():
-			Progress.selected_anchor = argv[i + 1]
-		elif argv[i] == "--difficulty" and i + 1 < argv.size():
-			Progress.difficulty = argv[i + 1]
-	if argv.has("--draft"):
+	var p := CliArgsScript.parse(argv, CliArgsScript.ALL_FLAGS)
+	if CliArgsScript.has(p, "--anchor"):
+		Progress.selected_anchor = CliArgsScript.str_val(p, "--anchor", 0, Progress.selected_anchor)
+	if CliArgsScript.has(p, "--difficulty"):
+		Progress.difficulty = CliArgsScript.str_val(p, "--difficulty", 0, Progress.difficulty)
+	if CliArgsScript.has(p, "--draft"):
 		# `-- --draft [--anchor id] [--difficulty d] [--seed n] [--draft-lives L S] --shot …`
 		# opens the debrief/recovery screen directly. It is otherwise unreachable at
 		# `--fixed-fps` — reaching it for real needs a played and won anchor — and a screen
@@ -78,21 +90,23 @@ func _boot_from_cli() -> bool:
 		# run/main_scene stays menu.tscn, so this scene is where the flag has to be caught.
 		call_deferred("_go_draft")
 		return true
-	if argv.has("--anchor") or argv.has("--shot"):
+	if CliArgsScript.has(p, "--anchor") or CliArgsScript.has(p, "--shot") \
+			or CliArgsScript.has(p, "--scenario"):
+		# PRC-12: `--scenario <path>` names its own anchor internally (scripts/scenario.gd's
+		# `anchor` field) — it does not need `--anchor` alongside it to reach the game, and
+		# without this branch a `--scenario`-only launch sat on the menu forever, since
+		# nothing else here recognised it as "skip straight to the level".
 		call_deferred("_go")
 		return true
-	for i in range(argv.size()):
-		if argv[i] == "--shot-menu" and i + 1 < argv.size():
-			_menu_shot = argv[i + 1]
-			if i + 2 < argv.size() and argv[i + 2].is_valid_int():
-				_menu_shot_at = int(argv[i + 2])
-		elif argv[i] == "--a11y" and i + 1 < argv.size():
-			_a11y_path = argv[i + 1]
-		elif argv[i] == "--options":
-			# Opens the options panel at boot. Same reasoning as main.gd's --paused and
-			# --select: reaching it needs a click, --fixed-fps has nobody to click, and a
-			# screen that is never screenshotted is a screen nobody has looked at.
-			_open_options_at_boot = true
+	if CliArgsScript.has(p, "--shot-menu"):
+		_menu_shot = CliArgsScript.str_val(p, "--shot-menu", 0, _menu_shot)
+		_menu_shot_at = CliArgsScript.int_val(p, "--shot-menu", 1, _menu_shot_at)
+	_a11y_path = CliArgsScript.str_val(p, "--a11y", 0, _a11y_path)
+	if CliArgsScript.has(p, "--options"):
+		# Opens the options panel at boot. Same reasoning as main.gd's --paused and
+		# --select: reaching it needs a click, --fixed-fps has nobody to click, and a
+		# screen that is never screenshotted is a screen nobody has looked at.
+		_open_options_at_boot = true
 	return false
 
 
