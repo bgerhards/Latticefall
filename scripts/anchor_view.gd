@@ -578,6 +578,18 @@ func _edge_scroll(delta: float) -> void:
 	var rect := Rect2(strip["centre"] - Vector2(strip["w"], strip["h"]) * 0.5,
 		Vector2(strip["w"], strip["h"]))
 	var m := get_global_mouse_position()
+	if not rect.has_point(m):
+		# LF-161: every branch below is a one-sided distance-to-edge check ("is m.x less
+		# than the left threshold", "is m.x greater than the right threshold"), each clamped
+		# to [0, 1] — but a one-sided clamp still saturates at 1.0 for a point arbitrarily
+		# far *past* that threshold, and the strip's own edge sits directly against an
+		# opaque instrument panel. So a pointer anywhere in the build palette (left panel)
+		# or the threat sheet (right panel) satisfied "m.x < left threshold" or
+		# "m.x > right threshold" just as well as one pixel inside the margin, and
+		# produced the same full-speed push — moving to click a tower button scrolled the
+		# board at EDGE_SCROLL_MAX_SPEED the instant the pointer crossed into the panel, not
+		# only near it. Contained here: outside the strip entirely, no push at all.
+		return
 	var push := Vector2.ZERO
 	if m.x < rect.position.x + EDGE_SCROLL_MARGIN:
 		push.x = -clampf((rect.position.x + EDGE_SCROLL_MARGIN - m.x) / EDGE_SCROLL_MARGIN, 0.0, 1.0)

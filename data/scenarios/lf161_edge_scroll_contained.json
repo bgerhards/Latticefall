@@ -1,0 +1,12 @@
+{
+  "schema": "scenario",
+  "note": "LF-161 regression. Owner report: moving the pointer toward the build palette panned the board away. Root cause: anchor_view.gd's _edge_scroll() measured depth into EDGE_SCROLL_MARGIN from the *strip's* own edge without first checking the pointer was inside the strip, so any point past that edge -- including deep in a HUD panel -- saturated the push at full speed (EDGE_SCROLL_MAX_SPEED, 900 board px/sec). Fixed with a containment guard (rect.has_point()). Display.edge_scroll now also defaults OFF (see the field's own doc), so this scenario forces it back on via `--edge-scroll 1` (run through --extra, since the option is not a scenario action and must not touch the save) to prove the underlying mechanism is bounded for a player who re-enables it, not merely inert by default. Run at three interface scales (`--extra --ui-scale 1.0|1.5|2.0 --edge-scroll 1 --mouse-at 200 300`) -- x=200 sits inside the left build column (COL_W=420, scale-invariant logical px) at every scale this game supports, including the 4px-wide strip measured on anchor-24 at 200%. Before the fix this scenario fails: the camera drifts left every frame the pointer sits over the palette. After the fix, camera.x/y at frame 300 (5 real seconds) are byte-identical to frame 2 (right after the one synthetic motion event at boot) -- the pointer never re-enters the strip, so the contained _edge_scroll() applies zero push, every frame, for the whole run.",
+  "anchor": "anchor-01",
+  "difficulty": "standard",
+  "timeline": [
+    { "frame": 2, "assert": "==", "expr": "view.camera.x", "expect": 7.0, "tolerance": 0.001 },
+    { "frame": 2, "assert": "==", "expr": "view.camera.y", "expect": 5.0, "tolerance": 0.001 },
+    { "frame": 300, "assert": "==", "expr": "view.camera.x", "expect": 7.0, "tolerance": 0.001 },
+    { "frame": 300, "assert": "==", "expr": "view.camera.y", "expect": 5.0, "tolerance": 0.001 }
+  ]
+}
