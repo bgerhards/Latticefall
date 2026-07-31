@@ -210,18 +210,31 @@ element in the game. A baked glow cannot dim, and bleeds past the alpha silhouet
 
 ---
 
+## Output Rules
+
+* Be concise. Sacrifice grammar for brevity.
+* No walls of text. User will ask for clarification.
+* Give one recommendation only. Lead with it.
+* Include only actionable information.
+* Precision over completeness.
+
+These outrank any habit of explaining. They do **not** outrank reporting faithfully: a
+failed check, a skipped step or an unverified claim is actionable information and gets said,
+in a line. Brevity is not a licence to round a result up.
+
 ## Working agreement
 
-**One recommendation, never a menu.** Do not present options and ask which. Pick the best
-course, say what it is in a line, and do it. If a choice turns out wrong, correct it and
-keep going. Only stop for something genuinely needed from the user.
+**One recommendation, never a menu.** Per the Output Rules above, and for a reason specific
+to this project: options presented without a pick get re-litigated next session. Decide,
+say what you decided in a line, do it. If it turns out wrong, correct it and keep going.
+Only stop for something genuinely needed from the owner — `docs/DECISIONS.md` §6 of the PRD
+is where the genuinely-theirs calls live.
 
 **Keep working.** Do not stop after a task to check in. Finish it, pick the next thing,
 and start. Stop only when out of work or explicitly told to.
 
-**Be concise.** Sacrifice grammar for concision. Fragments are fine. No preamble, no
-recap of what was just read, no summary of what is about to be done. The user asks if
-they need more.
+**No preamble, no recap.** Do not restate what was just read or narrate what is about to be
+done. Lead with the result, then the evidence for it.
 
 **Backlog before work.** Anything discovered mid-task that isn't part of the current task
 goes in the backlog, not into the current change. `tools/backlog.py add`.
