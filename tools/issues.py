@@ -251,10 +251,43 @@ def cmd_sync(_a) -> None:
         print(f"synced #{mapping[s['id']]}  {s['id']}")
 
 
+def cmd_close(a: argparse.Namespace) -> None:
+    """Close the issues for one or more spec ids, each with a note saying what landed.
+
+    This exists because it did not, and the projection silently rotted for a whole
+    session: twenty-nine specs were implemented, verified and committed while every one
+    of their GitHub issues stayed open, because `create` and `sync` are the only verbs
+    and neither has anything to say about an issue being *finished*. A projection that
+    can only ever grow is not a projection of the work.
+
+    The note is required rather than optional. "Closed" with no comment leaves the
+    evidence in a commit message nobody will find from the issue, and this project's
+    whole method is that a claim is falsifiable — so the close carries the number, the
+    measurement or the decision that settles it.
+    """
+    require_gh()
+    mapping = load_map()
+    missing = [i for i in a.ids if i not in mapping]
+    if missing:
+        raise SystemExit(f"no issue recorded for: {', '.join(missing)} — run `create` first")
+    for spec_id in a.ids:
+        n = mapping[spec_id]
+        r = subprocess.run(["gh", "issue", "close", str(n), "--comment", a.note],
+                           capture_output=True, text=True)
+        if r.returncode != 0:
+            sys.exit(f"gh issue close {n} failed: {r.stderr.strip()}")
+        print(f"closed #{n}  {spec_id}")
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
+    p_close = sub.add_parser("close", help="close the issue(s) for one or more spec ids")
+    p_close.add_argument("ids", nargs="+", metavar="ID", help="spec ids, e.g. PRC-02 CAM-01")
+    p_close.add_argument("--note", required=True,
+                         help="what landed and how it was proved — required, because a "
+                              "bare close leaves the evidence somewhere nobody will look")
     sub.add_parser("plan", help="parse and validate specs, print what would happen")
     sub.add_parser("labels", help="create any label a spec uses that does not exist yet")
     sub.add_parser("create", help="create missing issues and record their numbers")
@@ -269,6 +302,8 @@ def main() -> None:
         cmd_create(a)
     elif a.cmd == "sync":
         cmd_sync(a)
+    elif a.cmd == "close":
+        cmd_close(a)
     elif a.cmd == "all":
         cmd_labels(a); cmd_create(a); cmd_sync(a)
 

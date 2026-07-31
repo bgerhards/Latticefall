@@ -285,6 +285,24 @@ and start. Stop only when out of work or explicitly told to.
 **No preamble, no recap.** Do not restate what was just read or narrate what is about to be
 done. Lead with the result, then the evidence for it.
 
+**Record the journey.** `docs/chronicle/` is a build journal published to GitHub Pages on
+every push to `main` — a documentary of how this game got made, written as it happens. The
+`chronicler` agent owns it. Run it after any session that lands work worth remembering, and
+whenever a capture, a decision or a measurement is produced that the story should keep.
+
+Two rules make it worth having. **It is append-only**: an entry records what was true and
+believed on the day it was written, and when something is later overturned you write a *new*
+entry saying so and link back — never quietly correct the old one, for the same reason
+`docs/DECISIONS.md` is append-only. And **the failures go in**: the perf fix that passed
+864-run parity and did nothing, the atlas rebuild that made every sprite flat grey, the stash
+that swept eleven files across five workstreams. A journal of only successes is a lie by
+omission and a much duller read.
+
+Images must be **copied into `docs/chronicle/assets/` and committed**, never linked from
+`/tmp` or from a scratchpad — those vanish, and an entry pointing at a dead image is worse
+than one with no image. Note they are ordinary tracked files, not LFS, so publishing never
+touches the LFS quota.
+
 **Backlog before work.** Anything discovered mid-task that isn't part of the current task
 goes in the backlog, not into the current change. `tools/backlog.py add`.
 
