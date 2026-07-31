@@ -2727,9 +2727,39 @@ gains a `gate-tier3` job that runs `check.py --tier 3` inside it, putting `sprit
 **The named risk did not happen, and that is the load-bearing measurement.** The spec warned
 that "a container image's software-GL stack is not automatically the same Mesa llvmpipe
 behaviour measured on this machine — verify the thresholds still mean the same thing there."
-Measured inside the container, twice, on two independent full runs: `game renders` **coverage
-0.95, 99 tones** and `accessibility` **worst contrast 5.08:1** — *identical* to this machine,
-not approximately. `tier 3 — 34 passed · 0 failed · 3 skipped · 80883ms`.
+Measured inside the container: `game renders` **coverage 0.95, 99 tones** and `accessibility`
+**worst contrast 5.08:1** — *identical* to this machine, not approximately.
+`tier 3 — 34 passed · 0 failed · 3 skipped · 77071ms`.
+
+**That number is right, and the first two attempts to establish it were not — which is the
+part of this decision most worth keeping.** The original verification ran twice and reported
+`34 passed · 0 failed`, but both runs used a scratch clone that still carried a `.godot/`
+import cache from an earlier one-off `--import`. `.godot/` is gitignored, so a later
+`git checkout` to a newer commit never cleared it. **Both "clean" runs were measured on an
+already-imported tree, which is not the path CI takes**, and the workflow's own `gate-tier3`
+job had no Import step at all — a gap invisible to anyone whose local repro always had the
+cache.
+
+The first real CI run of that job was **red: `tier 3 — 22 passed · 12 failed · 3 skipped`, 27
+minutes**. It failed on verbatim the two clean-checkout errors `gate.yml`'s tier-1 header
+comment already documents — `Loadout` not declared, because a `class_name` global is invisible
+until the editor imports, and the LFS-tracked font failing to preload, which takes every script
+reading `Ui.SANS` down with it (`LF-162`). Everything else cascaded: five scenarios timing out
+at 120 s and three rendered checks at ~300 s, waiting for a frame an unimported Godot can never
+produce, which alone accounts for ~25 of the 27 minutes. Even `hooks configured` failed, and
+correctly — its `post-lint-gd` selftest parses `scripts/hud.gd`, which reads the font-preloading
+`Ui` autoload, so the guard was reporting truth about a broken environment rather than a bug
+(44/45 unimported, 45/45 imported, **no change to `tools/hooks/guard.py`**).
+
+Reproduced against a genuinely fresh clone with real LFS bytes and no import cache, fixed with
+an Import step in `gate-tier3`, and re-measured on the sequence the workflow now actually runs —
+clone, import (12.5 s, 0 recoverable errors), then tier 3 at **77.1 s**. The thresholds match.
+
+**Recorded here rather than quietly amended, and this entry pre-dates its own merge**, so no
+published claim is being rewritten. The lesson is not "check your work" — it is that a local
+reproduction which shares *any* state with the machine that built it is not a reproduction, and
+`.godot/` surviving a `git checkout` is exactly the kind of state nobody thinks to look for.
+The pull request is what caught it, which is what the pull request is for.
 
 **Decision two. Parity runs hosted and sharded**, in `parity-shard.yml`: `test_parity.py
 --shard I/4` across four jobs, daily plus any PR touching `sim/`, `data/`,

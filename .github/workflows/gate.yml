@@ -309,6 +309,34 @@ jobs:
         with:
           lfs: true
 
+      - name: Import project (populates the class_name cache — see the gate job's header comment)
+        run: |
+          set -eu
+          # PRC-17 postmortem: this step was missing on the first real CI run of this job
+          # (PR #102, run 30659708967) and every Godot-launching check failed or timed out
+          # as a result — `gdscript parses` on the exact `Loadout` class_name error the
+          # tier-1 `gate` job's header comment already documents, `godot boots` on the
+          # exact font-preload error, and every scenario/rendered check timing out at 120s/
+          # ~300s waiting for a frame that unimported Godot can never produce (that alone
+          # was ~25 of the run's 27 minutes). Reproduced locally against a genuinely fresh,
+          # never-imported clone with real LFS bytes already present — confirms this is the
+          # missing-import gap, not missing LFS content or an image defect. `$LF_GODOT` is
+          # baked into the image's own ENV (see tools/ci/Dockerfile) — no download step
+          # needed here the way the tier-1 `gate` job needs one on bare `ubuntu-latest`.
+          if ! "$LF_GODOT" --headless --path . --import >import.log 2>&1; then
+            echo "::error::project import failed — full log follows"
+            cat import.log
+            exit 1
+          fi
+          n_lines="$(wc -l <import.log)"
+          n_errors="$(grep -c '^ERROR' import.log || true)"
+          echo "import ok: $n_lines log lines, $n_errors recoverable errors"
+          # Unlike the tier-1 `gate` job (lfs: false, so it EXPECTS a wall of recoverable
+          # LFS-pointer errors), this job's checkout is `lfs: true` — real bytes are
+          # already on disk (measured: 0 errors here against the current image/checkout).
+          # A non-zero count is worth reading, not assumed-expected the way it is above.
+          tail -n 20 import.log
+
       - name: Run tier-3 gate
         id: gate
         continue-on-error: true
