@@ -127,7 +127,8 @@ class Policy:
     """
 
     def __init__(self, name: str, preference: list[str], allow_overdraw: bool = False,
-                 caps: dict[str, int] | None = None, reserve: float = 0.0):
+                 caps: dict[str, int] | None = None, reserve: float = 0.0,
+                 core: tuple[str, int] | None = None, closed: bool = False):
         self.name = name
         self.preference = preference
         self.allow_overdraw = allow_overdraw
@@ -142,10 +143,52 @@ class Policy:
         # and no guns, and no policy could express the one sensible board for
         # anchor-02: a single relay plus turrets. Support towers need a count, not
         # just a rank, or every anchor from 02 on is ungradeable.
-        self.caps = caps or {}
+        self.caps = dict(caps or {})
+        # LF-095/BAL-02. `core` names the tower a capped-core policy leads with and how
+        # many of it to build; it is purely descriptive here (a comment that also
+        # executes) — it only auto-fills `caps[core[0]]` if the caller has not already
+        # set it, so a capped-core policy cannot be built with the cap forgotten.
+        # Building the count into caps means `_try_build` needs no core-specific
+        # branch at all: "N of the core tower" is just a cap on one entry, same as any
+        # support cap already was.
+        self.core = core
+        if core is not None:
+            self.caps.setdefault(core[0], core[1])
+        # An *open* policy (the default, and every one of the original twelve) ranks
+        # the whole unlocked catalog — `preference` just orders it, and anything it
+        # does not name is still buildable, tried last (rank 99). That is why the
+        # all-of-one-thing bug existed: once the top-ranked entry stopped fitting, the
+        # loop fell through to *some* next-best entry from the full catalog, never to
+        # "nothing else" — LF-095's "Three pulse turrets in front of an ion lance is
+        # not in the search space" is really "there is no way to say *only* these two
+        # towers." `closed=True` says exactly that: Sim restricts `buildable` to
+        # `preference` itself, so once nothing in that short list fits, `_try_build`'s
+        # existing `else: return` fires for real, rather than reaching past a
+        # deliberately-narrow roster into whatever else the anchor has unlocked. See
+        # Policy.capped_core() below and Sim.__init__'s `buildable` construction.
+        self.closed = closed
 
     def rank(self, tower_id: str) -> int:
         return self.preference.index(tower_id) if tower_id in self.preference else 99
+
+    @classmethod
+    def capped_core(cls, name: str, core: tuple[str, int], fill: list[str],
+                     allow_overdraw: bool = False, caps: dict[str, int] | None = None,
+                     reserve: float = 0.0) -> "Policy":
+        """A policy built from an explicit core tower plus a closed fill list.
+
+        `core=("ion-lance", 2)` with `fill=["pulse-turret"]` reads as "two ion lances,
+        then pulse turrets, then stop" — composition as a first-class shape, not an
+        accident of one open policy running out of funds for its favourite tower
+        before falling through to the rest of the catalog. Preference is built
+        core-first so the core tower claims the nearest slots (`_slot_priority()`
+        ranks by distance to the path, tried in preference order) and the fill towers
+        take what is left, exactly the ordering LF-095 asks for.
+        """
+        core_id, _count = core
+        preference = [core_id] + [t for t in fill if t != core_id]
+        return cls(name, preference, allow_overdraw=allow_overdraw, caps=caps,
+                   reserve=reserve, core=core, closed=True)
 
 
 class Sim:
@@ -165,8 +208,18 @@ class Sim:
         # towers.json's file order while the GDScript port hands back alphabetical —
         # a parity failure that stayed hidden until Act II added three towers whose
         # file order and alphabetical order finally disagreed.
+        #
+        # A closed policy (Policy.capped_core(), LF-095) restricts this to towers it
+        # actually names — everything else is never a candidate, not merely a
+        # low-ranked one — so "core exhausted, then stop" is a real closed search
+        # rather than a fallback into the wider catalog. An open policy (every one of
+        # the original twelve; `closed` defaults to False) is unaffected: the filter
+        # below is a no-op for them.
+        catalog = towers.values()
+        if policy.closed:
+            catalog = (t for t in catalog if t.id in policy.preference)
         self.buildable = sorted(
-            (t for t in towers.values() if t.unlocked_at <= anchor.id),
+            (t for t in catalog if t.unlocked_at <= anchor.id),
             key=lambda t: (policy.rank(t.id), t.id),
         )
         self.funds = anchor.starting_funds
@@ -579,5 +632,42 @@ def standard_policies(tower_ids: list[str]) -> list[Policy]:
         # uncapped, a board that only restores capacity has nothing to spend it on.
         Policy("restore-first", rest(has("restorer") + has("pulse-turret")),
                caps={"restorer": 2, "scan-relay": 1, "anchor-damper": 1}, reserve=0.10),
+
+        # ── Capped-core policies (LF-095 / BAL-02) ──────────────────────────────
+        # Closed: each of these can build *only* its core tower and its named fill,
+        # never falling through to the rest of the catalog the way every policy above
+        # does. That is what makes the claim in each comment falsifiable by the grader
+        # rather than merely plausible — a win here cannot be explained away by some
+        # third, unlisted tower the policy was never meant to reach for.
+
+        # Claim: enemies.json says the Reach Picket exists "so the pulse turret earns
+        # its slot again" against a lance-led board. Two lances answer the anchor-13+
+        # breacher/bulwark shield tax; if the claim is right, adding a turret escort
+        # for the Pickets should out-survive spending the same slots on more lances,
+        # which "burst" (open, uncapped lance) already stands in for as the control.
+        Policy.capped_core("lance-core", core=("ion-lance", 2), fill=["pulse-turret"],
+                           reserve=0.20),
+
+        # Claim: from anchor-13, the mortar is the second shielded answer (decision
+        # 029's SHIELD_LEAK note) and flak-array is the cheaper air/ground mop-up —
+        # a two-mortar core with a flak escort should be a genuinely different board
+        # from "anti-armour" (open, lance-first) rather than the same one reached by a
+        # different route.
+        Policy.capped_core("mortar-core", core=("mortar-emplacement", 2),
+                           fill=["flak-array"], reserve=0.20),
+
+        # Claim: "suppression" caps the damper at two and still falls through to the
+        # full catalog when both are exhausted. This tests whether *one* damper is
+        # already enough drain suppression for a turret board to hold Act II — a
+        # stricter, falsifiable version of the same design idea.
+        Policy.capped_core("damper-core", core=("anchor-damper", 1),
+                           fill=["pulse-turret"], reserve=0.15),
+
+        # Claim: "restore-first" caps restorers at two. This tests whether *one*
+        # restorer's worth of capacity back is enough to carry a turret board through
+        # Act III's decay (decision 031) — if not, that is evidence the two-restorer
+        # cap in "restore-first" is load-bearing, not just generous.
+        Policy.capped_core("restorer-core", core=("restorer", 1),
+                           fill=["pulse-turret"], reserve=0.10),
     ]
     return out

@@ -73,6 +73,25 @@ func _policies(ids: Array) -> Array:
 				pref.append(i)
 		return {"name": name, "pref": pref, "overdraw": overdraw, "caps": caps,
 			"reserve": reserve}
+	## Mirrors Policy.capped_core() in sim/engine.py (LF-095/BAL-02). Unlike mk() above,
+	## this does NOT append the rest of `ids` after the named towers — `pref` is closed,
+	## so _try_build()'s `buildable` (built straight from `pref`, see _run() below) can
+	## only ever place the core tower and its fill, never fall through to the wider
+	## catalog. `caps` gets the core's count merged in automatically, same as the
+	## Python side's `self.caps.setdefault(core_id, core_count)`.
+	var mk_core := func(name: String, core_id: String, core_count: int, fill: Array,
+			extra_caps: Dictionary, reserve: float = 0.0) -> Dictionary:
+		var pref: Array = []
+		if ids.has(core_id):
+			pref.append(core_id)
+		for i in fill:
+			if ids.has(i) and not pref.has(i):
+				pref.append(i)
+		var caps: Dictionary = extra_caps.duplicate()
+		if not caps.has(core_id):
+			caps[core_id] = core_count
+		return {"name": name, "pref": pref, "overdraw": false, "caps": caps,
+			"reserve": reserve}
 	return [
 		mk.call("cheap-mass", ["pulse-turret"], false, {}),
 		mk.call("burst", ["ion-lance", "pulse-turret"], false, {}),
@@ -94,6 +113,12 @@ func _policies(ids: Array) -> Array:
 			{"scan-relay": 1, "anchor-damper": 1}, 0.20),
 		mk.call("restore-first", ["restorer", "pulse-turret"], false,
 			{"restorer": 2, "scan-relay": 1, "anchor-damper": 1}, 0.10),
+		# Capped-core (LF-095/BAL-02). Claims mirrored verbatim from standard_policies()
+		# in sim/engine.py; see that file for the reasoning behind each.
+		mk_core.call("lance-core", "ion-lance", 2, ["pulse-turret"], {}, 0.20),
+		mk_core.call("mortar-core", "mortar-emplacement", 2, ["flak-array"], {}, 0.20),
+		mk_core.call("damper-core", "anchor-damper", 1, ["pulse-turret"], {}, 0.15),
+		mk_core.call("restorer-core", "restorer", 1, ["pulse-turret"], {}, 0.10),
 	]
 
 
