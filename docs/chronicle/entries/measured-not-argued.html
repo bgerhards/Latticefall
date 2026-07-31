@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Measured, not argued — Latticefall build journal</title>
+<meta name="description" content="The numbers a performance change is judged by, taken as seriously as the parity run that proves it changed nothing else: a 2.65x speedup at 64x64, a quadratic draw cost flattened to a constant, a texture limit nobody on this machine had actually measured, and a dimming factor checked to within 8-bit quantisation.">
+<link rel="stylesheet" href="../chronicle.css">
+</head>
+<body>
+
+<nav class="entry-nav top"><a class="back" href="../index.html">&larr; the journal</a></nav>
+<article>
+  <header class="entry-header">
+    <time datetime="2026-07-31">July 31, 2026 · 00:36</time>
+    <h1>Measured, not argued</h1>
+    <div class="chips"><span class="chip chip-epic">CAM</span><span class="chip chip-epic">ART</span></div>
+    <p class="summary lede">The numbers a performance change is judged by, taken as seriously as the parity run that proves it changed nothing else: a 2.65x speedup at 64x64, a quadratic draw cost flattened to a constant, a texture limit nobody on this machine had actually measured, and a dimming factor checked to within 8-bit quantisation.</p>
+    
+  </header>
+  <div class="entry-body">
+    <p>'A change that passes verification has only proved it changed nothing observable, which is also what a no-op proves' is a rule this session earned the hard way (see the entry on this day's failures, later in this journal). The discipline it produced shows up everywhere a number gets quoted here: measured, never inferred.</p><h3>2.65x, at the frame that does not exist yet</h3><p>The board was drawn with no culling and no caching at all — 4,096 tile draws a frame at 64x64 before a single unit even moved — and the list of everything to draw was rebuilt and re-sorted four times a frame, once per draw layer. Tiles are now cached once per anchor and culled against the camera's visible rectangle; the draw list is built once and shared across all four layers. Measured at 64x64 with 60 emplacements and roughly 530 drawable objects: the board's own draw call goes from <strong>11.13 ms to 4.57 ms</strong>, and the total across all four layers from 14.35 ms to 5.42 ms — a <strong>2.65x</strong> speedup. On today's actual anchors the win is a smaller 1.44x, because the frame was already cheap there; the point of the work is the board that does not exist yet. Five deterministic no-combat frames came back byte-for-byte identical before and after, and so did a full-combat frame.</p><h3>A quadratic term, bucketed flat</h3><p>The hit-flash lookup scanned the entire live hit list for every drawn unit — climbing from 9.3 microseconds to 58.1 per call as a standalone benchmark's crowd grew from 150 to 900 units. Bucketing it by tile and searching only the surrounding neighbourhood holds per-call cost flat at <strong>2.2 to 2.9 microseconds</strong> across that same range, proved against 910 differential queries with zero mismatches — including the exact tie-break the original scan preserved by walking ascending indices, which the bucketed version had to reproduce by comparing distance-and-index pairs regardless of which order its buckets happen to be walked in.</p><h3>A number nobody on this machine had actually measured</h3><p><code>GL_MAX_TEXTURE_SIZE</code> was assumed rather than known, until an EGL surfaceless probe against the same software rendering stack the game itself uses returned <strong>16384</strong>. The atlas packer's own asserted floor is 4096 — not the GLES 3.0 specification minimum of 2048, because 2048 would already fail the page this project renders today at 3072 px.</p><figure><img src="../assets/2026-07-31-combat-fx.png" alt="A combat frame at 152 of 290 MW, no brownout in effect — the baseline a since-fixed bug was measured against. The pooled bolt, arc, beam, flak and mortar effects carried glow and nothing else, so the most emissive thing on screen was the one thing brownout's dimming never touched. Fixed by hoisting one energy term through every draw call in the file; the clean measurement is the field pulse, driven by simulation time rather than by the moment of firing: a background-subtracted ratio of 0.31 against the intended 0.35 factor, inside 8-bit quantisation." loading="lazy"><figcaption>A combat frame at 152 of 290 MW, no brownout in effect — the baseline a since-fixed bug was measured against. The pooled bolt, arc, beam, flak and mortar effects carried glow and nothing else, so the most emissive thing on screen was the one thing brownout's dimming never touched. Fixed by hoisting one energy term through every draw call in the file; the clean measurement is the field pulse, driven by simulation time rather than by the moment of firing: a background-subtracted ratio of 0.31 against the intended 0.35 factor, inside 8-bit quantisation.</figcaption></figure>
+  </div>
+  <section class="commits"><h4>Commits</h4><ul class="commit-list"><li><code>3816db6</code> perf(fx): bucket the hit-flash lookup, the one quadratic term in the draw path</li><li><code>fbb4110</code> perf(view): cull and cache the board, and build drawables once per frame</li><li><code>81dfbbb</code> build(assets): one command, content-hashed, and it stops touching what did not change</li><li><code>4012b5d</code> fix(fx): brownout dims the fight, which is the whole reason glow is a separate pass</li></ul></section>
+</article>
+<nav class="entry-nav bottom">
+  <span><a class="back" href="../index.html">&larr; the journal</a></span> <span><a class="prev" href="the-gate.html">&larr; The gate: eleven minutes, five seconds, and a check for every failure that already happened</a></span> <span><a class="next" href="thirty-agents-one-tree.html">Thirty agents, one tree &rarr;</a></span>
+</nav>
+
+</body>
+</html>

@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Seven defects, measured before a line of the plan was written — Latticefall build journal</title>
+<meta name="description" content="Profiling the real code against synthetic boards and unit counts, rather than guessing what would break on the way to a war-scale board. The whole game today costs 1.5 ms of a 16.7 ms frame — so the question was never whether there is headroom, only which thing runs out first.">
+<link rel="stylesheet" href="../chronicle.css">
+</head>
+<body>
+
+<nav class="entry-nav top"><a class="back" href="../index.html">&larr; the journal</a></nav>
+<article>
+  <header class="entry-header">
+    <time datetime="2026-07-30">July 30, 2026 · 21:09</time>
+    <h1>Seven defects, measured before a line of the plan was written</h1>
+    <div class="chips"><span class="chip chip-epic">PRC</span></div>
+    <p class="summary lede">Profiling the real code against synthetic boards and unit counts, rather than guessing what would break on the way to a war-scale board. The whole game today costs 1.5 ms of a 16.7 ms frame — so the question was never whether there is headroom, only which thing runs out first.</p>
+    
+  </header>
+  <div class="entry-body">
+    <p>Before a single Theatre Scale issue was implemented, the real code was profiled against synthetic boards and unit counts, to find out what actually breaks on the way to a war-scale board rather than guessing. The whole game today costs 1.5 ms of a 16.7 ms frame — so the question was never whether there is headroom, only which thing runs out first.</p><h3>Four defects already shipping</h3><ul><li>An idle emplacement with nothing in range re-scans every unit on the board, every tick, forever — the empty-target path never resets its own cooldown. Measured <strong>2.19x</strong> the cost of the same board with targets in range at 8 towers / 32 units, rising to <strong>2.87x</strong> at 100 / 800.</li><li><code>_covered_by()</code> tests every placed emplacement's effect type inside its own loop, so it costs O(towers) per unit even when nothing on the board has that effect at all — <strong>24,000</strong> wasted iterations per tick at 60 towers and 400 units.</li><li>The hit-flash lookup scans the entire live hit list for every drawn unit, roughly U^1.9 — <strong>29%</strong> of all draw cost at 900 units.</li><li><code>drawables()</code> is rebuilt and re-sorted <strong>four times a frame</strong> — once each for the shadow pass, the sprite pass, the glow layer and the additive FX layer.</li></ul><h3>Three that block the plan, not the game</h3><ul><li><code>render.py</code>'s <code>calibrate()</code> cannot converge at 384px or 1024px cells — it corrects orthographic scale from the width ratio only, so a one-pixel height shortfall never resolves. 256 and 512 only work by luck.</li><li>The board-saturation guard reads a tower's base <code>draw_mw</code> and never its <code>upgrade.draw_mw</code>, so an upgraded tower's real draw is invisible to the check that exists to protect the power decision.</li><li>Sprite legibility at zoom-out is a design question, not a camera feature. Fitting a 64x64 board needs <strong>0.234x</strong> zoom at 100% interface scale and <strong>0.117x</strong> at 200% — rendering a sprite at 30 to 60 px, likely below the point where one enemy is distinguishable from another. That needs a human answer before a camera can be built around it.</li></ul><p>Also recorded, and revisited within a day: both rule engines compute lane-segment length as <code>abs(dx)+abs(dy)</code>, with no square root anywhere, because Python's and Godot's floating point are not guaranteed bit-identical — decision 030's reasoning, and the reason the parity gate has stayed green. Diagonal lanes would reopen that question, so the axis-aligned rule was written down rather than quietly assumed safe forever. It would turn out to be half wrong the very next day — see decision 061, in the entry on the gate.</p><p>None of these seven were fixed here. They were found so that everything built afterward would be built on what the code actually does, not on what it was assumed to do.</p>
+  </div>
+  <section class="commits"><h4>Commits</h4><ul class="commit-list"><li><code>15165ca</code> docs: measured scale limits — 7 defects found profiling the theatre-scale plan</li></ul></section>
+</article>
+<nav class="entry-nav bottom">
+  <span><a class="back" href="../index.html">&larr; the journal</a></span> <span><a class="prev" href="programme-opens.html">&larr; I want a battle, I WANT A WAR</a></span> <span><a class="next" href="board-you-cannot-fit.html">The board you cannot fit on a screen &rarr;</a></span>
+</nav>
+
+</body>
+</html>

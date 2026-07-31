@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Terrain, and a denominator that had to survive free placement — Latticefall build journal</title>
+<meta name="description" content="Two pieces of foundation that nothing is built on top of yet, deliberately, so each stays provably correct in isolation: elevation as regions and ramps rather than a dense grid, and a board-saturation guard rewritten before the thing it used to divide by is deleted out from under it.">
+<link rel="stylesheet" href="../chronicle.css">
+</head>
+<body>
+
+<nav class="entry-nav top"><a class="back" href="../index.html">&larr; the journal</a></nav>
+<article>
+  <header class="entry-header">
+    <time datetime="2026-07-31">July 31, 2026 · 07:20</time>
+    <h1>Terrain, and a denominator that had to survive free placement</h1>
+    <div class="chips"><span class="chip chip-epic">TER</span><span class="chip chip-epic">PLC</span><span class="chip chip-decision">decision 057</span><span class="chip chip-decision">decision 063</span></div>
+    <p class="summary lede">Two pieces of foundation that nothing is built on top of yet, deliberately, so each stays provably correct in isolation: elevation as regions and ramps rather than a dense grid, and a board-saturation guard rewritten before the thing it used to divide by is deleted out from under it.</p>
+    
+  </header>
+  <div class="entry-body">
+    <h3>Decision 057: terrain as regions and ramps, never a dense grid by default</h3><p>An anchor needed to carry elevation without breaking either of the two independent parsers that read anchor JSON — one in the reference engine, one in the game engine — silently disagreeing on some tile nine minutes into a parity run, surfacing as an unexplained leak with no pointer to terrain anywhere in it. The shape settled on is regions and ramps: rectangles that paint in array order, a later rectangle completely overwriting whatever an earlier one covered, including lowering it — with a dense heightmap available as an escape hatch for a future board generator, replacing regions entirely rather than blending with them.</p><p>A shared fixture resolves the same terrain description through both parsers and diffs the result tile-for-tile against a hand-authored expected grid, and against each other, deliberately on a non-square board so a row/column swap in either parser cannot hide behind symmetry. It was proved to fail loudly, too: deliberately corrupting one tile makes both resolvers report the mismatch rather than agreeing quietly on the wrong answer. One anchor carries a pilot terrain description now; it grades identically to before, which is true by construction — nothing in the rules reads terrain yet.</p><p>A follow-on pass added the checks a schema cannot express on its own: every elevation value has to sit inside the declared number of levels, a ramp's two ends have to actually differ by exactly one level and match the resolved grid on both sides, and no build slot may sit on a ramp or a cliff face. All eleven of its fixtures were proved to fail for the right reason before being trusted. The same pass also fixed the board-saturation guard reading only a tower's base power draw and never its upgraded draw — invisible until a tower's upgrade costs meaningfully more than its base form does, exactly the shape this programme's later spectacle weapons are specified to have.</p><h3>Decision 063: a denominator that survives removing the thing it divided by</h3><p>The board-saturation guard — the check that stops a level from quietly deleting its own power decision by letting every slot run flat out — divided by the number of build slots. Free placement removes slots entirely, and a divide with nothing to divide by would have stopped guarding <strong>silently</strong>, on exactly the failure it exists to catch: one anchor had already once reached 103% of what running every slot at maximum draw would cost, while still grading as perfectly winnable, because a level with no power decision left in it is still a level you can win.</p><p>The fix is an authored integer cap, required by the schema whenever slots are absent and optional — falling back to the slot count — whenever slots are still present. That is why this changed <strong>none</strong> of the 24 existing anchors' numbers; every one of them takes the fallback branch and reproduces its existing figure exactly. It was proved to fail four different ways through the schema's own fixture mechanism before being trusted: an anchor with neither a slot list nor a cap is rejected outright, the same anchor with a cap and zero slots passes cleanly (which is the entire point), and inflating a cap back up to the old failing ratio reproduces the original failure exactly.</p><p>The corresponding change inside the two rule engines is written out call site by call site but was not applied in this same change, because those files were being rewritten by another workstream at the time. One trap was identified and has to land in the same future change: a build call inside the parity test harness does not check its own return value, which is safe only as long as a build request can never be refused. The moment a cap can refuse one, that becomes an infinite loop instead of a bug.</p>
+  </div>
+  <section class="commits"><h4>Commits</h4><ul class="commit-list"><li><code>668c6b4</code> feat(data): terrain shape, and a fixture that stops the two parsers drifting</li><li><code>6977230</code> feat(validate): terrain invariants a schema cannot express, and the upgrade draw</li><li><code>8abd36c</code> feat(validate): a saturation denominator that survives free placement</li></ul></section>
+</article>
+<nav class="entry-nav bottom">
+  <span><a class="back" href="../index.html">&larr; the journal</a></span> <span><a class="prev" href="anchor-has-lanes.html">&larr; An anchor has lanes, not a lane</a></span> <span><a class="next" href="what-the-player-can-do.html">What the player can do now that they could not this morning &rarr;</a></span>
+</nav>
+
+</body>
+</html>

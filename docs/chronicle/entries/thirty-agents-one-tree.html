@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Thirty agents, one tree — Latticefall build journal</title>
+<meta name="description" content="Roughly thirty agents ran across this session, landing forty-four commits against one shared working tree — the same directory the owner plays the game out of while agents edit it. Most of what makes that survivable turned out to be process, not code.">
+<link rel="stylesheet" href="../chronicle.css">
+</head>
+<body>
+
+<nav class="entry-nav top"><a class="back" href="../index.html">&larr; the journal</a></nav>
+<article>
+  <header class="entry-header">
+    <time datetime="2026-07-31">July 31, 2026 · 00:41</time>
+    <h1>Thirty agents, one tree</h1>
+    <div class="chips"><span class="chip chip-epic">PRC</span></div>
+    <p class="summary lede">Roughly thirty agents ran across this session, landing forty-four commits against one shared working tree — the same directory the owner plays the game out of while agents edit it. Most of what makes that survivable turned out to be process, not code.</p>
+    
+  </header>
+  <div class="entry-body">
+    <p>Roughly thirty agents ran across this session, landing forty-four commits against one shared working tree — the same directory the owner plays the game out of while agents edit it. Most of what makes that survivable is process, not code, and it is worth recording as its own kind of result.</p><h3>A slow command is not failed, it is billed</h3><p>Four separate agents in one session stopped mid-task, apparently stuck, waiting on a command none of them had chosen to background: a long screenshot capture, a nine-minute parity run, and two others. None of them were actually hung. The tool harness's default two-minute timeout does not fail a slow command, it silently detaches it — and a detached process the harness is still tracking re-invokes the agent when it finally exits, billing a session everyone involved believed was already over. The fix is procedural rather than a code change: know in advance which commands can run long, and give those an explicit timeout up front rather than accepting the default.</p><h3>Captures multiply, they do not parallelise</h3><p>A single screenshot capture on this machine's software renderer measured at 788% CPU — about eight of sixteen cores. Three running at once drove load average to 18.6 and turned a nine-second capture into minutes, which is how two agents independently ran into the same two-minute command timeout on what looked like ordinary work. Captures are now bounded to two concurrent, machine-wide, through a lease file rather than a remembered rule.</p><h3>The reaper learned what it is allowed to kill</h3><p>Cleaning up stray processes at the end of a session used to classify anything that looked like a leftover engine process as fair game to kill — and across one seven-agent stretch, a report-only run of that cleanup repeatedly listed six to eight processes belonging to <strong>other agents</strong>, mid-capture, that an unconditional kill would have ended outright. Every process launch now takes a lease file naming its owner, and a cleanup pass walks a stray process's parent chain back to the lease that owns it before deciding whether it is abandoned or simply busy.</p><p>The honest limit found while building it: the session identifier this environment exposes is shared by every agent a single session fans out into, not unique per agent, so a kill command still cannot fully tell 'abandoned' from 'a sibling's live work'. That is why only the coordinating agent ever runs the kill command, and only after every fanned-out agent has already reported back.</p><h3>Six rules, turned mechanical</h3><p>Every rule above had already been written down once, in the project's own working instructions, before this session started — and every one of them still failed at least once anyway, because a rule someone has to remember under pressure is a rule that eventually gets skipped. All six became hooks that run automatically rather than guidance that has to be recalled: writes to the engine's import cache are denied outright, a long-running command with no explicit timeout gets a warning, and git's stash, add, reset and checkout-with-a-path are all denied with no escape hatch, because a plain path-scoped commit already covers the one legitimate need those commands are ever reached for. Whether the hooks actually fire on a live edit was left an open question rather than assumed answered — a prior attempt at a similar hook was never once observed firing, apparently because the tool harness reads its own configuration only at the start of a session.</p>
+  </div>
+  <section class="commits"><h4>Commits</h4><ul class="commit-list"><li><code>b41a5f4</code> docs: a slow command is not failed, it is backgrounded — and that bills</li><li><code>15ab5da</code> feat(tooling): the reaper knows what it is killing, and captures are bounded</li><li><code>4504c02</code> docs(skill): the wrap reaps last, not first, when agents are still out</li><li><code>2d20f37</code> feat(hooks): turn six remembered rules into mechanical ones</li></ul></section>
+</article>
+<nav class="entry-nav bottom">
+  <span><a class="back" href="../index.html">&larr; the journal</a></span> <span><a class="prev" href="measured-not-argued.html">&larr; Measured, not argued</a></span> <span><a class="next" href="the-failures.html">The failures, given real weight &rarr;</a></span>
+</nav>
+
+</body>
+</html>

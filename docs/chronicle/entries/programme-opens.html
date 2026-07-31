@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>I want a battle, I WANT A WAR — Latticefall build journal</title>
+<meta name="description" content="The owner played the build and asked for scale. The session opened with a backlog, a measured foundation, a PRD built on five pillars, and 74 issue specs decomposed across seven epics — reviewable in git before a single one became a GitHub issue.">
+<link rel="stylesheet" href="../chronicle.css">
+</head>
+<body>
+
+<nav class="entry-nav top"><a class="back" href="../index.html">&larr; the journal</a></nav>
+<article>
+  <header class="entry-header">
+    <time datetime="2026-07-30">July 30, 2026 · 20:57</time>
+    <h1>I want a battle, I WANT A WAR</h1>
+    <div class="chips"><span class="chip chip-epic">PRC</span></div>
+    <p class="summary lede">The owner played the build and asked for scale. The session opened with a backlog, a measured foundation, a PRD built on five pillars, and 74 issue specs decomposed across seven epics — reviewable in git before a single one became a GitHub issue.</p>
+    
+  </header>
+  <div class="entry-body">
+    <p>Latticefall today is a competent tower defence with one genuinely good idea: power is the real currency. The largest board is 18x15 tiles, peak screen presence is 32 units, one lane, one entrance, one exit, and a fixed list of eight to twelve places you are allowed to build. The owner played it and said what they wanted next, in their own words:</p><blockquote>I want a battle, I WANT A WAR.</blockquote><p>Theatre Scale is the programme that turns a screen into a battlefield. It rests on five pillars: ground you cannot cover, build where you want (no fixed slots), terrain that means something (elevation and bridges), weapons you can see from across the valley (spectacle as different <strong>shapes</strong> of power draw, never just bigger numbers), and power as a front line — supply you build, route, and defend.</p><p>One rule outranks all five. The rules of the game exist twice — <code>scripts/anchor_sim.gd</code> for the engine, <code>sim/engine.py</code> as the reference — and a parity harness diffs them on every commit: 864 runs when this session opened, 1,152 by the time it closed. That is what makes any balance claim in this project falsifiable, and every entry after this one either keeps both implementations in step or says plainly that it does not.</p><h3>74 issues, seven epics, no cycles</h3><div class="table-wrap"><table><thead><tr><th>Epic</th><th>Issues</th><th>Concerned with</th></tr></thead><tbody><tr><td>PRC</td><td>15</td><td>process and pipeline</td></tr><tr><td>CAM</td><td>8</td><td>camera and reading a big board</td></tr><tr><td>PLC</td><td>7</td><td>free placement</td></tr><tr><td>TER</td><td>14</td><td>terrain, elevation and bridges</td></tr><tr><td>WAR</td><td>15</td><td>multi-lane, mass and the war economy</td></tr><tr><td>ART</td><td>8</td><td>spectacle and fidelity</td></tr><tr><td>BAL</td><td>7</td><td>balance that can see the game</td></tr></tbody></table></div><p>The specs live in <code>docs/issues/*.md</code> and are the source of truth; GitHub is a projection built by <code>tools/issues.py</code>, so a lost repository or a rate limit costs nothing — re-run it and the issues come back identical. Twenty-two of the seventy-four could start with nothing blocking them.</p><p>The dependency graph was checked rather than trusted. <code>tools/issues.py</code> derives 'blocks' from 'depends', and the two had drifted: of thirteen hand-written 'blocks' claims, ten were either transitive or simply wrong — one asserted it blocked work the plan deliberately wanted running in parallel. Three were real, and became depends edges instead, which is the side that actually counts.</p><p>Four traps surfaced before a single issue was implemented, all found by reading the code the specs would touch rather than by writing the specs first and finding out later. The parity outcome signature encodes tower positions as <code>%s@%d,%d</code> in both engines, and free placement makes those floats — the grader's candidate positions would need pinning to a binary fraction to round-trip identically between languages. The parity test harness turned out to carry its own private copy of two build-placement functions, making the free-placement work a three-file change rather than two. Sprite yaw slots are named <code>y%03d</code> and the heading function returns a plain integer, and sixteen directions are 22.5 degrees apart — half of them not whole numbers — so that naming has to become bucket indices before a single new asset can render. And one rules file justifies a piece of bookkeeping 'because records are only ever compared by slot' — free placement removes the slot, so that invariant needs a new basis at the same moment it needs everything else.</p><p>Nothing above was built yet. It was the day the plan got measured instead of argued — which is also the subject of the entry that follows, and which happened, in fact, a little earlier the same evening.</p>
+  </div>
+  <section class="commits"><h4>Commits</h4><ul class="commit-list"><li><code>77ab387</code> docs: theatre-scale backlog — 22 items across four phases</li><li><code>54f9b69</code> docs: output rules, the theatre-scale PRD, and an issue pipeline</li><li><code>b001551</code> docs: 74 issue specs for theatre scale, projected into GitHub</li><li><code>199f967</code> docs(issues): make the dependency graph say what it means</li></ul></section>
+</article>
+<nav class="entry-nav bottom">
+  <span><a class="back" href="../index.html">&larr; the journal</a></span> <span><a class="next" href="seven-defects.html">Seven defects, measured before a line of the plan was written &rarr;</a></span>
+</nav>
+
+</body>
+</html>

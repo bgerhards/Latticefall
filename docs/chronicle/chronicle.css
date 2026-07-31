@@ -1,0 +1,358 @@
+/*
+  Latticefall build journal — one stylesheet, self-contained, no CDN and no remote font.
+
+  Palette is `scripts/ui_theme.gd`'s real, contrast-solved values (decisions 045/046),
+  converted from the sRGB fractions Godot's Color() literals already are — not linearised,
+  because these are UI colours rendered straight to screen, unlike the Blender materials
+  CLAUDE.md's palette warning is about. Converted once, here, rather than re-derived by eye:
+
+    C_VERD  (0.42, 0.74, 0.65)         -> #6bbda6   7.46:1 on the panel — held, online, friendly
+    C_AMBER (0.91, 0.64, 0.24)         -> #e8a33d   7.72:1 on the panel — armed, attention, cost
+    C_ALERT (0.95, 0.44, 0.36)         -> #f2705c   5.75:1 on the panel — brownout, losing, incoming
+    C_MUTED (0.591, 0.675, 0.687)      -> #97acaf   7.00:1 on the panel — captions, secondary text
+    C_BONE  (0.86, 0.89, 0.88)         -> #dbe3e0  12.73:1 on the panel — primary text
+    C_PANEL (0.086, 0.13, 0.145, .94)  -> #162125   the instrument-panel surface
+
+  The page background sits a shade below C_PANEL rather than reusing it outright, so panels
+  (entry cards, tables, code) read as raised surfaces the way they do in-game. Every text
+  colour above is at or past WCAG AA (4.5:1) against C_PANEL by construction (decisions 045,
+  046); re-checked here against this page's actual background in the chronicler's report
+  rather than assumed to carry over unchanged.
+*/
+
+:root {
+  --bg: #0b1013;
+  --panel: #162125;
+  --panel-raised: #1b2a2f;
+  --border: #253338;
+  --bone: #dbe3e0;
+  --muted: #97acaf;
+  --verd: #6bbda6;
+  --amber: #e8a33d;
+  --alert: #f2705c;
+  --mono: "Latticefall Mono", ui-monospace, "SFMono-Regular", "DejaVu Sans Mono", Consolas, monospace;
+  --sans: "Latticefall Sans", -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+/* This project is dark-panel by design (decision 007's whole point is that dimming is
+   visible against a dark ground), so the journal about it commits to the same look rather
+   than following the viewer's light/dark preference — a documentary about an instrument
+   panel should look like one. `color-scheme` still tells the browser what it is, so native
+   widgets (scrollbars, selection) render sanely regardless. */
+:root { color-scheme: dark; }
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--bone);
+  font-family: var(--sans);
+  font-size: 16px;
+  line-height: 1.55;
+  overflow-x: hidden;
+}
+
+body {
+  background-image:
+    radial-gradient(ellipse at top, rgba(107, 189, 166, 0.06), transparent 60%),
+    repeating-linear-gradient(transparent, transparent 39px, rgba(219, 227, 224, 0.02) 40px);
+}
+
+::selection { background: var(--verd); color: #0b1013; }
+
+a { color: var(--verd); text-decoration-color: rgba(107, 189, 166, 0.4); }
+a:hover { text-decoration-color: var(--verd); }
+a:focus-visible, button:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
+
+code {
+  font-family: var(--mono);
+  font-size: 0.92em;
+  background: rgba(219, 227, 224, 0.08);
+  padding: 0.1em 0.4em;
+  border-radius: 3px;
+  color: var(--bone);
+}
+
+main, header.masthead, article, footer.site-footer {
+  max-width: 780px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+/* ---- Masthead (index only) ---- */
+
+header.masthead {
+  padding-top: 64px;
+  padding-bottom: 32px;
+  border-bottom: 1px solid var(--border);
+}
+
+.kicker {
+  font-family: var(--mono);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-size: 0.8rem;
+  color: var(--amber);
+  margin: 0 0 8px;
+}
+
+header.masthead h1 {
+  font-size: 2.4rem;
+  margin: 0 0 12px;
+  letter-spacing: -0.01em;
+}
+
+.subtitle {
+  color: var(--muted);
+  max-width: 58ch;
+  font-size: 1.05rem;
+  margin: 0;
+}
+
+/* ---- Entry list (index) ---- */
+
+.entry-list {
+  list-style: none;
+  margin: 32px 0 64px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.entry-card {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--panel);
+}
+
+.entry-link {
+  display: block;
+  padding: 20px 24px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.entry-link:hover { background: var(--panel-raised); }
+.entry-link:hover h2 { color: var(--verd); }
+
+.entry-card time {
+  display: block;
+  font-family: var(--mono);
+  font-size: 0.82rem;
+  color: var(--muted);
+  letter-spacing: 0.02em;
+}
+
+.entry-card h2 {
+  margin: 6px 0 8px;
+  font-size: 1.3rem;
+  color: var(--bone);
+}
+
+.entry-card .summary {
+  color: var(--muted);
+  margin: 8px 0 0;
+  font-size: 0.98rem;
+}
+
+/* ---- Chips (epic / decision tags) ---- */
+
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0; }
+
+.chip {
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.chip-epic { color: var(--amber); border-color: rgba(232, 163, 61, 0.35); }
+.chip-decision { color: var(--verd); border-color: rgba(107, 189, 166, 0.35); }
+
+/* ---- Entry page ---- */
+
+.entry-nav {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  font-family: var(--mono);
+  font-size: 0.85rem;
+  padding: 20px 0;
+}
+
+.entry-nav.top { padding-top: 32px; max-width: 780px; margin: 0 auto; padding-left: 24px; padding-right: 24px; }
+.entry-nav.bottom {
+  max-width: 780px;
+  margin: 0 auto;
+  padding: 24px 24px 64px;
+  border-top: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+.entry-nav.bottom span { flex: 1 1 auto; }
+.entry-nav.bottom span:last-child { text-align: right; }
+.entry-nav a { text-decoration: none; }
+.entry-nav a:hover { text-decoration: underline; }
+
+.entry-header { padding: 8px 0 24px; border-bottom: 1px solid var(--border); }
+
+.entry-header time {
+  font-family: var(--mono);
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.entry-header h1 {
+  font-size: 2rem;
+  line-height: 1.25;
+  margin: 10px 0 12px;
+}
+
+.lede {
+  font-size: 1.08rem;
+  color: var(--muted);
+  max-width: 62ch;
+}
+
+.superseded {
+  font-family: var(--mono);
+  font-size: 0.85rem;
+  color: var(--alert);
+  border: 1px solid rgba(242, 112, 92, 0.4);
+  border-radius: 4px;
+  padding: 8px 12px;
+  display: inline-block;
+}
+
+.entry-body { padding: 28px 0 8px; }
+
+.entry-body h2 { font-size: 1.5rem; margin: 40px 0 14px; color: var(--bone); }
+.entry-body h3 {
+  font-size: 1.15rem;
+  margin: 32px 0 12px;
+  color: var(--verd);
+  border-left: 3px solid var(--verd);
+  padding-left: 10px;
+}
+
+.entry-body p { margin: 0 0 16px; }
+
+.entry-body ul { margin: 0 0 16px; padding-left: 1.3em; }
+.entry-body li { margin: 0 0 10px; }
+.entry-body li:last-child { margin-bottom: 0; }
+
+blockquote {
+  margin: 24px 0;
+  padding: 4px 0 4px 20px;
+  border-left: 3px solid var(--amber);
+  font-size: 1.3rem;
+  font-style: italic;
+  color: var(--bone);
+}
+
+blockquote cite {
+  display: block;
+  margin-top: 8px;
+  font-family: var(--mono);
+  font-size: 0.85rem;
+  font-style: normal;
+  color: var(--muted);
+}
+
+.table-wrap {
+  overflow-x: auto;
+  margin: 0 0 20px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+table { border-collapse: collapse; width: 100%; font-size: 0.92rem; }
+
+th, td {
+  text-align: left;
+  padding: 8px 14px;
+  white-space: nowrap;
+}
+
+th {
+  font-family: var(--mono);
+  text-transform: uppercase;
+  font-size: 0.72rem;
+  letter-spacing: 0.05em;
+  color: var(--amber);
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+}
+
+td { color: var(--bone); border-bottom: 1px solid rgba(37, 51, 56, 0.6); }
+tr:last-child td { border-bottom: none; }
+td code, th code { white-space: normal; }
+
+figure {
+  margin: 24px 0;
+  padding: 12px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+figure img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 3px;
+  background: #000;
+}
+
+figcaption {
+  margin-top: 10px;
+  font-size: 0.88rem;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+/* ---- Commits ---- */
+
+.commits { margin-top: 36px; padding-top: 20px; border-top: 1px dashed var(--border); }
+
+.commits h4 {
+  font-family: var(--mono);
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  margin: 0 0 12px;
+}
+
+.commit-list { list-style: none; margin: 0; padding: 0; font-size: 0.9rem; }
+.commit-list li { margin: 0 0 8px; color: var(--muted); }
+.commit-list code { color: var(--amber); background: transparent; padding: 0; }
+
+/* ---- Footer ---- */
+
+footer.site-footer {
+  padding: 32px 24px 64px;
+  color: var(--muted);
+  font-size: 0.85rem;
+  border-top: 1px solid var(--border);
+  margin-top: 16px;
+}
+
+footer.site-footer code { font-size: 0.85em; }
+
+/* ---- Small screens ---- */
+
+@media (max-width: 600px) {
+  header.masthead { padding-top: 40px; }
+  header.masthead h1 { font-size: 1.9rem; }
+  .entry-header h1 { font-size: 1.6rem; }
+  th, td { padding: 6px 10px; }
+  blockquote { font-size: 1.1rem; }
+}
