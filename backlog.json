@@ -1,5 +1,5 @@
 {
-  "next_id": 169,
+  "next_id": 174,
   "items": [
     {
       "id": "LF-001",
@@ -1375,11 +1375,11 @@
       "kind": "chore",
       "area": "tooling",
       "pri": "med",
-      "status": "open",
+      "status": "done",
       "why": "",
       "opened": "2026-07-30",
-      "closed": null,
-      "note": ""
+      "closed": "2026-07-31",
+      "note": "Fixed by PRC-20: tools/session.py --tier now forwards to check.py, and check.py's own summary line already carries the tier, so STATE's Gate block cannot silently overclaim. Verified live \u2014 a --tier 1 regen wrote 'tier 1 \u2014 15 passed \u00b7 0 failed \u00b7 15 skipped' into STATE."
     },
     {
       "id": "LF-116",
@@ -1603,11 +1603,11 @@
       "kind": "bug",
       "area": "tooling",
       "pri": "med",
-      "status": "open",
+      "status": "done",
       "why": "",
       "opened": "2026-07-31",
-      "closed": null,
-      "note": ""
+      "closed": "2026-07-31",
+      "note": "Already fixed in 2959404 before PRC-20 started: run_godot() has GODOT_SUBPROCESS_TIMEOUT_S = 1700.0 with a comment citing LF-134. The item was simply never closed \u2014 an argument for closing at the commit rather than at the wrap."
     },
     {
       "id": "LF-135",
@@ -1951,11 +1951,11 @@
       "kind": "risk",
       "area": "design",
       "pri": "med",
-      "status": "open",
+      "status": "done",
       "why": "",
       "opened": "2026-07-31",
-      "closed": null,
-      "note": ""
+      "closed": "2026-07-31",
+      "note": "Closed. Charge accrual is modelled in sim/engine.py + scripts/test/parity.gd, mirroring GDScript's PRE-EXISTING rule in scripts/abilities.gd / anchor_view.gd \u2014 scripts/anchor_sim.gd is untouched, zero diff. The gap was never in the rules; it was in BAL-01's own scheduled-dispatch layer, which both engines documented as having no charge model at all. Re-graded all 72 anchor-by-difficulty cells charge-gated vs ungated, twice, byte-identical both times and cross-checked against the sim.run CLI with 0 mismatches: ZERO cells flip. Red-proved live rather than assumed \u2014 anchor-12/brutal, 12 scheduled surge attempts, 3 fired, 9 denied for insufficient charge. Cause of the zero: surge-on-peak is not the SOLE winner on any of the 72 cells under today's ruleset. It drops out of 7 cells' winner lists under gating (anchor-11 standard, anchor-12 and anchor-13 at all three difficulties \u2014 exactly where BAL-01 flagged it, so the LOCATION of the concern was real) but every one of those stays won by conventional builds with no ability involved. BAL-04 is unblocked; see the successor item on why BAL-01's original finding no longer reproduces."
     },
     {
       "id": "LF-164",
@@ -2010,6 +2010,66 @@
       "title": "tools/audio/loudness.py's band is anchored to the bank's own spread and structurally cannot catch a UNIFORM bank-wide drift \u2014 every cue N dB hot together moves the mean, the stdev and the band with it, so the check stays green. Stated in the module docstring as a limit of the method rather than a bug, and worth recording separately because it is exactly the failure CLAUDE.md's fifth non-negotiable describes ('a synthesis change that is perfectly deterministic but drifts the whole bank's perceived loudness'). MEASURED consequence of the same property at the per-file level: the SFX band is 23.2 LU wide because cues are deliberately NOT matched to each other (a hover tick and a heavy footfall should not be equally loud), so ui_confirm.wav at +6 dB PASSES \u2014 proved, not assumed. Loud-edge and quiet-edge cues do fail at +/-6 dB (shield_break -8.89, threshold_idle -36.77), so the check is real, just blunt in the middle of the band. Fix needs a SECOND signal, not a tighter band: track the bank's mean LUFS against a frozen historical baseline committed alongside the bank, so a uniform shift moves the mean away from a number that does not move with it. Do NOT respond by narrowing the per-file band \u2014 that would fail cues the sound design intends to be quiet, and decision 011 already records what happens when a metric gets tuned against itself.",
       "kind": "chore",
       "area": "audio",
+      "pri": "med",
+      "status": "open",
+      "why": "",
+      "opened": "2026-07-31",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-169",
+      "title": "wrap_gate.py's assets/** escalation trigger fires on ANY uncommitted change under assets/, including Godot-regenerated *.import sidecars that carry no gameplay content. On a shared tree that forces the wrap to tier 4 for reasons unrelated to the session's own work \u2014 observed live during PRC-20's own verification, where untracked assets/renders/*.import litter left by another workstream escalated the wrap twice. Interacts directly with LF-165 (360 of those sidecars are sitting untracked right now), so fixing LF-165 also fixes most of this. Either exclude *.import from the trigger, or scope it to TRACKED-file diffs only \u2014 the latter is the same reasoning PRC-02 already applied to the gate's file enumeration ('tracked in this repository' is the definition of the thing the check means).",
+      "kind": "chore",
+      "area": "tooling",
+      "pri": "med",
+      "status": "open",
+      "why": "",
+      "opened": "2026-07-31",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-170",
+      "title": "check.py's per-check elapsed timer uses time.time(), not time.monotonic(). Observed once during PRC-20's verification under heavy concurrent CPU load: a check reported -796ms, i.e. NEGATIVE elapsed time, consistent with a wall-clock adjustment landing mid-check. Not reproduced on demand, so this is one data point rather than a diagnosis. It matters more than it looks: the gate's whole tiering argument rests on per-check costs being trustworthy, --budget turns tier 1's 10s and tier 2's 25s into assertions against those numbers, and tier 2 is currently measuring 24.9-26.4s against a 25s budget \u2014 a timer that can move backwards under load is exactly the wrong instrument to be that close to a threshold with. One-line fix; monotonic is what a duration always wanted.",
+      "kind": "bug",
+      "area": "tooling",
+      "pri": "med",
+      "status": "open",
+      "why": "",
+      "opened": "2026-07-31",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-171",
+      "title": "guard.py denies commands for MENTIONING a guarded thing, not for doing it \u2014 three occurrences in one session, from two different rules, and the third blocked a commit outright. (1) rule_raw_engine denied 'ps -eo args | grep -E \"...|godot\"', a process listing that launches nothing. (2) rule_godot_write denied 'git commit -m \"...\"' because the COMMIT MESSAGE TEXT contained the engine's import-cache directory path while explaining why a sidecar file cannot affect the rules \u2014 a commit message is not a filesystem write. Worked around with 'git commit -F <file>', which the rule does not inspect, so the guard did not even prevent the thing it thought it was preventing; it only made the author route around it. (3) LF-166 is the same family from the git-safety rule. The pattern is that every rule reasons about shell TEXT rather than about argv structure, and _segments() is explicitly documented as not being a real parser. Cost is not the retry, it is that each false positive teaches the reflex of rewording or reaching for the escape hatch, and a guard that is routinely worked around stops guarding. Suggested fix, one shape for all of them: decide on argv0 plus the positional arguments a verb actually takes \u2014 the git-safety rule already computes argv0 and could be the model \u2014 and never on a substring of the whole command line. At minimum, skip any segment whose argv0 is a read-only inspector (ps, grep, rg, awk, cat, git log, git commit -m/-F) before pattern-matching its text. Supersedes the narrower LF-167, which described only occurrence (1).",
+      "kind": "bug",
+      "area": "tooling",
+      "pri": "med",
+      "status": "open",
+      "why": "",
+      "opened": "2026-07-31",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-172",
+      "title": "BAL-01's headline finding DOES NOT REPRODUCE against the current ruleset, and it is published in the chronicle. The claim was 'Threshold Surge flips 9 of 72 anchor-by-difficulty cells from loss to win, sweeping all three difficulties on anchor-12 and anchor-13, and is 0 worse across all 72'. Re-graded today with the full policy roster while closing LF-163: surge-on-peak is not the sole winner on ANY of the 72 cells, charge-gated or not. Every cell it used to flip is already won independently by another policy (mortar-core, burst, flak-screen, intel-first, depending on the anchor), so the loss-without-surge premise the finding rested on is gone. The 0-worse half still holds. Two things are unresolved and both matter. FIRST, why it moved: BAL-01's own report says the four capped-core policies including mortar-core were already in its 16-policy baseline when it ran, so mortar-core's arrival is NOT the explanation. Candidates not yet investigated are the intervening balance fixes LF-098, LF-129, LF-130, LF-136, or a content edit to anchor-12/13 itself; 'git log --oneline -- data/anchors/anchor-12.json data/anchors/anchor-13.json' is the first place to look. SECOND, the three unnamed cells: BAL-01 said nine, and only six (anchor-12 and anchor-13 at three difficulties each) are named anywhere in the issue spec, the chronicle entry, DECISIONS or the backlog \u2014 the other three were never written down, which is itself a finding about how a measurement gets recorded here. Do not cite BAL-01's finding for anything until this is settled. The chronicle is append-only, so the correction is a NEW entry linking back, never an edit to the old one.",
+      "kind": "bug",
+      "area": "design",
+      "pri": "med",
+      "status": "open",
+      "why": "",
+      "opened": "2026-07-31",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-173",
+      "title": "tools/chronicle.py's render_inline applies its bold-split on ** AFTER wrapping code spans in <code>, so a glob inside backticks corrupts the output: a backticked 'sim/**' renders as '<code>sim/</strong></code>' \u2014 unbalanced tags in published HTML. Also single-asterisk *emphasis* is not supported at all and prints literal asterisks. Both are live on the published site right now: the 'measuring-the-fifth-non-negotiable' entry renders '*current accepted bank*' with the asterisks visible. Found by the chronicler while drafting the next entry, which worked around it by avoiding globs in code spans and using ** for emphasis \u2014 a workaround every future entry now has to remember, which is how this stays broken. The chronicle is append-only so the existing entry must NOT be edited; fixing the renderer will correct it on the next regeneration, which is the right shape. Fix is to split on ** BEFORE extracting code spans, or to tokenise once and never re-scan text already placed inside a tag.",
+      "kind": "bug",
+      "area": "tooling",
       "pri": "med",
       "status": "open",
       "why": "",

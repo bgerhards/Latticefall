@@ -694,16 +694,24 @@ def main() -> int:
     # default/linux cache (see _cache_path_for()).
     cache_path = None if args.godot else _cache_path_for(args.platform)
 
+    # PRC-20: the digest is computed for every full run with a cache file, not only a
+    # cache-hit read, so a fresh (non-cached) run can print it too — see the final "parity
+    # ok" print below. Without this, a cached skip and a freshly-verified pass looked
+    # identical except for wall-clock, and there was no way to tell them apart from output
+    # alone (the whole point of "make the cache visible", PRC-20 task 3).
+    digest = parity_inputs_digest(exe) if (is_full_run and cache_path is not None) else None
+
     # Cache read: only a full run consults it, and --json/--force/--no-cache all mean
     # "run it anyway" for their own distinct reasons (see each flag's help text).
-    digest = None
     if (is_full_run and cache_path is not None and not args.json and not args.force
             and not args.no_cache):
-        digest = parity_inputs_digest(exe)
         cache = _load_cache_at(cache_path)
         if _cache_hit(cache, digest, exe):
+            n_data = len(_tracked_data_files())
             print(f"parity cached — skipping {cache.get('runs', '?')} runs (digest "
-                  f"{digest[:12]}, last verified {cache.get('passed_at', '?')} at commit "
+                  f"{digest[:12]}, covers {len(DIGEST_FIXED_FILES)} rule file(s) + "
+                  f"{n_data} data file(s) + godot --version, last verified "
+                  f"{cache.get('passed_at', '?')} at commit "
                   f"{(cache.get('commit') or '?')[:12]})")
             return 0
 
@@ -756,7 +764,13 @@ def main() -> int:
 
     scope = f" [shard {args.shard}]" if shard else (f" [{args.anchor}]" if args.anchor else "")
     scope += "" if platform_label == "default" else f" [{platform_label}]"
-    print(f"parity ok — {n} runs identical (gdscript vs python){scope}")
+    # PRC-20: side by side with the "parity cached" line above, so a reader can tell a
+    # legitimate skip from a freshly-verified pass from the output alone. Only a full run
+    # has a digest to show (see where `digest` is computed above) — a --shard/--anchor
+    # slice never consults or produces one, which is exactly the "no digest" case.
+    digest_note = f" (digest {digest[:12]}, freshly verified — not from cache)" if digest \
+        else ""
+    print(f"parity ok — {n} runs identical (gdscript vs python){scope}{digest_note}")
     return 0
 
 
