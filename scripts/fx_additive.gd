@@ -36,7 +36,41 @@ func _ready() -> void:
 	fx = get_parent().get_node_or_null(^"CombatFx") as Node2D
 
 
+## CAM-06/CAM-07 verification: `-- --profile <frames>` (main.gd) times this layer's own
+## `_draw()` calls in milliseconds. See anchor_view.gd's `start_profiling()` for the fuller
+## doc this mirrors (duplicated per layer, not shared — see glow_layer.gd's own note).
+var _profile_ticks: PackedFloat64Array = PackedFloat64Array()
+var _profiling: bool = false
+
+
+func start_profiling() -> void:
+	_profiling = true
+	_profile_ticks.clear()
+
+
+func profile_stats() -> Dictionary:
+	if _profile_ticks.is_empty():
+		return {"mean": 0.0, "p95": 0.0, "n": 0}
+	var sorted := _profile_ticks.duplicate()
+	sorted.sort()
+	var n := sorted.size()
+	var total := 0.0
+	for v in sorted:
+		total += v
+	var idx := clampi(int(ceil(0.95 * float(n))) - 1, 0, n - 1)
+	return {"mean": total / float(n), "p95": sorted[idx], "n": n}
+
+
 func _draw() -> void:
+	if not _profiling:
+		_draw_impl()
+		return
+	var t0 := Time.get_ticks_usec()
+	_draw_impl()
+	_profile_ticks.append(float(Time.get_ticks_usec() - t0) / 1000.0)
+
+
+func _draw_impl() -> void:
 	if fx == null or fx.view == null or fx.view.sim == null or not Sprites.ok:
 		return
 	# Respect Display.glow as a ceiling on additive brightness (the light-sensitivity
@@ -219,11 +253,18 @@ func _draw_hit_flashes(energy: float) -> void:
 	## making the whole pass quadratic in unit count (CAM-08 / LF-100). combat_fx.gd now
 	## buckets hits by integer tile, so the per-unit lookup below only walks a local 3x3
 	## neighbourhood; nothing here changed to make that true.
+	##
+	## CAM-07: `d["tile"]` (the raw tile-space point `drawables()` already computed via
+	## `sim.point_at(u["dist"])` to build `d["at"]`) rather than a second, independent
+	## `sim.point_at()` call here. The two were never actually able to disagree — sim state
+	## is frozen for the whole render pass, so a fresh call always recomputed the same point
+	## — but reading the one `drawables()` already produced removes even the theoretical
+	## chance of drift and the redundant call, instead of leaving two reads of one fact.
 	var view: Node2D = fx.view
 	for d in view.drawables():
 		if d["kind"] != "unit":
 			continue
-		var tile: Vector2 = view.sim.point_at(float(d["ref"]["dist"]))
+		var tile: Vector2 = d["tile"]
 		var hit: Dictionary = fx.hit_flash_at(tile)
 		if hit.is_empty():
 			continue

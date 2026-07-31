@@ -28,7 +28,43 @@ func _ready() -> void:
 	Display.changed.connect(queue_redraw)
 
 
+## CAM-06/CAM-07 verification: `-- --profile <frames>` (main.gd) times this layer's own
+## `_draw()` calls in milliseconds. Off by default; see anchor_view.gd's `start_profiling()`
+## for the fuller doc this mirrors — duplicated per layer rather than shared through a base
+## class, since each of the four profiled scripts (AnchorView, GlowLayer, FxAdditive,
+## CombatFx) has a different parent type already.
+var _profile_ticks: PackedFloat64Array = PackedFloat64Array()
+var _profiling: bool = false
+
+
+func start_profiling() -> void:
+	_profiling = true
+	_profile_ticks.clear()
+
+
+func profile_stats() -> Dictionary:
+	if _profile_ticks.is_empty():
+		return {"mean": 0.0, "p95": 0.0, "n": 0}
+	var sorted := _profile_ticks.duplicate()
+	sorted.sort()
+	var n := sorted.size()
+	var total := 0.0
+	for v in sorted:
+		total += v
+	var idx := clampi(int(ceil(0.95 * float(n))) - 1, 0, n - 1)
+	return {"mean": total / float(n), "p95": sorted[idx], "n": n}
+
+
 func _draw() -> void:
+	if not _profiling:
+		_draw_impl()
+		return
+	var t0 := Time.get_ticks_usec()
+	_draw_impl()
+	_profile_ticks.append(float(Time.get_ticks_usec() - t0) / 1000.0)
+
+
+func _draw_impl() -> void:
 	if view == null or view.sim == null or not Sprites.ok:
 		return
 	# Brownout dimming is the mechanic (decision 007); the Display factor is the player's

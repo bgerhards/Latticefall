@@ -88,6 +88,15 @@ var _press_at: Array = []        ## [{frame:int, action:String, fired:bool}]
 ## inside chain_window_s of each other, which nothing at --fixed-fps can produce on its own.
 var _chain_cli: int = 0
 
+## `-- --profile <frames>` (CAM-06/CAM-07): print mean/p95 milliseconds per draw layer
+## (AnchorView, GlowLayer, FxAdditive, CombatFx) over this many rendered frames, then exit.
+## The performance claims in those two issues need a falsifiable number, not a feeling —
+## see docs/issues/CAM-06-cull-and-cache-board-tiles.md's own task asking for this hook,
+## following the existing `_setup_cli()` idiom rather than a bespoke tool. 0 means "not
+## requested"; a real frame count is always >= 1 because `--profile 0` parses as falsy here
+## exactly like every other unset numeric flag in this file.
+var _profile_frames: int = 0
+
 ## `-- --camera <x> <y> <zoom>` (CAM-03): point the board camera at a tile coordinate at a
 ## chosen zoom, bypassing pan/zoom/edge-scroll/cursor-follow entirely so a `--shot` and its
 ## paired `--a11y` report depend on the flag alone rather than on default framing that CAM-01
@@ -146,6 +155,18 @@ func _ready() -> void:
 
     view.state_changed.connect(_on_state_changed)
     view.boot(anchor_id, difficulty)
+    if _profile_frames > 0:
+        # After boot(): view.glow_layer/combat_fx/fx_additive are set in each node's own
+        # _ready(), which — per the existing note on child-vs-parent ready order elsewhere
+        # in this file — has already run by the time this line does, but boot() is still the
+        # natural "the level exists now" point to start sampling from.
+        view.start_profiling()
+        if view.glow_layer:
+            view.glow_layer.start_profiling()
+        if view.combat_fx:
+            view.combat_fx.start_profiling()
+        if view.fx_additive:
+            view.fx_additive.start_profiling()
     if not _camera_cli.is_empty():
         # After boot(), which is what seeds the default framing this overrides — see
         # AnchorView.set_camera_override()'s own doc for why the order matters.
@@ -305,6 +326,16 @@ func _setup_cli() -> void:
             "--hold":
                 if i + 1 < argv.size():
                     _hold_actions.append(argv[i + 1])
+            "--profile":
+                if i + 1 < argv.size() and argv[i + 1].is_valid_int():
+                    _profile_frames = int(argv[i + 1])
+    if _profile_frames > 0:
+        # Profiling needs the run to still be going at frame _profile_frames — extending
+        # _shot_at (rather than adding a second, separate quit condition) reuses the single
+        # existing pause-and-quit path in _process() unchanged, whether or not --shot was
+        # also passed. See _process()'s own note on why render_loop_enabled also has to stay
+        # on for the whole window when profiling, not just the last few frames before a shot.
+        _shot_at = maxi(_shot_at, _profile_frames)
 
 
 func _place_requested() -> void:
@@ -376,6 +407,12 @@ func _process(_delta: float) -> void:
             and _frame % 15 == 0:
         _dump_ability_live()
     if _shot_path == "":
+        if _profile_frames > 0 and _frame >= _profile_frames:
+            # --profile with no --shot: nothing pauses the tree or wants a PNG, so this is
+            # its own small quit path rather than routing through the --shot branch below.
+            _shot_taken = true
+            _print_profile_stats()
+            get_tree().quit()
         return
     # Draw only the frames that end up in the PNG.
     #
@@ -390,7 +427,12 @@ func _process(_delta: float) -> void:
     # Deliberately not `--fixed-fps 0` or a bigger DT: the sim is stepped at a fixed
     # AnchorSimScript.DT and the capture must stay reproducible from _shot_at alone (LF-029).
     # This changes how many frames are *painted*, never how many are *simulated*.
-    RenderingServer.render_loop_enabled = _frame >= _shot_at - SHOT_WARMUP_FRAMES
+    #
+    # --profile is the one thing that needs every frame actually drawn, not just the last
+    # few before the shot: it measures each draw layer's own _draw() cost, which is zero on
+    # a frame the render loop skipped. _setup_cli() already folded _profile_frames into
+    # _shot_at, so this only has to keep the render loop on for the whole window.
+    RenderingServer.render_loop_enabled = _profile_frames > 0 or _frame >= _shot_at - SHOT_WARMUP_FRAMES
     if _frame >= _shot_at:
         _shot_taken = true
         # Freeze before awaiting. --fixed-fps disables real-time sync, so the loop
@@ -430,6 +472,8 @@ func _process(_delta: float) -> void:
             for d in view.drawables():
                 print("FACE %s %s yaw=%d at=(%.0f,%.0f)"
                     % [d["kind"], d["sprite"], d["yaw"], d["at"].x, d["at"].y])
+        if _profile_frames > 0:
+            _print_profile_stats()
         get_tree().quit()
 
 
@@ -652,6 +696,26 @@ func _dump_veterancy() -> void:
         print("VET slot=(%d,%d) tower=%s kills=%d rank=%s damage_mult=%.2f range_mult=%.2f base_range=%.2f"
             % [slot.x, slot.y, String(p["tower"]["id"]), kills, String(best.get("name", "")),
                float(best.get("damage_mult", 1.0)), float(best.get("range_mult", 1.0)), base_range])
+
+
+func _print_profile_stats() -> void:
+    ## `-- --profile <frames>` (CAM-06/CAM-07): mean/p95 milliseconds per draw layer over
+    ## every frame actually rendered since boot(), plus how many times drawables() ran its
+    ## build body — CAM-07's own acceptance criterion is that number reading 1-per-frame,
+    ## not a feeling that sharing helped.
+    _print_layer_stats("AnchorView._draw", view.profile_stats())
+    if view.glow_layer:
+        _print_layer_stats("GlowLayer._draw", view.glow_layer.profile_stats())
+    if view.fx_additive:
+        _print_layer_stats("FxAdditive._draw", view.fx_additive.profile_stats())
+    if view.combat_fx:
+        _print_layer_stats("CombatFx._draw", view.combat_fx.profile_stats())
+    print("DRAWABLES rebuilds=%d" % view.drawables_rebuild_count())
+
+
+func _print_layer_stats(label: String, stats: Dictionary) -> void:
+    print("PROFILE layer=%s n=%d mean_ms=%.4f p95_ms=%.4f"
+        % [label, int(stats["n"]), float(stats["mean"]), float(stats["p95"])])
 
 
 func _unhandled_input(event: InputEvent) -> void:

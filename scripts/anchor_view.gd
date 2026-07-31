@@ -226,6 +226,16 @@ func boot(aid: String, diff: String) -> void:
 	var unlocked: Array = Content.unlocked_at(anchor_id)
 	selected_tower = String(unlocked[0]) if unlocked.size() > 0 else ""
 
+	# CAM-06/CAM-07: a fresh anchor invalidates both the tile cache (lazily, on the next
+	# _draw_board() call comparing anchor_id) and the per-frame drawables() cache. The tile
+	# cache does not need clearing here — `_tile_cache_anchor != anchor_id` already catches
+	# it — but the frame key and the verification counter are reset explicitly so a second
+	# boot() in the same process (e.g. a future level-select flow) cannot read a stale
+	# drawables_rebuild_count left over from a previous anchor.
+	_drawables_cache = []
+	_drawables_cache_frame = -1
+	_drawables_rebuild_count = 0
+
 	# Everything the board itself needs is done above this line. combat_fx.bind() wires a
 	# cosmetic layer and goes last, guarded, for exactly the failure this project just had:
 	# a parse error in combat_fx.gd left the CombatFx node scriptless, `combat_fx.bind(sim)`
@@ -1144,6 +1154,68 @@ func select(tower_id: String) -> void:
 
 const C_TILE := Color(0.09, 0.13, 0.15)
 const C_TILE_ALT := Color(0.10, 0.15, 0.17)
+
+# ─────────────────────────────────────────────────────────── tile cache ──
+#
+# CAM-06: ground/path/slot tiles never change during a level — `_draw_board()` used to
+# recompute `_path_tiles()`, rebuild `slot_set` and walk the whole grid every single frame,
+# which is 4,096 tile draws before a unit moves at a synthetic 64x64 board. The cache below
+# is built once, lazily, the first `_draw_board()` call for a given `anchor_id`; every later
+# call culls the cached list against the current camera rect instead of rebuilding it.
+
+## One entry per board tile, in painter's order: `{"pos": Vector2, "kind": String,
+## "alt": bool}`. `pos` is `IsoScript.tile_to_screen(x, y)` **without** `_origin` added —
+## `_origin` moves with the camera every frame, so it is added back at draw time, not baked
+## into the cache. The `s_`/`x` build loop in `_rebuild_tile_cache()` *is* the depth sort
+## (increasing tx+ty, ties broken by x), so this array needs no `sort_custom` — the obvious
+## mistake here is to add one.
+var _tile_cache: Array[Dictionary] = []
+## The anchor_id `_tile_cache` was built for. "" means unbuilt. `_draw_board()` compares
+## this against the live `anchor_id` every call and rebuilds on a mismatch — lazy rather
+## than an explicit call from `boot()`/`_editor_refresh()`, so a cache is correct under any
+## path that ends up drawing a different anchor, not just the ones this file remembers to
+## invalidate from by hand (the same reasoning `drawables()`'s frame-keyed cache below uses).
+var _tile_cache_anchor: String = ""
+
+## Slack, in screen px at zoom 1.0, added around the camera-derived visible rect before a
+## cached tile is culled. 256, not 128 (one tile's own diamond footprint): the atlas packs
+## every sprite into a fixed 256px cell (CLAUDE.md — "never trims"), and a tall or wide tile
+## texture can extend past its diamond before the alpha silhouette starts. This margin also
+## absorbs screen shake's up-to-16px offset (TRAUMA_MAX_OFFSET), which culling deliberately
+## ignores rather than tracking exactly — see `_draw_board()`'s own note.
+const TILE_CULL_MARGIN_PX := 256.0
+
+
+func _rebuild_tile_cache(anchor: Dictionary) -> void:
+	## Folds in `_path_tiles()` and the slot-tile set, which used to be rebuilt inline in
+	## `_draw_board()` every frame too — same waste, same fix.
+	var grid: Dictionary = anchor.get("grid", {"w": 12, "h": 10})
+	var gw := int(grid["w"])
+	var gh := int(grid["h"])
+	var path_tiles := _path_tiles(anchor)
+	var slot_set := {}
+	for slot in anchor.get("slots", []):
+		slot_set[Vector2i(int(slot[0]), int(slot[1]))] = true
+	_tile_cache.clear()
+	# painter's order: increasing tile depth, so a nearer tile overdraws a farther one —
+	# this loop *is* the sort (see `_tile_cache`'s own doc).
+	for s_ in range(gw + gh - 1):
+		for x in range(gw):
+			var y := s_ - x
+			if y < 0 or y >= gh:
+				continue
+			var cell := Vector2i(x, y)
+			var kind := "tile_ground"
+			if path_tiles.has(cell):
+				kind = "tile_path"
+			elif slot_set.has(cell):
+				kind = "tile_slot"
+			_tile_cache.append({
+				"pos": IsoScript.tile_to_screen(float(x), float(y)),
+				"kind": kind,
+				"alt": (x + y) % 2 == 0,
+			})
+	_tile_cache_anchor = anchor_id
 const C_PATH := Color(0.30, 0.22, 0.10)
 const C_SLOT := Color(0.20, 0.34, 0.31)
 const C_VERD := Color(0.37, 0.66, 0.58)
@@ -1230,9 +1302,55 @@ func _face(p: Dictionary, heading: Vector2) -> int:
 	return yaw
 
 
+## CAM-07: last frame `drawables()` built its list for, and the cached result — see
+## `drawables()`'s own doc for why the key is `Engine.get_frames_drawn()` rather than
+## something built once in `_process()`. -1 never matches a real frame number, so the very
+## first call always builds.
+var _drawables_cache: Array = []
+var _drawables_cache_frame: int = -1
+## Verification-only counter (main.gd's `-- --profile`): how many times the build body
+## below has actually run, so "once per frame" is something a 600-frame run can assert on
+## rather than trust. Reset in `boot()`.
+var _drawables_rebuild_count: int = 0
+
+
 func drawables() -> Array:
-	## One ordered list, shared by the albedo draw and the additive glow layer, so the
-	## two passes cannot disagree about contents, facing or depth order.
+	## One ordered list, shared by the contact-shadow pass, the sprite pass, the additive
+	## glow layer and the hit-flash pass, so none of them can disagree about contents,
+	## facing or depth order.
+	##
+	## CAM-07: cached per drawn frame. `Engine.get_frames_drawn()`, not a flag set in
+	## `_process()` — `AnchorView` (z 0), `GlowLayer` (z 10) and `FxAdditive` (z 14) all
+	## draw after `_process()` in the ordinary case, but a `queue_redraw()` reached from a
+	## signal handler could still land between two of those draws within the same rendered
+	## frame; a cache keyed on the frame the engine is *actually drawing* is correct under
+	## every ordering, one built eagerly in `_process()` is only correct under the ordering
+	## that happens to hold today. Lazy: whichever layer draws first this frame pays the
+	## build cost (`_build_drawables()`) and the rest read the cached `Array`.
+	##
+	## Returns the cached `Array` itself, not a copy — callers (`glow_layer.gd`,
+	## `fx_additive.gd`) must treat it as read-only. Both currently only read it.
+	var frame := Engine.get_frames_drawn()
+	if frame != _drawables_cache_frame:
+		_drawables_cache = _build_drawables()
+		_drawables_cache_frame = frame
+		_drawables_rebuild_count += 1
+	return _drawables_cache
+
+
+func drawables_rebuild_count() -> int:
+	## Verification-only accessor for main.gd's `-- --profile`.
+	return _drawables_rebuild_count
+
+
+func _build_drawables() -> Array:
+	## `_face()` (bucket + hysteresis) now runs once per frame per emplacement instead of
+	## up to four times — see this file's own risk note in docs/issues/CAM-07 on why that
+	## is safe: sim state is frozen for the whole render pass (it only advances in
+	## `_process()`, which always completes before any `_draw()` this frame), so every one
+	## of the old four calls was already computing from the same heading and converged to
+	## the same bucketed yaw. Verified empirically with `--facings`, not just argued — see
+	## this issue's PR notes.
 	var out: Array = []
 	for p in sim.placed:
 		out.append({
@@ -1255,13 +1373,59 @@ func drawables() -> Array:
 			"yaw": IsoScript.yaw_for_heading(_unit_heading(u)),
 			"online": true,
 			"at": IsoScript.tile_to_screen(at.x, at.y) + _origin,
+			# Raw tile-space point, before projection — fx_additive.gd's hit-flash pass used
+			# to recompute this itself via a fresh `sim.point_at(d["ref"]["dist"])` call.
+			# Harmless (sim state cannot change mid-render-pass, so it always recomputed the
+			# same point `at` already is), but two reads of the same fact is exactly the
+			# thing that could silently drift if either side ever changed independently —
+			# CAM-07's own review note asks this to be unified. One source now.
+			"tile": at,
 			"ref": u,
 		})
 	out.sort_custom(func(a, b): return a["depth"] < b["depth"])
 	return out
 
 
+## CAM-06/CAM-07 verification: `-- --profile <frames>` (main.gd) times this layer's own
+## `_draw()` calls in milliseconds. See the shared doc atop `start_profiling()` below.
+var _profile_ticks: PackedFloat64Array = PackedFloat64Array()
+var _profiling: bool = false
+
+
+func start_profiling() -> void:
+	## Verification-only. Off by default: an ordinary run pays nothing for this beyond the
+	## one extra branch in `_draw()` below. `main.gd`'s `-- --profile <frames>` is the only
+	## caller — see docs/issues/CAM-06's own task asking for a falsifiable draw-cost number
+	## rather than a claim with no hook.
+	_profiling = true
+	_profile_ticks.clear()
+
+
+func profile_stats() -> Dictionary:
+	## `{"mean": ms, "p95": ms, "n": sample count}` across every `_draw()` call since
+	## `start_profiling()`. All zero/`n=0` if nothing has been sampled yet.
+	if _profile_ticks.is_empty():
+		return {"mean": 0.0, "p95": 0.0, "n": 0}
+	var sorted := _profile_ticks.duplicate()
+	sorted.sort()
+	var n := sorted.size()
+	var total := 0.0
+	for v in sorted:
+		total += v
+	var idx := clampi(int(ceil(0.95 * float(n))) - 1, 0, n - 1)
+	return {"mean": total / float(n), "p95": sorted[idx], "n": n}
+
+
 func _draw() -> void:
+	if not _profiling:
+		_draw_impl()
+		return
+	var t0 := Time.get_ticks_usec()
+	_draw_impl()
+	_profile_ticks.append(float(Time.get_ticks_usec() - t0) / 1000.0)
+
+
+func _draw_impl() -> void:
 	var anchor: Dictionary = _anchor_data()
 	if anchor.is_empty():
 		return
@@ -1278,36 +1442,50 @@ func _draw() -> void:
 func _draw_board(anchor: Dictionary) -> void:
 	## The static level: ground, path and slot tiles. Shared by the running game and
 	## the editor preview so the two can never disagree about what a level looks like.
-	var grid: Dictionary = anchor["grid"]
-	var path_tiles := _path_tiles(anchor)
+	##
+	## CAM-06: the tile list is `_tile_cache`, built once per anchor (see its own doc).
+	## What runs here every frame is only culling the cached list against the current
+	## camera rect and drawing what survives.
+	if _tile_cache_anchor != anchor_id:
+		_rebuild_tile_cache(anchor)
 
-	var slot_set := {}
-	for slot in anchor["slots"]:
-		slot_set[Vector2i(int(slot[0]), int(slot[1]))] = true
+	var lib := _sprite_lib()
+	var pivot: Vector2 = lib.pivot if lib != null else Vector2.ZERO
 
-	# painter's order: increasing tile depth, so a nearer tile overdraws a farther one
-	for s_ in range(int(grid["w"]) + int(grid["h"]) - 1):
-		for x in range(int(grid["w"])):
-			var y := s_ - x
-			if y < 0 or y >= int(grid["h"]):
-				continue
-			var cell := Vector2i(x, y)
-			var c := IsoScript.tile_to_screen(float(x), float(y)) + _origin
-			var kind := "tile_ground"
-			if path_tiles.has(cell):
-				kind = "tile_path"
-			elif slot_set.has(cell):
-				kind = "tile_slot"
-			var tex: Texture2D = _tex(kind, 45, "albedo")
-			if tex != null:
-				draw_texture(tex, c - _sprite_lib().pivot)
-			else:
-				var col := C_TILE if (x + y) % 2 == 0 else C_TILE_ALT
-				if path_tiles.has(cell):
-					col = C_PATH
-				elif slot_set.has(cell):
-					col = C_SLOT
-				draw_colored_polygon(IsoScript.diamond(c, 0.98), col)
+	# No culling in the editor preview: get_viewport_rect() there is the editor's own
+	# viewport, not this board's, and every shipped anchor is small enough (max 18x15) that
+	# culling buys nothing an editor artist would notice. The synthetic 64x64 board this
+	# issue exists for is a play-mode verification fixture, not something previewed.
+	var cull: bool = not Engine.is_editor_hint()
+	var vmin := Vector2.ZERO
+	var vmax := Vector2.ZERO
+	if cull:
+		var vp := get_viewport_rect().size
+		# `pos` in the cache is board-projected, pre-`_origin` (see its own doc); screen =
+		# (pos + origin) * zoom, ignoring shake's `position` (absorbed into the margin — see
+		# TILE_CULL_MARGIN_PX). Solving that for `pos` against the viewport rect, expanded by
+		# the margin on the screen-space side (hence dividing the margin by zoom too), gives
+		# the visible band in cache space.
+		var margin: float = TILE_CULL_MARGIN_PX / _cam_zoom
+		vmin = -_origin - Vector2(margin, margin)
+		vmax = vp / _cam_zoom - _origin + Vector2(margin, margin)
+
+	for t in _tile_cache:
+		var p: Vector2 = t["pos"]
+		if cull and (p.x < vmin.x or p.x > vmax.x or p.y < vmin.y or p.y > vmax.y):
+			continue
+		var c := p + _origin
+		var kind: String = t["kind"]
+		var tex: Texture2D = lib.get_tex(kind, 45, "albedo") if (lib != null and lib.ok) else null
+		if tex != null:
+			draw_texture(tex, c - pivot)
+		else:
+			var col: Color = C_TILE if bool(t["alt"]) else C_TILE_ALT
+			if kind == "tile_path":
+				col = C_PATH
+			elif kind == "tile_slot":
+				col = C_SLOT
+			draw_colored_polygon(IsoScript.diamond(c, 0.98), col)
 
 
 func _draw_hover() -> void:

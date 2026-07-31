@@ -1,5 +1,5 @@
 {
-  "next_id": 132,
+  "next_id": 133,
   "items": [
     {
       "id": "LF-001",
@@ -919,11 +919,11 @@
       "kind": "chore",
       "area": "engine",
       "pri": "high",
-      "status": "open",
+      "status": "done",
       "why": "First thing that falls over as the board grows",
       "opened": "2026-07-30",
-      "closed": null,
-      "note": ""
+      "closed": "2026-07-31",
+      "note": "closed at fd10a0d"
     },
     {
       "id": "LF-078",
@@ -1207,11 +1207,11 @@
       "kind": "bug",
       "area": "engine",
       "pri": "high",
-      "status": "open",
+      "status": "done",
       "why": "Four identical rebuilds and sorts per frame",
       "opened": "2026-07-30",
-      "closed": null,
-      "note": ""
+      "closed": "2026-07-31",
+      "note": "closed at fd10a0d"
     },
     {
       "id": "LF-102",
@@ -1566,6 +1566,18 @@
       "title": "PRESSURE_FLOOR is confirmed dead a second way and now needs an owner decision rather than another measurement. LF-054 found peak load at or above capacity in every anchor-by-difficulty cell. Re-measured under the four new capped-core policies, and additionally restricted to WINNING builds only -- the alternative LF-054 itself proposed -- it is still 0 of 72 cells failing. So the check cannot discriminate under any policy set the grader can currently express. Either raise the floor to a value that does discriminate, or delete it and stop implying the grader tests something it does not.",
       "kind": "question",
       "area": "design",
+      "pri": "med",
+      "status": "open",
+      "why": "",
+      "opened": "2026-07-31",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-132",
+      "title": "sim/content.py's all_anchor_ids() discovers anchors with a raw glob('anchor-*.json') over data/anchors/, so ANY untracked file dropped there is treated as real content. Measured consequence: a scratch 64x64 synthetic anchor used for a draw-path benchmark was picked up by tools/density.py and broke the gate's wave density check outright -- act 1 suddenly had a 700-unit anchor as its busiest reference. validate_data.py is already immune because PRC-02 moved it to git ls-files; content.py was not converted because nothing pointed at it. Same reasoning applies: a scratch or generated anchor is not content until it is tracked. This will bite again the moment anyone builds the large-board generator (TS-05/LF-080), which is exactly a workflow of generate, grade, discard.",
+      "kind": "bug",
+      "area": "tooling",
       "pri": "med",
       "status": "open",
       "why": "",
