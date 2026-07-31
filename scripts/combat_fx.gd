@@ -287,7 +287,7 @@ func _nearest_other_unit(placed: Dictionary, exclude_screen: Vector2) -> Variant
 	for u in view.sim.units:
 		if not u["alive"]:
 			continue
-		var at: Vector2 = view.sim.point_at(u["dist"])
+		var at: Vector2 = view.sim.point_at(int(u["lane"]), u["dist"])
 		var screen: Vector2 = view.to_screen(at)
 		if screen.distance_squared_to(exclude_screen) < 4.0:
 			continue                       # this is the primary target, not "another" unit
@@ -420,7 +420,7 @@ func _on_unit_killed(u: Dictionary) -> void:
 	## anchor_view's own death-audio hook already reads it the same way, and it fired before
 	## this pass touched the file. Read-only here: hp/kind/dist, never written back.
 	var kind: Dictionary = u["kind"]
-	var tile: Vector2 = view.sim.point_at(float(u["dist"]))
+	var tile: Vector2 = view.sim.point_at(int(u["lane"]), float(u["dist"]))
 	var heavy: bool = float(kind.get("hp", 0.0)) >= 150.0
 	var faction := String(kind.get("faction", "ordinal"))
 	var base_col: Color = FACTION_SHARD.get(faction, Color(0.8, 0.8, 0.8))
@@ -453,7 +453,7 @@ func _on_unit_killed(u: Dictionary) -> void:
 func _on_unit_leaked(u: Dictionary) -> void:
 	## The worst thing that can happen to the player, made unmissable on the board: a hard
 	## flash at the exit, a shock ring, and the strongest trauma this file has.
-	var tile: Vector2 = view.sim.point_at(float(u["dist"]))
+	var tile: Vector2 = view.sim.point_at(int(u["lane"]), float(u["dist"]))
 	var pos: Vector2 = view.to_screen(tile)
 	_push({"kind": "muzzle", "pos": pos, "colour": C_LEAK, "age": 0.0, "life": 0.18, "r": 34.0})
 	_push({"kind": "ring", "pos": pos, "colour": C_LEAK, "age": 0.0, "life": 0.55,

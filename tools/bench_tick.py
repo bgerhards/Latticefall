@@ -42,7 +42,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from sim.content import Anchor, Enemy, load_enemies, load_towers  # noqa: E402
+from sim.content import Anchor, Enemy, Lane, load_enemies, load_towers  # noqa: E402
 from sim.engine import DT, Placed, Sim, Unit, standard_policies  # noqa: E402
 
 # Absurdly high so nothing dies over a bench run of any realistic length — a unit
@@ -58,7 +58,7 @@ def _bench_anchor() -> Anchor:
     return Anchor(
         id="anchor-01", act=1, title="bench rig", capacity_mw=1.0e9,
         starting_funds=0, lives=10 ** 9, grid=(256, 256),
-        waypoints=((0.0, 0.0), (1000.0, 0.0)), slots=(), waves=(),
+        lanes=(Lane.build("main", ((0.0, 0.0), (1000.0, 0.0))),), slots=(), waves=(),
     )
 
 

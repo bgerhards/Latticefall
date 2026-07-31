@@ -59,8 +59,13 @@ MIN_COVERAGE = 0.02
 # Lines Godot's `--shot`/`--a11y` path prints that are worth relaying — see `main.gd`'s
 # `_process()` and `menu.gd`. `PARITY_JSON` and other machinery are deliberately not here;
 # this tool is for looking at a frame, not for parity data.
-RELAY_PREFIXES = ("SHOT ", "FRAME ", "STATE ", "AUDIO ", "FACE ", "MENUFRAME ", "CLEARED ",
-                  "CAMERA ", "DRAG ", "WHEEL ")
+## Every marker `scripts/main.gd` prints for a verification hook has to appear here or the
+## hook is silently useless — the flag reaches Godot, Godot prints, and this filter drops it.
+## That happened to `LANE` the day it was added: `--lanes` ran, produced nothing visible, and
+## looked like a broken hook rather than a missing prefix. Add the prefix in the same change
+## that adds the hook.
+RELAY_PREFIXES = ("SHOT ", "FRAME ", "STATE ", "AUDIO ", "FACE ", "LANE ", "MENUFRAME ",
+                  "CLEARED ", "CAMERA ", "DRAG ", "WHEEL ", "DIALOG-TRIGGER ")
 
 
 def _out(line: str) -> None:

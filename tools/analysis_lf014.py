@@ -32,8 +32,8 @@ class Toggled(Fixed):
     def _tick_once(self):
         w = self.placed[self.wall]
         near = any(
-            math.hypot(w.slot[0] - self.a.point_at(u.dist)[0],
-                       w.slot[1] - self.a.point_at(u.dist)[1]) <= w.tower.range
+            math.hypot(w.slot[0] - self.a.point_at(u.lane, u.dist)[0],
+                       w.slot[1] - self.a.point_at(u.lane, u.dist)[1]) <= w.tower.range
             for u in self.units if u.alive)
         w.online = near
         self.total_ticks += 1

@@ -32,7 +32,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from sim.content import Anchor, Enemy, Wave, all_anchor_ids, load_anchor, load_enemies  # noqa: E402
+from sim.content import (Anchor, Enemy, Wave, all_anchor_ids,  # noqa: E402
+                         load_anchor, load_enemies)
 
 
 def wave_stats(w: Wave, enemies: dict[str, Enemy]) -> dict[str, float]:
@@ -54,13 +55,17 @@ def peak_concurrent(a: Anchor, enemies: dict[str, Enemy]) -> int:
     count of Shards, so a table with fewer, slower units can be *busier* than a table with
     more. An upper bound by construction — it assumes the board kills nothing — which is
     what makes it comparable across acts whose emplacements differ.
+
+    Totalled across every lane — screen presence does not care which lane a unit is
+    walking. See peak_concurrent_per_lane() for the WAR-01 breakdown: "four lanes of
+    eight" and "one lane of thirty-two" read identically here by design.
     """
     best = 0
     for w in a.waves:
         events: list[tuple[float, int]] = []
         for s in w.spawns:
             e = enemies[s.enemy]
-            dwell = a.path_length / e.speed
+            dwell = a.path_length(s.lane) / e.speed
             for k in range(s.count):
                 t = s.delay + k * s.interval
                 events.append((t, 1))
@@ -71,6 +76,33 @@ def peak_concurrent(a: Anchor, enemies: dict[str, Enemy]) -> int:
             live += delta
             best = max(best, live)
     return best
+
+
+def peak_concurrent_per_lane(a: Anchor, enemies: dict[str, Enemy]) -> dict[int, int]:
+    """Same measure as peak_concurrent(), split by lane (WAR-01).
+
+    "Four lanes of eight" and "one lane of thirty-two" are the same total but a
+    completely different front line; this is what tells the two apart. A single-lane
+    anchor reports exactly one entry, equal to peak_concurrent()'s total.
+    """
+    out: dict[int, int] = {i: 0 for i in range(len(a.lanes))}
+    for w in a.waves:
+        events_by_lane: dict[int, list[tuple[float, int]]] = {
+            i: [] for i in range(len(a.lanes))}
+        for s in w.spawns:
+            e = enemies[s.enemy]
+            dwell = a.path_length(s.lane) / e.speed
+            for k in range(s.count):
+                t = s.delay + k * s.interval
+                events_by_lane[s.lane].append((t, 1))
+                events_by_lane[s.lane].append((t + dwell, -1))
+        for lane, events in events_by_lane.items():
+            events.sort()
+            live = 0
+            for _, delta in events:
+                live += delta
+                out[lane] = max(out[lane], live)
+    return out
 
 
 def capacity_on_wave(a: Anchor, index: int) -> float:
@@ -129,7 +161,8 @@ def main() -> int:
                          f"{t['levels_used']:.0f} level(s) used (max {t['max_level']:.0f})")
         print(f"{a.id}  {a.title}  ·  act {a.act} · {a.capacity_mw:.0f} MW "
               f"· {a.lives} lives · decay {a.capacity_decay_mw:.0f}/wave · terrain: "
-              f"{terrain_line}\n")
+              f"{terrain_line} · {len(a.lanes)} lane(s): "
+              f"{', '.join(l.id for l in a.lanes)}\n")
         print(f"{'wave':>4s} {'units':>6s} {'leak':>5s} {'hp':>6s} "
               f"{'drain':>6s} {'cap':>5s} {'bus':>5s}")
         for r in anchor_rows(a, enemies):
@@ -138,6 +171,15 @@ def main() -> int:
         tot = sum(r["leak"] for r in anchor_rows(a, enemies))
         print(f"\nlives {a.lives} · total leak_cost {tot:.0f} · "
               f"leak budget {a.lives / tot:.1%} of the anchor")
+        # WAR-01: "four lanes of eight" and "one lane of thirty-two" are the same total
+        # onscreen count and a completely different front line — this is what tells them
+        # apart. A single-lane anchor prints exactly one row, equal to the total below.
+        if len(a.lanes) > 1:
+            per_lane = peak_concurrent_per_lane(a, enemies)
+            print(f"\nper-lane peak onscreen:")
+            for li, lane in enumerate(a.lanes):
+                print(f"  lane {li} ({lane.id}): {per_lane[li]}")
+        print(f"total peak onscreen: {peak_concurrent(a, enemies)}")
         return 0
 
     print(f"{'anchor':>9s} {'act':>3s} {'waves':>5s} {'units/w':>7s} {'onscreen':>8s} "

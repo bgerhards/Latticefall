@@ -5,9 +5,12 @@ Separate from the engine on purpose: the engine should be given plain values and
 have no idea where they came from, so a balance experiment can construct an anchor
 in memory without writing a file.
 
-Path geometry lives here too. Anchor paths are stored as axis-aligned waypoints;
-the simulation needs distance-along-path, so it is precomputed once per anchor
-rather than recomputed every tick.
+Path geometry lives here too. An anchor carries 1-5 lanes (`Anchor.lanes`), each an
+axis-aligned polyline; the simulation needs distance-along-lane, so it is precomputed
+once per lane rather than recomputed every tick. WAR-01: a lane is addressed everywhere
+in the rules by its integer INDEX into `Anchor.lanes` -- stable, orderable, identical in
+both languages -- never by its `id`, which is authoring/dialog/HUD-only. See
+docs/DECISIONS.md's WAR-01 entry.
 """
 
 from __future__ import annotations
@@ -64,6 +67,9 @@ class Spawn:
     count: int
     interval: float = 1.0
     delay: float = 0.0
+    ## Index into Anchor.lanes. Defaults to 0, so a single-lane anchor's spawns need no
+    ## `lane` key at all -- WAR-01's whole safety argument for the migration.
+    lane: int = 0
 
 
 @dataclass(frozen=True)
@@ -76,6 +82,53 @@ class Wave:
         return sum(s.count for s in self.spawns)
 
 
+@dataclass(frozen=True)
+class Lane:
+    """One enemy path. WAR-01: an anchor carries 1-5 of these (`Anchor.lanes`), and every
+    rule that used to read the single `path`/`path_length`/`point_at()` now takes a lane
+    INDEX and reads through here instead.
+
+    `seg_len`/`cum_len`/`path_length` are precomputed once, by `Lane.build()`, rather than
+    recomputed every tick -- the same reasoning that used to live on `Anchor` itself before
+    multi-lane split it out. Frozen, like every other content record: nothing downstream may
+    mutate a lane in place.
+    """
+    id: str
+    waypoints: tuple[tuple[float, ...], ...]
+    seg_len: tuple[float, ...]
+    cum_len: tuple[float, ...]
+    path_length: float
+
+    @staticmethod
+    def build(lane_id: str, waypoints: tuple[tuple[float, ...], ...]) -> "Lane":
+        segs, cum, total = [], [0.0], 0.0
+        for a, b in zip(waypoints, waypoints[1:]):
+            # axis-aligned, so manhattan == euclidean (decision 030) -- only x/y (indices
+            # 0/1) ever enter this arithmetic; a waypoint's optional third element (z, the
+            # elevation LEVEL — TER-01) is carried on the tuple and never read here.
+            d = abs(b[0] - a[0]) + abs(b[1] - a[1])
+            segs.append(d)
+            total += d
+            cum.append(total)
+        return Lane(id=lane_id, waypoints=waypoints, seg_len=tuple(segs),
+                    cum_len=tuple(cum), path_length=total)
+
+    def point_at(self, dist: float) -> tuple[float, float]:
+        """World position `dist` tiles along this lane."""
+        if dist <= 0:
+            return self.waypoints[0][0], self.waypoints[0][1]
+        if dist >= self.path_length:
+            return self.waypoints[-1][0], self.waypoints[-1][1]
+        # linear scan: a lane is a handful of segments, so this beats bisect overhead
+        for i, seg in enumerate(self.seg_len):
+            if dist <= self.cum_len[i + 1]:
+                t = (dist - self.cum_len[i]) / seg if seg else 0.0
+                ax, ay = self.waypoints[i][0], self.waypoints[i][1]
+                bx, by = self.waypoints[i + 1][0], self.waypoints[i + 1][1]
+                return (ax + (bx - ax) * t, ay + (by - ay) * t)
+        return self.waypoints[-1][0], self.waypoints[-1][1]
+
+
 @dataclass
 class Anchor:
     id: str
@@ -85,7 +138,7 @@ class Anchor:
     starting_funds: int
     lives: int
     grid: tuple[int, int]
-    waypoints: tuple[tuple[float, float], ...]
+    lanes: tuple[Lane, ...]
     slots: tuple[tuple[int, int], ...]
     waves: tuple[Wave, ...]
     tutorial: bool = False
@@ -101,23 +154,15 @@ class Anchor:
     # reads this yet by design — see resolve_terrain()'s docstring and TER-02's "risks"
     # section: letting terrain reach the engine is a later, owner-gated issue (TER-13).
     levels: tuple[tuple[int, ...], ...] = field(default=())
-    # derived
-    seg_len: tuple[float, ...] = field(default=())
-    cum_len: tuple[float, ...] = field(default=())
 
-    def __post_init__(self) -> None:
-        segs, cum, total = [], [0.0], 0.0
-        for a, b in zip(self.waypoints, self.waypoints[1:]):
-            d = abs(b[0] - a[0]) + abs(b[1] - a[1])   # axis-aligned, so manhattan == euclidean
-            segs.append(d)
-            total += d
-            cum.append(total)
-        self.seg_len = tuple(segs)
-        self.cum_len = tuple(cum)
+    def point_at(self, lane: int, dist: float) -> tuple[float, float]:
+        return self.lanes[lane].point_at(dist)
 
-    @property
-    def path_length(self) -> float:
-        return self.cum_len[-1]
+    def path_length(self, lane: int) -> float:
+        # A bare property here (as `path_length` used to be, pre-multi-lane) would have
+        # to pick a lane silently — exactly the "defaulted lane reads lane 0 forever" trap
+        # WAR-01 calls out for point_at(). Deleted rather than kept meaning lane 0.
+        return self.lanes[lane].path_length
 
     def height_at(self, tx: int, ty: int) -> int:
         """Terrain level at tile (tx, ty), clamped to the board edge.
@@ -136,21 +181,6 @@ class Anchor:
         cx = min(max(int(tx), 0), w - 1)
         cy = min(max(int(ty), 0), h - 1)
         return self.levels[cy][cx]
-
-    def point_at(self, dist: float) -> tuple[float, float]:
-        """World position of a unit `dist` tiles along the path."""
-        if dist <= 0:
-            return self.waypoints[0]
-        if dist >= self.path_length:
-            return self.waypoints[-1]
-        # linear scan: paths are a handful of segments, so this beats bisect overhead
-        for i, seg in enumerate(self.seg_len):
-            if dist <= self.cum_len[i + 1]:
-                t = (dist - self.cum_len[i]) / seg if seg else 0.0
-                ax, ay = self.waypoints[i]
-                bx, by = self.waypoints[i + 1]
-                return (ax + (bx - ax) * t, ay + (by - ay) * t)
-        return self.waypoints[-1]
 
 
 def load_towers(path: Path | None = None) -> dict[str, Tower]:
@@ -242,14 +272,21 @@ def load_anchor(anchor_id: str) -> Anchor:
         capacity_decay_mw=doc.get("capacity_decay_mw", 0.0),
         levels=resolve_terrain(doc),
         grid=(doc["grid"]["w"], doc["grid"]["h"]),
-        waypoints=tuple((float(x), float(y)) for x, y in doc["path"]),
+        lanes=tuple(
+            Lane.build(
+                lane_id=lane["id"],
+                waypoints=tuple(tuple(float(v) for v in wp) for wp in lane["waypoints"]),
+            )
+            for lane in doc["paths"]
+        ),
         slots=tuple((int(x), int(y)) for x, y in doc["slots"]),
         waves=tuple(
             Wave(
                 lead_in=w.get("lead_in", 20.0),
                 spawns=tuple(
                     Spawn(enemy=s["enemy"], count=s["count"],
-                          interval=s.get("interval", 1.0), delay=s.get("delay", 0.0))
+                          interval=s.get("interval", 1.0), delay=s.get("delay", 0.0),
+                          lane=int(s.get("lane", 0)))
                     for s in w["spawns"]
                 ),
             )

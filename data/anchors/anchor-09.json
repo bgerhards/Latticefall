@@ -10,31 +10,53 @@
     "w": 16,
     "h": 13
   },
-  "path": [
-    [
-      0,
-      2
-    ],
-    [
-      10,
-      2
-    ],
-    [
-      10,
-      6
-    ],
-    [
-      3,
-      6
-    ],
-    [
-      3,
-      10
-    ],
-    [
-      15,
-      10
-    ]
+  "paths": [
+    {
+      "id": "main",
+      "waypoints": [
+        [
+          0,
+          2
+        ],
+        [
+          10,
+          2
+        ],
+        [
+          10,
+          6
+        ],
+        [
+          3,
+          6
+        ],
+        [
+          3,
+          10
+        ],
+        [
+          15,
+          10
+        ]
+      ]
+    },
+    {
+      "id": "flank",
+      "waypoints": [
+        [
+          15,
+          0
+        ],
+        [
+          15,
+          12
+        ],
+        [
+          13,
+          12
+        ]
+      ]
+    }
   ],
   "slots": [
     [
@@ -76,6 +98,14 @@
     [
       11,
       12
+    ],
+    [
+      14,
+      1
+    ],
+    [
+      14,
+      5
     ]
   ],
   "waves": [
@@ -145,6 +175,13 @@
           "count": 1,
           "interval": 3.5,
           "delay": 8
+        },
+        {
+          "enemy": "reach-picket",
+          "count": 2,
+          "interval": 3.2,
+          "delay": 2.0,
+          "lane": 1
         }
       ]
     },
@@ -172,6 +209,13 @@
           "count": 3,
           "interval": 3.2,
           "delay": 8
+        },
+        {
+          "enemy": "reach-picket",
+          "count": 2,
+          "interval": 3.2,
+          "delay": 2.0,
+          "lane": 1
         }
       ]
     },
@@ -199,6 +243,13 @@
           "count": 2,
           "interval": 3.0,
           "delay": 7
+        },
+        {
+          "enemy": "reach-picket",
+          "count": 2,
+          "interval": 3.2,
+          "delay": 2.0,
+          "lane": 1
         }
       ]
     },
@@ -226,6 +277,13 @@
           "count": 3,
           "interval": 2.8,
           "delay": 7
+        },
+        {
+          "enemy": "reach-picket",
+          "count": 2,
+          "interval": 3.2,
+          "delay": 2.0,
+          "lane": 1
         }
       ]
     },
@@ -259,6 +317,13 @@
           "count": 3,
           "interval": 2.6,
           "delay": 7
+        },
+        {
+          "enemy": "reach-picket",
+          "count": 3,
+          "interval": 3.2,
+          "delay": 2.0,
+          "lane": 1
         }
       ]
     },
@@ -292,6 +357,13 @@
           "count": 3,
           "interval": 2.4,
           "delay": 7
+        },
+        {
+          "enemy": "reach-picket",
+          "count": 3,
+          "interval": 3.2,
+          "delay": 2.0,
+          "lane": 1
         }
       ]
     }

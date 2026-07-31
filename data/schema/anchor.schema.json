@@ -10,7 +10,7 @@
     "capacity_mw",
     "starting_funds",
     "grid",
-    "path",
+    "paths",
     "slots",
     "waves"
   ],
@@ -62,16 +62,36 @@
         }
       }
     },
-    "path": {
+    "paths": {
       "type": "array",
-      "minItems": 2,
+      "minItems": 1,
+      "description": "One or more lanes. WAR-01: a lane is addressed everywhere in the rules by its integer INDEX into this array (stable, orderable, identical in both languages) -- `id` is for authoring, dialog and the HUD only and is never compared by a rule. A single-lane anchor is `paths` with exactly one entry; that is the degenerate case the migration guarantees grades byte-identically to the old single-`path` shape.",
       "items": {
-        "type": "array",
-        "minItems": 2,
-        "maxItems": 2,
-        "items": {
-          "type": "integer",
-          "minimum": 0
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "waypoints"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]*$"
+          },
+          "waypoints": {
+            "type": "array",
+            "minItems": 2,
+            "items": {
+              "type": "array",
+              "minItems": 2,
+              "maxItems": 3,
+              "items": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "description": "[x, y] or [x, y, z]. z is the elevation LEVEL (an index, never pixels or a world height -- see PRD-THEATRE-SCALE.md 2.3), defaults to 0, and is not read by any rule yet -- TER-01 is what will read it."
+            }
+          }
         }
       }
     },
@@ -128,6 +148,12 @@
                 "delay": {
                   "type": "number",
                   "minimum": 0
+                },
+                "lane": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "default": 0,
+                  "description": "index into the anchor's `paths` array. Defaults to 0, so an anchor with a single lane needs no `lane` key on any spawn."
                 }
               }
             }

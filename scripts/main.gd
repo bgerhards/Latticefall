@@ -44,6 +44,10 @@ var _shot_at: int = 240
 var _a11y_path: String = ""
 ## `-- --facings` prints the yaw every drawable was drawn at, on the frame `--shot` took.
 var _dump_facings: bool = false
+## `-- --lanes` prints which lane every alive unit resolved to, on the frame `--shot` took —
+## the same idea as `--facings` (decision 049): a screenshot cannot settle which lane a unit
+## is walking on a multi-lane anchor, so WAR-01 needs this to verify it rather than eyeball it.
+var _dump_lanes: bool = false
 var _frame: int = 0
 var _shot_taken: bool = false
 var _autoplay: bool = false
@@ -245,6 +249,11 @@ func _setup_cli() -> void:
                 # so the screenshot alone cannot say whether a sprite is pointing where the
                 # thing it is tracking actually is. This makes that falsifiable. LF-050.
                 _dump_facings = true
+            "--lanes":
+                # One line per alive unit with the shot: which lane index it resolved to,
+                # its distance along that lane, and where that projected on screen — see
+                # `_dump_lanes`'s own doc. LF-116/WAR-01.
+                _dump_lanes = true
             "--anchor":
                 if i + 1 < argv.size():
                     anchor_id = argv[i + 1]
@@ -472,6 +481,13 @@ func _process(_delta: float) -> void:
             for d in view.drawables():
                 print("FACE %s %s yaw=%d at=(%.0f,%.0f)"
                     % [d["kind"], d["sprite"], d["yaw"], d["at"].x, d["at"].y])
+        if _dump_lanes:
+            for d in view.drawables():
+                if d["kind"] != "unit":
+                    continue
+                var u: Dictionary = d["ref"]
+                print("LANE %s lane=%d dist=%.2f at=(%.0f,%.0f)"
+                    % [d["sprite"], int(u["lane"]), float(u["dist"]), d["at"].x, d["at"].y])
         if _profile_frames > 0:
             _print_profile_stats()
         get_tree().quit()
@@ -667,7 +683,7 @@ func _dump_target_state(tag: String, idx: int) -> void:
     for u in view.sim.units:
         if not bool(u["alive"]):
             continue
-        var at: Vector2 = view.sim.point_at(float(u["dist"]))
+        var at: Vector2 = view.sim.point_at(int(u["lane"]), float(u["dist"]))
         var dx: float = sx - at.x
         var dy: float = sy - at.y
         if dx * dx + dy * dy <= rng * rng:

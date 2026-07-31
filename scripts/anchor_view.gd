@@ -375,23 +375,38 @@ func _default_target(vp: Vector2, mid: Vector2, strip: Dictionary) -> Vector2:
 	## leak actually costs a life — never runs past the strip's margin, even on a board that
 	## cannot possibly fit as a whole. Seeds `_cam_target` once, at boot; panning after that is
 	## the player's to correct, not the camera's to keep re-imposing.
-	var pts: Array = _anchor_data().get("path", [])
-	if pts.is_empty():
+	##
+	## WAR-01: an anchor now carries one ring per lane (`paths`, plural). The camera can only
+	## shift, not stretch to cover two out-of-frame exits on opposite sides at once, so this
+	## takes whichever lane's violation is largest per axis rather than trying to satisfy all
+	## of them. A single-lane anchor has exactly one ring to consider, so this reproduces the
+	## old behaviour there exactly.
+	var lanes: Array = _anchor_data().get("paths", [])
+	if lanes.is_empty():
 		return mid
-	var ring: Array = pts[pts.size() - 1]
 	var strip_centre: Vector2 = strip["centre"]
-	var ring_screen: Vector2 = IsoScript.tile_to_screen(float(ring[0]), float(ring[1])) \
-		+ (strip_centre - mid)
 	var margin: float = maxf(strip["g"], 24.0)
 	var nudge := Vector2.ZERO
-	if ring_screen.x < margin:
-		nudge.x = margin - ring_screen.x
-	elif ring_screen.x > vp.x - margin:
-		nudge.x = (vp.x - margin) - ring_screen.x
-	if ring_screen.y < margin:
-		nudge.y = margin - ring_screen.y
-	elif ring_screen.y > vp.y - margin:
-		nudge.y = (vp.y - margin) - ring_screen.y
+	for lane_doc in lanes:
+		var pts: Array = lane_doc.get("waypoints", [])
+		if pts.is_empty():
+			continue
+		var ring: Array = pts[pts.size() - 1]
+		var ring_screen: Vector2 = IsoScript.tile_to_screen(float(ring[0]), float(ring[1])) \
+			+ (strip_centre - mid)
+		var n := Vector2.ZERO
+		if ring_screen.x < margin:
+			n.x = margin - ring_screen.x
+		elif ring_screen.x > vp.x - margin:
+			n.x = (vp.x - margin) - ring_screen.x
+		if ring_screen.y < margin:
+			n.y = margin - ring_screen.y
+		elif ring_screen.y > vp.y - margin:
+			n.y = (vp.y - margin) - ring_screen.y
+		if absf(n.x) > absf(nudge.x):
+			nudge.x = n.x
+		if absf(n.y) > absf(nudge.y):
+			nudge.y = n.y
 	return mid - nudge
 
 
@@ -627,10 +642,12 @@ func _advance() -> void:
 			# Shutter: "arrivals queue instead of spawning" is entirely a caller-side
 			# decision — spawning was already driven from here, not from inside AnchorSim —
 			# so withholding the call is the whole implementation. See set_shutter()'s doc.
+			# WAR-01: the queue entry is now [time, lane, enemy_id] (sim.wave_queue()'s own
+			# doc), so a held arrival has to remember its lane too, not just the enemy id.
 			if abilities != null and abilities.is_active("shutter"):
-				_shutter_held.append(_queue[_qi][1])
+				_shutter_held.append([_queue[_qi][1], _queue[_qi][2]])
 			else:
-				sim.spawn(String(_queue[_qi][1]))
+				sim.spawn(String(_queue[_qi][2]), int(_queue[_qi][1]))
 			_qi += 1
 		sim.tick()
 		_wave_t += AnchorSimScript.DT
@@ -678,9 +695,10 @@ func _tick_abilities() -> void:
 				sim.set_shutter(false)
 				Audio.sfx("shutter_up")
 				# Released in original queued order — a plain Array pop-from-front already
-				# preserves that, so there is nothing more to get right here.
-				for enemy_id in _shutter_held:
-					sim.spawn(String(enemy_id))
+				# preserves that, so there is nothing more to get right here. Each entry is
+				# [lane, enemy_id] (see the append site above).
+				for held in _shutter_held:
+					sim.spawn(String(held[1]), int(held[0]))
 				_shutter_held.clear()
 				state_changed.emit()
 			_:
@@ -1244,9 +1262,14 @@ func _unit_heading(u: Dictionary) -> Vector2:
 	## this is exactly the leg direction along it and rotates monotonically from one leg to
 	## the next through a corner — which is why units need no hysteresis: the heading never
 	## re-crosses a bucket boundary it has just crossed.
+	##
+	## WAR-01: `path_length` is now one entry per lane and `point_at()` takes the lane as its
+	## first argument (no defaulted overload — a missed call site is meant to be loud); the
+	## unit's own `lane` key, written once at `spawn()` and never after, says which.
+	var lane: int = int(u["lane"])
 	var d: float = float(u["dist"])
-	var back: Vector2 = sim.point_at(maxf(0.0, d - TANGENT_EPS))
-	var fwd: Vector2 = sim.point_at(minf(float(sim.path_length), d + TANGENT_EPS))
+	var back: Vector2 = sim.point_at(lane, maxf(0.0, d - TANGENT_EPS))
+	var fwd: Vector2 = sim.point_at(lane, minf(float(sim.path_length[lane]), d + TANGENT_EPS))
 	return fwd - back
 
 
@@ -1269,21 +1292,25 @@ func _idle_heading(slot: Vector2) -> Vector2:
 	## so it is computed once and cached — it is geometry, not a rule.
 	if _idle_facing.has(slot):
 		return _idle_facing[slot]
-	var pts: Array = _anchor_data().get("path", [])
+	# WAR-01: nearest point across every lane, not one path — an emplacement watches
+	# whichever lane it is actually closest to.
+	var lanes: Array = _anchor_data().get("paths", [])
 	var best := Vector2.ZERO
 	var best_d := INF
-	for i in range(pts.size() - 1):
-		var a := Vector2(float(pts[i][0]), float(pts[i][1]))
-		var b := Vector2(float(pts[i + 1][0]), float(pts[i + 1][1]))
-		var ab := b - a
-		var t := 0.0
-		if ab.length_squared() > 0.0:
-			t = clampf((slot - a).dot(ab) / ab.length_squared(), 0.0, 1.0)
-		var q := a + ab * t
-		var d := slot.distance_squared_to(q)
-		if d < best_d:
-			best_d = d
-			best = q - slot
+	for lane_doc in lanes:
+		var pts: Array = lane_doc.get("waypoints", [])
+		for i in range(pts.size() - 1):
+			var a := Vector2(float(pts[i][0]), float(pts[i][1]))
+			var b := Vector2(float(pts[i + 1][0]), float(pts[i + 1][1]))
+			var ab := b - a
+			var t := 0.0
+			if ab.length_squared() > 0.0:
+				t = clampf((slot - a).dot(ab) / ab.length_squared(), 0.0, 1.0)
+			var q := a + ab * t
+			var d := slot.distance_squared_to(q)
+			if d < best_d:
+				best_d = d
+				best = q - slot
 	_idle_facing[slot] = best
 	return best
 
@@ -1365,7 +1392,7 @@ func _build_drawables() -> Array:
 	for u in sim.units:
 		if not u["alive"]:
 			continue
-		var at: Vector2 = sim.point_at(u["dist"])
+		var at: Vector2 = sim.point_at(int(u["lane"]), u["dist"])
 		out.append({
 			"depth": IsoScript.depth(at.x, at.y),
 			"kind": "unit",
@@ -1605,8 +1632,11 @@ func _draw_editor_overlay(anchor: Dictionary) -> void:
 	## Authoring aid, editor only. Shows the things a level is actually made of —
 	## where units enter and leave, which way the path runs, and which tiles are
 	## buildable — so an anchor can be judged without running it.
-	var pts: Array = anchor.get("path", [])
-	if pts.size() >= 2:
+	# WAR-01: one line/IN/OUT pair per lane, not one path.
+	for lane_doc in anchor.get("paths", []):
+		var pts: Array = lane_doc.get("waypoints", [])
+		if pts.size() < 2:
+			continue
 		var line := PackedVector2Array()
 		for p in pts:
 			line.append(IsoScript.tile_to_screen(float(p[0]), float(p[1])) + _origin)
@@ -1668,7 +1698,7 @@ func _draw_health(u: Dictionary, c: Vector2) -> void:
 
 
 func _draw_unit(u: Dictionary) -> void:
-	var at: Vector2 = sim.point_at(u["dist"])
+	var at: Vector2 = sim.point_at(int(u["lane"]), u["dist"])
 	var c := IsoScript.tile_to_screen(at.x, at.y) + _origin
 	var kind: Dictionary = u["kind"]
 	var col := C_ALERT if String(kind.get("faction", "")) == "ordinal" else C_AMBER
@@ -1680,17 +1710,20 @@ func _draw_unit(u: Dictionary) -> void:
 
 
 func _path_tiles(anchor: Dictionary) -> Dictionary:
+	## WAR-01: the union of every lane's tiles — a shared cell where two lanes cross is one
+	## entry either way, which is exactly what a Dictionary-as-set already gives for free.
 	var out := {}
-	var pts: Array = anchor["path"]
-	for i in range(pts.size() - 1):
-		var a := Vector2i(int(pts[i][0]), int(pts[i][1]))
-		var b := Vector2i(int(pts[i + 1][0]), int(pts[i + 1][1]))
-		var step := Vector2i(signi(b.x - a.x), signi(b.y - a.y))
-		var cur := a
-		out[cur] = true
-		while cur != b:
-			cur += step
+	for lane_doc in anchor.get("paths", []):
+		var pts: Array = lane_doc.get("waypoints", [])
+		for i in range(pts.size() - 1):
+			var a := Vector2i(int(pts[i][0]), int(pts[i][1]))
+			var b := Vector2i(int(pts[i + 1][0]), int(pts[i + 1][1]))
+			var step := Vector2i(signi(b.x - a.x), signi(b.y - a.y))
+			var cur := a
 			out[cur] = true
+			while cur != b:
+				cur += step
+				out[cur] = true
 	return out
 
 

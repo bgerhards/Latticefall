@@ -157,44 +157,69 @@ def validate_schema(doc: dict, schema_name: str, where: str, rep: Report) -> boo
 def check_anchor(doc: dict, towers: dict, enemies: dict, rep: Report) -> None:
     where = doc.get("id", "anchor?")
     w, h = doc["grid"]["w"], doc["grid"]["h"]
+    paths: list[dict] = doc["paths"]
 
-    # path must be inside the grid, orthogonal, and contiguous
-    path = [tuple(p) for p in doc["path"]]
-    for x, y in path:
-        if not (0 <= x < w and 0 <= y < h):
-            rep.err(where, f"path point ({x},{y}) outside grid {w}x{h}")
-    for a, b in zip(path, path[1:]):
-        if a[0] != b[0] and a[1] != b[1]:
-            rep.err(where, f"path segment {a}->{b} is diagonal; segments must be axis-aligned")
-        if a == b:
-            rep.err(where, f"path has a zero-length segment at {a}")
+    # WAR-01: duplicate lane ids are a data error even though the rules never compare by
+    # id — a duplicate is still a authoring mistake (dialog/HUD address a lane by id) and
+    # cheap to catch here.
+    lane_ids = [lane["id"] for lane in paths]
+    dupes = sorted({i for i in lane_ids if lane_ids.count(i) > 1})
+    if dupes:
+        rep.err(where, f"duplicate lane id(s): {dupes}")
 
-    # expand the path into occupied tiles so slots can be checked against it
-    tiles: set[tuple[int, int]] = set()
-    for a, b in zip(path, path[1:]):
-        if a[0] == b[0]:
-            lo, hi = sorted((a[1], b[1]))
-            tiles |= {(a[0], y) for y in range(lo, hi + 1)}
-        else:
-            lo, hi = sorted((a[0], b[0]))
-            tiles |= {(x, a[1]) for x in range(lo, hi + 1)}
+    # each lane must be inside the grid, orthogonal, and contiguous; expand every lane
+    # into occupied tiles so slots can be checked against the union of all of them
+    all_tiles: set[tuple[int, int]] = set()
+    lane_points: list[list[tuple[float, float]]] = []
+    for li, lane in enumerate(paths):
+        tag = f"lane {li} ('{lane['id']}')"
+        pts = [tuple(p[:2]) for p in lane["waypoints"]]
+        for x, y in pts:
+            if not (0 <= x < w and 0 <= y < h):
+                rep.err(where, f"{tag} point ({x},{y}) outside grid {w}x{h}")
+        for a, b in zip(pts, pts[1:]):
+            if a[0] != b[0] and a[1] != b[1]:
+                rep.err(where, f"{tag} segment {a}->{b} is diagonal; segments must be "
+                               f"axis-aligned")
+            if a == b:
+                rep.err(where, f"{tag} has a zero-length segment at {a}")
+        for a, b in zip(pts, pts[1:]):
+            if a[0] == b[0]:
+                lo, hi = sorted((a[1], b[1]))
+                all_tiles |= {(a[0], y) for y in range(lo, hi + 1)}
+            else:
+                lo, hi = sorted((a[0], b[0]))
+                all_tiles |= {(x, a[1]) for x in range(lo, hi + 1)}
+        lane_points.append([(float(x), float(y)) for x, y in pts])
 
     seen: set[tuple[int, int]] = set()
     for s in doc["slots"]:
         t = tuple(s)
         if not (0 <= t[0] < w and 0 <= t[1] < h):
             rep.err(where, f"slot {t} outside grid {w}x{h}")
-        if t in tiles:
+        if t in all_tiles:
             rep.err(where, f"slot {t} sits on the enemy path")
         if t in seen:
             rep.err(where, f"duplicate slot {t}")
         seen.add(t)
 
-    # every wave must reference a real enemy
+    # every wave must reference a real enemy and a lane that exists; and every lane must
+    # be spawned into by at least one wave, somewhere in the anchor — a lane nothing ever
+    # spawns onto is dead data (WAR-01).
+    used_lanes: set[int] = set()
     for i, wave in enumerate(doc["waves"], 1):
         for sp in wave["spawns"]:
             if sp["enemy"] not in enemies:
                 rep.err(where, f"wave {i} spawns unknown enemy '{sp['enemy']}'")
+            lane = sp.get("lane", 0)
+            if not (0 <= lane < len(paths)):
+                rep.err(where, f"wave {i} spawn references lane {lane}, but this anchor "
+                               f"has {len(paths)} lane(s)")
+            else:
+                used_lanes.add(lane)
+    for li, lane in enumerate(paths):
+        if li not in used_lanes:
+            rep.err(where, f"lane {li} ('{lane['id']}') is never spawned into by any wave")
 
     # design invariant: the capacity must admit more than one build.
     # if only the cheapest emplacement fits, the anchor has no power decision in it.
@@ -243,16 +268,18 @@ def check_anchor(doc: dict, towers: dict, enemies: dict, rep: Report) -> None:
     if ranged:
         best_range = max(t["range"] for t in ranged)
         short_range = min(t["range"] for t in ranged)
-        pts = [(float(a[0]), float(a[1])) for a in doc["path"]]
 
         def dist_to_path(sx: float, sy: float) -> float:
+            # WAR-01: minimum distance over ALL lanes — a slot dead to every lane is
+            # dead, but a slot near just one of several lanes is still worth a slot.
             best = float("inf")
-            for (ax, ay), (bx, by) in zip(pts, pts[1:]):
-                dx, dy = bx - ax, by - ay
-                span = dx * dx + dy * dy
-                t = 0.0 if span == 0 else max(0.0, min(1.0,
-                        ((sx - ax) * dx + (sy - ay) * dy) / span))
-                best = min(best, math.hypot(sx - (ax + t * dx), sy - (ay + t * dy)))
+            for pts in lane_points:
+                for (ax, ay), (bx, by) in zip(pts, pts[1:]):
+                    dx, dy = bx - ax, by - ay
+                    span = dx * dx + dy * dy
+                    t = 0.0 if span == 0 else max(0.0, min(1.0,
+                            ((sx - ax) * dx + (sy - ay) * dy) / span))
+                    best = min(best, math.hypot(sx - (ax + t * dx), sy - (ay + t * dy)))
             return best
 
         dead, marginal = [], []

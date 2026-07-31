@@ -88,6 +88,10 @@ class Unit:
     hp: float
     dist: float = 0.0
     alive: bool = True
+    # WAR-01: index into Anchor.lanes, set once at construction and never afterwards —
+    # a unit dictionary/record must never grow or change a key post-construction (LF-055;
+    # see the identical note in scripts/anchor_sim.gd's _step()).
+    lane: int = 0
 
 
 @dataclass
@@ -315,7 +319,7 @@ class Sim:
         for u in self.units:
             if not u.alive or u.kind.drains_mw <= 0.0:
                 continue
-            x, y = self.a.point_at(u.dist)
+            x, y = self.a.point_at(u.lane, u.dist)
             damp = min(1.0, self._covered_by("damp", x, y))
             load += u.kind.drains_mw * (1.0 - damp)
         return load
@@ -331,14 +335,20 @@ class Sim:
         Ranked by *squared* distance. Every range test in both engines compares squares
         rather than calling a square root, so the two runtimes do identical IEEE-754
         double arithmetic instead of comparing a `hypot` against a `sqrt` and disagreeing
-        in the last bit. See decision 030."""
+        in the last bit. See decision 030.
+
+        WAR-01: multi-lane samples EVERY lane and keeps the minimum squared distance — a
+        slot covering any one lane is worth something, so "nearest the path" has to mean
+        "nearest the nearest lane". Runs once per build, not per tick, so multiplying the
+        cost by lane count is fine here; the same pattern must not be copied into _step()."""
         def d2(slot):
             best = 1e18
-            steps = max(2, int(self.a.path_length))
-            for i in range(steps + 1):
-                px, py = self.a.point_at(self.a.path_length * i / steps)
-                dx, dy = px - slot[0], py - slot[1]
-                best = min(best, dx * dx + dy * dy)
+            for lane in self.a.lanes:
+                steps = max(2, int(lane.path_length))
+                for i in range(steps + 1):
+                    px, py = lane.point_at(lane.path_length * i / steps)
+                    dx, dy = px - slot[0], py - slot[1]
+                    best = min(best, dx * dx + dy * dy)
             return best
         return sorted(self.free_slots, key=lambda s: (d2(s), s))
 
@@ -434,11 +444,11 @@ class Sim:
         for u in self.units:
             if not u.alive:
                 continue
-            x, y = self.a.point_at(u.dist)
+            x, y = self.a.point_at(u.lane, u.dist)
             slow = self._covered_by("slow", x, y)
             speed = u.kind.speed * (slow if slow else 1.0)
             u.dist += speed * DT
-            if u.dist >= self.a.path_length:
+            if u.dist >= self.a.path_length(u.lane):
                 u.alive = False
                 self.leaks += 1
                 # Priced by the unit, not a flat 1. Decision 047: with a flat cost, three
@@ -468,7 +478,7 @@ class Sim:
             for u in self.units:
                 if not u.alive:
                     continue
-                x, y = self.a.point_at(u.dist)
+                x, y = self.a.point_at(u.lane, u.dist)
                 dx, dy = p.slot[0] - x, p.slot[1] - y
                 if dx * dx + dy * dy > p.tower.range * p.tower.range:
                     continue
@@ -486,11 +496,11 @@ class Sim:
                 continue
             self._damage(target, p.tower)
             if p.tower.splash > 0:
-                tx, ty = self.a.point_at(target.dist)
+                tx, ty = self.a.point_at(target.lane, target.dist)
                 for u in self.units:
                     if u is target or not u.alive:
                         continue
-                    ux, uy = self.a.point_at(u.dist)
+                    ux, uy = self.a.point_at(u.lane, u.dist)
                     dx, dy = ux - tx, uy - ty
                     if dx * dx + dy * dy <= p.tower.splash * p.tower.splash:
                         self._damage(u, p.tower, scale=0.5)
@@ -522,17 +532,22 @@ class Sim:
             self._shed_load()
             self._advance(wave.lead_in)
 
-            queue: list[tuple[float, str]] = []
+            # (time, lane, enemy_id): a two-lane anchor makes simultaneous spawns the
+            # normal case, not the rare one, so the tie-break has to be a total order in
+            # both languages, not merely "usually agrees" (WAR-01's risk note). The
+            # GDScript port's wave_queue() sorts the identical three-key tuple.
+            queue: list[tuple[float, int, str]] = []
             for sp in wave.spawns:
                 for n in range(sp.count):
-                    queue.append((sp.delay + n * sp.interval, sp.enemy))
-            queue.sort(key=lambda q: (q[0], q[1]))
+                    queue.append((sp.delay + n * sp.interval, sp.lane, sp.enemy))
+            queue.sort(key=lambda q: (q[0], q[1], q[2]))
 
             wave_t, qi = 0.0, 0
             while True:
                 while qi < len(queue) and queue[qi][0] <= wave_t + 1e-9:
-                    e = self.enemies[queue[qi][1]]
-                    self.units.append(Unit(kind=e, hp=e.hp * self.hp_mult))
+                    _, lane, enemy_id = queue[qi]
+                    e = self.enemies[enemy_id]
+                    self.units.append(Unit(kind=e, hp=e.hp * self.hp_mult, lane=lane))
                     qi += 1
                 self._tick_once()
                 wave_t += DT

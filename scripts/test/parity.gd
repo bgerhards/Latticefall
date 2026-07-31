@@ -158,7 +158,7 @@ func _run(anchor: Dictionary, towers: Dictionary, enemies: Dictionary,
 		var qi := 0
 		while true:
 			while qi < q.size() and float(q[qi][0]) <= wave_t + 1e-9:
-				s.spawn(String(q[qi][1]))
+				s.spawn(String(q[qi][2]), int(q[qi][1]))
 				qi += 1
 			s.tick()
 			wave_t += AnchorSimScript.DT
@@ -195,18 +195,22 @@ func _run(anchor: Dictionary, towers: Dictionary, enemies: Dictionary,
 
 
 func _slot_priority(s) -> Array:
-	## Same metric as engine.py: distance from the slot to the nearest sampled point
-	## on the path, sampled at the same resolution so both pick the same slot.
-	## Squared distances in float64, matching Sim._slot_priority(). Decision 030.
-	var steps: int = maxi(2, int(s.path_length))
+	## Same metric as engine.py: distance from the slot to the nearest sampled point on
+	## ANY lane, sampled at the same resolution so both pick the same slot. Squared
+	## distances in float64, matching Sim._slot_priority(). Decision 030. WAR-01: every
+	## lane is sampled and the minimum kept — a slot near just one of several lanes is
+	## still worth a slot, so "nearest the path" means "nearest the nearest lane".
 	var scored: Array = []
 	for slot in s.free_slots:
 		var best := 1e18
-		for i in range(steps + 1):
-			var p: PackedFloat64Array = s.point_at_xy(s.path_length * float(i) / float(steps))
-			var dx: float = p[0] - float(slot.x)
-			var dy: float = p[1] - float(slot.y)
-			best = minf(best, dx * dx + dy * dy)
+		for lane in range(s.path_length.size()):
+			var plen: float = s.path_length[lane]
+			var steps: int = maxi(2, int(plen))
+			for i in range(steps + 1):
+				var p: PackedFloat64Array = s.point_at_xy(lane, plen * float(i) / float(steps))
+				var dx: float = p[0] - float(slot.x)
+				var dy: float = p[1] - float(slot.y)
+				best = minf(best, dx * dx + dy * dy)
 		scored.append([best, slot.x, slot.y, slot])
 	scored.sort_custom(func(a, b):
 		if a[0] != b[0]: return a[0] < b[0]

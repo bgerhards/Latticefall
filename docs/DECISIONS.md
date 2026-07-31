@@ -2170,3 +2170,103 @@ passes parity has proved only that it changed nothing observable — which is ex
 no-op proves too. `tools/bench_tick.py` exists so the *other* half of the claim is
 falsifiable, and it is the reason this was caught before it became a line in a commit message
 nobody re-checked.
+
+---
+
+## 059 — An anchor's lanes are addressed by index, never by name
+
+**Date.** 2026-07-31.
+
+**Context.** `WAR-01`, the structural blocker for the whole war economy. Anchor JSON carried a
+single `path` array, and both rule implementations were built around one `point_at()`, one
+`path_length` and a leak test of `dist >= path_length`. Two to five simultaneous lanes and up
+to four spawn points is what makes a front line exist at all.
+
+**Decision.** `path` becomes `paths`: an array of lane objects `{"id", "waypoints"}`. Every
+rule that touches a lane — `point_at`, `path_length`, the leak test, targeting, splash, the
+wave queue's tie-break — takes an integer **index** into that array. `id` is authoring,
+dialog and HUD only, and no rule ever reads it.
+
+**Rejected.** *Addressing a lane by its string `id` in the rules.* A string comparison used as
+a parity tie-break is a locale and encoding question — case folding, collation order — that
+CPython and GDScript are not guaranteed to answer the same way, and removing exactly that
+class of risk from the hot loop is what decision 030 was for. An integer index is total,
+stable, and ordered identically in both languages by construction.
+
+**Two smaller calls that are load-bearing.**
+
+`point_at()` and `point_at_xy()` take the lane as a **required** parameter, with no default,
+in both languages. A default would let a missed call site compile and silently assume lane 0,
+which is the failure mode that would survive every check in this repo — the sim would run,
+parity would pass, and units on the second lane would walk the first one's geometry. Ten
+internal call sites had to be updated; a missing lane is now a loud error. `spawn()` is the
+one exception and does default, because it is a public entry point and the schema itself
+defaults `lane` to 0.
+
+Waypoints may carry an optional third integer, the elevation **level**. Both parsers store it
+now and no rule reads it; `TER-01` is what will.
+
+**Consequence, and how the migration was proved.** `tools/migrate_paths.py` is idempotent and
+committed rather than run and discarded. Every single-lane anchor became
+`paths: [{"id": "main", "waypoints": <old path>}]` with no `lane` key added anywhere. The
+proof is a `sim.run --json --detail` capture taken before any change and diffed against one
+taken after the pure migration, with no anchor content touched: **empty diff, 35,356 lines**.
+A single-lane anchor is the degenerate case of a multi-lane one, and that is now a measured
+statement rather than a design intention.
+
+**What this deliberately did not do.** The view. `anchor_view.gd` holds `sim` as an untyped
+var, so none of this fails to parse and the game boots — it breaks the moment a level runs.
+That was scoped out on purpose: a correct rules change with no picture is recoverable, and a
+half-finished rules change is not. The follow-up is enumerated call site by call site.
+
+---
+
+## 060 — The yaw count has one source, and the hysteresis band is a fraction of a bucket
+
+**Date.** 2026-07-31.
+
+**Context.** `ART-02` / `LF-108`, the prerequisite for 16-yaw facing. Three places
+independently encoded the yaw count — `render.py`'s `YAWS` tuple, `iso.gd`'s
+`90 * roundi(deg/90)` bucketing, and `iso.gd`'s `45.0 + hysteresis` test — and
+`YAW_HYSTERESIS_DEG` was **12.0**, which is *larger* than half a bucket at 16 yaws (11.25°).
+Raising the yaw count without noticing would have locked every emplacement's facing
+permanently: not a wrong picture, a frozen one.
+
+**Decision.** `Iso.YAW_COUNT` is the source of truth on the engine side and `render.py`'s
+`YAW_COUNT` on the pipeline side — they cannot share a constant across a process boundary,
+so the manifest carries `yaw_count` and `sprites.gd` compares it against `Iso.YAW_COUNT` at
+load, naming both numbers when they disagree. `BUCKET_DEG` is derived, and the hysteresis
+band becomes `YAW_HYSTERESIS_FRAC`, a **fraction of a bucket**, asserted under 0.5 at boot.
+
+A fraction rather than degrees is the whole point: a degree constant is correct only for the
+bucket width it was measured at, and silently catastrophic at any other. A fraction is
+correct at every yaw count by construction, and 0.5 is the exact width at which the band
+exceeds half a bucket and the facing can never re-bucket.
+
+Chosen value **0.25**, close to decision 049's own effective ratio of 12/45 = 0.267.
+
+**Measured, on anchor-07's real combat replay** — changes / reversals:
+
+| yaws | no hysteresis | frac = 0.25 |
+|---|---|---|
+| 4 | 84 / 21 | 78 / 16 |
+| 8 | 126 / 19 | 113 / 16 |
+| 16 | 307 / 90 | **263 / 59** |
+
+Reversals keep falling as the fraction rises toward the 0.5 guard, at the cost of growing
+visible lag, so it was stopped short deliberately rather than pushed to the best number on
+one axis. No configuration reached zero *changes*, which is the check that matters — zero
+changes would mean a frozen facing, the failure this exists to prevent.
+
+**Honest limit.** These are not a byte-identical reproduction of decision 049's 116/40 → 59/3.
+anchor-07's combat changed under the measurement, because the multi-lane migration landed in
+the same session and altered the wave queue and targeting. Same shape, different absolute
+numbers, and it says so rather than pretending the old figures still apply.
+
+**Deferred on purpose.** `sprites.gd` still formats yaw slots as `y%03d` and
+`yaw_for_heading()` still returns degrees, so sixteen yaws — 22.5° apart, half of them not
+whole degrees — cannot be named yet. Rather than guess a scheme, `yaw_for_heading()` now
+asserts its bucket width is a whole number, so it fails **loudly** the moment `YAW_COUNT`
+becomes 16, and a generic `bucket_index_for_heading()` exists for `ART-01` to build the
+naming on. A loud failure at a known place beats a naming convention invented in advance of
+the work that needs it.

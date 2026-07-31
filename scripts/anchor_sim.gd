@@ -114,16 +114,26 @@ var _shutter_draw_mw: float = 0.0
 ## every multiplier below reads as 1.0 regardless of a placed record's kill count.
 var _veterancy_ranks: Array = []
 
-# Waypoints are held as two float64 arrays, not a PackedVector2Array. Vector2 stores
-# float32 components, so every position the sim derived from one was a rounded copy of
-# what the Python reference computed — invisible until Act II, where damper coverage
-# turned a sub-ulp position difference into a different bus load, a different fire rate,
-# and six extra leaks. Decision 030.
-var _wx: PackedFloat64Array = PackedFloat64Array()
-var _wy: PackedFloat64Array = PackedFloat64Array()
-var _seg_len: PackedFloat64Array = PackedFloat64Array()
-var _cum_len: PackedFloat64Array = PackedFloat64Array()
-var path_length: float = 0.0
+# Waypoints are held as float64 arrays, not PackedVector2Array. Vector2 stores float32
+# components, so every position the sim derived from one was a rounded copy of what the
+# Python reference computed — invisible until Act II, where damper coverage turned a
+# sub-ulp position difference into a different bus load, a different fire rate, and six
+# extra leaks. Decision 030.
+#
+# WAR-01: an anchor carries 1-5 lanes, so each of these is now an Array holding one
+# PackedFloat64Array per lane (except path_length itself, which needs only one float per
+# lane and is a PackedFloat64Array directly), built in the same loop order as
+# sim/content.py's Lane.build(). A lane is addressed everywhere below by its integer
+# INDEX into these arrays — stable, orderable, identical in both languages — never by
+# its `id`, which is authoring/dialog/HUD-only.
+var _wx: Array = []              # Array[PackedFloat64Array], one per lane
+var _wy: Array = []              # Array[PackedFloat64Array], one per lane
+## Elevation LEVEL per waypoint (never pixels, never a world height — PRD 2.3). Carried
+## for the migration TER-01 will read; no rule below reads it yet.
+var _wz: Array = []              # Array[PackedInt64Array], one per lane
+var _seg_len: Array = []         # Array[PackedFloat64Array], one per lane
+var _cum_len: Array = []         # Array[PackedFloat64Array], one per lane
+var path_length: PackedFloat64Array = PackedFloat64Array()   # one entry per lane
 
 
 func setup(anchor_data: Dictionary, tower_defs: Dictionary, enemy_defs: Dictionary,
@@ -145,43 +155,65 @@ func setup(anchor_data: Dictionary, tower_defs: Dictionary, enemy_defs: Dictiona
 	for s in anchor.get("slots", []):
 		free_slots.append(Vector2i(int(s[0]), int(s[1])))
 
-	_wx = PackedFloat64Array()
-	_wy = PackedFloat64Array()
-	for p in anchor.get("path", []):
-		_wx.append(float(p[0]))
-		_wy.append(float(p[1]))
-	_seg_len = PackedFloat64Array()
-	_cum_len = PackedFloat64Array([0.0])
-	var total := 0.0
-	for i in range(_wx.size() - 1):
-		var d: float = abs(_wx[i + 1] - _wx[i]) + abs(_wy[i + 1] - _wy[i])   # axis-aligned
-		_seg_len.append(d)
-		total += d
-		_cum_len.append(total)
-	path_length = total
+	_wx = []
+	_wy = []
+	_wz = []
+	_seg_len = []
+	_cum_len = []
+	path_length = PackedFloat64Array()
+	for lane_doc in anchor.get("paths", []):
+		var wx := PackedFloat64Array()
+		var wy := PackedFloat64Array()
+		var wz := PackedInt64Array()
+		for p in lane_doc.get("waypoints", []):
+			wx.append(float(p[0]))
+			wy.append(float(p[1]))
+			wz.append(int(p[2]) if p.size() > 2 else 0)
+		var seg := PackedFloat64Array()
+		var cum := PackedFloat64Array([0.0])
+		var total := 0.0
+		for i in range(wx.size() - 1):
+			var d: float = abs(wx[i + 1] - wx[i]) + abs(wy[i + 1] - wy[i])   # axis-aligned
+			seg.append(d)
+			total += d
+			cum.append(total)
+		_wx.append(wx)
+		_wy.append(wy)
+		_wz.append(wz)
+		_seg_len.append(seg)
+		_cum_len.append(cum)
+		path_length.append(total)
 
 
-func point_at_xy(dist: float) -> PackedFloat64Array:
-	## World position `dist` tiles along the path, in float64. Mirrors Anchor.point_at().
-	var last: int = _wx.size() - 1
+func point_at_xy(lane: int, dist: float) -> PackedFloat64Array:
+	## World position `dist` tiles along `lane`, in float64. Mirrors Anchor.point_at().
+	## No defaulted `lane` overload — see the module-level note on why a defaulted lane
+	## is exactly how a call site goes missed and silently reads lane 0 forever.
+	var wx: PackedFloat64Array = _wx[lane]
+	var wy: PackedFloat64Array = _wy[lane]
+	var seg_len: PackedFloat64Array = _seg_len[lane]
+	var cum_len: PackedFloat64Array = _cum_len[lane]
+	var plen: float = path_length[lane]
+	var last: int = wx.size() - 1
 	if dist <= 0.0:
-		return PackedFloat64Array([_wx[0], _wy[0]])
-	if dist >= path_length:
-		return PackedFloat64Array([_wx[last], _wy[last]])
-	for i in range(_seg_len.size()):
-		if dist <= _cum_len[i + 1]:
-			var seg: float = _seg_len[i]
-			var f: float = 0.0 if seg == 0.0 else (dist - _cum_len[i]) / seg
+		return PackedFloat64Array([wx[0], wy[0]])
+	if dist >= plen:
+		return PackedFloat64Array([wx[last], wy[last]])
+	for i in range(seg_len.size()):
+		if dist <= cum_len[i + 1]:
+			var seg: float = seg_len[i]
+			var f: float = 0.0 if seg == 0.0 else (dist - cum_len[i]) / seg
 			return PackedFloat64Array([
-				_wx[i] + (_wx[i + 1] - _wx[i]) * f,
-				_wy[i] + (_wy[i + 1] - _wy[i]) * f])
-	return PackedFloat64Array([_wx[last], _wy[last]])
+				wx[i] + (wx[i + 1] - wx[i]) * f,
+				wy[i] + (wy[i + 1] - wy[i]) * f])
+	return PackedFloat64Array([wx[last], wy[last]])
 
 
-func point_at(dist: float) -> Vector2:
+func point_at(lane: int, dist: float) -> Vector2:
 	## Float32 convenience for drawing. Never use it for a rules decision — the sim
-	## itself works in point_at_xy()'s float64.
-	var p := point_at_xy(dist)
+	## itself works in point_at_xy()'s float64. No defaulted `lane` overload — see the
+	## note on point_at_xy() above.
+	var p := point_at_xy(lane, dist)
 	return Vector2(p[0], p[1])
 
 
@@ -270,7 +302,7 @@ func bus_load() -> float:
 		var drain := float(u["kind"].get("drains_mw", 0.0))
 		if drain <= 0.0:
 			continue
-		var at := point_at_xy(u["dist"])
+		var at := point_at_xy(int(u["lane"]), u["dist"])
 		var damp: float = minf(1.0, _covered_by("damp", at[0], at[1]))
 		v += drain * (1.0 - damp)
 	return v
@@ -338,7 +370,13 @@ func sell(index: int) -> int:
 		return 0
 	var p: Dictionary = placed[index]
 	var paid: int = int(p["tower"]["cost"]) + int(p.get("upgrade_paid", 0))
-	var refund := int(floor(float(paid) * SELL_REFUND))
+	## Recoveries.sell_refund_add() is read HERE rather than transformed into the sim's
+	## inputs, because there is nothing to transform — sell() is GDScript-only and
+	## sim/engine.py has no sell at all (decision 033), so this cannot reach parity. It is
+	## one of the three effects decision 054 exempts from the Loadout path for that reason.
+	## Clamped at 1.0: a refund above what was paid would make build-and-sell a money
+	## printer, which no recovery in the pool is priced to be.
+	var refund := int(floor(float(paid) * minf(1.0, SELL_REFUND + Recoveries.sell_refund_add())))
 	free_slots.append(p["slot"])
 	placed.remove_at(index)
 	_rebuild_effect_lists()   # eager, not tick-gated (LF-099) — see _eff_slow
@@ -500,7 +538,8 @@ func _step(penalty: float) -> void:
 	for u in units:
 		if not u["alive"]:
 			continue
-		var at := point_at_xy(u["dist"])
+		var lane: int = int(u["lane"])
+		var at := point_at_xy(lane, u["dist"])
 		var slow := _covered_by("slow", at[0], at[1])
 		var speed: float = float(u["kind"]["speed"]) * (slow if slow > 0.0 else 1.0)
 		# Shutter holds anything already inside hold_tiles of the entrance at zero speed
@@ -509,7 +548,7 @@ func _step(penalty: float) -> void:
 		if shutter_active and float(u["dist"]) <= _shutter_hold_tiles:
 			speed = 0.0
 		u["dist"] = float(u["dist"]) + speed * DT
-		if float(u["dist"]) >= path_length:
+		if float(u["dist"]) >= path_length[lane]:
 			u["alive"] = false
 			leaks += 1
 			# Priced by the unit, not a flat 1 — and this must stay byte-identical to
@@ -556,7 +595,7 @@ func _step(penalty: float) -> void:
 			var u: Dictionary = units[i]
 			if not u["alive"]:
 				continue
-			var at := point_at_xy(u["dist"])
+			var at := point_at_xy(int(u["lane"]), u["dist"])
 			var dx: float = sx - at[0]
 			var dy: float = sy - at[1]
 			if dx * dx + dy * dy > rng * rng:
@@ -583,7 +622,7 @@ func _step(penalty: float) -> void:
 			# emplacement back down the lane instead of at whatever it last killed.
 			p.erase("aim")
 			continue
-		var tp := point_at_xy(target["dist"])
+		var tp := point_at_xy(int(target["lane"]), target["dist"])
 		# Presentation only, and the only line in this file that is not a rule: where the
 		# shot went, so anchor_view can face the emplacement at it. Deliberately absent from
 		# sim/engine.py — the headless reference has nothing to draw, nothing reads this, and
@@ -614,7 +653,7 @@ func _step(penalty: float) -> void:
 				var u: Dictionary = units[i]
 				if not u["alive"]:
 					continue
-				var up := point_at_xy(u["dist"])
+				var up := point_at_xy(int(u["lane"]), u["dist"])
 				var sdx: float = up[0] - tp[0]
 				var sdy: float = up[1] - tp[1]
 				if sdx * sdx + sdy * sdy <= splash * splash:
@@ -643,7 +682,8 @@ func _damage(u: Dictionary, tw: Dictionary, scale: float, dmg_mult: float = 1.0)
 	# rather than `u == target` for exactly the reason a unit dictionary must never grow a
 	# key (see the comment on target_i), and a listener holding a live reference to `u` would
 	# be one keystroke away from writing to it.
-	unit_damaged.emit(u["kind"], point_at(float(u["dist"])), dealt, killed, shield_scale == SHIELD_LEAK)
+	unit_damaged.emit(u["kind"], point_at(int(u["lane"]), float(u["dist"])), dealt, killed,
+		shield_scale == SHIELD_LEAK)
 	if killed:
 		u["alive"] = false
 		funds += int(float(u["kind"]["bounty"]) * bounty_mult)
@@ -678,9 +718,10 @@ func fire_surge(cfg: Dictionary) -> Dictionary:
 	for u in units:
 		if not u["alive"]:
 			continue
+		var plen: float = path_length[int(u["lane"])]
 		var dist: float = float(u["dist"])
-		var frac: float = falloff_min if path_length <= 0.0 else \
-			lerpf(falloff_min, 1.0, clampf(dist / path_length, 0.0, 1.0))
+		var frac: float = falloff_min if plen <= 0.0 else \
+			lerpf(falloff_min, 1.0, clampf(dist / plen, 0.0, 1.0))
 		var armour: float = float(u["kind"].get("armour", 0.0))
 		var dealt: float = maxf(0.0, damage * frac - armour)
 		if dealt > 0.0:
@@ -697,9 +738,16 @@ func fire_surge(cfg: Dictionary) -> Dictionary:
 	return {"kills": kills, "damage": total_dealt}
 
 
-func spawn(enemy_id: String) -> void:
+func spawn(enemy_id: String, lane: int = 0) -> void:
+	## `lane` defaults to 0 — unlike point_at()/point_at_xy(), this is a public entry
+	## point external callers (scripts/anchor_view.gd, tools) reach for, and 0 is the
+	## right default for a single-lane anchor exactly the way the schema's own `lane`
+	## default is. The unit dictionary's `lane` key is written here, at construction,
+	## and never afterwards — see the note on target_i in _step() for why a unit
+	## dictionary must never grow a key post-construction (LF-055).
 	var e: Dictionary = enemies[enemy_id]
-	units.append({"kind": e, "hp": float(e["hp"]) * hp_mult, "dist": 0.0, "alive": true})
+	units.append({"kind": e, "hp": float(e["hp"]) * hp_mult, "dist": 0.0, "alive": true,
+		"lane": lane})
 
 
 func begin_wave(index: int) -> void:
@@ -709,15 +757,22 @@ func begin_wave(index: int) -> void:
 
 
 func wave_queue(index: int) -> Array:
-	## [[time, enemy_id], ...] sorted the same way engine.py sorts it.
+	## [[time, lane, enemy_id], ...] sorted the same way engine.py sorts it. A two-lane
+	## anchor makes simultaneous spawns the normal case rather than the rare one, so the
+	## tie-break has to be a full total order — (time, lane, enemy_id) — in both
+	## languages, not merely "usually agrees". Mirrors Sim.run()'s queue sort exactly.
 	var w: Dictionary = anchor["waves"][index]
 	var q: Array = []
 	for sp in w.get("spawns", []):
 		var interval := float(sp.get("interval", 1.0))
 		var delay := float(sp.get("delay", 0.0))
+		var lane := int(sp.get("lane", 0))
 		for n in range(int(sp["count"])):
-			q.append([delay + n * interval, String(sp["enemy"])])
-	q.sort_custom(func(a, b): return a[0] < b[0] if a[0] != b[0] else a[1] < b[1])
+			q.append([delay + n * interval, lane, String(sp["enemy"])])
+	q.sort_custom(func(a, b):
+		if a[0] != b[0]: return a[0] < b[0]
+		if a[1] != b[1]: return a[1] < b[1]
+		return a[2] < b[2])
 	return q
 
 
