@@ -1,0 +1,56 @@
+{
+  "description": "Shared fixture for TER-02's resolution algorithm. Not validated by tools/validate/validate_data.py (it lives under data/schema/, which discover_documents() excludes, the same way the schema files themselves are excluded) -- it exists only to be run through sim/content.py's resolve_terrain() and scripts/content.gd's resolve_terrain() and diffed tile for tile, by tools/terrain_parity.py and the 'terrain parsers agree' gate check. PRD-THEATRE-SCALE.md risk #10 is exactly these two parsers disagreeing on one tile, invisibly.",
+  "cases": [
+    {
+      "name": "regions",
+      "doc": {
+        "grid": { "w": 8, "h": 5 },
+        "terrain": {
+          "levels": 3,
+          "regions": [
+            { "rect": [1, 0, 3, 2], "z": 1 },
+            { "rect": [2, 0, 2, 3], "z": 2 },
+            { "rect": [2, 1, 2, 2], "z": 1 },
+            { "rect": [6, 3, 4, 4], "z": 3 }
+          ],
+          "ramps": [
+            { "tile": [4, 4], "from": 0, "to": 1, "dir": "+x" },
+            { "tile": [0, 2], "from": 0, "to": 1, "dir": "+y" }
+          ]
+        }
+      },
+      "note": "region 2 overlaps region 1 and raises (z1 -> z2); region 3 overlaps the same tiles region 2 just raised and lowers them (z2 -> z1) -- overlap in both directions, on the same tiles, so a resolver that stops at 'the first region wins' or 'the highest z wins' fails this rather than a resolver that implements strict array-order overwrite. Region 4 is rect [6,3,4,4] on an 8x5 board: it runs off both the right and bottom edges and must clip, not wrap or error. Both ramps sit on the board boundary (y=h-1 and x=0) and must not perturb the resolved grid -- ramps are metadata, not consulted by resolve_terrain.",
+      "expected": [
+        [0, 1, 2, 2, 0, 0, 0, 0],
+        [0, 1, 1, 1, 0, 0, 0, 0],
+        [0, 0, 1, 1, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0, 3, 3],
+        [0, 0, 0, 0, 0, 0, 3, 3]
+      ]
+    },
+    {
+      "name": "heightmap-equivalent",
+      "doc": {
+        "grid": { "w": 8, "h": 5 },
+        "terrain": {
+          "levels": 3,
+          "heightmap": [
+            [0, 1, 2, 2, 0, 0, 0, 0],
+            [0, 1, 1, 1, 0, 0, 0, 0],
+            [0, 0, 1, 1, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 3, 3],
+            [0, 0, 0, 0, 0, 0, 3, 3]
+          ]
+        }
+      },
+      "note": "the escape hatch, hand-authored to the exact grid the 'regions' case above resolves to. Proves 'an anchor with regions and an anchor with the equivalent heightmap resolve to the same grid' (TER-02 acceptance criteria) directly -- both cases' `expected` are byte-identical on purpose.",
+      "expected": [
+        [0, 1, 2, 2, 0, 0, 0, 0],
+        [0, 1, 1, 1, 0, 0, 0, 0],
+        [0, 0, 1, 1, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0, 3, 3],
+        [0, 0, 0, 0, 0, 0, 3, 3]
+      ]
+    }
+  ]
+}

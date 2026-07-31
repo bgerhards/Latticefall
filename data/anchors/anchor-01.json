@@ -78,6 +78,16 @@
       6
     ]
   ],
+  "terrain": {
+    "levels": 2,
+    "regions": [
+      { "rect": [9, 0, 4, 3], "z": 1 },
+      { "rect": [10, 0, 2, 1], "z": 2 }
+    ],
+    "ramps": [
+      { "tile": [8, 1], "from": 0, "to": 1, "dir": "+x" }
+    ]
+  },
   "waves": [
     {
       "lead_in": 25,

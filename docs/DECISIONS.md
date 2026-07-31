@@ -2070,3 +2070,47 @@ at full zoom-out, so it can be chosen on gameplay and performance grounds alone.
 **What this does not license.** Zooming *in* past 1.0 still softens sprites, and that is a
 different question with a different answer — the atlas is one orthographic scale and 1.0 is
 where it is sharp. Clamp there.
+
+---
+
+## 057 — Terrain is regions and ramps, painted later-wins, never a dense heightmap by default
+
+**Date.** 2026-07-30.
+
+**Context.** `TER-02`, the foundation for fourteen downstream terrain issues. An anchor needs
+to carry elevation without `data/schema/anchor.schema.json`'s `additionalProperties: false`
+swallowing a typo'd key, and without inventing a second place for the two independent anchor
+parsers — `sim/content.py` and `scripts/content.gd` — to disagree quietly. That is PRD risk
+#10, and it is the kind of divergence that surfaces as an unexplained leak nine minutes into
+`rules parity` with no pointer to terrain at all.
+
+**Decision.** Regions and ramps, with a dense `heightmap` escape hatch a generator may use
+instead. Regions paint **in array order**, and a later region's rect completely overwrites
+every tile it covers — including *lowering* it. If `heightmap` is present it replaces
+`regions` entirely rather than compositing with them, and declaring both is a schema error
+rather than a precedence rule someone has to remember. Ramps are declared metadata and are
+never consulted when resolving height; they are for a future movement and line-of-sight
+consumer.
+
+That one paragraph is implemented twice, and the fixture is the mechanism that keeps the two
+honest: `data/schema/fixtures/terrain-resolution.json` runs through both resolvers and is
+diffed tile for tile *against the expected grid and against each other*, so a typo in the
+fixture cannot hide a real disagreement behind two matching wrong answers.
+
+**Rejected.**
+- *A dense heightmap as the only shape.* A 64x64 board is 4,096 numbers nobody will review in
+  a diff. Unreviewable content is not content; it is a binary blob with a `.json` extension.
+- *A sparse per-tile list.* The same ambiguity about paint order and overlap as regions, with
+  more syntax and no readability win over a rect.
+- *Inferred ramps — auto-detecting a one-level step at a region boundary.* Unfalsifiable. A
+  script cannot tell "this step is a ramp" from "this step is a cliff, walk around it" by
+  looking at the grid, and getting it wrong fails silently in pathing rather than loudly in
+  validation.
+
+**Consequence.** `Anchor.levels` and `height_at()` exist and are consumed by nothing except
+`tools/density.py`'s terrain-presence report. `TER-02` deliberately stops short of wiring
+elevation into `sim/engine.py` or `scripts/anchor_sim.gd` — that is `TER-01`, gated
+separately, so the cheap slice this issue graded stays parity-free. One pilot anchor carries
+terrain and the other 23 are untouched; anchor-01's grade is identical before and after, and
+all 24 still match the recorded table, which is true by construction rather than by luck
+because nothing in the rules reads `terrain` yet.

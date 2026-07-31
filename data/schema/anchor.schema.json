@@ -143,6 +143,105 @@
       "type": "number",
       "minimum": 0,
       "description": "Act III: MW the bus loses at the start of each wave after the first, floored at 45% of rated capacity."
+    },
+    "terrain": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "levels"
+      ],
+      "not": {
+        "required": [
+          "regions",
+          "heightmap"
+        ]
+      },
+      "description": "Optional; absent means the whole board is level 0. Regions, not a dense heightmap, are the normal way to author relief: they are what a generator emits and what a human can read in a diff. Resolution algorithm (implemented twice, byte for byte, by sim/content.py's resolve_terrain() and scripts/content.gd's resolve_terrain(), and proved identical on data/schema/fixtures/terrain-resolution.json by the 'terrain parsers agree' gate check -- PRD-THEATRE-SCALE.md risk #10 is exactly these two parsers disagreeing on this one algorithm): if `heightmap` is present it REPLACES `regions` entirely and is never composited with them, which is why declaring both is a schema error (the `not` clause above) rather than a silent precedence rule. Otherwise every tile starts at level 0 and `regions` are painted in array order -- a later region's `rect` completely overwrites the level of every tile it covers, including lowering it below what an earlier region wrote. Later region wins, full stop, and that is the entire rule. `ramps` are declared, not inferred, and are metadata for a future line-of-sight / stepped-movement consumer -- they are not consulted by this resolution algorithm and do not affect the resolved grid.",
+      "properties": {
+        "levels": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "the maximum level index the board uses; every region/heightmap z must satisfy 0 <= z <= levels."
+        },
+        "regions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "rect",
+              "z"
+            ],
+            "properties": {
+              "rect": {
+                "type": "array",
+                "minItems": 4,
+                "maxItems": 4,
+                "items": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "description": "[x, y, w, h]; half-open in w and h."
+              },
+              "z": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          }
+        },
+        "ramps": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "tile",
+              "from",
+              "to",
+              "dir"
+            ],
+            "properties": {
+              "tile": {
+                "type": "array",
+                "minItems": 2,
+                "maxItems": 2,
+                "items": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              },
+              "from": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "to": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "dir": {
+                "enum": [
+                  "+x",
+                  "-x",
+                  "+y",
+                  "-y"
+                ]
+              }
+            }
+          }
+        },
+        "heightmap": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "description": "dense h x w array of integer levels, row-major: heightmap[y][x]. Replaces `regions` entirely when present; declaring both is a schema error."
+        }
+      }
     }
   }
 }

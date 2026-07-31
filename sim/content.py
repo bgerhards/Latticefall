@@ -94,6 +94,13 @@ class Anchor:
     # wave one is over capacity by wave five, so the player's mastery of the power system
     # is what stops working. Decision 031.
     capacity_decay_mw: float = 0.0
+    # TER-02: dense row-major level grid, levels[y][x], resolved once by resolve_terrain()
+    # at load time. An anchor with no `terrain` key resolves to an all-zero grid at
+    # grid.w x grid.h, so every downstream consumer (height_at() below; density.py) has one
+    # code path regardless of whether the anchor declares any relief. Nothing in the rules
+    # reads this yet by design — see resolve_terrain()'s docstring and TER-02's "risks"
+    # section: letting terrain reach the engine is a later, owner-gated issue (TER-13).
+    levels: tuple[tuple[int, ...], ...] = field(default=())
     # derived
     seg_len: tuple[float, ...] = field(default=())
     cum_len: tuple[float, ...] = field(default=())
@@ -111,6 +118,24 @@ class Anchor:
     @property
     def path_length(self) -> float:
         return self.cum_len[-1]
+
+    def height_at(self, tx: int, ty: int) -> int:
+        """Terrain level at tile (tx, ty), clamped to the board edge.
+
+        Clamped rather than raising: a caller working from a world position derived by
+        float math (point_at(), a projectile arc) can land a fraction outside the last
+        tile by rounding, and treating the board edge as infinitely tall/flat there is
+        the same choice `point_at` already makes for distance past the path's ends.
+        """
+        h = len(self.levels)
+        if h == 0:
+            return 0
+        w = len(self.levels[0])
+        if w == 0:
+            return 0
+        cx = min(max(int(tx), 0), w - 1)
+        cy = min(max(int(ty), 0), h - 1)
+        return self.levels[cy][cx]
 
     def point_at(self, dist: float) -> tuple[float, float]:
         """World position of a unit `dist` tiles along the path."""
@@ -157,6 +182,56 @@ def load_enemies(path: Path | None = None) -> dict[str, Enemy]:
     }
 
 
+def resolve_terrain(doc: dict) -> tuple[tuple[int, ...], ...]:
+    """Resolve an anchor doc's optional `terrain` block into a dense row-major level
+    grid: `levels[y][x]`, `grid.h` rows of `grid.w` columns each.
+
+    TER-02. This algorithm exists twice — here, and as `resolve_terrain()` in
+    scripts/content.gd — implementing the same prose from data/schema/anchor.schema.json's
+    `terrain` description, byte for byte. PRD-THEATRE-SCALE.md risk #10 is exactly these
+    two parsers disagreeing on one tile; data/schema/fixtures/terrain-resolution.json is
+    the fixture both are proved identical against, by tools/terrain_parity.py and the
+    'terrain parsers agree' gate check. If either implementation changes, change the other
+    the same way and re-run that check before touching anything else.
+
+    Absent `terrain` (the case for all 24 anchors except the TER-02 pilot) resolves to an
+    all-zero grid, so every downstream consumer — height_at() above, tools/density.py — has
+    exactly one code path whether or not the anchor declares any relief.
+
+    Resolution order, matching the schema:
+      1. `heightmap` present -> return it verbatim (already `levels[y][x]`, row-major). It
+         REPLACES `regions` entirely and is never composited with them — the schema makes
+         declaring both a validation error rather than leaving a precedence rule for this
+         function to invent.
+      2. otherwise every tile starts at level 0, and `regions` are painted in array order:
+         each region's `rect` ([x, y, w, h], half-open in w/h) completely overwrites the
+         level of every tile it covers, including *lowering* it below what an earlier
+         region wrote. Later region wins, full stop — this is the one sentence both
+         parsers must implement identically.
+    A rect that runs off the board is clipped to the grid, never wrapped and never an
+    error — a generator emitting a region against the edge is the normal case, not a bug.
+    `ramps` are declared metadata for a future line-of-sight / stepped-movement consumer
+    (TER-06/TER-08/TER-12) and are not consulted here; they never affect the resolved grid.
+    """
+    w, h = doc["grid"]["w"], doc["grid"]["h"]
+    terrain = doc.get("terrain")
+    if not terrain:
+        return tuple(tuple(0 for _ in range(w)) for _ in range(h))
+
+    if "heightmap" in terrain:
+        return tuple(tuple(int(v) for v in row) for row in terrain["heightmap"])
+
+    grid = [[0] * w for _ in range(h)]
+    for region in terrain.get("regions", []):
+        rx, ry, rw, rh = region["rect"]
+        z = int(region["z"])
+        for y in range(max(0, ry), min(h, ry + rh)):
+            row = grid[y]
+            for x in range(max(0, rx), min(w, rx + rw)):
+                row[x] = z
+    return tuple(tuple(row) for row in grid)
+
+
 def load_anchor(anchor_id: str) -> Anchor:
     doc = json.loads((DATA / "anchors" / f"{anchor_id}.json").read_text())
     return Anchor(
@@ -165,6 +240,7 @@ def load_anchor(anchor_id: str) -> Anchor:
         lives=doc.get("lives", 10),
         tutorial=doc.get("tutorial", False),
         capacity_decay_mw=doc.get("capacity_decay_mw", 0.0),
+        levels=resolve_terrain(doc),
         grid=(doc["grid"]["w"], doc["grid"]["h"]),
         waypoints=tuple((float(x), float(y)) for x, y in doc["path"]),
         slots=tuple((int(x), int(y)) for x, y in doc["slots"]),

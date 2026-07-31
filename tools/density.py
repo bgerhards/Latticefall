@@ -80,6 +80,29 @@ def capacity_on_wave(a: Anchor, index: int) -> float:
     return max(a.capacity_mw * 0.45, a.capacity_mw - a.capacity_decay_mw * index)
 
 
+def terrain_stats(a: Anchor) -> dict[str, float]:
+    """Terrain presence: how much of the board actually has relief in it.
+
+    TER-02 added the `terrain` schema and a shared resolve_terrain() but deliberately
+    wired it into exactly one pilot anchor — "terrain data exists but nothing in the rules
+    reads it yet" is the issue's own acceptance criterion. So this reports what is
+    *measurable* (levels used, % of the board raised above 0) rather than what is merely
+    claimed, the same reasoning LF-044 already forced onto unit density: a "terrain that
+    means something" claim should be a number, not an assertion. `a.levels` is the dense
+    grid resolve_terrain() produced at load time (sim/content.py); an anchor with no
+    `terrain` key resolves to an all-zero grid, so this is exactly `0, 0.0%` for every
+    anchor except the pilot until more anchors get a terrain pass.
+    """
+    tiles = [v for row in a.levels for v in row]
+    total = len(tiles)
+    raised = sum(1 for v in tiles if v > 0)
+    return {
+        "levels_used": float(len({v for v in tiles if v > 0})),
+        "max_level": float(max(tiles) if tiles else 0),
+        "raised_pct": raised / total if total else 0.0,
+    }
+
+
 def anchor_rows(a: Anchor, enemies: dict[str, Enemy]) -> list[dict[str, float]]:
     rows = []
     for i, w in enumerate(a.waves):
@@ -100,8 +123,13 @@ def main() -> int:
 
     if args.anchor:
         a = load_anchor(args.anchor)
+        t = terrain_stats(a)
+        terrain_line = (f"flat (no terrain)" if t["raised_pct"] == 0.0 else
+                         f"{t['raised_pct']:.1%} of board raised, "
+                         f"{t['levels_used']:.0f} level(s) used (max {t['max_level']:.0f})")
         print(f"{a.id}  {a.title}  ·  act {a.act} · {a.capacity_mw:.0f} MW "
-              f"· {a.lives} lives · decay {a.capacity_decay_mw:.0f}/wave\n")
+              f"· {a.lives} lives · decay {a.capacity_decay_mw:.0f}/wave · terrain: "
+              f"{terrain_line}\n")
         print(f"{'wave':>4s} {'units':>6s} {'leak':>5s} {'hp':>6s} "
               f"{'drain':>6s} {'cap':>5s} {'bus':>5s}")
         for r in anchor_rows(a, enemies):
@@ -114,7 +142,7 @@ def main() -> int:
 
     print(f"{'anchor':>9s} {'act':>3s} {'waves':>5s} {'units/w':>7s} {'onscreen':>8s} "
           f"{'leak/w':>6s} {'hp/w':>6s} {'drain/w':>7s} {'peak bus':>8s} {'lives':>5s} "
-          f"{'budget':>6s}")
+          f"{'budget':>6s} {'terrain':>7s}")
     acts: dict[int, list[dict]] = {}
     for aid in all_anchor_ids():
         a = load_anchor(aid)
@@ -125,10 +153,13 @@ def main() -> int:
         agg["onscreen"] = float(peak_concurrent(a, enemies))
         agg["lives"] = a.lives
         agg["budget"] = a.lives / sum(r["leak"] for r in rows)
+        t = terrain_stats(a)
+        agg["terrain_pct"] = t["raised_pct"]
         acts.setdefault(a.act, []).append(agg)
         print(f"{aid:>9s} {a.act:>3d} {n:>5d} {agg['units']:>7.1f} {agg['onscreen']:>8.0f} "
               f"{agg['leak']:>6.1f} {agg['hp']:>6.0f} {agg['drain']:>7.1f} "
-              f"{agg['peak_bus']:>7.0%} {a.lives:>5d} {agg['budget']:>5.1%}")
+              f"{agg['peak_bus']:>7.0%} {a.lives:>5d} {agg['budget']:>5.1%} "
+              f"{agg['terrain_pct']:>6.0%}")
 
     print(f"\n{'act':>9s} {'units/w':>7s} {'onscreen':>8s} {'leak/w':>6s} {'hp/w':>6s} "
           f"{'drain/w':>7s} {'peak bus':>8s} {'budget':>6s}")
