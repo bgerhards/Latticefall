@@ -2025,3 +2025,48 @@ parse and the menu could no longer load the game scene. **Annotate explicitly an
 reached through an untyped var or a bare `Node2D`.** `--headless --path . --check-only
 --script res://scripts/<f>.gd` parse-checks one file in seconds; note it reports spurious
 "Identifier not found" for autoloads, which are not real.
+
+---
+
+## 056 — Zoom-out trades detail for the whole board, and the art library does not move
+
+**Date.** 2026-07-30.
+
+**Context.** PRD open decision 1, `CAM-05`, `LF-104`. The board camera needs one number it
+cannot invent: `ZOOM_MIN`. Measured, fitting a 64x64 board into the strip between the two
+instrument panels needs **0.234x at 100% interface scale and 0.117x at 200%**, which renders
+a 256 px atlas cell at **30-60 px on screen**. The sprite library is a fixed 256 px cell at
+one orthographic scale, so a big board plus that library is a legibility wall the camera
+cannot fix.
+
+Three options were costed: raise `Iso.TILE_W`/`TILE_H`; a zoom floor with the minimap doing
+the wide read; or re-author the library silhouette-first to survive 30 px.
+
+**Decision.** The zoom floor, and detail loss at full zoom-out is accepted. The owner's call,
+in their words: they *would be excited* if an item stayed legible when zoomed out, but *would
+not be upset* if a lot of detail were lost on an item at that distance. So `ZOOM_MIN` is set
+to fit the board rather than to preserve a sprite's readability, the minimap (`CAM-04`)
+carries the wide read, and identifying a specific unit is a thing you zoom **in** to do.
+
+**Rejected.**
+- *Raising the tile size.* A whole-game layout change: every screen-space calculation, the
+  measured sprite pivot that `calibrate()` solves and writes to the manifest, `pack_atlas.py`'s
+  hardcoded `CELL = 256`, `render.py`'s `ortho_scale = W * sqrt(2) / 128`, and the
+  accessibility baselines, which are sampled out of the composited frame. Tile size and the
+  30.0 degree camera elevation are one decision (002 / 017) and changing either invalidates
+  the sprite library. It also depends on `LF-102`, because `calibrate()` cannot converge at
+  384 or 1024 px cells. Enormous cost for a property the owner has said they do not need.
+- *Silhouette-first re-authoring.* Applies to the whole library at once and spends the art
+  budget on the zoom level where the player is reading lane pressure, not unit types. The
+  measured silhouette matrix from `CAM-05` is still worth having — it names which pairs
+  collapse at which size — but as a target for future art, not as a reason to redo current art.
+
+**Consequence.** `ZOOM_MIN` is derived from board extent, not fixed: whatever it takes to
+fit the widest board, floored so the projection cannot degenerate. It carries a comment
+citing this entry rather than a bare literal. This also settles the shape of PRD open
+decision 2 (board size target): board size is no longer constrained by what the art can show
+at full zoom-out, so it can be chosen on gameplay and performance grounds alone.
+
+**What this does not license.** Zooming *in* past 1.0 still softens sprites, and that is a
+different question with a different answer — the atlas is one orthographic scale and 1.0 is
+where it is sharp. Clamp there.
