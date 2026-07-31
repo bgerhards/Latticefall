@@ -205,6 +205,12 @@ func _draw_hit_flashes(glow: float) -> void:
 	## white (or ricochet blue) and faded by the flash's remaining life. Modulating the
 	## albedo draw itself would clamp at 1.0 in GL Compatibility's non-HDR pipeline and never
 	## actually brighten — an additive overlay on top genuinely does.
+	##
+	## This loop itself is still O(units) — every drawable has to be checked for its own
+	## flash — but `fx.hit_flash_at()` used to scan the *entire* live hit list per call,
+	## making the whole pass quadratic in unit count (CAM-08 / LF-100). combat_fx.gd now
+	## buckets hits by integer tile, so the per-unit lookup below only walks a local 3x3
+	## neighbourhood; nothing here changed to make that true.
 	var view: Node2D = fx.view
 	for d in view.drawables():
 		if d["kind"] != "unit":

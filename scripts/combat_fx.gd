@@ -22,6 +22,18 @@ const HIT_FLASH_LIFE := 0.16
 ## tile in that time, so "nearest live hit within this radius" is an unambiguous match in
 ## practice — see hit_flash_at()'s doc for why position, not identity, is the key at all.
 const HIT_MATCH_RADIUS := 0.55
+## hit_flash_at() looks up a 3x3 neighbourhood of unit-size (1x1 tile) buckets around the
+## query tile. That is exact, not a heuristic, *because* HIT_MATCH_RADIUS < 1.0: a hit whose
+## bucket differs from the query tile's bucket by more than one cell in either axis is, by
+## construction of a unit-tile bucket, more than 1.0 tiles away on that axis alone — already
+## outside HIT_MATCH_RADIUS. If HIT_MATCH_RADIUS ever grows past 1.0 this neighbourhood must
+## grow with it (a radius of e.g. 1.4 needs a 5x5 lookup), so the two are coupled even though
+## nothing in the type system says so — this comment is the only thing that will.
+const _HIT_BUCKET_OFFSETS: Array[Vector2i] = [
+	Vector2i(-1, -1), Vector2i(0, -1), Vector2i(1, -1),
+	Vector2i(-1, 0),  Vector2i(0, 0),  Vector2i(1, 0),
+	Vector2i(-1, 1),  Vector2i(0, 1),  Vector2i(1, 1),
+]
 const BEAM_CHARGE_TIME := 0.25       # seconds before fire_interval elapses that the lance glows
 const FIELD_PULSE_PERIOD := 2.3
 
@@ -66,6 +78,11 @@ var view: Node2D
 var _fx: Array[Dictionary] = []
 ## Sprite-flash lookup only — never drawn. {tile, age, life, shielded_resist}.
 var _hits: Array[Dictionary] = []
+## Vector2i(floori(tile.x), floori(tile.y)) -> Array[int] of indices into _hits, one entry
+## per hit whose tile falls in that unit-tile cell. Rebuilt once per frame in _step_hits(),
+## not per hit_flash_at() call — see that function's doc for why a per-lookup rebuild would
+## put the quadratic term right back.
+var _hit_buckets: Dictionary = {}
 ## unit_damaged events waiting out the travel time of the shot that caused them, so the
 ## impact reads in sync with the projectile's arrival rather than the instant the rules
 ## resolved it.
@@ -103,14 +120,39 @@ func hit_flash_at(tile: Vector2) -> Dictionary:
 	## exactly that reason. Nearest-in-range is unambiguous in practice: two units standing
 	## within HIT_MATCH_RADIUS of each other for the ~0.15s a flash lives is rare, and a wrong
 	## match only costs a flash on the wrong sprite for one frame.
+	##
+	## Looks up only the 3x3 bucket neighbourhood of `tile` (see _HIT_BUCKET_OFFSETS' doc for
+	## why 3x3 is exact rather than approximate at this radius) instead of scanning every live
+	## hit, so this call is O(hits in the local neighbourhood) rather than O(all live hits) —
+	## CAM-08 / LF-100. `_hit_buckets` is rebuilt once per frame in _step_hits(), never here,
+	## so a lookup allocates nothing beyond the Vector2i keys it constructs (a value type, not
+	## a heap object).
+	##
+	## Tie-break is preserved exactly, not just "close enough": the original linear scan (see
+	## git history / CAM-08's test) applies `best_d = d2; best = h` under `d2 <= best_d` while
+	## walking _hits in ascending index order, which is equivalent to "the highest-index entry
+	## among those tied for the minimum distance wins" — a running minimum where an exact tie
+	## always overwrites. That characterization does not depend on scan order, so comparing
+	## candidates as `(d2, i)` pairs below reproduces it exactly regardless of which bucket, or
+	## which order within a bucket, a candidate is visited in.
+	var cx := floori(tile.x)
+	var cy := floori(tile.y)
 	var best: Dictionary = {}
 	var best_d := HIT_MATCH_RADIUS * HIT_MATCH_RADIUS
-	for h in _hits:
-		var d: Vector2 = h["tile"] - tile
-		var d2 := d.length_squared()
-		if d2 <= best_d:
-			best_d = d2
-			best = h
+	var best_i := -1
+	for off in _HIT_BUCKET_OFFSETS:
+		var key := Vector2i(cx + off.x, cy + off.y)
+		if not _hit_buckets.has(key):
+			continue
+		var idxs: Array = _hit_buckets[key]
+		for i in idxs:
+			var h: Dictionary = _hits[i]
+			var d: Vector2 = h["tile"] - tile
+			var d2 := d.length_squared()
+			if d2 < best_d or (d2 == best_d and i > best_i):
+				best_d = d2
+				best_i = i
+				best = h
 	if best.is_empty():
 		return {}
 	var frac: float = 1.0 - clampf(float(best["age"]) / float(best["life"]), 0.0, 1.0)
@@ -421,6 +463,22 @@ func _step_hits(delta: float) -> void:
 		if float(h["age"]) < float(h["life"]):
 			keep.append(h)
 	_hits = keep
+	_rebuild_hit_buckets()
+
+
+func _rebuild_hit_buckets() -> void:
+	## Once per frame — after ageing/pruning, before _draw() reads them — rather than once
+	## per hit_flash_at() call, which is the whole point (CAM-08 / LF-100). _hits changes at
+	## most once per frame (aged here, appended in _resolve_hit() earlier in the same
+	## _process()), so this is the only place the bucket dictionary needs rebuilding.
+	_hit_buckets.clear()
+	for i in range(_hits.size()):
+		var tile: Vector2 = _hits[i]["tile"]
+		var key := Vector2i(floori(tile.x), floori(tile.y))
+		if _hit_buckets.has(key):
+			(_hit_buckets[key] as Array).append(i)
+		else:
+			_hit_buckets[key] = [i]
 
 
 # ──────────────────────────────────────────────────────────────── draw ──
