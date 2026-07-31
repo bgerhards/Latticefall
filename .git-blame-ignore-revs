@@ -1,0 +1,14 @@
+# Commits that changed only whitespace, and that `git blame` should look straight through.
+#
+# GitHub honours this file automatically. Locally it needs one opt-in, once:
+#
+#     git config blame.ignoreRevsFile .git-blame-ignore-revs
+#
+# Only ever add a commit here that is PROVABLY whitespace-only — the proof this project
+# accepts is `git diff -w --stat <sha>^ <sha>` printing nothing while `git diff --stat`
+# prints a large number. A commit listed here becomes invisible to blame, so a real change
+# hidden in one is a real change nobody can attribute.
+
+# style(gdscript): reindent main.gd to tabs — whitespace only (PRC-11, decision 068)
+# 721 insertions / 721 deletions; `git diff -w` empty.
+698d3d8bc2962adfc9fb3788069ab4ddaa91e371
