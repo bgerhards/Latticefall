@@ -48,8 +48,18 @@ ROOT = Path(__file__).resolve().parents[2]
 MANIFEST = ROOT / "assets" / "renders" / "sprites.json"
 ATLAS_DIR = ROOT / "assets" / "renders" / "atlas"
 
-CELL = 256          # every render is 256x256; asserted below rather than assumed
-COLS = 12           # 12 * 256 = 3072 px wide, comfortably inside any GL texture limit
+# COLS is independent of cell size: 12 columns kept 256px cells (3072px wide) comfortably
+# inside any GL texture limit. At 1024px cells that becomes a 12288px-wide page — not
+# checked against this machine's actual GL_MAX_TEXTURE_SIZE (GL Compatibility's minimum
+# guarantee is 2048; real hardware commonly goes to 8192 or 16384, but "commonly" is not
+# "verified"). Backlog candidate for whoever picks up ART-04, per this project's own rule
+# against trusting an unprobed number.
+# CELL itself is NOT a constant here (ART-03/LF-102) — render.py's `--cell` moves the
+# render canvas size, and a hardcoded 256 here raised on the first render it opened at
+# any other size (the size assertion in pack() below, :105-108, is the safety net that
+# would have caught it; reading CELL from the manifest is what keeps that assertion from
+# firing on a legitimately non-256 library instead of only on a genuinely mismatched one).
+COLS = 12
 PASSES = ("albedo", "glow")
 
 
@@ -88,10 +98,10 @@ def collect(doc: dict) -> dict[str, list[tuple[str, str, Path]]]:
     return out
 
 
-def pack(entries: list[tuple[str, str, Path]], dest: Path,
+def pack(entries: list[tuple[str, str, Path]], dest: Path, cell: int,
          write: bool) -> tuple[dict[str, list[int]], tuple[int, int]]:
     rows = (len(entries) + COLS - 1) // COLS
-    size = (COLS * CELL, max(rows, 1) * CELL)
+    size = (COLS * cell, max(rows, 1) * cell)
     page = Image.new("RGBA", size, (0, 0, 0, 0)) if write else None
     index: dict[str, list[int]] = {}
 
@@ -102,11 +112,11 @@ def pack(entries: list[tuple[str, str, Path]], dest: Path,
             continue
         with Image.open(path) as im:
             im = im.convert("RGBA")
-            if im.size != (CELL, CELL):
-                raise SystemExit(f"{path.name} is {im.size}, expected {CELL}x{CELL} — "
+            if im.size != (cell, cell):
+                raise SystemExit(f"{path.name} is {im.size}, expected {cell}x{cell} — "
                                  "the grid pack assumes a uniform cell and the pivot "
                                  "depends on it")
-            page.paste(im, (col * CELL, row * CELL))
+            page.paste(im, (col * cell, row * cell))
 
     if write:
         dest.parent.mkdir(parents=True, exist_ok=True)
@@ -133,14 +143,22 @@ def main() -> int:
         print(f"{len(missing)} renders missing — run render.py first", file=sys.stderr)
         return 1
 
-    atlas = {"cell": CELL, "cols": COLS, "pages": {}, "index": {},
+    # Read from the manifest render.py just wrote, not a local constant (ART-03/LF-102):
+    # render.py's --cell moves the render canvas size, and this packer has to follow it
+    # or the size assertion in pack() above raises on the very first render it opens.
+    if "cell" not in doc:
+        print(f"manifest has no \"cell\" — re-run render.py to write one", file=sys.stderr)
+        return 1
+    cell = int(doc["cell"])
+
+    atlas = {"cell": cell, "cols": COLS, "pages": {}, "index": {},
              "source_digest": source_digest(groups)}
     for pass_name in PASSES:
         entries = groups[pass_name]
         if not entries:
             continue
         dest = ATLAS_DIR / f"{pass_name}.png"
-        index, size = pack(entries, dest, write=not args.check)
+        index, size = pack(entries, dest, cell, write=not args.check)
         atlas["pages"][pass_name] = str(dest.relative_to(ROOT))
         atlas["index"][pass_name] = index
         kb = dest.stat().st_size / 1024 if dest.exists() and not args.check else 0

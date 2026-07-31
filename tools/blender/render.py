@@ -5,6 +5,8 @@ Latticefall sprite pipeline. Runs inside Blender 5.2:
     ... -- --list
     ... -- --only pulse_turret
     ... -- --calibrate
+    ... -- --calibrate --cell 512      # override the 256px default (ART-03/LF-102);
+    ... -- --only pulse_turret --cell 512   # TILE_W and ORTHO_SCALE re-derive from it
 
 Everything the game draws is rendered here, from scripted geometry, through one camera
 rig and one lighting rig. Consistency across forty assets is a property of the pipeline,
@@ -30,14 +32,17 @@ import json
 import math
 import os
 import sys
+import tempfile
 
 import bpy
 
 # ── projection (decision 017 — measured, not derived) ───────────────────────
 ELEVATION_DEG = 30.0            # arcsin(0.5). A 1x1 tile lands on exactly 2:1.
 YAWS = (45, 135, 225, 315)
-CELL = 256                      # render canvas, px
-TILE_W = 128                    # a 1x1 world tile must measure this wide
+CELL = 256                      # render canvas, px. Overridable with --cell (ART-03);
+                                 # TILE_W and ORTHO_SCALE_NOMINAL are re-derived from it
+                                 # by set_cell() before setup_scene()/calibrate() run.
+TILE_W = CELL // 2              # a 1x1 world tile must measure this wide
 # Nominal value from the geometry: a 1x1 tile's diagonal is sqrt(2) world units, and
 # we want that to land on TILE_W pixels. Blender's orthographic-to-pixel mapping is
 # very slightly tighter than this in practice (128 nominal measured 126), so the real
@@ -53,6 +58,23 @@ SAMPLES = 64
 HEIGHT_BIAS = 0.55
 # Solved by calibrate(): the pixel that world (0,0,0) projects to, top-left origin.
 PIVOT = (CELL // 2, CELL // 2)
+
+
+def set_cell(cell: int) -> None:
+    """Override the render canvas size and re-derive everything that scales with it.
+
+    `--cell` (ART-03/LF-102) is how a non-256 cell size gets exercised at all — without
+    this, TILE_W, ORTHO_SCALE_NOMINAL and PIVOT stay locked to the module's 256px
+    defaults no matter what `sc.render.resolution_x/y` is set to, and calibrate() would
+    be solving a projection for a canvas it isn't actually rendering. Must run before
+    setup_scene() and calibrate().
+    """
+    global CELL, TILE_W, ORTHO_SCALE_NOMINAL, ORTHO_SCALE, PIVOT
+    CELL = cell
+    TILE_W = CELL // 2
+    ORTHO_SCALE_NOMINAL = CELL * math.sqrt(2.0) / TILE_W
+    ORTHO_SCALE = ORTHO_SCALE_NOMINAL
+    PIVOT = (CELL // 2, CELL // 2)
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 OUT_DIR = os.path.join(ROOT, "assets", "renders")
@@ -895,8 +917,18 @@ def _measure_tile(sc):
     xs, ys = [], []
     for y in range(h):
         for x in range(w):
-            # any coverage, not >0.5: a shape spanning exactly 128 px puts 50%
-            # coverage in each boundary pixel, so a half threshold measures 126.
+            # Probed on this machine (ART-03/LF-102): at taa_render_samples=1 and
+            # filter_size=0.0 the alpha channel is exactly binary — 0.0 or 1.0, never
+            # a fractional coverage value — because there is no accumulation to
+            # produce a soft edge from a single unfiltered sample. The ">0.02, not
+            # >0.5" threshold below is therefore not doing the partial-coverage job
+            # the old comment here described; it is just "count this pixel or don't"
+            # on an already-binary buffer. That binary in/out test is what makes this
+            # measurement exact-integer *and* subject to phase noise: whichever side
+            # of the true continuous edge a pixel's sample point falls on can differ
+            # between the x and y axes even when the underlying scale is exactly
+            # right, which is the root cause calibrate() corrects for using
+            # _measure_tile_subpixel() rather than by looping this threshold.
             if buf[(y * w + x) * 4 + 3] > 0.02:
                 xs.append(x)
                 ys.append(y)
@@ -918,6 +950,97 @@ def _measure_tile(sc):
     return (max(xs) - min(xs) + 1, max(ys) - min(ys) + 1, cx, cy)
 
 
+def _interp_crossing(lo_val, hi_val, level=0.5):
+    """Fraction of the way from the low sample to the high sample that `level` falls
+    at, assuming a linear ramp between them. Used to locate a sub-pixel edge."""
+    if hi_val == lo_val:
+        return 0.5
+    return (level - lo_val) / (hi_val - lo_val)
+
+
+def _measure_tile_subpixel(sc):
+    """Render the same calibration plane with real antialiasing on, and return
+    (width_sub, height_sub) as continuous, sub-pixel-accurate floats.
+
+    `_measure_tile` deliberately renders at taa_render_samples=1 / filter_size=0.0 so
+    its measurement is reproducible and exact-integer — but that setting produces a
+    perfectly binary alpha channel (probed here: 0.0 or 1.0 only, confirmed by
+    inspecting the raw buffer at a failing cell size), which is exactly why the
+    integer bbox it returns can read one pixel short on one axis while the other axis
+    already reads exact: a binary in/out test has no sub-pixel information to correct
+    from, only a coin-flip on which side of the true edge a pixel's sample point
+    lands, and that phase can differ between the x and y axes even at the *correct*
+    scale.
+
+    Restoring samples and the reconstruction filter (32 / 1.5, well short of the
+    production 64 but enough to converge) gives a genuine analytic coverage gradient
+    at each silhouette edge (also probed here) that a linear interpolation between
+    neighbouring pixels can locate to a small fraction of a pixel. calibrate() uses
+    that continuous width/height — not the binary one — to solve ORTHO_SCALE, because
+    a 1x1 tile's width and height are tied by an exact 2:1 ratio for any correct
+    scale (the projection is isotropic and the elevation is fixed), so getting either
+    axis continuously exact makes the other exact too; only the binary threshold's
+    independent per-axis rounding can make them disagree.
+    """
+    for o in [o for o in bpy.data.objects if o.type == "MESH"]:
+        bpy.data.objects.remove(o, do_unlink=True)
+    bpy.ops.mesh.primitive_plane_add(size=1.0, location=(0, 0, 0))
+    put(bpy.context.active_object, mat("cals", BONE))
+    prev = sc.eevee.taa_render_samples
+    prev_filter = sc.render.filter_size
+    sc.eevee.taa_render_samples = 32
+    sc.render.filter_size = 1.5
+    sc.render.use_compositing = False
+    cam = place_camera(sc, 45)
+    # Scratch only, unlike `_measure_tile`'s "_calibration.png": that one is an
+    # existing tracked file in assets/renders/ (committed build output, overwritten
+    # every calibrate() run); this one is new with ART-03 and has no reason to churn
+    # the committed asset tree on every render, so it goes to the OS temp dir instead.
+    path = os.path.join(tempfile.gettempdir(), "lf_calibration_sub.png")
+    sc.render.filepath = path
+    bpy.ops.render.render(write_still=True)
+    bpy.data.objects.remove(cam, do_unlink=True)
+    sc.eevee.taa_render_samples = prev
+    sc.render.filter_size = prev_filter
+
+    px = bpy.data.images.load(path)
+    w, h = px.size
+    buf = px.pixels[:]
+
+    def alpha(x, y):
+        return buf[(y * w + x) * 4 + 3]
+
+    # Coarse bbox at the 0.5 level to locate the shape, then refine each edge with
+    # a linear interpolation between the last sample outside 0.5 and the first
+    # sample inside it (or vice versa).
+    xs = [x for y in range(h) for x in range(w) if alpha(x, y) > 0.5]
+    ys = [y for y in range(h) for x in range(w) if alpha(x, y) > 0.5]
+    bpy.data.images.remove(px)
+    for o in [o for o in bpy.data.objects if o.type == "MESH"]:
+        bpy.data.objects.remove(o, do_unlink=True)
+    if not xs or not ys:
+        return (0.0, 0.0)
+
+    cy_mid = (min(ys) + max(ys)) // 2
+    cx_mid = (min(xs) + max(xs)) // 2
+
+    # Left/right edges along the row through the shape's vertical middle.
+    row = [alpha(x, cy_mid) for x in range(w)]
+    li = next(i for i in range(1, w) if row[i] >= 0.5 > row[i - 1])
+    left = (li - 1) + _interp_crossing(row[li - 1], row[li])
+    ri = next(i for i in range(w - 2, -1, -1) if row[i] >= 0.5 > row[i + 1])
+    right = ri + _interp_crossing(row[ri], row[ri + 1])
+
+    # Top/bottom edges along the column through the shape's horizontal middle.
+    col = [alpha(cx_mid, y) for y in range(h)]
+    ti = next(i for i in range(1, h) if col[i] >= 0.5 > col[i - 1])
+    top = (ti - 1) + _interp_crossing(col[ti - 1], col[ti])
+    bi = next(i for i in range(h - 2, -1, -1) if col[i] >= 0.5 > col[i + 1])
+    bottom = bi + _interp_crossing(col[bi], col[bi + 1])
+
+    return (right - left, bottom - top)
+
+
 def calibrate(sc):
     """Solve the orthographic scale so a 1x1 tile measures exactly TILE_W px, then
     assert it.
@@ -927,24 +1050,70 @@ def calibrate(sc):
     better-remembered constant: it is to measure on every run and refuse to render if
     the projection is off. One extra 256px render costs nothing next to re-rendering
     the entire sprite library.
+
+    ART-03/LF-102: the width-ratio correction below (`ORTHO_SCALE *= w / TILE_W`) is
+    the entire original algorithm, kept byte-for-byte for the case that actually needs
+    it — `w` still off target — because it is what solves 256px today and the solved
+    value there has to stay bit-identical. What it cannot do is fix a *height* error
+    once `w` already reads exact: multiplying by `w / TILE_W` when `w == TILE_W` is a
+    no-op by construction, so a one-pixel height shortfall (reproduced deterministically
+    at 384px — 192x95 against 192x96 — and 1024px — 512x255 against 512x256) burned
+    every remaining iteration doing nothing and always failed. 256 and 512 never hit
+    this branch, which is the "works by luck" in the bug report: their nominal scale
+    happens to round correctly on both axes after only ever correcting from `w`.
+
+    The fix is not a looser tolerance (decision 017 exists specifically to keep this a
+    real gate) and not a second integer-ratio correction on `h` — `_measure_tile`'s
+    bbox is a binary in/out test per pixel (probed here: with taa_render_samples=1 and
+    filter_size=0.0 the alpha channel is exactly 0.0 or 1.0, no partial coverage at
+    all), so an "off by one" on that measurement can be pure sample-point phase noise
+    rather than a scale error, and correcting from an integer count would be
+    correcting from noise. Once stuck — `w` already exact, `h` is not — the fallback
+    renders the same plane with real antialiasing (`_measure_tile_subpixel`, 32
+    samples / filter 1.5) and reads a continuous, sub-pixel width and height off the
+    resulting alpha gradient by linear interpolation. A 1x1 tile's width and height
+    are tied by an exact 2:1 ratio at any correct scale — the projection is isotropic
+    and the elevation is fixed — so nudging ORTHO_SCALE from whichever axis's
+    *continuous* measurement is furthest from its target (not whichever axis's binary
+    reading is wrong) moves both axes toward exact together, which is what a purely
+    integer-driven correction cannot do once one axis has already latched onto its
+    target pixel count.
     """
     global ORTHO_SCALE, PIVOT
-    for _ in range(6):
+    target_h = TILE_W // 2
+    for _ in range(10):
         w, h, cx, cy = _measure_tile(sc)
         if w == 0:
             print("CALIBRATION FAIL: nothing rendered")
             return False
-        if w == TILE_W and h == TILE_W // 2:
+        if w == TILE_W and h == target_h:
             PIVOT = (cx, cy)
             print("CALIBRATION ok tile=%dx%d ratio=%.4f elev=%.4f ortho=%.6f (nominal %.6f)"
                   % (w, h, w / h, ELEVATION_DEG, ORTHO_SCALE, ORTHO_SCALE_NOMINAL))
             print("CALIBRATION pivot=(%.1f,%.1f) canvas centre=(%d,%d) bias=%.2f"
                   % (cx, cy, CELL // 2, CELL // 2, HEIGHT_BIAS))
             return True
-        ORTHO_SCALE = ORTHO_SCALE * (float(w) / float(TILE_W))
+        if w != TILE_W:
+            # Original algorithm, unchanged: still making progress on the axis it
+            # has always corrected from.
+            ORTHO_SCALE = ORTHO_SCALE * (float(w) / float(TILE_W))
+            continue
+        # w is already exact and h is not — the width correction above is a no-op.
+        # Fall back to the sub-pixel measurement and correct from whichever axis's
+        # continuous value is furthest from its target.
+        w_sub, h_sub = _measure_tile_subpixel(sc)
+        if w_sub <= 0.0 or h_sub <= 0.0:
+            print("CALIBRATION FAIL: sub-pixel measurement produced nothing")
+            return False
+        w_err = abs(w_sub - TILE_W) / TILE_W
+        h_err = abs(h_sub - target_h) / target_h
+        if h_err >= w_err:
+            ORTHO_SCALE = ORTHO_SCALE * (h_sub / float(target_h))
+        else:
+            ORTHO_SCALE = ORTHO_SCALE * (w_sub / float(TILE_W))
     w, h, _cx, _cy = _measure_tile(sc)
     print("CALIBRATION FAIL tile=%dx%d expected=%dx%d ortho=%.6f"
-          % (w, h, TILE_W, TILE_W // 2, ORTHO_SCALE))
+          % (w, h, TILE_W, target_h, ORTHO_SCALE))
     return False
 
 
@@ -958,6 +1127,9 @@ def main() -> int:
     only = None
     if "--only" in argv:
         only = argv[argv.index("--only") + 1]
+
+    if "--cell" in argv:
+        set_cell(int(argv[argv.index("--cell") + 1]))
 
     os.makedirs(OUT_DIR, exist_ok=True)
     wipe()

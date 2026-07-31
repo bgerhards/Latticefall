@@ -1,5 +1,5 @@
 {
-  "next_id": 113,
+  "next_id": 115,
   "items": [
     {
       "id": "LF-001",
@@ -1219,11 +1219,11 @@
       "kind": "bug",
       "area": "art",
       "pri": "med",
-      "status": "open",
+      "status": "done",
       "why": "Blocks raising sprite fidelity at all",
       "opened": "2026-07-30",
-      "closed": null,
-      "note": ""
+      "closed": "2026-07-30",
+      "note": "closed at 276875f"
     },
     {
       "id": "LF-103",
@@ -1338,6 +1338,30 @@
       "title": "The PostToolUse hook that parse-checks an edited .gd file (added to .claude/settings.json by PRC-01) has NOT been observed firing. Its logic was verified by feeding it real stdin JSON in Claude Code's documented shape and it behaves correctly both clean and broken, but no hook output appeared on any live Edit or Write during the session that added it -- most likely because settings.json is read once at session start, before the edit landed. Confirm in a fresh session by deliberately breaking a .gd file with Edit and checking the hook speaks up. If it does not fire, the gate's 'gdscript parses' check is the only line of defence and the hook should be removed rather than left as a comfort that does nothing.",
       "kind": "chore",
       "area": "tooling",
+      "pri": "med",
+      "status": "open",
+      "why": "",
+      "opened": "2026-07-30",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-113",
+      "title": "pack_atlas.py --check cannot catch a cell-size mismatch, because 'if not write: continue' short-circuits before Image.open, so the per-image size assertion never runs in check mode. Pre-existing, but it matters now that the cell size comes from sprites.json rather than a hardcoded constant: the assertion is the only thing standing between a manifest that says 512 and renders that are 256. Make --check run the assertion.",
+      "kind": "bug",
+      "area": "art",
+      "pri": "med",
+      "status": "open",
+      "why": "",
+      "opened": "2026-07-30",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-114",
+      "title": "Before ART-04 raises the atlas cell, probe GL_MAX_TEXTURE_SIZE on this machine under GL Compatibility. pack_atlas.py's COLS=12 makes a 1024px-cell page 12288px wide; the GL spec floor is 2048 and nothing here has measured what Mesa llvmpipe and the owner's Windows GPU actually report. A page that exceeds it does not warn, it fails to upload. Flagged in a pack_atlas.py comment rather than asserted, because it is unmeasured.",
+      "kind": "risk",
+      "area": "art",
       "pri": "med",
       "status": "open",
       "why": "",
