@@ -1,11 +1,12 @@
 {
   "hooks": {
-    "SessionEnd": [
+    "PreToolUse": [
       {
+        "matcher": "Write|Edit|Bash",
         "hooks": [
           {
             "type": "command",
-            "command": "cd \"$CLAUDE_PROJECT_DIR\" && .venv/bin/python tools/reap.py --kill --quiet",
+            "command": "cd \"$CLAUDE_PROJECT_DIR\" && .venv/bin/python tools/hooks/guard.py",
             "timeout": 15
           }
         ]
@@ -17,8 +18,30 @@
         "hooks": [
           {
             "type": "command",
-            "command": "cd \"$CLAUDE_PROJECT_DIR\" && .venv/bin/python -c \"import json,sys,subprocess; d=json.load(sys.stdin); p=d.get('tool_input',{}).get('file_path',''); (p.endswith('.gd') and subprocess.run(['.venv/bin/python','tools/validate/gdscript.py',p]))\"",
+            "command": "cd \"$CLAUDE_PROJECT_DIR\" && .venv/bin/python tools/hooks/guard.py",
             "timeout": 30
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd \"$CLAUDE_PROJECT_DIR\" && .venv/bin/python tools/hooks/guard.py",
+            "timeout": 20
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd \"$CLAUDE_PROJECT_DIR\" && .venv/bin/python tools/reap.py --kill --quiet",
+            "timeout": 15
           }
         ]
       }
