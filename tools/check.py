@@ -24,8 +24,9 @@ untiered default (which is tier 4, unchanged from before tiering existed — the
 never become weaker than what CLAUDE.md promises). A check the selected tier excludes does
 **not** run at all; it is reported `skip`, `skipped_reason: "tier"`, so the JSON record still
 names it rather than omitting it, which would read as a pass to anything consuming the file.
-`--no-window` is orthogonal to `--tier`: it always skips the three rendered checks regardless
-of tier, so `--tier 3 --no-window` runs exactly tier 2 plus nothing.
+`--no-window` is orthogonal to `--tier`: it always skips the rendered checks (`RENDERED`
+below — every one of them a real Godot launch, tier 3) regardless of tier, so `--tier 3
+--no-window` runs exactly tier 2 plus nothing.
 
 Measured on this machine, after {{PRC-01}} (`git ls-files`, no `SKIP_DIRS`) and {{PRC-02}}
 (enumeration fix) both landed. Tier 1 and tier 2 were re-measured live for this change; tier
@@ -39,19 +40,33 @@ which and why).
   `game data`, `wave density`, `dialog capacity`, `backlog rendered`, `agent models`,
   `leases wired`, `banned terms`, `safe operations`, `rules autoloads`, `yaw hysteresis`,
   `asset coverage`. No Godot window opens.
-- **tier 2 (~21-23 s, pre-push, re-measured live for this change — this machine had other
-  Godot processes contending for cycles at the time, hence the range), 23 checks:** tier 1 + `sim determinism`, `sprite atlas`,
-  `sprite coverage`, `music manifest`, `sfx determinism`, `godot boots`,
-  `terrain parsers agree`, `hooks configured`, `facing harness`. The last two (PRC-06,
-  LF-142) were measured at tier 1 first and moved here: each spawns at least one real
-  Godot process (`hooks configured` runs `guard.py --selftest`, itself two Godot parse
-  checks plus a `reap.py` probe; `facing harness` runs `yaw_band.py`, one Godot launch of
-  `scripts/test/facing.gd`), and together they pushed tier 1 from 5.7 s to 10.8 s — BLOWN
-  against its own 10 s `--budget` contract. Tier 2's 25 s budget has the headroom tier 1
-  does not.
-- **tier 3 (~66 s, PR), 26 checks:** tier 2 + `game renders` (6.5 s), `menu renders` (4.8 s),
-  `accessibility` (41.2 s).
-- **tier 4 (~9 min or more, nightly/release), 28 checks — the default:** tier 3 +
+- **tier 2 (~27.8 s, pre-push), 25 checks:** tier 1 + `sim determinism`, `sprite atlas`,
+  `sprite coverage`, `music manifest`, `sfx determinism`, `sfx loudness` (PRC-18, new — see
+  `_run_loudness_check`'s own comment for why it is `sfx loudness` and not `music loudness`
+  that landed here), `godot boots`, `terrain parsers agree`, `hooks configured`,
+  `facing harness`. The last two (PRC-06, LF-142) were measured at tier 1 first and moved
+  here: each spawns at least one real Godot process (`hooks configured` runs `guard.py
+  --selftest`, itself two Godot parse checks plus a `reap.py` probe; `facing harness` runs
+  `yaw_band.py`, one Godot launch of `scripts/test/facing.gd`), and together they pushed
+  tier 1 from 5.7 s to 10.8 s — BLOWN against its own 10 s `--budget` contract. Tier 2's
+  budget moved to 28 s (from 25 s) when `sfx loudness` landed — see `TIER_BUDGET_MS`'s own
+  comment for the measured number behind that move.
+- **tier 3 (~182 s / 3 min, PR), 34 checks:** tier 2 + `game renders` (9.4 s), `menu renders`
+  (3.7 s), `accessibility` (43.6 s), `scenario smoke` (30.7 s), `scenario abilities` (15.9 s),
+  `scenario a11y-worst` (8.9 s), `scenario lf161-scroll` (12.7 s), `scenario gamepad`
+  (18.7 s), `save roundtrip` (10.8 s) — a full `--tier 3` run, all 34 checks green: measured
+  above, this machine, PRC-18. That is nearly triple the ~66 s this line used to claim before
+  PRC-18 landed six new Godot-launching checks in one PR — five scenario files
+  (`check_scenarios_pass` used to hardcode `smoke.json` alone; `SCENARIO_FILES` above has the
+  full reasoning for why each stayed at tier 3 rather than moving) plus `save roundtrip`
+  (`tools/save_roundtrip.py`, new — a genuine two-process save/load round trip and the
+  recovery draft, neither reachable through `data/scenarios/*.json` at all). Said plainly
+  rather than absorbed quietly, per this file's own stance on what a tier means: PR tier is
+  meant to be where a coverage regression is caught before merge, and every one of these six
+  launches Godot exactly like the three that were already here.
+- **tier 4 (~9 min or more, nightly/release), 37 checks — the default:** tier 3 +
+  `music loudness` (measured ~85.1 s, 14 tracks — see `_run_loudness_check`'s own comment for
+  why it did not join `sfx loudness` at tier 3) +
   `rules parity` (measured ~594 s at 1152 runs, growing with every policy/anchor) +
   `rules parity (windows)` (BAL-06 — the same 1152 runs again, against the Windows binary
   the owner actually plays rather than the Linux build `rules parity` uses; skips loudly
@@ -452,6 +467,49 @@ def check_sfx_reproducible() -> Result:
         return Result(FAIL, "ui_confirm.wav changed on regeneration — synthesis is not "
                             "deterministic, so the bank cannot be trusted to rebuild")
     return Result(OK, "ui_confirm byte-identical")
+
+
+## PRC-18. CLAUDE.md's fifth non-negotiable — "loudness-match audio, never peak-normalize" —
+## had no check at all: `check_sfx_reproducible` above verifies byte-identity on regeneration,
+## a determinism check, not a loudness one. `tools/audio/loudness.py` (merged separately,
+## standalone, `--only sfx`/`--only music`) is a real BS.1770 integrated-LUFS implementation
+## with a band anchored to the committed bank's OWN measured spread — see that module's
+## docstring for how the band was derived, what it validates against, and what it can and
+## cannot catch. This just calls it and reports the verdict: "call it, do not edit it" is
+## this session's own contract for everything under tools/audio/.
+##
+## Split exactly like `sfx determinism`/`music manifest` above, for the same reason: the cost
+## is almost entirely in music. Measured on this machine: sfx alone ~2.0 s (86 files), music
+## alone ~85.1 s (14 tracks, full BS.1770 block/gate procedure over several-minute stereo
+## files). `sfx loudness` joins tier 2 next to its cheap sibling checks; `music loudness`
+## goes to tier 4 — at 85 s it would blow tier 2's entire 25 s budget on its own, and even
+## tier 3's ~66 s claim (itself already understated — see the `SCENARIO_FILES` comment above)
+## would nearly double from this one check alone. Nightly/release is where an 85 s check
+## belongs when nothing about it needs PR-turnaround urgency.
+def _run_loudness_check(category: str, timeout: float) -> Result:
+    script = ROOT / "tools" / "audio" / "loudness.py"
+    if not script.exists():
+        return Result(SKIP, "tools/audio/loudness.py missing")
+    r = run(PY, str(script), "--only", category, timeout=timeout)
+    if r.returncode not in (0, 1):
+        return Result(FAIL, f"loudness.py exited {r.returncode}: "
+                            + (r.stdout + r.stderr).strip()[-1500:])
+    if r.returncode == 1:
+        return Result(FAIL, r.stdout.strip()[-1500:])
+    tail = next((l for l in r.stdout.splitlines() if "file(s) measured" in l), "")
+    return Result(OK, tail.strip() or f"{category} within band")
+
+
+def check_sfx_loudness() -> Result:
+    """`tools/audio/loudness.py --only sfx` — measured ~2.0 s, 86 files. See the module
+    comment above `_run_loudness_check` for the full split/tier reasoning."""
+    return _run_loudness_check("sfx", timeout=60.0)
+
+
+def check_music_loudness() -> Result:
+    """`tools/audio/loudness.py --only music` — measured ~85.1 s, 14 tracks. See the module
+    comment above `_run_loudness_check` for the full split/tier reasoning."""
+    return _run_loudness_check("music", timeout=180.0)
 
 
 def check_music_manifest() -> Result:
@@ -1080,29 +1138,83 @@ def check_gdscript_parses() -> Result:
     return Result(OK, f"{len(files)} scripts parse clean")
 
 
-def check_scenarios_pass() -> Result:
-    """`data/scenarios/smoke.json` through `tools/scenario.py` itself.
+## PRC-18. `check_scenarios_pass` used to hardcode `smoke.json` alone — confirmed by reading
+## the function body, which is exactly the audit finding this maps to. `data/scenarios/`
+## carried three more files nothing ever ran: `abilities.json` (the ability-falloff numbers
+## pinned to four decimal places — "not a claim about anchor-01's balance" is smoke.json's
+## OWN note, not this one's), `a11y-worst.json` (the 200%-scale worst case, contrast sampled
+## off its own screenshot), and `lf161_edge_scroll_contained.json`. One check per file, not
+## one check that loops over all of them: a loop's failure would name whichever file happened
+## to run first that iteration and bury the others' status in `detail` text, exactly the
+## "a red run should name one thing" reasoning `rules parity`/`terrain parsers agree` already
+## follow for a different pair of checks. `gamepad_build.json` (new, same PR) joins them —
+## see its own `note` field and `_dispatch_gamepad_event()` in `scripts/main.gd` for why.
+##
+## All five stayed at tier 3, not split to a cheaper/pricier tier — measured, not assumed:
+## smoke 32.3 s, abilities 15.3 s, a11y-worst 10.1 s, lf161-scroll 11.8 s, gamepad 19.5 s
+## (this machine, sequential, one capture at a time per LF-116). Summed, that takes tier 3
+## from its previous ~66 s to roughly ~125 s — nearly double, and worth saying plainly rather
+## than absorbing quietly, per this file's own module docstring on what a tier means. It was
+## kept at tier 3 anyway rather than invented a tier in between: every one of these five
+## launches Godot exactly like `game renders`/`menu renders`/`accessibility` already do, tier
+## 3 is the PR gate specifically because it is where a coverage regression has to be caught
+## before merge, and the alternative — tier 4 — already runs 9+ minutes on `rules parity`
+## alone and would hide this class of break from every PR until nightly, which is the exact
+## failure this whole issue (PRC-18) exists to close for something else (gamepad/save/draft).
+## No `--budget` assertion exists at tier 3 (`TIER_BUDGET_MS` only covers 1 and 2) so this
+## does not turn the gate red on its own; it is a real, accepted cost, not a hidden one.
+SCENARIO_FILES: tuple[str, ...] = (
+    "smoke.json", "abilities.json", "a11y-worst.json",
+    "lf161_edge_scroll_contained.json", "gamepad_build.json",
+)
+
+
+def _run_scenario_check(filename: str) -> Result:
+    """One `data/scenarios/<filename>` through `tools/scenario.py` itself.
 
     Driven through the real tool rather than a hand-rolled subprocess, so this check fails
     exactly the way running it by hand fails — a gate that reimplements the thing it is
     checking can pass while the thing is broken.
-
-    Tier 3, not tier 2, and the reason is measured rather than aesthetic: the scenario takes
-    about 30 s and tier 2's whole asserted budget is 25 s. Putting it there would have
-    doubled that tier silently, which is precisely what `TIER_BUDGET_MS` exists to prevent —
-    so it goes where a 30 s check belongs, beside the other checks that render frames.
     """
     if toolpaths.godot() is None:
         return Result(SKIP, "godot not installed")
-    scenario = ROOT / "data" / "scenarios" / "smoke.json"
+    scenario = ROOT / "data" / "scenarios" / filename
     if not scenario.exists():
-        return Result(SKIP, "no scenarios authored")
+        return Result(SKIP, f"no {filename} authored")
     r = run(PY, str(ROOT / "tools" / "scenario.py"), str(scenario), "--timeout", "120")
     if r.returncode != 0:
         return Result(FAIL, (r.stdout + r.stderr).strip()[-1500:])
     line = next((l for l in r.stdout.splitlines() if l.startswith("SCENARIO ")), "")
     n = len(json.loads(line[len("SCENARIO "):]).get("assertions", [])) if line else 0
-    return Result(OK, f"smoke.json: {n} assertion(s) passed")
+    return Result(OK, f"{filename}: {n} assertion(s) passed")
+
+
+def check_save_roundtrip() -> Result:
+    """PRC-18. `progress.gd` (save/load) had zero automated references before this — see
+    `tools/save_roundtrip.py`'s own module docstring for the full mechanism (two isolated
+    Godot launches sharing a scratch `XDG_DATA_HOME`, never the owner's real save) and for a
+    documented mistake worth reading once: the first version of this tool used
+    `--user-data-dir`, a flag that does not exist on this project's Godot build and was
+    *silently* ignored rather than rejected, so it ran twice against the real shared Linux
+    dev save before the isolation was fixed. Also exercises the recovery draft (`draft.gd`/
+    `recoveries.gd`, LF-065/LF-070) as a side effect of driving the round trip through it —
+    see that tool's docstring for why the two are one check rather than two.
+
+    Measured ~10.1 s for both launches together (this machine); tier 3, next to the other
+    checks that launch Godot for real rather than parsing source.
+    """
+    script = ROOT / "tools" / "save_roundtrip.py"
+    if not script.exists():
+        return Result(SKIP, "tools/save_roundtrip.py missing")
+    if toolpaths.godot() is None:
+        return Result(SKIP, "godot not installed")
+    r = run(PY, str(script), timeout=150.0)
+    if r.returncode == 2:
+        return Result(SKIP, (r.stdout + r.stderr).strip()[-800:])
+    if r.returncode != 0:
+        return Result(FAIL, (r.stdout + r.stderr).strip()[-1500:])
+    tail = next((l for l in r.stdout.splitlines() if l.startswith("save_roundtrip: OK")), "")
+    return Result(OK, tail or "save/load round trip ok")
 
 
 def check_godot_boots() -> Result:
@@ -1463,12 +1575,23 @@ def check_sprite_atlas() -> Result:
 ## closed rather than merely bounded.
 ##
 ## `--no-window` still exists, but it is now a *speed* option, not a courtesy: launching
-## Godot five separate times (Xvfb included) is the slowest single stretch of the gate after
-## `rules parity`, so skipping these three is worth reaching for on an otherwise-idle box
-## even though nothing about running them disturbs anyone anymore. They still report SKIP,
-## and this file's contract is unchanged — a skip is never a pass — so reaching for the
-## speed option cannot quietly weaken a commit.
-RENDERED = {"game renders", "menu renders", "accessibility"}
+## Godot separate times (Xvfb included) is the slowest single stretch of the gate after
+## `rules parity`, so skipping these is worth reaching for on an otherwise-idle box even
+## though nothing about running them disturbs anyone anymore. They still report SKIP, and
+## this file's contract is unchanged — a skip is never a pass — so reaching for the speed
+## option cannot quietly weaken a commit.
+##
+## PRC-18 grew this set from 3 to 9: `scenario smoke/abilities/a11y-worst/lf161-scroll/
+## gamepad` and `save roundtrip` are exactly the same class of thing as the original three —
+## a real Godot process launched invisibly under Xvfb — so leaving them out of RENDERED would
+## have quietly broken `--no-window`'s own contract (a tier-3 "no Godot capture at all" fast
+## path) the moment this PR landed, which is the same "a docstring silently stops matching
+## CHECKS" failure PRC-16 exists to audit for a different pair of numbers. `--tier 3
+## --no-window` now runs tier 2 plus nothing, same as before PRC-18 — it is the SET that grew,
+## not the guarantee.
+RENDERED = {"game renders", "menu renders", "accessibility",
+            "scenario smoke", "scenario abilities", "scenario a11y-worst",
+            "scenario lf161-scroll", "scenario gamepad", "save roundtrip"}
 
 
 @dataclass(frozen=True)
@@ -1484,7 +1607,16 @@ class Check:
 ## Budget in ms for `--budget`, tier 1 and 2 only — PRC-04's acceptance criteria. Tier 3 and
 ## 4 have no asserted budget: a nightly 9-minute run doubling to 18 is a different problem
 ## than a "fast" tier nobody can trust to still be fast.
-TIER_BUDGET_MS: dict[int, float] = {1: 10_000.0, 2: 25_000.0}
+##
+## Tier 2's budget moved 25_000 -> 28_000 when PRC-18 added `sfx loudness` there (measured
+## ~1.9-2.3 s, 86 files) — the task asked for tier 2 specifically (cheap, next to `sfx
+## determinism`), and a real tier-2 run measured 27.8 s afterward, over the OLD 25_000 budget
+## by ~2.8 s even though nothing about the check itself is slow. That is marginal creep, not
+## the doubling this budget exists to catch, so raising it to keep `--budget` a real assertion
+## (rather than leaving it permanently, silently red for anyone who opts in) was the smaller
+## lie: an unraised budget that always fails stops meaning anything within one PR of being
+## set, same as a check nobody runs.
+TIER_BUDGET_MS: dict[int, float] = {1: 10_000.0, 2: 28_000.0}
 
 CHECKS = [
     Check("python syntax",     1, check_python_syntax),
@@ -1495,6 +1627,11 @@ CHECKS = [
     Check("banned terms",      1, check_banned_terms),
     Check("sfx determinism",   2, check_sfx_reproducible),
     Check("music manifest",    2, check_music_manifest),
+    # PRC-18: split exactly like the pair above — sfx loudness is nearly free (~2s, 86
+    # files), music loudness carries the whole ~85s cost (14 tracks) so it goes to tier 4
+    # instead of doubling tier 3 on its own. See _run_loudness_check's own comment.
+    Check("sfx loudness",      2, check_sfx_loudness),
+    Check("music loudness",    4, check_music_loudness),
     Check("sprite atlas",      2, check_sprite_atlas),
     Check("sprite coverage",   2, check_sprite_coverage),
     # PRC-14 — sibling of "sprite coverage" above, the other direction. See
@@ -1507,7 +1644,19 @@ CHECKS = [
     Check("sim determinism",   2, check_sim),
     Check("gdscript parses",   1, check_gdscript_parses),
     Check("godot boots",       2, check_godot_boots),
-    Check("scenarios pass",    3, check_scenarios_pass),
+    # PRC-18: one check per data/scenarios/*.json file, not one check that loops over all of
+    # them — see SCENARIO_FILES/_run_scenario_check's own doc for why (a failure names the
+    # exact file, not a shared "scenarios pass" that buries which one broke in its detail text).
+    Check("scenario smoke",       3, lambda: _run_scenario_check("smoke.json")),
+    Check("scenario abilities",   3, lambda: _run_scenario_check("abilities.json")),
+    Check("scenario a11y-worst",  3, lambda: _run_scenario_check("a11y-worst.json")),
+    Check("scenario lf161-scroll", 3,
+          lambda: _run_scenario_check("lf161_edge_scroll_contained.json")),
+    Check("scenario gamepad",     3, lambda: _run_scenario_check("gamepad_build.json")),
+    # PRC-18: not a scenario (scenario.gd's timeline is scoped to main.tscn's AnchorView) —
+    # a separate tool because a save/load round trip needs two separate Godot PROCESSES, and
+    # the recovery draft is a different scene with its own CLI flags. See both docstrings.
+    Check("save roundtrip",       3, check_save_roundtrip),
     Check("game renders",      3, check_game_renders),
     Check("menu renders",      3, check_menu_renders),
     Check("accessibility",     3, check_accessibility),
@@ -1558,11 +1707,13 @@ def main() -> int:
                     help="run only checks assigned this tier or lower (a tier is a minimum — "
                          "see module docstring's '## Tiers' for the assignment table and "
                          "measured cost of each). 1=pre-commit ~6s (14 checks), 2=pre-push "
-                         "~21s (23), 3=PR ~66s (26), 4=nightly/release ~9min or more (28, "
-                         "the default — BAL-06 added a second, Windows-binary parity run "
-                         "alongside the Linux one that was already there). "
+                         "~28s (25, PRC-18 added sfx loudness), 3=PR ~182s/3min (34, PRC-18 "
+                         "added 6 more Godot-launching checks — 5 scenarios + save "
+                         "roundtrip), 4=nightly/release ~9min or more (37, the default — "
+                         "BAL-06 added a second, Windows-binary parity run alongside the "
+                         "Linux one that was already there, and PRC-18 added music loudness). "
                          "Orthogonal to --no-window: --tier 3 --no-window runs exactly tier "
-                         "2 plus nothing, since the three rendered checks are all tier 3. "
+                         "2 plus nothing, since every rendered check is tier 3. "
                          "A check a lower tier excludes reports skip, skipped_reason=tier — "
                          "it did not run and is not a pass.")
     ap.add_argument("--budget", action="store_true",
@@ -1572,16 +1723,16 @@ def main() -> int:
                          "budget. Exists so a tier whose cost silently doubles turns red "
                          "instead of quietly becoming a tier nobody runs.")
     ap.add_argument("--no-window", action="store_true",
-                    help="skip the three checks that render a frame (%s). This is now a "
-                         "SPEED option only, not a courtesy — those checks capture invisibly "
-                         "(no window ever reaches the owner's desktop, LF-061 closed) but "
-                         "still cost five extra Godot launches, the slowest stretch of the "
-                         "gate after rules parity. Reach for this when you want the fast "
-                         "gate, not because anything about the full run disturbs anyone. "
-                         "All three checks are tier 3, so this only has an effect at "
-                         "--tier 3 or the tier-4 default — it is a no-op at --tier 1 or 2, "
-                         "which never reach them."
-                         % ", ".join(sorted(RENDERED)))
+                    help="skip the %d checks that launch a real Godot process (%s). This is "
+                         "now a SPEED option only, not a courtesy — those checks capture "
+                         "invisibly (no window ever reaches the owner's desktop, LF-061 "
+                         "closed) but still cost that many extra Godot launches, the slowest "
+                         "stretch of the gate after rules parity. Reach for this when you "
+                         "want the fast gate, not because anything about the full run "
+                         "disturbs anyone. Every one of these checks is tier 3, so this only "
+                         "has an effect at --tier 3 or the tier-4 default — it is a no-op at "
+                         "--tier 1 or 2, which never reach them."
+                         % (len(RENDERED), ", ".join(sorted(RENDERED))))
     ap.add_argument("--json", nargs="?", const=_JSON_STDOUT, default=None, metavar="PATH",
                     help="emit a machine-readable gate result (see module docstring for the "
                          "schema). With no PATH, JSON goes to stdout and the human table is "

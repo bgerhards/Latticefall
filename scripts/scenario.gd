@@ -31,7 +31,7 @@ extends RefCounted
 ## later frame will ever run. `a11y` must share its exact frame, because the analyser samples
 ## its background colours out of that same PNG (CLAUDE.md).
 
-const KNOWN_ACTIONS := ["build", "select", "pick", "press", "ability", "speed",
+const KNOWN_ACTIONS := ["build", "select", "pick", "press", "gamepad", "ability", "speed",
 	"scroll", "cursor", "pause", "camera", "shot", "a11y", "facings"]
 ## Actions folded into main.gd's pre-existing per-run fields rather than dispatched through
 ## `actions_at()` — see the file doc above.
