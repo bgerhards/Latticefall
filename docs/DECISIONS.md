@@ -2362,3 +2362,57 @@ winning policies. `parity ok — 1152 runs identical`.
 **Consequence.** This is a rules change that only a multi-lane board can observe, which is
 exactly why it was invisible until `WAR-01` landed and immediately expensive afterwards. Every
 multi-lane anchor built from here would otherwise have needed anchor-09's geometric workaround.
+
+---
+
+## 063 — Board saturation is bounded by `max_emplacements`, not by `len(slots)`
+
+**Date.** 2026-07-31. **Data and validator half adopted; rules half handed off.**
+
+**Context.** PRD risk #1, severity Blocker, and `LF-107`. Free placement (`PLC-01`) deletes
+`slots`, and `validate_data.py`'s board-saturation guard divided by `len(slots)`. With no
+slots there is no denominator, and the guard would have stopped guarding **silently**, on
+precisely the failure it exists for: decision 048 records anchor-24 reaching 103% of what
+would run every slot at maximum draw while every anchor still graded clean, because a level
+with no decision in it is still winnable and the grader cannot see the difference.
+
+**Decision.** `max_emplacements` — an authored integer cap. The schema requires it whenever
+`slots` is absent, through a root `anyOf` over the two, so an anchor carrying neither
+denominator is rejected before any validator logic runs. When `slots` is present it is
+optional and the check falls back to `len(slots)`, which is why this rewrite changes **none**
+of the 24 anchors' numbers: every one takes the fallback branch and reproduces its existing
+figure exactly. Act I stays at 29% of saturation, Act III at 50%.
+
+**Rejected.**
+- *Buildable area ÷ footprint.* Real geometry, no new authored number — but it is an upper
+  bound the player can never actually reach, so a cap well inside it can still delete the
+  power decision, and the packing constant is a judgement rather than a measurement. Kept as a
+  **warning-only** second bound: hexagonal packing at 0.9069 against buildable tiles, where
+  buildable is the grid minus the lanes dilated by a one-tile standoff. It fires only when a
+  cap exceeds twice that bound — an authoring blunder, not a balance question — and fires on
+  none of the 24 anchors.
+- *Funds.* The truest limit and circular: bounties depend on kills, kills depend on the build,
+  so the guard would be a function of the grader rather than of the data.
+
+`max_emplacements` is the only candidate that yields one player-visible integer both rule
+engines can enforce identically — and that is the actual requirement, because a cap enforced
+in two of the three places is an 864-run parity failure rather than a bug.
+
+**Proved red four ways**, through the validator's fixture mechanism with the real anchor files
+untouched: an anchor with neither denominator fails at the schema layer; the same anchor with
+`max_emplacements` and no slots at all passes clean, which is the whole point; raising its
+capacity to the cap times max draw fails naming the arithmetic; and raising anchor-24's
+capacity to `12 × 48` reproduces decision 048's original failure exactly.
+
+`tools/sweep.py` now refuses a candidate capacity at or above the bound before spending cores
+grading it. Worth noting that the sweep had **no** saturation bound in code at all — the "70%"
+in `densify.py` was prose describing a manual discipline, never an enforced constant.
+
+**Handed off, not applied.** The engine enforcement — `build()` and `_try_build()` in
+`sim/engine.py`, `build_at()` in `scripts/anchor_sim.gd`, plus `Anchor.max_emplacements` in
+`sim/content.py` — is written out call site by call site but not applied, because those files
+were mid-rewrite in another workstream. **One of those is a trap and must land in the same
+change:** `parity.gd`'s `_try_build()` calls `build_at()` and sets `placed_one = true`
+*without checking the return value*, which is safe only while `build_at()` cannot fail. The
+moment a cap can refuse a build, that becomes an infinite loop — `free_slots` never shrinks
+and `placed_one` never goes false.

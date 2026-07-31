@@ -11,8 +11,12 @@
     "starting_funds",
     "grid",
     "paths",
-    "slots",
     "waves"
+  ],
+  "$comment": "PLC-05: `slots` moved out of `required` because free placement (PLC-01) deletes it, and `max_emplacements` was added as the replacement denominator for the board-saturation invariant (validate_data.py) -- but at least one of the two must be present, or there is nothing to bound emplacement count against at all. That is what the `anyOf` below enforces at the schema layer, so an anchor authored with neither is rejected before validate_data.py's own semantic check ever runs.",
+  "anyOf": [
+    { "required": ["slots"] },
+    { "required": ["max_emplacements"] }
   ],
   "additionalProperties": false,
   "properties": {
@@ -98,6 +102,7 @@
     "slots": {
       "type": "array",
       "minItems": 1,
+      "description": "Fixed build points. Optional now (PLC-05): free placement (PLC-01) authors an anchor with no `slots` array at all, relying on `max_emplacements` as the emplacement-count cap instead. An anchor that DOES author `slots` may still omit `max_emplacements`; validate_data.py then falls back to len(slots), reproducing today's numbers exactly.",
       "items": {
         "type": "array",
         "minItems": 2,
@@ -107,6 +112,11 @@
           "minimum": 0
         }
       }
+    },
+    "max_emplacements": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Hard cap on emplacements built at once -- the board-saturation invariant's denominator (validate_data.py compares capacity_mw against max_emplacements * max_draw, the same shape as the old len(slots) * max_draw). Required when `slots` is absent (see the root `anyOf`); optional when `slots` is present, in which case validate_data.py uses len(slots) as before. Chosen over the two rejected alternatives -- buildable-area/footprint (a looser upper bound the player can never reach, kept as a second WARNING-only check) and funds (rejected for circularity: bounties depend on kills, kills depend on the build) -- because it is the only option that gives a single, player-visible integer both rule engines (`anchor_sim.gd`, `sim/engine.py`) can enforce identically. See PLC-05 and the DECISIONS.md entry it added."
     },
     "waves": {
       "type": "array",

@@ -19,6 +19,16 @@ draws on the bus while it walks, so doubling the unit count doubles the bus thef
 density plan that ignores it prices the bus out of existence. `bus` shows that headroom —
 wave drain against the capacity actually available on that wave, after Act III decay.
 
+PLC-05 / LF-107 added a fifth: `sat%`, the fraction of board saturation (capacity_mw
+against the emplacement-count cap -- `max_emplacements` when authored, else len(slots) --
+times the hungriest unlocked emplacement's max draw). This is a distinct axis from `bus`
+above: `bus` is wave drain against capacity (does the reactor cover what is walking right
+now), `sat%` is capacity against the board's OWN ceiling (does the power decision still
+exist at all). anchor-24 once reached 103% of it while every anchor still graded `ok` and
+`bus` said nothing was wrong -- the grader cannot see this failure, only this measurement
+can. Act I sits at 29-38%; `tools/validate/validate_data.py` warns above 80% and errors at
+or above 100%.
+
     .venv/bin/python tools/density.py               # every anchor, act summary
     .venv/bin/python tools/density.py anchor-20     # per-wave detail
 """
@@ -26,14 +36,55 @@ wave drain against the capacity actually available on that wave, after Act III d
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from sim.content import (Anchor, Enemy, Wave, all_anchor_ids,  # noqa: E402
-                         load_anchor, load_enemies)
+from sim.content import (DATA, Anchor, Enemy, Wave, Tower, all_anchor_ids,  # noqa: E402
+                         load_anchor, load_enemies, load_towers)
+
+
+def _tower_max_draw(t: Tower) -> float:
+    """Mirrors tools/validate/validate_data.py's `_tower_max_draw()` (LF-103) and
+    tools/sweep.py's copy of the same: an upgrade REPLACES the base stat it names rather
+    than adding to it, so a tower's true worst-case draw is max(base, upgrade). If any
+    one of the three copies changes, move the other two with it."""
+    up = t.upgrade.get("draw_mw") if t.upgrade else None
+    return max(t.draw_mw, up) if up is not None else t.draw_mw
+
+
+def saturation_stats(a: Anchor, towers: dict[str, Tower]) -> dict[str, float | str]:
+    """PLC-05 / LF-107's board-saturation invariant, measured rather than merely
+    enforced. Same denominator tools/validate/validate_data.py checks capacity_mw
+    against: `max_emplacements` when the anchor authors one, else len(slots) --
+    data/schema/anchor.schema.json's root `anyOf` guarantees one of the two is present on
+    every anchor. Reads the anchor's raw JSON directly for `max_emplacements`, since
+    `sim.content`'s `Anchor` dataclass does not carry that field.
+
+    This is the "measure first" table PLC-05's own task list calls for: printing
+    len(slots)/max_emplacements, max draw, the saturated MW, and capacity_mw as a
+    fraction of it for every anchor is what proves a denominator rewrite provably
+    neutral, rather than merely arguing it.
+    """
+    raw = json.loads((DATA / "anchors" / f"{a.id}.json").read_text())
+    avail = [t for t in towers.values() if t.unlocked_at <= a.id]
+    max_draw = max(_tower_max_draw(t) for t in avail)
+    explicit_cap = raw.get("max_emplacements")
+    if explicit_cap is not None:
+        cap_n, label = int(explicit_cap), "max_emplacements"
+    else:
+        cap_n, label = len(a.slots), "slots"
+    saturated = cap_n * max_draw
+    return {
+        "cap_n": float(cap_n),
+        "denom_label": label,
+        "max_draw": max_draw,
+        "saturated_mw": saturated,
+        "sat_frac": a.capacity_mw / saturated if saturated else 0.0,
+    }
 
 
 def wave_stats(w: Wave, enemies: dict[str, Enemy]) -> dict[str, float]:
@@ -152,10 +203,12 @@ def main() -> int:
     args = ap.parse_args()
 
     enemies = load_enemies()
+    towers = load_towers()
 
     if args.anchor:
         a = load_anchor(args.anchor)
         t = terrain_stats(a)
+        s = saturation_stats(a, towers)
         terrain_line = (f"flat (no terrain)" if t["raised_pct"] == 0.0 else
                          f"{t['raised_pct']:.1%} of board raised, "
                          f"{t['levels_used']:.0f} level(s) used (max {t['max_level']:.0f})")
@@ -163,6 +216,9 @@ def main() -> int:
               f"· {a.lives} lives · decay {a.capacity_decay_mw:.0f}/wave · terrain: "
               f"{terrain_line} · {len(a.lanes)} lane(s): "
               f"{', '.join(l.id for l in a.lanes)}\n")
+        print(f"board saturation: {s['cap_n']:.0f} [{s['denom_label']}] x "
+              f"{s['max_draw']:.0f} MW max draw = {s['saturated_mw']:.0f} MW · "
+              f"capacity {a.capacity_mw:.0f} MW is {s['sat_frac']:.0%} of it\n")
         print(f"{'wave':>4s} {'units':>6s} {'leak':>5s} {'hp':>6s} "
               f"{'drain':>6s} {'cap':>5s} {'bus':>5s}")
         for r in anchor_rows(a, enemies):
@@ -184,7 +240,7 @@ def main() -> int:
 
     print(f"{'anchor':>9s} {'act':>3s} {'waves':>5s} {'units/w':>7s} {'onscreen':>8s} "
           f"{'leak/w':>6s} {'hp/w':>6s} {'drain/w':>7s} {'peak bus':>8s} {'lives':>5s} "
-          f"{'budget':>6s} {'terrain':>7s}")
+          f"{'budget':>6s} {'terrain':>7s} {'sat%':>5s}")
     acts: dict[int, list[dict]] = {}
     for aid in all_anchor_ids():
         a = load_anchor(aid)
@@ -197,21 +253,24 @@ def main() -> int:
         agg["budget"] = a.lives / sum(r["leak"] for r in rows)
         t = terrain_stats(a)
         agg["terrain_pct"] = t["raised_pct"]
+        s = saturation_stats(a, towers)
+        agg["sat_frac"] = s["sat_frac"]
         acts.setdefault(a.act, []).append(agg)
         print(f"{aid:>9s} {a.act:>3d} {n:>5d} {agg['units']:>7.1f} {agg['onscreen']:>8.0f} "
               f"{agg['leak']:>6.1f} {agg['hp']:>6.0f} {agg['drain']:>7.1f} "
               f"{agg['peak_bus']:>7.0%} {a.lives:>5d} {agg['budget']:>5.1%} "
-              f"{agg['terrain_pct']:>6.0%}")
+              f"{agg['terrain_pct']:>6.0%} {agg['sat_frac']:>4.0%}")
 
     print(f"\n{'act':>9s} {'units/w':>7s} {'onscreen':>8s} {'leak/w':>6s} {'hp/w':>6s} "
-          f"{'drain/w':>7s} {'peak bus':>8s} {'budget':>6s}")
+          f"{'drain/w':>7s} {'peak bus':>8s} {'budget':>6s} {'sat%':>5s}")
     for act in sorted(acts):
         rs = acts[act]
         m = {k: sum(r[k] for r in rs) / len(rs)
-             for k in ("units", "onscreen", "leak", "hp", "drain", "peak_bus", "budget")}
+             for k in ("units", "onscreen", "leak", "hp", "drain", "peak_bus", "budget",
+                       "sat_frac")}
         print(f"{'act ' + str(act):>9s} {m['units']:>7.1f} {m['onscreen']:>8.1f} "
               f"{m['leak']:>6.1f} {m['hp']:>6.0f} {m['drain']:>7.1f} {m['peak_bus']:>7.0%} "
-              f"{m['budget']:>5.1%}")
+              f"{m['budget']:>5.1%} {m['sat_frac']:>4.0%}")
     return 0
 
 

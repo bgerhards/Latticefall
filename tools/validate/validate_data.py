@@ -61,6 +61,30 @@ from sim.content import resolve_terrain  # noqa: E402
 ## power decision is thin; at 1.0 it does not exist. Act I sits at 29-38%.
 SATURATION_WARN = 0.80
 
+# PLC-05: the board-saturation invariant used to divide by len(slots); free placement
+# (PLC-01) deletes `slots` entirely, so that denominator can vanish. `max_emplacements` is
+# the replacement -- an authored integer cap, required by the schema whenever `slots` is
+# absent (see anchor.schema.json's root `anyOf`), optional when `slots` is present (in
+# which case it falls back to len(slots), reproducing every one of today's 24 anchors'
+# numbers exactly -- the "provably neutral" requirement). See the DECISIONS.md entry this
+# issue added, and CLAUDE.md's "Density must never be paid for with reactor capacity" trap.
+#
+# Second bound, WARNING only: max_emplacements (or len(slots)) against how many 1x1
+# emplacements the board's buildable area could physically hold. This is deliberately a
+# looser, upper-bound check -- hexagonal packing (0.9069) is the textbook density ceiling
+# and a real layout loses more to the lane standoff already subtracted below -- so it must
+# never become the only guard (a cap can be well inside this bound and still remove the
+# power decision; that is what the primary check above is for). It exists to catch a cap
+# authored far above what the board can physically hold, which is a content bug even when
+# capacity itself is fine.
+HEX_PACKING_EFFICIENCY = 0.9069
+# Every emplacement in data/towers.json today occupies exactly one 1x1 slot, so a 1-tile
+# footprint and a 1-tile lane standoff are exact for the whole current roster, not a guess.
+# A future footprint-carrying tower (theatre-scale free placement) will need this pulled
+# from data instead of assumed -- noted rather than solved here since no such tower exists.
+EMPLACEMENT_FOOTPRINT_TILES = 1
+LANE_STANDOFF_TILES = 1
+
 # TER-08: `dir` names the direction of *ascent* (schema description on `terrain.ramps`);
 # the tile one step in -dir must be at `from` and one step in +dir must be at `to`.
 RAMP_DIRS = {"+x": (1, 0), "-x": (-1, 0), "+y": (0, 1), "-y": (0, -1)}
@@ -306,7 +330,10 @@ def check_terrain(doc: dict, rep: Report) -> None:
                                f"{h1} with no ramp declared on either tile")
 
     # ---- no emplacement on a ramp or a cliff face --------------------------------
-    for s in doc["slots"]:
+    # PLC-05: `slots` is optional now (free placement authors none at all), so this is a
+    # no-op rather than a KeyError on such an anchor -- there is nothing fixed-coordinate
+    # to check a ramp/cliff against when every build point is chosen at play time.
+    for s in doc.get("slots", []):
         sx, sy = s[0], s[1]
         own = height_at(sx, sy)
         if own is None:
@@ -363,8 +390,10 @@ def check_anchor(doc: dict, towers: dict, enemies: dict, rep: Report) -> None:
                 all_tiles |= {(x, a[1]) for x in range(lo, hi + 1)}
         lane_points.append([(float(x), float(y)) for x, y in pts])
 
+    # PLC-05: optional now -- an anchor authored for free placement carries none at all.
+    slots: list = doc.get("slots", [])
     seen: set[tuple[int, int]] = set()
-    for s in doc["slots"]:
+    for s in slots:
         t = tuple(s)
         if not (0 <= t[0] < w and 0 <= t[1] < h):
             rep.err(where, f"slot {t} outside grid {w}x{h}")
@@ -407,11 +436,31 @@ def check_anchor(doc: dict, towers: dict, enemies: dict, rep: Report) -> None:
         rep.warn(where, f"capacity {cap} MW fits fewer than 3 of the cheapest "
                         f"emplacement ({cheapest_draw} MW) — likely unwinnable")
 
-    # If capacity can run the hungriest emplacement in every slot simultaneously, the
-    # player never has to choose and the hook is inert. Compare against slots x max
-    # draw, not the sum of distinct types — a board is filled with instances, and with
-    # one type unlocked the type-sum is meaninglessly small.
+    # If capacity can run the hungriest emplacement at every emplacement simultaneously,
+    # the player never has to choose and the hook is inert. Compare against the
+    # emplacement-count CAP x max draw, not the sum of distinct types — a board is filled
+    # with instances, and with one type unlocked the type-sum is meaninglessly small.
     #
+    # PLC-05 / LF-107: the cap is `max_emplacements` when authored, else len(slots) — the
+    # schema's root `anyOf` guarantees at least one of the two is present. This fallback is
+    # what makes the rewrite provably neutral: none of today's 24 anchors authors
+    # max_emplacements, so every one takes the len(slots) branch and reproduces its
+    # pre-PLC-05 number exactly. An anchor with no `slots` at all (free placement, PLC-01)
+    # has no len() to fall back to and MUST carry `max_emplacements` — which is what makes
+    # this invariant checkable with no slots at all, the entire point of this rewrite.
+    explicit_cap = doc.get("max_emplacements")
+    if explicit_cap is not None:
+        cap_n, denom_label = int(explicit_cap), "max_emplacements"
+    elif slots:
+        cap_n, denom_label = len(slots), "slots"
+    else:
+        # Unreachable when the schema's `anyOf` passed (both call sites in main() gate
+        # check_anchor on validate_schema succeeding first) — a named failure rather than
+        # a crash, in case this is ever called on a doc nothing has schema-checked.
+        rep.err(where, "anchor declares neither `slots` nor `max_emplacements` — there is "
+                       "no denominator for the board-saturation invariant")
+        cap_n = denom_label = None
+
     # LF-103: "max draw" must include `upgrade.draw_mw`, not just the base `draw_mw`.
     # An upgrade replaces the base stat it names (schema description on `towers[].upgrade`)
     # rather than adding to it, so a tower's true worst-case draw is max(base, upgrade) —
@@ -425,31 +474,56 @@ def check_anchor(doc: dict, towers: dict, enemies: dict, rep: Report) -> None:
         return max(t["draw_mw"], up_draw) if up_draw is not None else t["draw_mw"]
 
     max_draw = max(_tower_max_draw(t) for t in avail)
-    saturated = len(doc["slots"]) * max_draw
-    if cap >= saturated:
-        rep.err(where, f"capacity {cap} MW covers every slot at max draw including "
-                       f"upgrades ({len(doc['slots'])} x {max_draw} = {saturated} MW) "
-                       f"— no power decision exists on this anchor")
-    # Warned well before that, because the hook does not switch off at the boundary, it
-    # fades towards it — and the drift is invisible until it crosses. Act I runs at 29-38%
-    # of saturation. Act III reached 103% once, by paying for heavier waves with reactor
-    # capacity a sweep was free to raise: every anchor still graded clean, the validator
-    # said nothing until the last one tipped over, and the game's core decision had
-    # quietly stopped existing on five levels. Decision 048.
-    elif cap > saturated * SATURATION_WARN:
-        rep.warn(where, f"capacity {cap} MW is {cap / saturated:.0%} of what would run "
-                        f"every slot at max draw ({saturated} MW) — the power decision is "
-                        f"getting thin; Act I sits at 29-38%")
+    if cap_n is not None:
+        saturated = cap_n * max_draw
+        if cap >= saturated:
+            rep.err(where, f"capacity {cap} MW covers every emplacement at max draw "
+                           f"including upgrades ({cap_n} [{denom_label}] x {max_draw} = "
+                           f"{saturated} MW) — no power decision exists on this anchor")
+        # Warned well before that, because the hook does not switch off at the boundary, it
+        # fades towards it — and the drift is invisible until it crosses. Act I runs at
+        # 29-38% of saturation. Act III reached 103% once, by paying for heavier waves with
+        # reactor capacity a sweep was free to raise: every anchor still graded clean, the
+        # validator said nothing until the last one tipped over, and the game's core
+        # decision had quietly stopped existing on five levels. Decision 048.
+        elif cap > saturated * SATURATION_WARN:
+            rep.warn(where, f"capacity {cap} MW is {cap / saturated:.0%} of what would run "
+                            f"every emplacement at max draw ({saturated} MW) — the power "
+                            f"decision is getting thin; Act I sits at 29-38%")
 
-    if len(doc["slots"]) < 3:
-        rep.warn(where, f"{len(doc['slots'])} build slots is very few")
+        if cap_n < 3:
+            noun = "build slots" if denom_label == "slots" else "emplacements (max_emplacements)"
+            rep.warn(where, f"{cap_n} {noun} is very few")
+
+        # Second, looser bound — WARNING only (see the module-level comment on
+        # HEX_PACKING_EFFICIENCY: it is an upper bound the player can never reach, so on
+        # its own it is a weaker guard than the one above, and must never be the only one).
+        # Catches a cap authored far above what the board can physically hold, which is a
+        # content bug even when capacity itself is fine.
+        standoff: set[tuple[int, int]] = set(all_tiles)
+        for (tx, ty) in all_tiles:
+            for ddx in range(-LANE_STANDOFF_TILES, LANE_STANDOFF_TILES + 1):
+                for ddy in range(-LANE_STANDOFF_TILES, LANE_STANDOFF_TILES + 1):
+                    standoff.add((tx + ddx, ty + ddy))
+        buildable_tiles = w * h - len(
+            {t for t in standoff if 0 <= t[0] < w and 0 <= t[1] < h})
+        area_bound = int(buildable_tiles * HEX_PACKING_EFFICIENCY
+                         // EMPLACEMENT_FOOTPRINT_TILES)
+        if area_bound > 0 and cap_n > area_bound * 2:
+            rep.warn(where, f"{denom_label} {cap_n} is more than 2x the area-derived bound "
+                            f"({area_bound}, from {buildable_tiles} buildable tile(s) at "
+                            f"{HEX_PACKING_EFFICIENCY} packing / "
+                            f"{EMPLACEMENT_FOOTPRINT_TILES}-tile footprint) — the cap may "
+                            f"be authored far above what the board can physically hold")
 
     # A slot further from the path than any weapon's range is dead: nothing built there
     # can ever fire. This is invisible in the data and expensive to find by grading —
     # anchor-06 was authored with two dead slots and several marginal ones, and read as
     # a wave-balance problem through several sweeps before the layout was measured.
+    # PLC-05: meaningless (and skipped) on an anchor with no fixed `slots` at all — there
+    # is no coordinate to test range against when every build point is chosen at play time.
     ranged = [t for t in avail if t.get("damage", 0) > 0]
-    if ranged:
+    if ranged and slots:
         best_range = max(t["range"] for t in ranged)
         short_range = min(t["range"] for t in ranged)
 
@@ -467,7 +541,7 @@ def check_anchor(doc: dict, towers: dict, enemies: dict, rep: Report) -> None:
             return best
 
         dead, marginal = [], []
-        for s in doc["slots"]:
+        for s in slots:
             d = dist_to_path(float(s[0]), float(s[1]))
             if d > best_range:
                 dead.append((list(s), round(d, 1)))

@@ -1,5 +1,5 @@
 {
-  "next_id": 152,
+  "next_id": 153,
   "items": [
     {
       "id": "LF-001",
@@ -1279,11 +1279,11 @@
       "kind": "risk",
       "area": "design",
       "pri": "blocker",
-      "status": "open",
+      "status": "done",
       "why": "Free placement silently deletes the guard protecting the power economy",
       "opened": "2026-07-30",
-      "closed": null,
-      "note": ""
+      "closed": "2026-07-31",
+      "note": "closed at c611c57"
     },
     {
       "id": "LF-108",
@@ -1806,6 +1806,18 @@
       "title": "ART-04 (512px atlas cells) is blocked by scripts/iso.gd's hardcoded TILE_W=128 / TILE_H=64, and the block is SILENT. Everything through the pipeline works at 512: calibrate converges (pivot 255.5, 342.5), the page comes out 6144x4608 at 216 MiB uncompressed RGBA8, well inside this machine's measured GL_MAX_TEXTURE_SIZE of 16384, and a full rebuild took 2m30.8s. But sprites.gd's tile-size assertion then fails and EVERY draw falls back to flat placeholder grey -- caught only by sampling actual pixel colour against the expected material colour, not by eye. The real question ART-04 hides is a design one decision 056 did not settle: at 512px cells, is a sprite meant to be twice as BIG on screen (raise TILE_W/TILE_H -- a whole-game layout change touching every screen-space calculation, the measured pivot, and the a11y baselines) or the SAME size at twice the resolution (keep tile size, scale the atlas down at draw)? The second is almost certainly what is wanted and is far cheaper, but it is a real decision and it needs iso.gd and anchor_view.gd. Repo is back at 256px cells, verified correct.",
       "kind": "question",
       "area": "art",
+      "pri": "med",
+      "status": "open",
+      "why": "",
+      "opened": "2026-07-31",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-152",
+      "title": "PLC-05's rules half is written but not applied, and one part of it is a trap. The engine enforcement of max_emplacements needs four coordinated edits: Anchor.max_emplacements in sim/content.py, a cap check at the top of _try_build()'s loop and in build() in sim/engine.py, and the same in build_at() in scripts/anchor_sim.gd. The trap is the fourth: scripts/test/parity.gd's _try_build() calls s.build_at() and sets placed_one = true WITHOUT checking the return value, which is safe only while build_at() cannot fail. The moment a cap can refuse a build, that becomes an infinite loop -- free_slots never shrinks and placed_one never goes false, so the parity run hangs rather than failing. All four must land together. Exact diffs are in decision 063's hand-off and in the PLC-05 agent's report. Until they land, the cap is enforced by the validator and the sweep but not by either engine, so a build could exceed it at runtime.",
+      "kind": "risk",
+      "area": "engine",
       "pri": "med",
       "status": "open",
       "why": "",

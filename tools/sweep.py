@@ -45,7 +45,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from sim.content import (DATA, Spawn, Wave, all_anchor_ids, load_anchor,  # noqa: E402
-                         load_enemies, load_towers)
+                         load_enemies, load_towers, unlocked_for)
 from sim.engine import DIFFICULTIES  # noqa: E402
 from sim.run import grade_anchor  # noqa: E402
 import lease  # noqa: E402  — scopes the --jobs pool for tools/reap.py (PRC-07); this file
@@ -136,15 +136,64 @@ def _grade_cell(job: tuple) -> tuple:
     return (cap, fu, wt, lv, grade_anchor(cand, diffs, towers, enemies))
 
 
+def _tower_max_draw(t) -> float:
+    """Mirrors tools/validate/validate_data.py's `_tower_max_draw()` (LF-103): an
+    upgrade REPLACES the base draw it names rather than adding to it, so a tower's true
+    worst-case draw is max(base, upgrade). If either copy changes, move the other with
+    it — this is small enough that duplicating it beats importing a validator script."""
+    up = t.upgrade.get("draw_mw") if t.upgrade else None
+    return max(t.draw_mw, up) if up is not None else t.draw_mw
+
+
+def saturation_bound(anchor_id: str, base, towers: dict) -> tuple[float, int, str]:
+    """PLC-05 / LF-107: the same board-saturation denominator validate_data.py enforces —
+    `max_emplacements` when the anchor authors one, else len(slots) (data/schema/
+    anchor.schema.json's root `anyOf` guarantees at least one is present on every anchor).
+    Reads the anchor's raw JSON directly for `max_emplacements` because `sim.content`'s
+    `Anchor` dataclass does not carry that field.
+
+    Returns (bound_mw, denominator, denominator_label) so a caller can both filter
+    candidates against `bound_mw` and print which anchor property produced it.
+    """
+    raw = json.loads((DATA / "anchors" / f"{anchor_id}.json").read_text())
+    avail = unlocked_for(towers, anchor_id)
+    max_draw = max(_tower_max_draw(t) for t in avail)
+    explicit_cap = raw.get("max_emplacements")
+    if explicit_cap is not None:
+        cap_n, label = int(explicit_cap), "max_emplacements"
+    else:
+        cap_n, label = len(base.slots), "slots"
+    return cap_n * max_draw, cap_n, label
+
+
 def sweep_one(anchor_id: str, args) -> int:
     base = load_anchor(anchor_id)
     diffs = list(DIFFICULTIES)
     enemies = load_enemies()
+    towers = load_towers()
     leak = float(sum(s.count * enemies[s.enemy].leak_cost
                      for w in base.waves for s in w.spawns))
 
     caps = parse_list(args.cap, [base.capacity_mw * m for m in (0.9, 1.0, 1.1)],
                       base.capacity_mw, leak)
+
+    # PLC-05: refuse any candidate that would trip the board-saturation invariant --
+    # sweep.py must not re-create the original failure (anchor-24 once reached 103% of
+    # this exact bound) from the search side while validate_data.py guards the authored
+    # side. A candidate refused here never reaches grade_anchor() at all.
+    bound_mw, cap_n, denom_label = saturation_bound(anchor_id, base, towers)
+    refused = sorted({c for c in caps if c >= bound_mw})
+    if refused:
+        caps = [c for c in caps if c < bound_mw]
+        print(f"refusing {len(refused)} candidate capacit"
+              f"{'y' if len(refused) == 1 else 'ies'} at or above the board-saturation "
+              f"bound ({bound_mw:.0f} MW = {cap_n} [{denom_label}] x max draw): "
+              f"{[round(c) for c in refused]}")
+    if not caps:
+        print(f"{anchor_id}: every candidate capacity was at or above the saturation "
+              f"bound ({bound_mw:.0f} MW) — widen --cap below it before sweeping")
+        return 1
+
     funds = parse_list(args.funds, [base.starting_funds * m for m in (0.85, 1.0, 1.15)],
                        base.starting_funds, leak)
     weights = parse_list(args.weight, [0.85, 1.0, 1.15], 1.0, leak)
