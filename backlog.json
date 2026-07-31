@@ -1,5 +1,5 @@
 {
-  "next_id": 180,
+  "next_id": 181,
   "items": [
     {
       "id": "LF-001",
@@ -2141,6 +2141,18 @@
       "id": "LF-179",
       "title": "guard.py's payload scrubbing does not cover HEREDOC bodies, so the LF-171 class is narrowed but not closed. Found live by the chronicler immediately after the fix landed: a Bash command whose heredoc body merely MENTIONED an import-cache path in prose, alongside an unrelated 'cat > file' redirect elsewhere in the same command, tripped rule_godot_write. _scrub_payload_values() blanks the value after -m/--message/-F/--file/--body/--body-file, which covers the four occurrences that motivated the fix, but a heredoc is a different shape: the body is not an argv token at all, it is stdin, and shlex tokenises it as ordinary words. Worked around by using the Write tool instead of a heredoc, which is the right habit anyway and is now the coordinator's default for anything long. Not urgent \u2014 the remaining exposure is prose in a heredoc, which is rarer than a commit message and has an obvious workaround \u2014 but it should be recorded rather than left to be rediscovered, because 'the guard was fixed' is now in the chronicle and someone will reasonably read that as complete. Fix is to detect << and <<- and blank everything from the delimiter to its terminator before any pattern runs. Add it to guard.py --selftest with the exact shape found here: a heredoc mentioning a guarded path plus a real redirect in the same command, which must still deny on the redirect and not on the prose.",
       "kind": "bug",
+      "area": "tooling",
+      "pri": "med",
+      "status": "open",
+      "why": "",
+      "opened": "2026-07-31",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-180",
+      "title": "RULE, learned twice in one session: 'git commit --only <paths>' is for MODIFICATIONS to tracked files. It cannot add and it cannot remove, and it fails SILENTLY at both \u2014 reporting success while committing something other than what the message describes. Occurrence 1 (LF-166): --only on a directory omitted an untracked file, so a chronicle entry's index.html and chronicle.json shipped without the entry page they link to \u2014 a dead link on the published site. Naming the new file directly then errors with 'did not match any file(s) known to git'. Occurrence 2 (this one): 222 sidecars staged for removal with 'git rm --cached' still existed on disk, so --only saw them present, DISCARDED the staged deletion and committed 6 files while reporting success; the commit message claimed 222 removals and 'git ls-files' still showed 224 tracked. Nothing red either time. The coordinator workflow in CLAUDE.md and the ship skill both prescribe --only as THE way to commit in a shared tree, which is correct for its actual job \u2014 it is index-independent, so a concurrent agent's staging cannot leak in \u2014 but the docs do not say what it cannot do. They should, in one line, plus the two escapes: 'git update-index --add <file>' to introduce a new file, and an index-audited plain 'git commit' for removals ('git diff --cached --name-only' must be empty first, then verified to contain only the intended paths). And every commit that adds or removes a file should be followed by an assertion \u2014 'git status --porcelain <dir>' empty for adds, 'git ls-files <glob>' for removals. A gate check is possible but probably overkill; the doc line and the habit are the fix.",
+      "kind": "chore",
       "area": "tooling",
       "pri": "med",
       "status": "open",
