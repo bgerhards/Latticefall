@@ -2018,6 +2018,111 @@
           "text": "One small thing worth recording as a genuine win rather than a caveat: the freshness check was proved red as well as green against the real repository before merge \u2014 `gate.yml` reported fresh at 0.1 hours and exited 0, and a workflow with no successful run exited 1. A project that has now twice believed a workflow ran when it had not, and once believed a local check was clean when it was not, has something that at least notices the first kind."
         }
       ]
+    },
+    {
+      "id": "it-is-the-levels",
+      "date": "2026-07-31",
+      "time": "22:05",
+      "title": "It is the levels",
+      "summary": "The owner, playing: \u201cthe placement of most turrets are barely able to hit the enemies on the field.\u201d Nothing in this project could see that \u2014 the sim only asks whether a build wins. `sim/coverage.py` (LF-176) is the instrument built to look, and it agrees with the owner: the median gun has a target in range about a third of the time, roughly one in five placed emplacements does essentially nothing, and the geometry says why \u2014 range values short relative to lane length on most anchors, slots simply too far from the lane on five Act 1 anchors. No range or slot was changed to get this answer.",
+      "tags": [
+        "BAL"
+      ],
+      "decisions": [
+        "067"
+      ],
+      "commits": [
+        {
+          "hash": "afd988e",
+          "subject": "feat(sim): measure what the owner could see and the grader could not"
+        }
+      ],
+      "body": [
+        {
+          "type": "quote",
+          "text": "Game is slow at times. I think it's because the placement of most turrets are barely able to hit the enemies on the field. The pace is also very slow.",
+          "attribution": "the owner, playing"
+        },
+        {
+          "type": "p",
+          "text": "Nothing in this project could see that. `sim/run.py` only asks whether a build wins. `tools/density.py` reports what is on screen, not who can reach it. A board where every gun fires at the extreme edge of its range for a sliver of each pass grades identically, on both instruments, to a board sited well. Until today the owner's own eyes were the only instrument that existed for this."
+        },
+        {
+          "type": "p",
+          "text": "`sim/coverage.py` (LF-176) is the missing measurement, built as two independent halves because the three candidate causes need different evidence. `lane_coverage()` is pure geometry \u2014 what fraction of the lane falls inside a tower's range from a given slot, by sampling the lane. No sim, no RNG, no build order. It is a ceiling: what the best possible siting of any available tower at that slot could achieve. `InstrumentedSim` drives the real, unmodified `sim.engine.Sim` and reconstructs per-emplacement telemetry from public state after each tick \u2014 whether a live targetable unit was in range, independent of cooldown, and how much damage each emplacement actually dealt. `sim/engine.py` is untouched: every class here is a subclass wrapping existing methods, so the parity digest never moved and no 1,440-run re-run was owed."
+        },
+        {
+          "type": "h3",
+          "text": "Proved at runtime, not argued"
+        },
+        {
+          "type": "list",
+          "items": [
+            "geometric hand-check: slot (2,3) r=3.2 -> 0.3368 (hand calc 0.335)",
+            "far-slot geometric check: slot (500, 500) -> 0.0",
+            "far-slot dynamic check: 0/1690 combat ticks in range, 0.0 damage, across a real 1-wave run",
+            "determinism: anchor-09/burst/hard identical across two runs (9 emplacements, 10712.0 total damage)",
+            "outcome parity: `InstrumentedSim` == `Sim` on every policy/difficulty across anchor-01, anchor-09, anchor-13, anchor-24"
+          ]
+        },
+        {
+          "type": "p",
+          "text": "The last line is the one that matters: the instrument provably cannot change a grade. Two full 24-anchor runs came back byte-identical to each other on top of that."
+        },
+        {
+          "type": "h3",
+          "text": "What it found \u2014 the owner was right"
+        },
+        {
+          "type": "table",
+          "headers": ["act", "uptime p10 / p50 / p90", "damage share p10 / p50 / p90", "near-zero contributors"],
+          "rows": [
+            ["1", "1% / 38% / 75%", "0.5% / 16.5% / 34.5%", "19%"],
+            ["2", "4% / 28% / 56%", "0.7% / 9.3% / 20.7%", "19%"],
+            ["3", "15% / 31% / 55%", "2.3% / 8.9% / 15.9%", "5%"]
+          ]
+        },
+        {
+          "type": "p",
+          "text": "The median gun has something in range about a third of the time. The long tail the owner predicted is real: roughly one in five placed emplacements in acts 1 and 2 does essentially nothing \u2014 178 of 589 samples on anchor-10, 172 of 644 on anchor-13, 88 of 320 on anchor-02."
+        },
+        {
+          "type": "h3",
+          "text": "The geometric half separates the causes"
+        },
+        {
+          "type": "p",
+          "text": "Median lane-coverage ceiling \u2014 the best any tower could do from the best slot \u2014 is only about 40%. Double the ranges and it jumps to 97\u2013100% on 17 of 24 anchors. That is verdict (b): the range values are short relative to lane length, not the slots."
+        },
+        {
+          "type": "p",
+          "text": "Five Act 1 anchors are the other problem \u2014 verdict (a), geometry: anchor-01, 03, 04, 05 and 07 do not recover even at 2\u00d7 range, so their slots are simply too far from the lane. anchor-02's p10 uptime is 0%. Only anchor-06 and anchor-20 come back sited adequately."
+        },
+        {
+          "type": "p",
+          "text": "And it rules out the third candidate. LF-053 and LF-072 both record that the autobuild fills slots in priority order regardless of coverage, so the obvious suspicion was that what the owner watched play itself was never a sited board at all. The ceiling numbers rule that out as the main cause: if the best available slot can only cover 40% of the lane, no build policy can fix it. It is the levels."
+        },
+        {
+          "type": "h3",
+          "text": "The discipline worth naming"
+        },
+        {
+          "type": "p",
+          "text": "Not one range value was changed and not one slot was moved. Tuning before the instrument existed is exactly what decision 067 rejected when it deleted `PRESSURE_FLOOR` rather than raising it \u2014 a threshold fitted to today's data is not evidence. The instrument exists now, so the tuning can be done against it, and that is filed as LF-181 for BAL-04, which re-grades the whole campaign against the distribution, not the mean \u2014 the mean hides the tail, and the tail is the complaint."
+        },
+        {
+          "type": "p",
+          "text": "Worth one honest line too: this entry is late. The measurement landed at 18:33 and then sat unreported and uncommitted-to-the-journal while the session moved on to other work \u2014 the journal read quiet at exactly the moment it had the most to say."
+        },
+        {
+          "type": "h3",
+          "text": "Filed, not started: LF-177"
+        },
+        {
+          "type": "p",
+          "text": "The owner also asked for a fast-forward \u2014 the pace is slow to play at 1\u00d7 and there is no way to speed it up. Deferred by the owner's own framing, but the trap is worth recording with it: a speed multiplier implemented by scaling delta is a rules change, and `scripts/anchor_sim.gd` and `sim/engine.py` are compared across 1,440 runs on two platforms where float64 accumulation over a different number of differently-sized steps does not reproduce. The safe shape, if this is ever picked up, is the same fixed tick run more times per rendered frame \u2014 never a larger `dt`."
+        }
+      ]
     }
   ]
 }
