@@ -336,6 +336,12 @@ class Sim:
         self.shutter_active = False
         self._shutter_hold_tiles = 0.0
         self._shutter_draw_mw = 0.0
+        # LF-163: Threshold Surge's charge, tracked against every kill this Sim causes
+        # (both _damage() and _fire_surge()'s own), mirroring scripts/abilities.gd's
+        # AbilityState.charge — see _charge_surge()'s docstring. 0.0 whenever
+        # charge_max <= 0 (not the case for "surge" in data/tuning.json today, but
+        # matching is_charge_gated()'s own guard rather than assuming).
+        self._surge_charge = 0.0
 
     def capacity_now(self) -> float:
         """Capacity this wave. Fixed in Acts I and II; falls per wave in Act III.
@@ -634,6 +640,26 @@ class Sim:
         self.funds += granted
         return granted
 
+    def _charge_surge(self, u: Unit) -> None:
+        """LF-163. Mirrors scripts/anchor_view.gd's `_charge_surge()` /
+        scripts/abilities.gd's `AbilityState.add_charge()`: every kill, from ANY
+        source, adds `leak_cost * charge_per_leak_cost` to Threshold Surge's charge,
+        clamped at `charge_max`. Real play fires this off the `unit_killed` signal,
+        which `fire_surge()` emits for its own kills exactly as `_damage()` does for a
+        tower's — so a scheduled "surge" verb has to call this at both kill sites
+        below, not just `_damage()`'s, to stay honest about how much charge a cast
+        earns back from its own casualties.
+
+        `Recoveries.surge_charge_mult()` (`ward-primer`, 1.25x) is a save-file input
+        outside every grading path (decision 033) and is omitted here, the same as
+        `sell_refund_bonus` already is in `sell()` — see that method's own comment."""
+        cfg = self.tuning.abilities.get("surge")
+        if cfg is None or cfg.charge_max <= 0.0 or cfg.charge_per_leak_cost <= 0.0:
+            return
+        self._surge_charge = min(
+            cfg.charge_max,
+            self._surge_charge + u.kind.leak_cost * cfg.charge_per_leak_cost)
+
     def _fire_surge(self, cfg: Ability) -> dict:
         """Mirrors scripts/anchor_sim.gd:731 fire_surge(). Ignores shielding entirely —
         no call to _shield_scale() below, matching the GDScript note that the discharge
@@ -655,6 +681,7 @@ class Sim:
             if u.hp <= 0:
                 u.alive = False
                 self.funds += int(u.kind.bounty * self.bounty_mult)
+                self._charge_surge(u)  # LF-163
                 kills += 1
             else:
                 u.dist = max(0.0, u.dist - cfg.pushback_tiles)
@@ -708,7 +735,17 @@ class Sim:
         if verb == "ability":
             kind = args.get("kind")
             if kind == "surge":
-                self._fire_surge(self.tuning.abilities["surge"])
+                # LF-163: charge-gated, mirroring scripts/abilities.gd's
+                # `AbilityState.ready()` — a scheduled cast whose time has come but
+                # which has not earned a full charge from kills yet is dispatched (the
+                # schedule entry is still consumed) but does nothing, exactly as
+                # scripts/anchor_view.gd's `activate_ability()` returns `{}` and plays
+                # a deny cue rather than firing. Charge resets to 0 on an actual cast,
+                # mirroring `AbilityState.began()`.
+                cfg = self.tuning.abilities["surge"]
+                if cfg.charge_max <= 0.0 or self._surge_charge >= cfg.charge_max:
+                    self._fire_surge(cfg)
+                    self._surge_charge = 0.0
             elif kind == "overcharge":
                 active = bool(args.get("active", True))
                 cfg = self.tuning.abilities["overcharge"]
@@ -939,6 +976,7 @@ class Sim:
         if u.hp <= 0:
             u.alive = False
             self.funds += int(u.kind.bounty * self.bounty_mult)
+            self._charge_surge(u)  # LF-163
             return True
         return False
 
