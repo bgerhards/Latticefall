@@ -132,6 +132,42 @@ def godot() -> str | None:
     return _first_glob(_WIN_GODOT_GLOBS)
 
 
+def resolve_linux_godot() -> str | None:
+    """The native Linux Godot build, or None — bypasses `$LF_GODOT` and every other
+    preference `godot()` applies. Used where a caller wants THIS platform specifically,
+    never whichever `godot()` would have preferred (see `resolve_for_platform`)."""
+    return _first_glob(_LINUX_GODOT_GLOBS)
+
+
+def resolve_windows_godot() -> str | None:
+    """The Windows console Godot build reachable through WSL interop, or None — same
+    bypass as `resolve_linux_godot()`, for the same reason."""
+    return _first_glob(_WIN_GODOT_GLOBS)
+
+
+def resolve_for_platform(platform: str) -> str | None:
+    """Resolve a Godot binary for a SPECIFIC platform, ignoring `godot()`'s own
+    machine-preference order (Linux first, see its docstring).
+
+    BAL-06 / LF-105: `tools/test_parity.py`'s default run compares CPython against
+    whichever Godot `godot()` prefers, which is the native Linux build on this machine —
+    not what the owner plays. A caller asking for "the Windows build" needs an honest
+    None when it cannot be found, never a silent fallback to whatever `godot()` would
+    have resolved instead; that silent fallback is the single worst outcome this
+    function exists to prevent (a "Windows parity" run that was actually Linux).
+
+    `platform` is `"linux"` or `"windows"`; anything else raises `ValueError` — a typo
+    in a caller's own `--platform` argument should never resolve to `None` and read as
+    an ordinary "not installed" skip.
+    """
+    if platform == "linux":
+        return resolve_linux_godot()
+    if platform == "windows":
+        return resolve_windows_godot()
+    raise ValueError(f"resolve_for_platform: unknown platform {platform!r} "
+                      f"(expected 'linux' or 'windows')")
+
+
 def blender() -> str | None:
     """Resolve the Blender binary, or None.
 
@@ -286,15 +322,26 @@ def xvfb_prefix() -> list[str]:
     return ["xvfb-run", *_XVFB_SCREEN_ARGS]
 
 
-def godot_argv(project_root: str | Path, extra_args: list[str], want_window: bool) -> list[str]:
+def godot_argv(project_root: str | Path, extra_args: list[str], want_window: bool,
+                exe: str | None = None) -> list[str]:
     """Build the full subprocess argv to launch Godot against this project.
 
     This is the single place that knows how to launch Godot invisibly, so nothing else
     should assemble a Godot command line by hand. `extra_args` is everything that goes after
     `--path <root>` — engine flags like `--fixed-fps 60`, the `--` separator, and the game's
     own CLI (`--autoplay`, `--anchor`, `--shot`, ...). Every element is passed through
-    `host_path()`, which is a no-op for anything that is not a `/mnt/<drive>/...` path, so
-    callers do not need to sort path arguments from flag arguments themselves.
+    `host_path_for(exe, ...)`, which is a no-op for anything that is not a `/mnt/<drive>/...`
+    path, so callers do not need to sort path arguments from flag arguments themselves.
+
+    `exe`, if given, is used INSTEAD of `godot()`'s own cached, machine-preferred
+    resolution — BAL-06: `tools/test_parity.py --platform windows` (and its three-way mode)
+    need to launch a *specific* binary regardless of what `godot()` would otherwise have
+    preferred, and `godot()` is `functools.lru_cache`d process-wide, so there is no way to
+    get a second answer out of it within one run. Path translation (`host_path_for`) is
+    keyed off whichever `exe` is actually used here, never off `godot()`'s cached pick — a
+    caller running the Windows build this way while `godot()` itself resolves to the Linux
+    build (the common case on this machine) still gets correct `/mnt/d/...` -> `D:/...`
+    translation for the binary actually being launched.
 
     `want_window=False` (what `tools/shot.py` and the gate's rendered checks use) prefixes
     the whole command with `xvfb_prefix()` whenever `needs_virtual_display()` says a window
@@ -311,19 +358,20 @@ def godot_argv(project_root: str | Path, extra_args: list[str], want_window: boo
     Raises `RuntimeError` if no Godot binary resolves at all — every caller of this needs a
     real binary to run, so failing loudly here beats a caller trying to subprocess.run(None).
     """
-    exe = godot()
+    if exe is None:
+        exe = godot()
     if exe is None:
         raise RuntimeError(
             "no Godot binary found on this machine: checked $LF_GODOT, a Linux build under "
             "/mnt/*/godot/linux/, `godot`/`godot4` on PATH, the macOS app bundle, and a "
             "Windows console exe under /mnt/*/godot/")
 
-    argv = [exe, "--path", host_path(project_root)]
+    argv = [exe, "--path", host_path_for(exe, project_root)]
     if _is_linux_native(exe):
         # Always ask for GL Compatibility's actual backend on a native Linux build, wrapped
         # or not — see docstring.
         argv += ["--rendering-driver", "opengl3"]
-    argv += [host_path(a) for a in extra_args]
+    argv += [host_path_for(exe, a) for a in extra_args]
 
     if not want_window and needs_virtual_display(exe):
         prefix = xvfb_prefix()
