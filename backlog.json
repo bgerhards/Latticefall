@@ -1,5 +1,5 @@
 {
-  "next_id": 163,
+  "next_id": 164,
   "items": [
     {
       "id": "LF-001",
@@ -1123,11 +1123,11 @@
       "kind": "risk",
       "area": "tooling",
       "pri": "blocker",
-      "status": "open",
+      "status": "done",
       "why": "Every balance number currently describes a player who never presses anything",
       "opened": "2026-07-30",
-      "closed": null,
-      "note": ""
+      "closed": "2026-07-31",
+      "note": "closed at 09fc78d"
     },
     {
       "id": "LF-095",
@@ -1819,11 +1819,11 @@
       "kind": "risk",
       "area": "engine",
       "pri": "med",
-      "status": "open",
+      "status": "done",
       "why": "",
       "opened": "2026-07-31",
-      "closed": null,
-      "note": ""
+      "closed": "2026-07-31",
+      "note": "closed at 09fc78d"
     },
     {
       "id": "LF-153",
@@ -1938,6 +1938,18 @@
       "title": "The fonts are LFS-tracked and ui_theme.gd preloads them, which is why a clean checkout cascades. Under lfs:false the four .ttf files are pointer text, so the Ui autoload's preload() resolves to a broken FontFile and every script reading Ui.SANS follows it down -- hud.gd, menu.gd, pause_menu.gd, main.gd, draft.gd. CI is green now because gate.yml imports the project first and a parse check does not care that the FontFile has junk in it, but that is tolerating the symptom. The same blanket .gitattributes rule caused the chronicle images to deploy as pointer text. Fonts are small and are source rather than build output, unlike the sprite renders: consider excluding them from LFS the way docs/chronicle/assets was, which would make a clean checkout actually correct instead of merely parseable. Check total size first.",
       "kind": "chore",
       "area": "build",
+      "pri": "med",
+      "status": "open",
+      "why": "",
+      "opened": "2026-07-31",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-163",
+      "title": "Ability CHARGE ACCRUAL is not modelled in sim/engine.py, and it is the one gap that decides how much to trust BAL-01's Threshold Surge finding. Measured: surge-on-peak, firing every 40s with no charge, no cooldown and no cost, flips 9 of 72 anchor-by-difficulty cells from loss to win -- sweeping all three difficulties on both anchor-12 and anchor-13 -- and is 0 worse across all 72 even at full 20-cast spam. That zero-downside behaviour is suspicious on its own: Overcharge, which IS honestly modelled with its real draw cost, is the mirror image at 0 better and 12 worse. But truncating the schedule shows the wins need 5 to 14 casts, not one lucky early one, and surge's real charge cost is about 25 leak-cost-weighted kills per cast (charge_max 100 over charge_per_leak_cost 4) -- a board that kills most of every wave before collapsing at wave 6-8 of 8-14 very plausibly earns several real charges. So this is NOT yet evidence the 130-damage/35-percent-falloff numbers are hot. The concrete work: track charge_max and charge_per_leak_cost against the kills already flowing through _damage(), gate the ability verb behind it, and re-run those 9 cells. Until then no grade that assumes Surge is available on demand should be trusted, and BAL-04's regrade must not start without it.",
+      "kind": "risk",
+      "area": "design",
       "pri": "med",
       "status": "open",
       "why": "",

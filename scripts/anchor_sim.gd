@@ -73,6 +73,12 @@ var lives: int = 0
 var leaks: int = 0
 var placed: Array[Dictionary] = []      # {tower, slot:Vector2i, online:bool, cooldown:float}
 var free_slots: Array[Vector2i] = []
+## LF-152/decision 063. Board-saturation denominator once `slots` is deleted by free
+## placement (PLC-01/PLC-05). 0 means "not authored" -- every one of the 24 real anchors
+## today, all of which still author `slots` -- and effective_cap() falls back to
+## free_slots.size() + placed.size(), reproducing today's numbers exactly. Mirrors
+## sim/engine.py's Sim._effective_cap().
+var max_emplacements: int = 0
 var units: Array[Dictionary] = []       # {kind, hp, dist, alive}
 var t: float = 0.0
 var brownout: bool = false
@@ -157,6 +163,7 @@ func setup(anchor_data: Dictionary, tower_defs: Dictionary, enemy_defs: Dictiona
 	lives = int(anchor.get("lives", 10))
 	spend = 0
 	leaks = 0
+	max_emplacements = int(anchor.get("max_emplacements", 0))
 
 	free_slots.clear()
 	for s in anchor.get("slots", []):
@@ -357,7 +364,21 @@ func can_afford(tower_id: String) -> bool:
 	return int(towers[tower_id].get("cost", 0)) <= funds
 
 
+func effective_cap() -> int:
+	## LF-152/decision 063. Mirrors sim/engine.py's Sim._effective_cap(): max_emplacements
+	## if the anchor authors one (0 is the "unset" sentinel — the schema's own minimum is
+	## 1), else free_slots.size() + placed.size(), which equals the anchor's original slot
+	## count by the same free_slots/placed invariant validate_data.py's len(slots)
+	## fallback relies on (a slot only ever moves between the two lists, in build_at()/
+	## sell(), never created or destroyed).
+	return max_emplacements if max_emplacements > 0 else free_slots.size() + placed.size()
+
+
 func build_at(tower_id: String, slot: Vector2i) -> bool:
+	## LF-152/decision 063: refuses at effective_cap() — a no-op for every anchor that
+	## omits max_emplacements (all 24 today; see effective_cap()'s own doc).
+	if placed.size() >= effective_cap():
+		return false
 	if not free_slots.has(slot) or not towers.has(tower_id):
 		return false
 	var tw: Dictionary = towers[tower_id]
@@ -531,11 +552,20 @@ func penalty_now() -> float:
 	return brownout_penalty(bus_load(), capacity())
 
 
-func tick() -> void:
-	# Primary rebuild point (LF-099) — see the comment on _eff_slow above. Unconditional
-	# every tick, not gated by a dirty flag; before bus_load(), its first consumer this
-	# tick. Named here because sim/engine.py's _tick_once() rebuilds at the equivalent
-	# point, for the same reason.
+func begin_tick() -> float:
+	## BAL-01: split out of tick() so a caller that needs to act at an EXACT sim-time
+	## boundary (scripts/test/parity.gd's scheduled-policy dispatch) can inject between
+	## the bookkeeping below and _step() — the identical point sim/engine.py's
+	## _tick_once() dispatches its own schedule at (after `t` advances, before
+	## `_step()`), so an action taken at time t affects the tick at t on both
+	## implementations. `tick()` below is unchanged for every other caller —
+	## scripts/anchor_view.gd's real play has no schedule concept at all — and is
+	## exactly `end_tick(begin_tick())`.
+	##
+	## Primary rebuild point (LF-099) — see the comment on _eff_slow above. Unconditional
+	## every tick, not gated by a dirty flag; before bus_load(), its first consumer this
+	## tick. Named here because sim/engine.py's _tick_once() rebuilds at the equivalent
+	## point, for the same reason.
 	_rebuild_effect_lists()
 	var load := bus_load()
 	var penalty := brownout_penalty(load, capacity())
@@ -548,7 +578,16 @@ func tick() -> void:
 	if over:
 		_brownout_time += DT
 	t += DT
+	return penalty
+
+
+func end_tick(penalty: float) -> void:
+	## BAL-01: the other half of tick() — see begin_tick()'s doc.
 	_step(penalty)
+
+
+func tick() -> void:
+	end_tick(begin_tick())
 
 
 func _step(penalty: float) -> void:

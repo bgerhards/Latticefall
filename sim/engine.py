@@ -24,9 +24,9 @@ would add state that the engine cannot verify against anything.
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace as dc_replace
 
-from .content import Anchor, Enemy, Tower
+from .content import Ability, Anchor, Enemy, Tower, Tuning, VeterancyRank, load_tuning
 
 DT = 1.0 / 30.0
 # Brownout is priced by how far over capacity the bus is, not as a flat cliff.
@@ -54,6 +54,12 @@ SHIELD_LEAK = 0.25
 # Act III capacity decay never takes the bus below this fraction of its rated capacity.
 CAPACITY_FLOOR = 0.45
 
+# BAL-01. Mirrors scripts/anchor_sim.gd:31 SELL_REFUND — fraction of what was paid an
+# emplacement returns on the `sell` scheduled verb. Grading-only simplification: no
+# `sell_refund_bonus` term (anchor_sim.gd:38) — that is a Recoveries-only input outside
+# every grading path (decision 033), so omitting it changes nothing a policy can observe.
+SELL_REFUND = 0.6
+
 
 def brownout_penalty(load_mw: float, capacity_mw: float) -> float:
     """Fire-rate penalty in [0, BROWNOUT_MAX_PENALTY]. 0 when at or under capacity."""
@@ -80,6 +86,18 @@ class Placed:
     slot: tuple[int, int]
     online: bool = True
     cooldown: float = 0.0
+    # BAL-01: mirrors scripts/anchor_sim.gd's placed-record keys of the same name.
+    # `target_mode` defaults to "first" — an untouched record (every one _try_build()/
+    # build() places) reads exactly as it did before this verb existed. `kills` is
+    # tracked unconditionally, independent of whether a policy opts into veterancy,
+    # matching anchor_sim.gd's own comment on why annotating it here is safe (a Placed
+    # is only ever compared by `slot`, never by value, so growing this field cannot
+    # collide with the LF-055 identity trap). `upgraded`/`upgrade_paid` back the
+    # `upgrade` verb and sell()'s refund-on-what-was-actually-paid.
+    target_mode: str = "first"
+    kills: int = 0
+    upgraded: bool = False
+    upgrade_paid: int = 0
 
 
 @dataclass
@@ -132,7 +150,9 @@ class Policy:
 
     def __init__(self, name: str, preference: list[str], allow_overdraw: bool = False,
                  caps: dict[str, int] | None = None, reserve: float = 0.0,
-                 core: tuple[str, int] | None = None, closed: bool = False):
+                 core: tuple[str, int] | None = None, closed: bool = False,
+                 schedule: list[tuple[float, str, dict]] | None = None,
+                 veterancy: bool = False, chain_bounty: bool = False):
         self.name = name
         self.preference = preference
         self.allow_overdraw = allow_overdraw
@@ -172,6 +192,42 @@ class Policy:
         # Policy.capped_core() below and Sim.__init__'s `buildable` construction.
         self.closed = closed
 
+        # ── BAL-01: scheduled actions ───────────────────────────────────────────
+        # A deterministic stand-in for a player pressing something. Times are seconds
+        # of `Sim.t` — sim time, never wall-clock and never wave-relative. Wave-relative
+        # would read better in a policy's own source, but it is a second source of truth
+        # about when a wave starts (the anchor's `lead_in` plus however long every prior
+        # wave's combat actually took, which is only known by running the sim) — BAL-01
+        # rejected it for exactly that reason: it would make a schedule's own meaning
+        # depend on outcomes the schedule is supposed to be judged against.
+        #
+        # Sorted once, here, on a TOTAL order (time, original list index) — never on
+        # time alone. Two actions sharing a timestamp must dispatch in the order they
+        # were authored, on both runtimes, and relying on Python's sort being stable
+        # would not prove that: GDScript's `sort_custom` is not documented as stable, so
+        # scripts/test/parity.gd's mirror needs the identical explicit second key to
+        # agree, not merely to happen to agree today.
+        indexed = list(enumerate(schedule or []))
+        indexed.sort(key=lambda pair: (pair[1][0], pair[0]))
+        self.schedule: list[tuple[float, str, dict]] = [item for _, item in indexed]
+
+        # ── BAL-01: unconditional rules, not scheduled actions ──────────────────
+        # Veterancy is a real mechanism in scripts/anchor_sim.gd today (_veteran_rank()
+        # runs on every shot, unconditionally — see Sim._veteran_rank() below) but its
+        # effect is inert by default because the rank ladder itself defaults empty.
+        # `veterancy=True` is this Policy opting into the ladder data/tuning.json
+        # actually authors, standing in for "scripts/anchor_view.gd has called
+        # set_veterancy_ranks() at boot" in real play — not a mid-run button press, so
+        # it lives here rather than in `schedule`. Every one of the original twelve (plus
+        # four capped-core) policies leaves this False, which is exactly what makes the
+        # no-schedule byte-identical requirement possible: the mechanism has always been
+        # there, only nothing had ever turned it on.
+        self.veterancy = veterancy
+        # `chain_bounty` is intentionally NOT implemented this pass — see the BAL-01
+        # report. The flag is accepted (rather than raising) so a future policy can be
+        # authored against it once the mechanic itself lands, but Sim never reads it yet.
+        self.chain_bounty = chain_bounty
+
     def rank(self, tower_id: str) -> int:
         return self.preference.index(tower_id) if tower_id in self.preference else 99
 
@@ -197,7 +253,8 @@ class Policy:
 
 class Sim:
     def __init__(self, anchor: Anchor, towers: dict[str, Tower], enemies: dict[str, Enemy],
-                 policy: Policy, difficulty: str = "standard"):
+                 policy: Policy, difficulty: str = "standard", *,
+                 tuning: Tuning | None = None):
         if difficulty not in DIFFICULTIES:
             raise ValueError(f"unknown difficulty {difficulty!r}")
         self.a = anchor
@@ -206,6 +263,15 @@ class Sim:
         self.policy = policy
         self.difficulty = difficulty
         self.hp_mult, self.bounty_mult = DIFFICULTIES[difficulty]
+        # BAL-01: keyword-only, defaulted — every existing caller (tools/test_parity.py,
+        # tools/sweep.py via sim.run.grade_anchor(), tools/bench_tick.py) constructs a Sim
+        # with the original five positional args and never passes this, so it always
+        # falls back to loading data/tuning.json itself. Loading it here rather than
+        # requiring every caller to thread it through keeps this file's own "pure
+        # function of its data" contract intact from the caller's point of view — the
+        # data just now includes tuning.json, the same way it already includes towers/
+        # enemies/anchor.
+        self.tuning = tuning if tuning is not None else load_tuning()
 
         # Tie-broken by id, not by insertion order. Emplacements the policy does not
         # rank all share rank 99, and Python's stable sort would then hand back
@@ -255,6 +321,21 @@ class Sim:
         self._eff_damp: list[Placed] = []
         self._eff_reveal: list[Placed] = []
         self._eff_restore: list[Placed] = []
+
+        # ── BAL-01: scheduled-action / GDScript-only-mirrored state ─────────────
+        # Every field below defaults to the value that reproduces this file's
+        # PRE-BAL-01 behaviour exactly — the same contract scripts/anchor_sim.gd's own
+        # "GDScript-only state" block already documents for these same four mechanics.
+        # Nothing here can move an Outcome unless `policy.schedule` or `policy.veterancy`
+        # says so.
+        self._schedule_i = 0                 # index into policy.schedule already drained
+        self._call_wave_requested = False    # set by the `call_wave` verb; see _advance()
+        self.overcharge_active = False
+        self._overcharge_fire_rate_bonus = 0.0
+        self._overcharge_draw_mult = 1.0
+        self.shutter_active = False
+        self._shutter_hold_tiles = 0.0
+        self._shutter_draw_mw = 0.0
 
     def capacity_now(self) -> float:
         """Capacity this wave. Fixed in Acts I and II; falls per wave in Act III.
@@ -312,7 +393,7 @@ class Sim:
     # ───────────────────────────────────────────────────────────── power ──
 
     def bus_load(self) -> float:
-        load = sum(p.tower.draw_mw for p in self.placed if p.online)
+        load = self._online_draw()
         # A drain is suppressed where a damper covers the unit doing it. The damper
         # spends a fixed draw to deny a variable one, so it pays only on waves that
         # actually carry drain — which is the whole Act II decision (decision 027).
@@ -325,7 +406,31 @@ class Sim:
         return load
 
     def _online_draw(self) -> float:
-        return sum(p.tower.draw_mw for p in self.placed if p.online)
+        """Mirrors scripts/anchor_sim.gd:245 online_draw(). BAL-01: bus_load() now calls
+        this instead of re-summing `placed` itself, so Overcharge's draw multiplier and
+        Shutter's flat draw apply in exactly one place, on both the load figure the
+        brownout penalty is priced from and the capacity checks `_try_build()`/
+        `_shed_load()` already run against `_online_draw()`.
+
+        Deliberately branches rather than always multiplying by a `draw_mult` that
+        defaults to 1.0: `towers.json`'s `draw_mw` values are unannotated JSON integers
+        (e.g. `12`), so `Tower.draw_mw` holds a Python `int` at runtime despite its
+        `float` type hint, and `sum()` over ints stays an int. `int * 1.0` is numerically
+        exact but promotes the result to `float` — harmless as a number, but it moved
+        `peak_load_mw`/`headroom_mw` from a bare `60` to `60.0` in this project's own
+        JSON grade output for every anchor with no drain and no overdraw, which is
+        exactly the "a single field moved" failure this file's whole parity contract
+        exists to catch. Branching keeps the untouched path byte-for-byte the original
+        expression; only a policy that actually schedules Overcharge ever reaches the
+        multiply, which is new behaviour anyway."""
+        if self.overcharge_active:
+            v = sum(p.tower.draw_mw * self._overcharge_draw_mult
+                     for p in self.placed if p.online)
+        else:
+            v = sum(p.tower.draw_mw for p in self.placed if p.online)
+        if self.shutter_active:
+            v += self._shutter_draw_mw
+        return v
 
     # ────────────────────────────────────────────────────────────── build ──
 
@@ -352,9 +457,29 @@ class Sim:
             return best
         return sorted(self.free_slots, key=lambda s: (d2(s), s))
 
+    def _effective_cap(self) -> int:
+        """LF-152/decision 063. The board-saturation denominator: `max_emplacements` if
+        the anchor authors one, else `len(slots)` — the identical fallback
+        `validate_data.py` already uses, so this reproduces every one of the 24 real
+        anchors' numbers exactly (none of them set `max_emplacements`). Mirrors
+        scripts/anchor_sim.gd's `effective_cap()`."""
+        return (self.a.max_emplacements if self.a.max_emplacements is not None
+                else len(self.a.slots))
+
     def _try_build(self) -> None:
         """Spend down in preference order while funds and capacity allow."""
         while self.free_slots:
+            # LF-152: provably a no-op for every anchor that authors `slots` and no
+            # `max_emplacements` (all 24 today) — `len(self.placed) + len(self.free_slots)`
+            # is invariant at `len(self.a.slots)` through every build()/sell() this file
+            # has (both move a slot between the two lists in lockstep, never create or
+            # destroy one), so `len(self.placed) >= len(self.a.slots)` and
+            # `not self.free_slots` are the same condition and this `while` would have
+            # exited here anyway. Only bites once an anchor sets `max_emplacements` below
+            # its slot count, or has no `slots` at all (free placement, PLC-01 — not yet
+            # loadable end to end, see sim/content.py's load_anchor()).
+            if len(self.placed) >= self._effective_cap():
+                return
             slot_order = self._slot_priority()
             for tower in self.buildable:
                 if tower.cost > self.funds:
@@ -393,6 +518,232 @@ class Sim:
             # Eager, not tick-gated (LF-099): the next loop condition re-reads
             # capacity_now(), which must not still count a restorer just shed.
             self._rebuild_effect_lists()
+
+    # ─────────────────────────────────────────────── BAL-01: scheduled verbs ──
+    #
+    # Each method below mirrors a real, already-shipped scripts/anchor_sim.gd method that
+    # nothing had ever driven from a grading run (decision 033's original scope: sell()
+    # was GDScript-only because a policy never changes its mind mid-run; this is the
+    # same argument applied to five more verbs, now that a *scheduled* policy can decide
+    # things in advance without becoming reactive). `call_wave` is the one exception —
+    # see its own docstring for why it mirrors scripts/anchor_view.gd instead.
+
+    def sell(self, index: int) -> int:
+        """Mirrors scripts/anchor_sim.gd:384 sell(). Refunds SELL_REFUND of what was
+        paid, upgrade included."""
+        if index < 0 or index >= len(self.placed):
+            return 0
+        p = self.placed[index]
+        paid = p.tower.cost + p.upgrade_paid
+        refund = int(math.floor(paid * SELL_REFUND))
+        self.free_slots.append(p.slot)
+        del self.placed[index]
+        # Eager, not tick-gated (LF-099) — see the comment on _eff_slow in __init__.
+        self._rebuild_effect_lists()
+        self.funds += refund
+        return refund
+
+    def upgrade_cost(self, index: int) -> int:
+        """Mirrors scripts/anchor_sim.gd:414 upgrade_cost()."""
+        if index < 0 or index >= len(self.placed):
+            return 0
+        p = self.placed[index]
+        if p.upgraded or not p.tower.upgrade:
+            return 0
+        return int(p.tower.upgrade.get("cost", 0))
+
+    def upgrade(self, index: int) -> bool:
+        """Mirrors scripts/anchor_sim.gd:427 upgrade(). Builds a *new* Tower via
+        dataclasses.replace() rather than mutating one in place — Tower is frozen and,
+        unlike anchor_sim.gd's per-board dict copy, is the exact same object shared by
+        every Placed record of that type across every board this process ever grades;
+        mutating it would upgrade that tower type everywhere, the same hazard
+        anchor_sim.gd's own comment names for why it duplicates rather than mutates."""
+        cost = self.upgrade_cost(index)
+        if cost <= 0 or cost > self.funds:
+            return False
+        p = self.placed[index]
+        overrides: dict = {}
+        for k, v in p.tower.upgrade.items():
+            if k == "cost":
+                continue
+            if k == "effect":
+                overrides["effect_type"] = v.get("type")
+                overrides["effect_value"] = v.get("value", 0.0)
+            elif k == "targets":
+                overrides["targets"] = frozenset(v)
+            else:
+                overrides[k] = v
+        p.tower = dc_replace(p.tower, name=f"{p.tower.name} II", **overrides)
+        p.upgraded = True
+        p.upgrade_paid = cost
+        # Eager, not tick-gated (LF-099): an upgrade can change a support tower's effect
+        # value (or, in principle, its type) — see the comment on _eff_slow in __init__.
+        self._rebuild_effect_lists()
+        self.funds -= cost
+        self.spend += cost
+        return True
+
+    def set_online(self, index: int, on: bool) -> None:
+        """Mirrors scripts/anchor_sim.gd:378 set_online()."""
+        if 0 <= index < len(self.placed):
+            self.placed[index].online = on
+            # Eager, not tick-gated (LF-099) — see the comment on _eff_slow in __init__.
+            self._rebuild_effect_lists()
+
+    def build(self, tower_id: str, slot: tuple[int, int]) -> bool:
+        """Mirrors scripts/anchor_sim.gd:360 build_at() — an explicit build at a named
+        slot, so a scenario can express a board `_try_build()`'s own policy search would
+        never reach on its own (BAL-01's own task list).
+
+        LF-152/decision 063: refuses at `_effective_cap()`, same as `_try_build()` above —
+        a no-op for every anchor that omits `max_emplacements` (all 24 today)."""
+        if len(self.placed) >= self._effective_cap():
+            return False
+        if slot not in self.free_slots or tower_id not in self.towers:
+            return False
+        tower = self.towers[tower_id]
+        if tower.cost > self.funds:
+            return False
+        self.placed.append(Placed(tower=tower, slot=slot))
+        self._rebuild_effect_lists()
+        self.free_slots.remove(slot)
+        self.funds -= tower.cost
+        self.spend += tower.cost
+        return True
+
+    def call_wave(self, remaining_seconds: float, bonus_per_sec: float) -> int:
+        """No scripts/anchor_sim.gd line to mirror — call_wave has never existed in the
+        rules at all. Real play's version is scripts/anchor_view.gd:888 call_wave() /
+        :903 call_wave_bonus(), which write `sim.funds` directly rather than through a
+        rules method (funds is a bare public field with nothing in `_rebuild_effect_lists`
+        keyed off it, so that direct write is safe — the LF-123 lesson is specifically
+        about fields that DO participate in the per-effect lists). BAL-01 ports that same
+        formula into the grader for the first time; `_advance()` below is this file's
+        stand-in for anchor_view.gd's own `_phase == "prep"` driving loop, deciding how
+        many lead-in seconds remain the same way anchor_view.gd's `_lead_left` does.
+
+        Uses floor(x + 0.5) rather than a native round(): GDScript's `roundi()` is round-
+        half-away-from-zero, CPython's builtin `round()` is round-half-to-even, and
+        `bonus_per_sec * remaining_seconds` can land exactly on a half (DT-quantized
+        seconds times an integer bonus) — floor(x + 0.5) reproduces round-half-away-from-
+        zero for the non-negative values this always receives, safe-ops-clean, and
+        provably identical to scripts/test/parity.gd's mirror rather than merely hoping
+        two different native rounding rules happen to agree."""
+        granted = int(math.floor(bonus_per_sec * max(0.0, remaining_seconds) + 0.5))
+        self.funds += granted
+        return granted
+
+    def _fire_surge(self, cfg: Ability) -> dict:
+        """Mirrors scripts/anchor_sim.gd:731 fire_surge(). Ignores shielding entirely —
+        no call to _shield_scale() below, matching the GDScript note that the discharge
+        is the same energy the ring is made of. Every survivor, hit or not, is pushed
+        back cfg.pushback_tiles."""
+        kills = 0
+        total_dealt = 0.0
+        for u in self.units:
+            if not u.alive:
+                continue
+            plen = self.a.path_length(u.lane)
+            frac = (cfg.falloff_min if plen <= 0.0 else
+                    cfg.falloff_min + (1.0 - cfg.falloff_min)
+                    * min(max(u.dist / plen, 0.0), 1.0))
+            dealt = max(0.0, cfg.damage * frac - u.kind.armour)
+            if dealt > 0.0:
+                u.hp -= dealt
+                total_dealt += dealt
+            if u.hp <= 0:
+                u.alive = False
+                self.funds += int(u.kind.bounty * self.bounty_mult)
+                kills += 1
+            else:
+                u.dist = max(0.0, u.dist - cfg.pushback_tiles)
+        return {"kills": kills, "damage": total_dealt}
+
+    def _veteran_rank(self, p: Placed) -> VeterancyRank | None:
+        """Mirrors scripts/anchor_sim.gd:301 _veteran_rank() — the highest rank `p`'s
+        kill count has reached. Returns None (anchor_sim.gd's `{}`) whenever the policy
+        has not opted into veterancy (`policy.veterancy`, BAL-01) OR the rank ladder
+        itself is empty — either way an identity multiplier, so every policy that leaves
+        `veterancy` at its default False sees no change at all, on every anchor, at
+        every difficulty. `p.kills` is tracked unconditionally in `_step()` regardless of
+        this flag, matching anchor_sim.gd's own comment on why that is safe."""
+        if not self.policy.veterancy or not self.tuning.veterancy_ranks:
+            return None
+        best = None
+        for r in self.tuning.veterancy_ranks:
+            if p.kills >= r.kills:
+                best = r
+        return best
+
+    # ─────────────────────────────────────────── BAL-01: schedule dispatch ──
+
+    def _dispatch_schedule(self) -> None:
+        """Drains every scheduled action whose time has passed. Called from
+        `_tick_once()`, mirroring scripts/test/parity.gd's own dispatch call at the
+        identical point in its driving loop. `policy.schedule` is already sorted on a
+        total (time, index) order at Policy construction, so draining it in list order
+        from `self._schedule_i` onward IS draining it in that total order."""
+        sched = self.policy.schedule
+        while (self._schedule_i < len(sched)
+               and sched[self._schedule_i][0] <= self.t + 1e-9):
+            _, verb, args = sched[self._schedule_i]
+            self._schedule_i += 1
+            self._dispatch_one(verb, args)
+
+    def _dispatch_one(self, verb: str, args: dict) -> None:
+        if verb == "speed":
+            # No-op on outcomes, deliberately. The rules tick at a fixed DT regardless
+            # of wall-clock pacing (see this module's own DT); "speed" multiplies ticks
+            # PER WALL SECOND in scripts/anchor_view.gd's own _process(), a presentation
+            # concept the headless sim has no equivalent of at all. BAL-01's own task
+            # list requires this be PROVED a no-op rather than assumed — see the report
+            # for the byte-identical run demonstrating it.
+            return
+        if verb == "call_wave":
+            # Consumed by _advance() below, the only caller that knows how many lead-in
+            # seconds remain — see call_wave()'s own docstring.
+            self._call_wave_requested = True
+            return
+        if verb == "ability":
+            kind = args.get("kind")
+            if kind == "surge":
+                self._fire_surge(self.tuning.abilities["surge"])
+            elif kind == "overcharge":
+                active = bool(args.get("active", True))
+                cfg = self.tuning.abilities["overcharge"]
+                # Mirrors scripts/anchor_sim.gd:261 set_overcharge().
+                self.overcharge_active = active
+                self._overcharge_fire_rate_bonus = cfg.fire_rate_bonus if active else 0.0
+                self._overcharge_draw_mult = cfg.draw_mult if active else 1.0
+            elif kind == "shutter":
+                active = bool(args.get("active", True))
+                cfg = self.tuning.abilities["shutter"]
+                # Mirrors scripts/anchor_sim.gd:270 set_shutter().
+                self.shutter_active = active
+                self._shutter_hold_tiles = cfg.hold_tiles if active else 0.0
+                self._shutter_draw_mw = cfg.draw_mw if active else 0.0
+            return
+        if verb == "target_mode":
+            # Mirrors scripts/anchor_sim.gd:620's `p.get("target_mode", "first")` match.
+            idx = int(args["index"])
+            if 0 <= idx < len(self.placed):
+                self.placed[idx].target_mode = args.get("mode", "first")
+            return
+        if verb == "sell":
+            self.sell(int(args["index"]))
+            return
+        if verb == "upgrade":
+            self.upgrade(int(args["index"]))
+            return
+        if verb == "set_online":
+            self.set_online(int(args["index"]), bool(args.get("on", True)))
+            return
+        if verb == "build":
+            slot = args["slot"]
+            self.build(str(args["tower"]), (int(slot[0]), int(slot[1])))
+            return
+        raise ValueError(f"unknown scheduled verb {verb!r}")
 
     # ──────────────────────────────────────────────────────── coverage ──
 
@@ -455,6 +806,14 @@ class Sim:
 
     def _step(self, penalty: float) -> None:
         rate = 1.0 - penalty
+        # Overcharge's fire_rate_bonus, applied ON TOP of the brownout penalty rather
+        # than instead of it — mirrors scripts/anchor_sim.gd:561's own comment: `rate`
+        # can still fall below 1.0 with the bonus applied, which is what makes
+        # overcharging a saturated bus a loss rather than a free lunch. Defaults to
+        # `overcharge_active = False`, so this is a no-op for every policy that never
+        # schedules the ability.
+        if self.overcharge_active:
+            rate *= (1.0 + self._overcharge_fire_rate_bonus)
 
         # move
         for u in self.units:
@@ -463,6 +822,12 @@ class Sim:
             x, y = self.a.point_at(u.lane, u.dist)
             slow = self._covered_by("slow", x, y)
             speed = u.kind.speed * (slow if slow else 1.0)
+            # Shutter holds anything already inside hold_tiles of the entrance at zero
+            # speed while it is down. Mirrors scripts/anchor_sim.gd:574. Defaults to
+            # `shutter_active = False`, so this changes nothing for a graded run unless
+            # a policy schedules it.
+            if self.shutter_active and u.dist <= self._shutter_hold_tiles:
+                speed = 0.0
             u.dist += speed * DT
             if u.dist >= self.a.path_length(u.lane):
                 u.alive = False
@@ -484,6 +849,19 @@ class Sim:
             p.cooldown -= DT * rate
             if p.cooldown > 0:
                 continue
+            # Veterancy: identity (1.0, 1.0) whenever policy.veterancy is False (every
+            # existing policy) or the rank ladder is empty — see _veteran_rank()'s own
+            # docstring. Mirrors scripts/anchor_sim.gd:598.
+            vet = self._veteran_rank(p)
+            dmg_mult = vet.damage_mult if vet is not None else 1.0
+            rng_mult = vet.range_mult if vet is not None else 1.0
+            rng = p.tower.range * rng_mult
+            # Per-emplacement targeting priority (BAL-01; data/tuning.json's
+            # `targeting`). "first" is the default, so a placed record nobody has
+            # touched (every one _try_build()/build() places) falls to the final `else`
+            # below — the identical _progress() comparison this loop always ran before
+            # this verb existed. Mirrors scripts/anchor_sim.gd:620's `match mode`.
+            mode = p.target_mode
             # An emplacement with nothing in range rescans every unit, every tick,
             # forever — the empty-target path below never resets the cooldown, which has
             # already gone negative. That is LF-098, and it is real: measured 14.3x at
@@ -495,21 +873,26 @@ class Sim:
             # hash is the actual answer, since it makes an idle scan cost the cells in
             # range rather than every unit on the board.
             target = None
-            target_progress = 0.0
             for u in self.units:
                 if not u.alive:
                     continue
                 x, y = self.a.point_at(u.lane, u.dist)
                 dx, dy = p.slot[0] - x, p.slot[1] - y
-                if dx * dx + dy * dy > p.tower.range * p.tower.range:
+                if dx * dx + dy * dy > rng * rng:
                     continue
                 revealed = u.kind.kind != "air" or self._covered_by("reveal", x, y) > 0
                 if not self._can_target(p.tower, u, revealed):
                     continue
-                progress = self._progress(u)
-                if target is None or progress > target_progress:
+                if mode == "last":
+                    keep = target is None or u.dist < target.dist
+                elif mode == "strongest":
+                    keep = target is None or u.hp > target.hp
+                elif mode == "weakest":
+                    keep = target is None or u.hp < target.hp
+                else:
+                    keep = target is None or self._progress(u) > self._progress(target)
+                if keep:
                     target = u
-                    target_progress = progress
             if target is None:
                 # Retry next tick rather than scanning every tick forever (LF-098) — see
                 # the gate above. Rejected a longer retry interval: it would cut more
@@ -517,7 +900,14 @@ class Sim:
                 # interval, changing which tick an idle gun re-acquires on — a rules
                 # change, not a performance one.
                 continue
-            self._damage(target, p.tower)
+            killed = self._damage(target, p.tower, dmg_mult=dmg_mult)
+            # Kills are counted on `p`, never on a unit — a Placed record is only ever
+            # compared by `slot` (LF-055), so growing this field is safe the same way
+            # `aim`/`kills` already are on scripts/anchor_sim.gd's own placed records.
+            # Tracked unconditionally, independent of policy.veterancy, matching
+            # anchor_sim.gd's own comment on why that is safe.
+            if killed:
+                p.kills += 1
             if p.tower.splash > 0:
                 tx, ty = self.a.point_at(target.lane, target.dist)
                 for u in self.units:
@@ -526,19 +916,31 @@ class Sim:
                     ux, uy = self.a.point_at(u.lane, u.dist)
                     dx, dy = ux - tx, uy - ty
                     if dx * dx + dy * dy <= p.tower.splash * p.tower.splash:
-                        self._damage(u, p.tower, scale=0.5)
+                        if self._damage(u, p.tower, scale=0.5, dmg_mult=dmg_mult):
+                            p.kills += 1
             p.cooldown = p.tower.fire_interval
 
-    def _damage(self, u: Unit, tower: Tower, scale: float = 1.0) -> None:
+    def _damage(self, u: Unit, tower: Tower, scale: float = 1.0,
+                dmg_mult: float = 1.0) -> bool:
         # Armour first, then the shield tax on what got through. The other order makes
         # a shielded armoured unit immune rather than expensive — 9 damage taxed to 3.15
         # never clears 5 armour, so the bulwark could only be killed by the lance and
         # anchor-14 graded unwinnable at every setting swept.
-        after_armour = max(0.0, tower.damage * scale - u.kind.armour)
+        #
+        # `dmg_mult` defaults to 1.0 (identity, no rounding introduced — IEEE-754 exact)
+        # — it is veterancy's damage_mult (_veteran_rank()), applied here rather than by
+        # scaling `tower.damage` itself because `tower` may be the *shared* Tower every
+        # Placed record of that type points at; scaling it in place would buff that
+        # tower type for every board this process ever grades. Mirrors
+        # scripts/anchor_sim.gd:703's identical reasoning (there: a shared Content
+        # dictionary; here: a shared frozen Tower).
+        after_armour = max(0.0, tower.damage * scale * dmg_mult - u.kind.armour)
         u.hp -= after_armour * self._shield_scale(tower, u)
         if u.hp <= 0:
             u.alive = False
             self.funds += int(u.kind.bounty * self.bounty_mult)
+            return True
+        return False
 
     # ───────────────────────────────────────────────────────────── run ──
 
@@ -616,20 +1018,78 @@ class Sim:
         if penalty > 0.0:
             self._brownout_time += DT
         self.t += DT
+        # BAL-01: dispatch every scheduled action whose time has passed, AFTER `t` has
+        # advanced to this tick's own value but BEFORE `_step()` — so an action taken at
+        # time t affects the tick at t, on both implementations. `policy.schedule` is
+        # empty for every one of the original policies, so this is a single length-0
+        # while-loop check for them: no float touched, no state written.
+        self._dispatch_schedule()
         self._step(penalty)
 
     def _advance(self, seconds: float) -> None:
-        for _ in range(int(seconds / DT)):
+        # BAL-01: `call_wave` can only meaningfully end THIS lead-in — _advance() is the
+        # only caller that knows both "how many ticks are left in it" and "is this a
+        # lead-in at all" (the main wave-combat loop in run() below never calls
+        # _advance()). Reset at the top so a flag that (mis-authored) fired during the
+        # PREVIOUS wave's combat can never bleed into skipping this one's lead-in.
+        self._call_wave_requested = False
+        n = int(seconds / DT)
+        for i in range(n):
             self._tick_once()
+            if self._call_wave_requested:
+                remaining = (n - i - 1) * DT
+                self.call_wave(remaining, self.tuning.call_bonus_per_sec)
+                self._call_wave_requested = False
+                break
 
 
-def standard_policies(tower_ids: list[str]) -> list[Policy]:
+def _overcharge_schedule() -> list[tuple[float, str, dict]]:
+    """The `overcharge-greedy` policy's schedule (BAL-01) — engages Overcharge on
+    tuning.json's own cadence (35s cooldown + 7s duration = 42s) for the whole run.
+    Its first activation is a DELIBERATE same-timestamp pair: False authored before
+    True at an identical time (5.0) must net ON if dispatch honours authored order —
+    this is the acceptance criterion's same-timestamp-order proof. Mirrored 1:1 in
+    scripts/test/parity.gd's `_overcharge_schedule()`, including the literal 42.0/7.0
+    (data/tuning.json's overcharge cooldown_s/duration_s, hardcoded here rather than
+    re-derived from `tuning` at construction time — a schedule is authored once, and a
+    future edit to those tuning values does not automatically retime this schedule;
+    that coupling is a known, accepted debt, not an oversight)."""
+    sched: list[tuple[float, str, dict]] = [
+        (5.0, "ability", {"kind": "overcharge", "active": False}),
+        (5.0, "ability", {"kind": "overcharge", "active": True}),
+    ]
+    for i in range(1, 16):
+        on_t = 5.0 + i * 42.0
+        sched.append((on_t, "ability", {"kind": "overcharge", "active": True}))
+        sched.append((on_t + 7.0, "ability", {"kind": "overcharge", "active": False}))
+    sched.append((5.0 + 7.0, "ability", {"kind": "overcharge", "active": False}))
+    return sched
+
+
+def standard_policies(tower_ids: list[str], tuning: Tuning | None = None) -> list[Policy]:
     """A small, fixed set of distinct playstyles. Deterministic and ordered.
 
     Not an exhaustive search — the point is to answer "does more than one sensible
     approach work", not to find the optimum. An optimiser would report that every
     anchor is winnable by some build and tell us nothing about whether it is fun.
+
+    `tuning` is optional and keyword-compatible with every existing call site
+    (tools/test_parity.py, sim/run.py, tools/bench_tick.py all call this with one
+    positional arg) — BAL-01's four scheduled/opted-in policies at the end of `out`
+    below need ability magnitudes to build their schedules, and default to loading
+    data/tuning.json themselves rather than requiring every caller to change.
     """
+    tn = tuning if tuning is not None else load_tuning()
+    # Fail fast at policy-construction time rather than deep inside a Sim run: the
+    # scheduled policies below reference these ids by name, and the dispatch code in
+    # Sim._dispatch_one() would otherwise raise a bare KeyError with no anchor/wave
+    # context attached.
+    for aid in ("surge", "overcharge"):
+        if aid not in tn.abilities:
+            raise ValueError(
+                f"data/tuning.json has no ability {aid!r}, needed by a BAL-01 "
+                f"scheduled policy in standard_policies()")
+
     def has(i: str) -> list[str]:
         return [i] if i in tower_ids else []
 
@@ -707,5 +1167,50 @@ def standard_policies(tower_ids: list[str]) -> list[Policy]:
         # cap in "restore-first" is load-bearing, not just generous.
         Policy.capped_core("restorer-core", core=("restorer", 1),
                            fill=["pulse-turret"], reserve=0.10),
+
+        # ── BAL-01: scheduled / opted-in policies ───────────────────────────────
+        # Every one above leaves `schedule`/`veterancy` at their defaults, which is
+        # exactly what makes them byte-identical to the pre-BAL-01 grader (see the
+        # report). These four are the first policies that press a button.
+
+        # "call-early": converts wave 1's ENTIRE lead-in to funds on the very first
+        # tick — proves pacing.call_bonus_per_sec reaches the grader (changing that
+        # tuning value changes only this policy's spend/funds numbers). Only wave 1:
+        # a schedule is authored in absolute sim-time, and every later wave's start
+        # time depends on how long combat took, which is only known by running the
+        # sim — BAL-01 rejected wave-relative scheduling for exactly that reason (see
+        # Policy.__init__'s own comment), so "call early on every wave" is not
+        # expressible without it.
+        Policy("call-early", rest(has("pulse-turret")),
+               schedule=[(0.0, "call_wave", {})]),
+
+        # "surge-on-peak": fires Threshold Surge on a fixed cadence for the whole run,
+        # standing in for "the player presses it the instant it is ready" without any
+        # reactive/live-state read (surge has no charge/cooldown model in this file at
+        # all — see _fire_surge()'s docstring — so this is the deliberately generous
+        # instrument BAL-01 asks for to surface whether the ability is overpowered).
+        Policy("surge-on-peak", rest(has("pulse-turret")),
+               schedule=[(15.0 + i * 40.0, "ability", {"kind": "surge"})
+                         for i in range(20)]),
+
+        # "overcharge-greedy": engages Overcharge on tuning.json's own cooldown/
+        # duration cadence (35s/7s) for the whole run. Its FIRST activation is a
+        # deliberate same-timestamp pair — False authored before True at an identical
+        # time (5.0) — which must net ON if dispatch honours authored order rather
+        # than, say, reversing it or breaking the tie some other way. This is the
+        # acceptance criterion's "two scheduled actions at the same timestamp dispatch
+        # in authored order", mirrored identically in scripts/test/parity.gd.
+        Policy("overcharge-greedy", rest(has("ion-lance") + has("pulse-turret")),
+               schedule=_overcharge_schedule()),
+
+        # "veteran-crews": opts into the real veterancy ladder from data/tuning.json
+        # instead of grading policy.veterancy=False's inert default — every emplacement
+        # this policy places earns damage_mult/range_mult as it racks up kills, exactly
+        # as scripts/anchor_sim.gd's _veteran_rank() already computes for real play.
+        # Not a schedule: veterancy is one of BAL-01's "unconditional rules", standing
+        # in for "the save file already has ranks resolved at boot" rather than a
+        # mid-run button press (see Policy.__init__'s own comment).
+        Policy("veteran-crews", rest(has("pulse-turret") + has("ion-lance")),
+               veterancy=True),
     ]
     return out

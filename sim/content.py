@@ -37,6 +37,12 @@ class Tower:
     unlocked_at: str = "anchor-01"
     effect_type: str | None = None
     effect_value: float = 0.0
+    # BAL-01: the raw `upgrade` sub-document from towers.json (cost plus whichever stat
+    # overrides that tower's upgrade carries — draw_mw/damage/range/fire_interval/splash/
+    # effect, never targets today), or None for a tower with no upgrade block. Kept raw
+    # rather than pre-split into typed fields because the override set genuinely varies by
+    # tower (see the `upgrade()` verb in engine.py, which is the one and only consumer).
+    upgrade: dict | None = None
 
     @property
     def is_weapon(self) -> bool:
@@ -154,6 +160,14 @@ class Anchor:
     # reads this yet by design — see resolve_terrain()'s docstring and TER-02's "risks"
     # section: letting terrain reach the engine is a later, owner-gated issue (TER-13).
     levels: tuple[tuple[int, ...], ...] = field(default=())
+    # LF-152/decision 063: the board-saturation invariant's denominator once `slots` is
+    # deleted by free placement (PLC-01/PLC-05). None means "not authored" — every one
+    # of the 24 real anchors today, all of which still author `slots` — and the engine
+    # falls back to `len(slots)`, reproducing today's numbers exactly (Sim._effective_cap()
+    # in sim/engine.py; the schema's own root `anyOf` already requires this field whenever
+    # `slots` is absent, so a None here with an empty `slots` only happens for content the
+    # validator would already have rejected).
+    max_emplacements: int | None = None
 
     def point_at(self, lane: int, dist: float) -> tuple[float, float]:
         return self.lanes[lane].point_at(dist)
@@ -194,8 +208,83 @@ def load_towers(path: Path | None = None) -> dict[str, Tower]:
             targets=frozenset(t["targets"]), splash=t.get("splash", 0.0),
             unlocked_at=t.get("unlocked_at", "anchor-01"),
             effect_type=eff.get("type"), effect_value=eff.get("value", 0.0),
+            upgrade=t.get("upgrade"),
         )
     return out
+
+
+@dataclass(frozen=True)
+class Ability:
+    """BAL-01. One entry of data/tuning.json's `abilities` array, typed. Only the
+    magnitude fields the scheduled `ability` verb (sim/engine.py's `Sim._dispatch_one()`)
+    actually reads — charge/cooldown/duration/trauma are HUD-timer concerns owned by
+    scripts/anchor_view.gd (a grading policy schedules its own on/off timestamps
+    explicitly rather than the sim tracking a charge or a cooldown of its own; see
+    standard_policies()'s scheduled-policy comments for why)."""
+    id: str
+    damage: float = 0.0
+    falloff_min: float = 1.0
+    pushback_tiles: float = 0.0
+    fire_rate_bonus: float = 0.0
+    draw_mult: float = 1.0
+    hold_tiles: float = 0.0
+    draw_mw: float = 0.0
+
+
+@dataclass(frozen=True)
+class VeterancyRank:
+    """One rank of data/tuning.json's `veterancy.ranks`, typed. See Sim._veteran_rank()."""
+    kills: int
+    damage_mult: float
+    range_mult: float
+
+
+@dataclass(frozen=True)
+class Tuning:
+    """BAL-01. Typed subset of data/tuning.json that sim/engine.py's rules actually
+    consume: the pacing bonus a `call_wave` schedule action converts remaining lead-in
+    seconds at, the three bindstone abilities, and the veterancy rank ladder. Deliberately
+    NOT modelled here: `targeting.modes` (engine.py's target_mode verb takes the mode as a
+    plain string in the schedule's own args, validated nowhere the rules need to trust it
+    twice), `pacing.chain_*` (the kill chain bounty stays scripts/anchor_view.gd-only —
+    see the report for why BAL-01 leaves it there), and `recoveries`/`grade` (neither is
+    read by anything in sim/ or scripts/test/parity.gd)."""
+    call_bonus_per_sec: float
+    abilities: dict[str, Ability]
+    veterancy_ranks: tuple[VeterancyRank, ...]
+
+
+_TUNING_CACHE: "Tuning | None" = None
+
+
+def load_tuning(path: Path | None = None) -> Tuning:
+    """Load data/tuning.json into typed values (BAL-01's own task list). Cached when
+    `path` is the default: a scheduled or veterancy-opted Policy constructs a fresh Sim
+    per (anchor, difficulty) — up to 1152 times in one parity run — and the file does not
+    change mid-run, so re-parsing it every time would be pure overhead."""
+    global _TUNING_CACHE
+    if path is None and _TUNING_CACHE is not None:
+        return _TUNING_CACHE
+    doc = json.loads((path or DATA / "tuning.json").read_text())
+    abilities = {
+        a["id"]: Ability(
+            id=a["id"], damage=a.get("damage", 0.0), falloff_min=a.get("falloff_min", 1.0),
+            pushback_tiles=a.get("pushback_tiles", 0.0),
+            fire_rate_bonus=a.get("fire_rate_bonus", 0.0), draw_mult=a.get("draw_mult", 1.0),
+            hold_tiles=a.get("hold_tiles", 0.0), draw_mw=a.get("draw_mw", 0.0),
+        )
+        for a in doc["abilities"]
+    }
+    ranks = tuple(
+        VeterancyRank(kills=int(r["kills"]), damage_mult=float(r["damage_mult"]),
+                      range_mult=float(r["range_mult"]))
+        for r in doc["veterancy"]["ranks"]
+    )
+    tuning = Tuning(call_bonus_per_sec=float(doc["pacing"]["call_bonus_per_sec"]),
+                     abilities=abilities, veterancy_ranks=ranks)
+    if path is None:
+        _TUNING_CACHE = tuning
+    return tuning
 
 
 def load_enemies(path: Path | None = None) -> dict[str, Enemy]:
@@ -270,6 +359,7 @@ def load_anchor(anchor_id: str) -> Anchor:
         lives=doc.get("lives", 10),
         tutorial=doc.get("tutorial", False),
         capacity_decay_mw=doc.get("capacity_decay_mw", 0.0),
+        max_emplacements=doc.get("max_emplacements"),
         levels=resolve_terrain(doc),
         grid=(doc["grid"]["w"], doc["grid"]["h"]),
         lanes=tuple(
@@ -279,7 +369,13 @@ def load_anchor(anchor_id: str) -> Anchor:
             )
             for lane in doc["paths"]
         ),
-        slots=tuple((int(x), int(y)) for x, y in doc["slots"]),
+        # LF-152: `doc.get("slots", [])`, not `doc["slots"]` — the schema (PLC-05) already
+        # allows an anchor to omit `slots` entirely once `max_emplacements` is its
+        # denominator instead, and scripts/anchor_sim.gd's setup() already tolerates a
+        # missing `slots` key the same way (`anchor.get("slots", [])`); this loader was the
+        # one place still requiring it, which would crash rather than degrade the moment a
+        # free-placement anchor existed to load.
+        slots=tuple((int(x), int(y)) for x, y in doc.get("slots", [])),
         waves=tuple(
             Wave(
                 lead_in=w.get("lead_in", 20.0),

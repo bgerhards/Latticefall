@@ -18,6 +18,13 @@ const AnchorSimScript := preload("res://scripts/anchor_sim.gd")
 
 const MAX_SIM_SECONDS := 3600.0
 
+# BAL-01: data/tuning.json, loaded once in _init() and read by _dispatch_one()/_run()
+# below. No autoload reference anywhere in this file needs these — see the
+# `rules autoloads` gate check (decision 054/061) for why that distinction matters here.
+var _tuning_abilities: Dictionary = {}
+var _tuning_veterancy_ranks: Array = []
+var _tuning_call_bonus_per_sec: float = 0.0
+
 
 func _init() -> void:
 	var anchor_filter := ""
@@ -28,6 +35,13 @@ func _init() -> void:
 
 	var towers := _index(_read("res://data/towers.json").get("towers", []))
 	var enemies := _index(_read("res://data/enemies.json").get("enemies", []))
+	# BAL-01: abilities/veterancy/pacing, read once — _dispatch_one() and the veterancy
+	# opt-in both read this. Mirrors sim/content.py's load_tuning(). Abilities keyed by
+	# id the same way towers/enemies already are.
+	var tuning_doc := _read("res://data/tuning.json")
+	_tuning_abilities = _index(tuning_doc.get("abilities", []))
+	_tuning_veterancy_ranks = Array(tuning_doc.get("veterancy", {}).get("ranks", []))
+	_tuning_call_bonus_per_sec = float(tuning_doc.get("pacing", {}).get("call_bonus_per_sec", 0.0))
 
 	var anchor_ids: Array = []
 	if anchor_filter != "":
@@ -92,6 +106,45 @@ func _policies(ids: Array) -> Array:
 			caps[core_id] = core_count
 		return {"name": name, "pref": pref, "overdraw": false, "caps": caps,
 			"reserve": reserve}
+	## BAL-01. `schedule` is `[[time, verb, args], ...]`, already sorted at authoring time
+	## here — see _run()'s own dispatch loop for why the (time, index) total order still
+	## has to be explicit rather than relied on as "the array happens to be in order":
+	## Array.sort_custom() is not documented as a stable sort in Godot 4.7, unlike
+	## Python's sort, so the two engines proving they agree on tie order is a real claim,
+	## not a coincidence of one runtime's implementation detail.
+	var mk_scheduled := func(name: String, first: Array, schedule: Array) -> Dictionary:
+		var pref: Array = []
+		for i in first:
+			if ids.has(i):
+				pref.append(i)
+		for i in ids:
+			if not pref.has(i):
+				pref.append(i)
+		var indexed: Array = []
+		for i in range(schedule.size()):
+			indexed.append([schedule[i][0], i, schedule[i]])
+		indexed.sort_custom(func(a, b):
+			if a[0] != b[0]: return a[0] < b[0]
+			return a[1] < b[1])
+		var sorted_schedule: Array = []
+		for row in indexed:
+			sorted_schedule.append(row[2])
+		return {"name": name, "pref": pref, "overdraw": false, "caps": {}, "reserve": 0.0,
+			"schedule": sorted_schedule}
+	## BAL-01. Not a schedule — veterancy is an unconditional rule, not a scheduled
+	## action (see sim/engine.py's Policy.__init__ comment). `veterancy: true` is driven
+	## in _run() by calling s.set_veterancy_ranks(), the EXISTING method
+	## scripts/anchor_sim.gd has always had — nothing new needed there at all.
+	var mk_veterancy := func(name: String, first: Array) -> Dictionary:
+		var pref: Array = []
+		for i in first:
+			if ids.has(i):
+				pref.append(i)
+		for i in ids:
+			if not pref.has(i):
+				pref.append(i)
+		return {"name": name, "pref": pref, "overdraw": false, "caps": {}, "reserve": 0.0,
+			"veterancy": true}
 	return [
 		mk.call("cheap-mass", ["pulse-turret"], false, {}),
 		mk.call("burst", ["ion-lance", "pulse-turret"], false, {}),
@@ -119,12 +172,125 @@ func _policies(ids: Array) -> Array:
 		mk_core.call("mortar-core", "mortar-emplacement", 2, ["flak-array"], {}, 0.20),
 		mk_core.call("damper-core", "anchor-damper", 1, ["pulse-turret"], {}, 0.15),
 		mk_core.call("restorer-core", "restorer", 1, ["pulse-turret"], {}, 0.10),
+
+		# ── BAL-01: scheduled / opted-in policies ───────────────────────────────
+		# Every policy above leaves `schedule`/`veterancy` absent, which _run()'s
+		# `.get(..., [])`/`.get(..., false)` reads identically to the Python side's
+		# defaults — see the report for the byte-identical proof this makes possible.
+
+		# Mirrors sim/engine.py's "call-early": converts wave 1's entire lead-in to
+		# funds on the very first tick.
+		mk_scheduled.call("call-early", ["pulse-turret"], [[0.0, "call_wave", {}]]),
+
+		# Mirrors sim/engine.py's "surge-on-peak": fires Threshold Surge on a fixed
+		# cadence for the whole run — the deliberately generous instrument BAL-01 asks
+		# for to surface whether the ability is overpowered.
+		mk_scheduled.call("surge-on-peak", ["pulse-turret"], _surge_schedule()),
+
+		# Mirrors sim/engine.py's "overcharge-greedy" — see _overcharge_schedule()'s
+		# own doc for the deliberate same-timestamp order-test pair at its front.
+		mk_scheduled.call("overcharge-greedy", ["ion-lance", "pulse-turret"],
+			_overcharge_schedule()),
+
+		# Mirrors sim/engine.py's "veteran-crews".
+		mk_veterancy.call("veteran-crews", ["pulse-turret", "ion-lance"]),
 	]
+
+
+func _surge_schedule() -> Array:
+	## Mirrors sim/engine.py's `surge-on-peak` schedule construction exactly (same
+	## literals: 15.0 start, 40.0 spacing, 20 entries).
+	var sched: Array = []
+	for i in range(20):
+		sched.append([15.0 + float(i) * 40.0, "ability", {"kind": "surge"}])
+	return sched
+
+
+func _overcharge_schedule() -> Array:
+	## Mirrors sim/engine.py's `_overcharge_schedule()` exactly, including the
+	## deliberate same-timestamp pair at t=5.0 (False authored before True) that is
+	## the acceptance criterion's same-timestamp-order proof — see that function's
+	## docstring for the full reasoning and the 42.0/7.0 tuning.json coupling note.
+	var sched: Array = [
+		[5.0, "ability", {"kind": "overcharge", "active": false}],
+		[5.0, "ability", {"kind": "overcharge", "active": true}],
+	]
+	for i in range(1, 16):
+		var on_t: float = 5.0 + float(i) * 42.0
+		sched.append([on_t, "ability", {"kind": "overcharge", "active": true}])
+		sched.append([on_t + 7.0, "ability", {"kind": "overcharge", "active": false}])
+	sched.append([5.0 + 7.0, "ability", {"kind": "overcharge", "active": false}])
+	return sched
 
 
 func _rank(policy: Dictionary, tower_id: String) -> int:
 	var i: int = policy["pref"].find(tower_id)
 	return i if i >= 0 else 99
+
+
+# ─────────────────────────────────────────────────── BAL-01: schedule dispatch ──
+
+func _dispatch_schedule(s, sched: Array, sched_i: int) -> Array:
+	## Mirrors sim/engine.py's Sim._dispatch_schedule(). Returns [new_sched_i,
+	## call_wave_requested] rather than mutating anything by reference — GDScript has
+	## no out-param for a plain int, and AnchorSim itself has no schedule state of its
+	## own for this to live on (see _run()'s own comment on why the driver holds it).
+	## `sched` is already sorted on a total (time, index) order by _policies()'
+	## mk_scheduled(), so draining it in list order from `sched_i` onward IS draining
+	## it in that total order.
+	var call_wave_requested := false
+	var i := sched_i
+	while i < sched.size() and float(sched[i][0]) <= s.t + 1e-9:
+		var item: Array = sched[i]
+		i += 1
+		if _dispatch_one(s, String(item[1]), item[2]):
+			call_wave_requested = true
+	return [i, call_wave_requested]
+
+
+func _dispatch_one(s, verb: String, args: Dictionary) -> bool:
+	## Mirrors sim/engine.py's Sim._dispatch_one(). Returns true only for "call_wave" —
+	## the one verb whose effect the CALLER (_run()'s lead-in loop) has to finish, the
+	## same way Sim._dispatch_one() only sets a flag for _advance() to act on.
+	match verb:
+		"speed":
+			# No-op on outcomes, deliberately — see sim/engine.py's own docstring on
+			# this verb for why the headless sim has nothing for "speed" to multiply.
+			pass
+		"call_wave":
+			return true
+		"ability":
+			match String(args.get("kind", "")):
+				"surge":
+					s.fire_surge(_tuning_abilities.get("surge", {}))
+				"overcharge":
+					var active: bool = bool(args.get("active", true))
+					var cfg: Dictionary = _tuning_abilities.get("overcharge", {})
+					s.set_overcharge(active,
+						float(cfg.get("fire_rate_bonus", 0.0)) if active else 0.0,
+						float(cfg.get("draw_mult", 1.0)) if active else 1.0)
+				"shutter":
+					var active2: bool = bool(args.get("active", true))
+					var cfg2: Dictionary = _tuning_abilities.get("shutter", {})
+					s.set_shutter(active2,
+						float(cfg2.get("hold_tiles", 0.0)) if active2 else 0.0,
+						float(cfg2.get("draw_mw", 0.0)) if active2 else 0.0)
+		"target_mode":
+			var idx := int(args["index"])
+			if idx >= 0 and idx < s.placed.size():
+				s.placed[idx]["target_mode"] = String(args.get("mode", "first"))
+		"sell":
+			s.sell(int(args["index"]))
+		"upgrade":
+			s.upgrade(int(args["index"]))
+		"set_online":
+			s.set_online(int(args["index"]), bool(args.get("on", true)))
+		"build":
+			var slot: Array = args["slot"]
+			s.build_at(String(args["tower"]), Vector2i(int(slot[0]), int(slot[1])))
+		_:
+			push_error("unknown scheduled verb %s" % verb)
+	return false
 
 
 # ────────────────────────────────────────────────────────────────── run ──
@@ -133,6 +299,13 @@ func _run(anchor: Dictionary, towers: Dictionary, enemies: Dictionary,
 		policy: Dictionary, diff: String) -> Dictionary:
 	var s := AnchorSimScript.new()
 	s.setup(anchor, towers, enemies, diff)
+
+	# BAL-01: veterancy is opted into once, at setup — an unconditional rule, not a
+	# scheduled action (see sim/engine.py's Policy.__init__ comment). Every existing
+	# policy has no "veterancy" key at all, so this is a no-op for them: AnchorSim's
+	# own `_veterancy_ranks` defaults empty, exactly as before this verb existed.
+	if bool(policy.get("veterancy", false)):
+		s.set_veterancy_ranks(_tuning_veterancy_ranks)
 
 	var buildable: Array = policy["pref"].duplicate()
 	# (rank, id) — id breaks the tie between everything the policy does not rank, which
@@ -145,13 +318,35 @@ func _run(anchor: Dictionary, towers: Dictionary, enemies: Dictionary,
 	var waves_cleared := 0
 	var died_on: int = -1
 
+	# BAL-01: mirrors sim/engine.py's Sim._schedule_i / Sim._call_wave_requested —
+	# AnchorSim itself has no notion of a policy or a schedule (a played match has a
+	# live player instead), so this driver holds the dispatch position and the
+	# call_wave flag the same way Sim holds them as instance fields, persisting across
+	# the WHOLE run rather than being reset per wave.
+	var sched: Array = policy.get("schedule", [])
+	var sched_i := 0
+
 	for wi in range(anchor["waves"].size()):
 		s.begin_wave(wi)
 		_try_build(s, policy, buildable)
 		_shed(s, policy)
 		var lead := float(anchor["waves"][wi].get("lead_in", 20.0))
-		for _i in range(int(lead / AnchorSimScript.DT)):
-			s.tick()
+		var lead_ticks := int(lead / AnchorSimScript.DT)
+		# BAL-01: call_wave can only meaningfully end THIS lead-in — this loop is the
+		# only place that knows both "how many ticks are left in it" and "is this a
+		# lead-in at all" (the combat while-loop below never acts on the flag it gets
+		# back). Mirrors sim/engine.py's _advance(), the one caller that ever consumes
+		# _call_wave_requested, for the identical reason.
+		for li in range(lead_ticks):
+			var pen := s.begin_tick()
+			var r: Array = _dispatch_schedule(s, sched, sched_i)
+			sched_i = int(r[0])
+			if bool(r[1]):
+				var remaining: float = float(lead_ticks - li - 1) * AnchorSimScript.DT
+				s.funds += int(floor(_tuning_call_bonus_per_sec * maxf(0.0, remaining) + 0.5))
+				s.end_tick(pen)
+				break
+			s.end_tick(pen)
 
 		var q: Array = s.wave_queue(wi)
 		var wave_t := 0.0
@@ -160,7 +355,14 @@ func _run(anchor: Dictionary, towers: Dictionary, enemies: Dictionary,
 			while qi < q.size() and float(q[qi][0]) <= wave_t + 1e-9:
 				s.spawn(String(q[qi][2]), int(q[qi][1]))
 				qi += 1
-			s.tick()
+			var pen2 := s.begin_tick()
+			var r2 := _dispatch_schedule(s, sched, sched_i)
+			sched_i = r2[0]
+			# call_wave firing mid-combat is never consumed here (only the lead-in loop
+			# above checks the flag) — mirrors sim/engine.py's _advance() being the only
+			# caller that ever reads _call_wave_requested. A stray fire here is silently
+			# absorbed, same as on the Python side.
+			s.end_tick(pen2)
 			wave_t += AnchorSimScript.DT
 			if s.lives <= 0:
 				died_on = wi + 1
@@ -224,6 +426,13 @@ func _slot_priority(s) -> Array:
 
 func _try_build(s, policy: Dictionary, buildable: Array) -> void:
 	while s.free_slots.size() > 0:
+		# LF-152/decision 063: provably a no-op for every anchor that omits
+		# max_emplacements (all 24 today) — see effective_cap()'s own doc for the
+		# free_slots/placed invariant that makes this identical to the loop's own
+		# `while s.free_slots.size() > 0` condition in that case. Mirrors
+		# sim/engine.py's Sim._try_build()'s own early check.
+		if s.placed.size() >= s.effective_cap():
+			return
 		var order := _slot_priority(s)
 		var placed_one := false
 		for tid in buildable:
@@ -243,9 +452,16 @@ func _try_build(s, policy: Dictionary, buildable: Array) -> void:
 			var budget: float = s.capacity() * (1.0 - float(policy.get("reserve", 0.0)))
 			if not policy["overdraw"] and projected > budget:
 				continue
-			s.build_at(tid, order[0])
-			placed_one = true
-			break
+			# LF-152: the trap decision 063 named — build_at() can now REFUSE (the cap
+			# check above), and this call ignored its return value entirely, setting
+			# placed_one = true unconditionally. free_slots never shrinks on a refusal,
+			# so the outer while loop would never terminate: an infinite loop, meaning
+			# the parity run HANGS rather than fails. Checking the return value is the
+			# whole fix — a refusal now falls through to the next candidate exactly
+			# like a funds/caps/budget rejection already does.
+			if s.build_at(tid, order[0]):
+				placed_one = true
+				break
 		if not placed_one:
 			return
 
