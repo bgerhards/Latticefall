@@ -293,12 +293,17 @@ func _centre() -> void:
 	## even when the board as a whole cannot possibly fit: anchor-13's tile bounding box is
 	## 1920px wide and the default window is 1440.
 	##
-	## No `scale` here, however tempting a shrink-to-fit looks. This node's scale is inherited
-	## by every child, including Backdrop, which sizes itself to get_viewport_rect().size
-	## independently of the board and is not a file this task may touch — scaling AnchorView
-	## would leave Backdrop covering only part of the screen. A real "shrink the board only"
-	## needs a wrapper node the board layer alone sits under, which is exactly the scene
-	## change LF-052's deferred pan/zoom camera is waiting on the owner for.
+	## No `scale` here, but the three transform terms this board camera will use are all
+	## already spoken for and split apart, not fought over: `_origin` (below) is the camera's
+	## pan term — every draw call in this file adds it by hand instead of using the node
+	## transform — `scale` is its zoom term, and `position` is reserved for screen-shake
+	## trauma (`_update_shake()`, below) and must never be reused as a camera pan. `scale` was
+	## off-limits before CAM-02: it is inherited by every child, and Backdrop used to be one
+	## of them, sizing itself to get_viewport_rect().size independently of the board — zooming
+	## AnchorView would have left the sky covering only part of the screen. CAM-02 moved
+	## Backdrop to a sibling of this node under Main so it no longer inherits anything from
+	## here; BoardProps, CombatFx, GlowLayer and FxAdditive are still children and still
+	## inherit `scale`, which is exactly what {{CAM-01}}'s zoom needs them to do.
 	var grid: Dictionary = _anchor_data().get("grid", {"w": 12, "h": 10})
 	var w: int = int(grid["w"])
 	var h: int = int(grid["h"])

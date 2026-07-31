@@ -1,10 +1,20 @@
 extends Node2D
 ## Everything behind the board: the void the anchor platform hangs in.
 ##
-## A child of AnchorView at z −30 so it inherits the board transform — screen shake and
-## any future camera move carry it without a second system, exactly as GlowLayer does.
-## Reads its subject from its parent for the same reason GlowLayer does: there is no
-## arrangement in which this draws for a node other than the one it hangs under.
+## CAM-02: a sibling of AnchorView under Main, at z −30, not a child. It used to be a child
+## of AnchorView and inherit the board transform outright — which meant scaling AnchorView
+## for a camera zoom tore the sky (it sizes itself to the raw viewport, independently of the
+## board) and screen shake, which is AnchorView's own `position`, shook the sky along with
+## it. Neither is wanted: {{CAM-01}}'s zoom needs the sky full-bleed regardless of board
+## scale, and a static sky under a shaking board reads as a camera move, not a wobble. So
+## this no longer reads its subject from `get_parent()` the way GlowLayer does (see that
+## file's own docstring for the idiom this deliberately departs from) — `get_parent()` is
+## Main now, not the board — and is instead handed the board explicitly via `view_path`,
+## resolved once in `_ready()`.
+##
+## `PAD` (below) stays even though nothing shakes this layer any more: {{CAM-01}}'s parallax
+## will slide the sky by a fraction of the camera's pan, and the overhang is what keeps that
+## slide from ever baring an edge.
 ##
 ## Three layers, back to front: a vertical sky gradient with a horizon glow, a handful of
 ## near-invisible distant shapes implying the anchor is one node of something larger, and
@@ -12,6 +22,10 @@ extends Node2D
 ## structure silhouettes) is built once per anchor into cached arrays and only redrawn;
 ## only mote positions and the act-III horizon "breathing" change per frame.
 
+## The board this backdrop is drawn for. `../AnchorView` matches the sibling layout
+## scenes/main.tscn authors today; a level that reparents the board only needs to change
+## this one export, not this script.
+@export var view_path: NodePath = ^"../AnchorView"
 var view: Node2D
 
 # ─────────────────────────────────────────────────────────────── palette ──
@@ -58,7 +72,17 @@ const GLOW_RINGS := 14
 const MOTE_COUNT := 48
 const STRUCT_MIN := 3
 const STRUCT_MAX := 5
-const PAD := 60.0                # backdrop overhang past the viewport, so shake never bares an edge
+const PAD := 60.0                # backdrop overhang past the viewport — kept for CAM-01's parallax slide
+
+## CAM-01's hook: a pan/zoom offset from the board camera, applied to the sky as a fraction
+## of the pan and *never* as a scale — the whole point of splitting this off AnchorView is
+## that the board scales and the sky does not. PARALLAX is 0.0 in this issue on purpose, so
+## `offset * PARALLAX` is always the zero vector and the frame is provably unchanged; CAM-01
+## raises it and re-shoots. `zoom` is accepted and stored for CAM-01 to use (e.g. easing the
+## parallax speed with it) but is never applied to this node's own scale.
+const PARALLAX := 0.0
+var _cam_offset: Vector2 = Vector2.ZERO
+var _cam_zoom: float = 1.0
 
 var _cached_id: String = ""
 var _cached_vp: Vector2 = Vector2.ZERO
@@ -80,10 +104,17 @@ var _time: float = 0.0
 
 
 func _ready() -> void:
-	view = get_parent() as Node2D
+	view = get_node_or_null(view_path) as Node2D
 	set_process(not Engine.is_editor_hint())
 	if Engine.is_editor_hint():
 		queue_redraw()
+
+
+func set_camera(offset: Vector2, zoom: float) -> void:
+	## CAM-01's only way to move this layer. Never scales — see PARALLAX's own doc.
+	_cam_offset = offset
+	_cam_zoom = zoom
+	queue_redraw()
 
 
 func _process(delta: float) -> void:
@@ -244,6 +275,10 @@ func _draw() -> void:
 		return
 	if _cached_id == "" or _cached_vp != get_viewport_rect().size:
 		_rebuild(get_viewport_rect().size)
+	# Translation only — see PARALLAX's own doc for why this never scales. At the default
+	# PARALLAX = 0.0 this is always the identity transform, which is what keeps this issue's
+	# frame pixel-identical to the pre-split one.
+	draw_set_transform(_cam_offset * PARALLAX, 0.0, Vector2.ONE)
 	_draw_sky()
 	_draw_glow()
 	_draw_structures()
