@@ -2,3 +2,30 @@ root = true
 
 [*]
 charset = utf-8
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+# PROVISIONAL, pending the owner's call — PRD open decision 5, PRC-11.
+# This block states the status quo (19 of 20 .gd files are tabs) so the editor stops
+# settling the question by attrition: an editor import once rewrote scripts/menu.gd
+# from tabs to four spaces on its own, a 442-line no-op diff (LF-056).
+# It deliberately does NOT reindent anything. scripts/main.gd is still four-space
+# (LF-059) and worktree-agent-a1cb438a721b228c6 still carries the 6,000-line
+# all-spaces branch; both are the owner's to settle, and reversing this block if they
+# pick spaces is a two-line edit.
+# NOT YET PROBED: whether Godot 4.7.1's editor honours this on this machine. Until
+# that is measured, treat this as documenting intent, not as enforcing it.
+[*.gd]
+indent_style = tab
+indent_size = 4
+
+[*.py]
+indent_style = space
+indent_size = 4
+
+[*.json]
+indent_style = space
+indent_size = 2
+
+[*.md]
+trim_trailing_whitespace = false
