@@ -8,6 +8,9 @@ extends Node2D
 ## field tower's pulse ring — both computed live off AnchorSim.placed every frame.
 
 const IsoScript := preload("res://scripts/iso.gd")
+## Source of BROWNOUT_FACTOR (LF-117): every additive pass in this file dims by the same
+## number glow_layer.gd applies to sprite glow, so the two cannot drift apart.
+const GlowLayerScript := preload("res://scripts/glow_layer.gd")
 
 const BEAM_CHARGE_TIME := 0.25
 ## Field towers pulse briefly, then go dark for the rest of the period — a permanent
@@ -38,50 +41,54 @@ func _draw() -> void:
 		return
 	# Respect Display.glow as a ceiling on additive brightness (the light-sensitivity
 	# accommodation): this layer is now the brightest thing on screen, glow_layer.gd's own
-	# argument for the same check.
+	# argument for the same check. Also fold in decision 007's brownout dim (LF-117) — every
+	# pooled class (bolt/arc/flak/mortar/field) and the sustained beam below share this one
+	# `energy` value rather than each layer inventing its own brownout arithmetic.
 	var glow: float = Display.glow
 	if glow <= 0.0:
 		return
+	var brownout_factor: float = GlowLayerScript.BROWNOUT_FACTOR if fx.view.sim.brownout else 1.0
+	var energy: float = glow * brownout_factor
 	for e in fx.pool():
-		_draw_entry(e, glow)
-	_draw_hit_flashes(glow)
-	_draw_beam_charges(glow)
-	_draw_field_pulses(glow)
-	_draw_sustained_beams(glow)
+		_draw_entry(e, energy)
+	_draw_hit_flashes(energy)
+	_draw_beam_charges(energy)
+	_draw_field_pulses(energy)
+	_draw_sustained_beams(energy)
 
 
-func _draw_entry(e: Dictionary, glow: float) -> void:
+func _draw_entry(e: Dictionary, energy: float) -> void:
 	match String(e["kind"]):
 		"muzzle":
-			_draw_muzzle(e, glow)
+			_draw_muzzle(e, energy)
 		"bolt":
-			_draw_bolt(e, glow)
+			_draw_bolt(e, energy)
 		"arc":
-			_draw_arc(e, glow)
+			_draw_arc(e, energy)
 		"beam":
-			_draw_beam(e, glow)
+			_draw_beam(e, energy)
 		"flak_shell":
-			_draw_travel_dot(e, glow, false)
+			_draw_travel_dot(e, energy, false)
 		"mortar_shell":
-			_draw_travel_dot(e, glow, true)
+			_draw_travel_dot(e, energy, true)
 		"ring":
-			_draw_ring(e, glow)
+			_draw_ring(e, energy)
 		"spark":
-			_draw_spark(e, glow)
+			_draw_spark(e, energy)
 		"flare":
-			_draw_flare(e, glow)
+			_draw_flare(e, energy)
 		_:
 			pass
 
 
-func _draw_muzzle(e: Dictionary, glow: float) -> void:
+func _draw_muzzle(e: Dictionary, energy: float) -> void:
 	var frac: float = 1.0 - clampf(float(e["age"]) / float(e["life"]), 0.0, 1.0)
 	var col: Color = e["colour"]
-	col.a = frac * glow
+	col.a = frac * energy
 	draw_circle(e["pos"], float(e["r"]) * (0.4 + frac * 0.6), col)
 
 
-func _draw_bolt(e: Dictionary, glow: float) -> void:
+func _draw_bolt(e: Dictionary, energy: float) -> void:
 	## A fast slug with a bright core and a short tapering tail. `life` is real travel time
 	## (distance/speed, tiles/sec) so the shot is visibly in flight and leads its target
 	## rather than snapping there.
@@ -93,23 +100,23 @@ func _draw_bolt(e: Dictionary, glow: float) -> void:
 	var trail_t: float = clampf(t - float(e["trail"]) / life, 0.0, t)
 	var tail: Vector2 = from.lerp(to, trail_t)
 	var colour: Color = e["colour"]
-	colour.a = glow
+	colour.a = energy
 	draw_line(tail, pos, colour, float(e["width"]))
 	var core: Color = e["core"]
-	core.a = glow
+	core.a = energy
 	draw_circle(pos, float(e["width"]) * 0.9, core)
 
 
-func _draw_arc(e: Dictionary, glow: float) -> void:
+func _draw_arc(e: Dictionary, energy: float) -> void:
 	## Instant, no travel time: a jagged multi-segment polyline, re-seeded per shot, with a
 	## bright flash at both ends and a fainter secondary arc to the nearest other unit in
 	## range — the tower calls itself a chain in its own note, so this sells that even though
 	## only the primary target actually takes damage.
 	var frac: float = 1.0 - clampf(float(e["age"]) / float(e["life"]), 0.0, 1.0)
 	var colour: Color = e["colour"]
-	colour.a = frac * glow
+	colour.a = frac * energy
 	var core: Color = e["core"]
-	core.a = frac * glow
+	core.a = frac * energy
 	var pts: PackedVector2Array = e["points"]
 	draw_polyline(pts, colour, float(e["width"]) * 1.6)
 	draw_polyline(pts, core, float(e["width"]) * 0.6)
@@ -122,7 +129,7 @@ func _draw_arc(e: Dictionary, glow: float) -> void:
 	draw_circle(pts[pts.size() - 1], float(e["width"]) * 2.2, core)
 
 
-func _draw_beam(e: Dictionary, glow: float) -> void:
+func _draw_beam(e: Dictionary, energy: float) -> void:
 	## The big gun: a thick blue-white lance that snaps out full-length, a hot core, a wide
 	## soft outer glow, and a heavy bloom where it lands.
 	var frac: float = 1.0 - clampf(float(e["age"]) / float(e["life"]), 0.0, 1.0)
@@ -130,18 +137,18 @@ func _draw_beam(e: Dictionary, glow: float) -> void:
 	var to: Vector2 = e["to"]
 	var width: float = float(e["width"])
 	var outer: Color = e["colour"]
-	outer.a = frac * 0.5 * glow
+	outer.a = frac * 0.5 * energy
 	draw_line(from, to, outer, width * 2.6)
 	var main: Color = e["colour"]
-	main.a = frac * glow
+	main.a = frac * energy
 	draw_line(from, to, main, width)
 	var core: Color = e["core"]
-	core.a = frac * glow
+	core.a = frac * energy
 	draw_line(from, to, core, width * 0.4)
-	draw_circle(to, width * 1.8 * (0.5 + frac * 0.5), Color(core.r, core.g, core.b, frac * glow))
+	draw_circle(to, width * 1.8 * (0.5 + frac * 0.5), Color(core.r, core.g, core.b, frac * energy))
 
 
-func _draw_travel_dot(e: Dictionary, glow: float, arced: bool) -> void:
+func _draw_travel_dot(e: Dictionary, energy: float, arced: bool) -> void:
 	var life: float = maxf(0.001, float(e["life"]))
 	var t: float = clampf(float(e["age"]) / life, 0.0, 1.0)
 	var pos: Vector2 = Vector2(e["from"]).lerp(e["to"], t)
@@ -152,17 +159,17 @@ func _draw_travel_dot(e: Dictionary, glow: float, arced: bool) -> void:
 		var apex: float = float(e.get("apex", 40.0))
 		pos.y -= sin(PI * t) * apex
 	var colour: Color = e["colour"]
-	colour.a = glow
+	colour.a = energy
 	draw_circle(pos, float(e["width"]), colour)
 	var core: Color = e["core"]
-	core.a = glow
+	core.a = energy
 	draw_circle(pos, float(e["width"]) * 0.5, core)
 
 
-func _draw_ring(e: Dictionary, glow: float) -> void:
+func _draw_ring(e: Dictionary, energy: float) -> void:
 	var t: float = clampf(float(e["age"]) / float(e["life"]), 0.0, 1.0)
 	var col: Color = e["colour"]
-	col.a = (1.0 - t) * glow
+	col.a = (1.0 - t) * energy
 	var r0: float = float(e["r0"])
 	var r1: float = float(e["r1"])
 	var r: float = lerpf(r0, r1, t)
@@ -178,22 +185,22 @@ func _draw_ring(e: Dictionary, glow: float) -> void:
 	draw_polyline(pts, col, float(e["width"]))
 
 
-func _draw_spark(e: Dictionary, glow: float) -> void:
+func _draw_spark(e: Dictionary, energy: float) -> void:
 	var frac: float = 1.0 - clampf(float(e["age"]) / float(e["life"]), 0.0, 1.0)
 	var col: Color = e["colour"]
-	col.a = frac * glow
+	col.a = frac * energy
 	var pos: Vector2 = e["pos"]
 	var vel: Vector2 = e["vel"]
 	var tail := pos - vel * 0.03
 	draw_line(tail, pos, col, 2.0)
 
 
-func _draw_flare(e: Dictionary, glow: float) -> void:
+func _draw_flare(e: Dictionary, energy: float) -> void:
 	## A hard, flat ricochet read — fixed-length dashes, not moving sparks — so a shielded
 	## hit visibly does not behave like a normal one.
 	var frac: float = 1.0 - clampf(float(e["age"]) / float(e["life"]), 0.0, 1.0)
 	var col: Color = e["colour"]
-	col.a = frac * glow
+	col.a = frac * energy
 	var pos: Vector2 = e["pos"]
 	var ang: float = float(e["ang"])
 	var length: float = float(e["len"])
@@ -201,7 +208,7 @@ func _draw_flare(e: Dictionary, glow: float) -> void:
 	draw_line(pos, pos + dir * length, col, 2.5)
 
 
-func _draw_hit_flashes(glow: float) -> void:
+func _draw_hit_flashes(energy: float) -> void:
 	## The brief bright modulate a hit unit gets: an additive copy of its own albedo, tinted
 	## white (or ricochet blue) and faded by the flash's remaining life. Modulating the
 	## albedo draw itself would clamp at 1.0 in GL Compatibility's non-HDR pipeline and never
@@ -224,11 +231,11 @@ func _draw_hit_flashes(glow: float) -> void:
 		if tex == null:
 			continue
 		var base_col: Color = C_RICOCHET if bool(hit["shielded_resist"]) else C_HIT_FLASH
-		var a: float = float(hit["strength"]) * glow
+		var a: float = float(hit["strength"]) * energy
 		draw_texture(tex, d["at"] - Sprites.pivot, Color(base_col.r, base_col.g, base_col.b, a))
 
 
-func _draw_beam_charges(glow: float) -> void:
+func _draw_beam_charges(energy: float) -> void:
 	## The ion lance's ~0.25s charge-up glow, driven directly off cooldown vs fire_interval
 	## rather than a pooled particle — it needs no lifetime of its own, only the tower's.
 	var view: Node2D = fx.view
@@ -243,11 +250,11 @@ func _draw_beam_charges(glow: float) -> void:
 		var frac: float = 1.0 - cd / BEAM_CHARGE_TIME
 		var pos: Vector2 = view.to_screen(Vector2(float(p["slot"].x), float(p["slot"].y))) + Vector2(0, -34)
 		var col := Color.html(String(fxd.get("core", fxd.get("colour", "#ffffff"))))
-		col.a = frac * glow
+		col.a = frac * energy
 		draw_circle(pos, 4.0 + frac * 10.0, col)
 
 
-func _draw_field_pulses(glow: float) -> void:
+func _draw_field_pulses(energy: float) -> void:
 	## Field emplacements (shield wall, scan relay, anchor damper, restorer) shoot nothing —
 	## a brief, faint pulse ring at the tower's own range, plus a quiet idle shimmer, so the
 	## player can see what they cover without selecting them. Ambience, not combat: no pooled
@@ -279,7 +286,7 @@ func _draw_field_pulses(glow: float) -> void:
 			# annotate anything reached through an untyped node reference.
 			var r: Vector2 = fx.tile_radius_screen(rng * clampf(f * 1.15, 0.0, 1.0))
 			var alpha: float = (1.0 - f) * FIELD_PULSE_PEAK_ALPHA
-			var ring_col := Color(col.r, col.g, col.b, alpha * glow)
+			var ring_col := Color(col.r, col.g, col.b, alpha * energy)
 			var pts := PackedVector2Array()
 			for i in range(28):
 				var a := TAU * float(i) / 28.0
@@ -287,25 +294,27 @@ func _draw_field_pulses(glow: float) -> void:
 			pts.append(pts[0])
 			draw_polyline(pts, ring_col, 1.5)
 		var shimmer: float = (0.5 + 0.5 * sin(t * 1.1 + offset)) * 0.08
-		draw_circle(pos + Vector2(0, -18), 7.0, Color(col.r, col.g, col.b, shimmer * glow))
+		draw_circle(pos + Vector2(0, -18), 7.0, Color(col.r, col.g, col.b, shimmer * energy))
 
 
-func _draw_sustained_beams(glow: float) -> void:
+func _draw_sustained_beams(energy: float) -> void:
 	## ART-05: a held beam per firing "sustained"-class emplacement, drawn every frame
 	## straight off CombatFx's own _beams state — never through the MAX_FX pool (see that
 	## var's doc for why). No age/life fade like the pooled "beam" kind: the whole point is
 	## that it does not snap, so per entry it is either fully on or absent.
+	##
+	## `energy` arrives from _draw() already folding in both Display.glow and decision 007's
+	## brownout dim (GlowLayerScript.BROWNOUT_FACTOR) — same value every other pooled class in
+	## this file draws with, so a held beam cannot read differently from the bolt or arc next
+	## to it (LF-117).
 	var beams: Dictionary = fx.beams()
 	if beams.is_empty():
 		return
 	var view: Node2D = fx.view
 	var now: float = view.sim_time()
-	# Decision 007 / CLAUDE.md: every emissive element dims under brownout. Mirrors
-	# glow_layer.gd's own factor for sprite glow rather than inventing a second number.
-	var bus_energy: float = 0.35 if bool(view.sim.brownout) else 1.0
 	for key in beams.keys():
 		var b: Dictionary = beams[key]
-		_draw_one_beam(b, now, glow * bus_energy)
+		_draw_one_beam(b, now, energy)
 
 
 func _draw_one_beam(b: Dictionary, now: float, energy: float) -> void:

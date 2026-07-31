@@ -10,6 +10,12 @@ extends Node2D
 ## draws for a node other than the one it hangs under.
 var view: Node2D
 
+## The brownout dim, shared with fx_additive.gd's pooled combat FX (bolt/arc/flak/mortar/
+## field) and its sustained-beam pass (LF-117) — both are additive layers subject to the
+## same decision-007 rule, so this is the one place the number lives rather than two
+## literals that could silently drift apart.
+const BROWNOUT_FACTOR := 0.35
+
 
 func _ready() -> void:
 	view = get_parent() as Node2D
@@ -31,7 +37,7 @@ func _draw() -> void:
 	# nothing to draw rather than drawing black.
 	if Display.glow <= 0.0:
 		return
-	var energy: float = (0.35 if view.sim.brownout else 1.0) * Display.glow
+	var energy: float = (BROWNOUT_FACTOR if view.sim.brownout else 1.0) * Display.glow
 	var tint := Color(1, 1, 1, energy)
 	for d in view.drawables():
 		var tex: Texture2D = Sprites.get_tex(d["sprite"], d["yaw"], "glow")

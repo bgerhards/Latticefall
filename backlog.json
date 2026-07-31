@@ -1,5 +1,5 @@
 {
-  "next_id": 126,
+  "next_id": 128,
   "items": [
     {
       "id": "LF-001",
@@ -1399,11 +1399,11 @@
       "kind": "bug",
       "area": "engine",
       "pri": "med",
-      "status": "open",
+      "status": "done",
       "why": "",
       "opened": "2026-07-30",
-      "closed": null,
-      "note": ""
+      "closed": "2026-07-31",
+      "note": "closed at 81dfbbb"
     },
     {
       "id": "LF-118",
@@ -1498,6 +1498,30 @@
       "status": "open",
       "why": "",
       "opened": "2026-07-30",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-126",
+      "title": "Anchor-17's default camera framing (8.5,7.5,1.0) puts 2 of the anchor's 12 build slots (index 2 and 3 in free_slots order) off-screen or behind the INCOMING panel \u2014 discovered while placing towers via --build for LF-117 verification. Not a bug (players use camera pan/zoom), but worth a note in shot.py's docs so the next session doesn't re-derive which slots are visible by trial and error.",
+      "kind": "chore",
+      "area": "tooling",
+      "pri": "med",
+      "status": "open",
+      "why": "",
+      "opened": "2026-07-31",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-127",
+      "title": "No CLI hook to force a specific pooled combat FX (bolt/arc/flak/mortar) to fire on a chosen frame \u2014 verifying LF-117's brownout dim required ~40 blind shot.py sweeps to catch a live projectile on screen, and flak/mortar were never caught firing at all despite the fix applying identically to all four classes. A --force-shot <slot> hook (or a shot_fired debug dump like ABILITY-LIVE's) would make this a two-command job.",
+      "kind": "chore",
+      "area": "tooling",
+      "pri": "med",
+      "status": "open",
+      "why": "",
+      "opened": "2026-07-31",
       "closed": null,
       "note": ""
     }
