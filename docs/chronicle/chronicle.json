@@ -1767,6 +1767,130 @@
           "text": "The probe held the line on what must still deny — `git stash`, `git stash push -m`, `git reset --hard`, `git checkout -- <path>`, `git checkout .`, every wide `git add` form, `rm -rf` and `mv` on the import cache, a redirect write into it, a raw versioned engine binary, a bare `blender` — while confirming the five false positives now allow: `git add <one path>`, the `ps | grep`, the `git commit -m`, the `gh pr comment`, and `git commit -F`. `tools/check.py` needed no change of its own: its `hooks configured` check parses the pass/total straight out of the selftest output rather than hardcoding 31, so it now reports 45/45 with no edit at all."
         }
       ]
+    },
+    {
+      "id": "behind-infrastructure-that-did-not-exist",
+      "date": "2026-07-31",
+      "time": "19:47",
+      "title": "Behind infrastructure that did not exist",
+      "summary": "`rules parity` — in the gate's own words the one thing making a balance claim in this project falsifiable — had never run in CI, not once. `docs/STATE.md` had called `nightly.yml` \"inert behind a repo variable\" for sessions; it was actually targeting a self-hosted runner label with zero runners registered. PRC-17 (#83) replaces it with a container that runs the real gate on every pull request, and measures — twice — that a hosted software-GL stack reproduces this machine's numbers exactly rather than approximately.",
+      "tags": [
+        "PRC"
+      ],
+      "decisions": [
+        "071"
+      ],
+      "commits": [
+        {
+          "hash": "b4431d1",
+          "subject": "docs: decision 071 — CI runs the real gate in a container, self-hosted declined"
+        },
+        {
+          "hash": "328b054",
+          "subject": "ci: run the real gate on every PR, and parity in CI for the first time ever"
+        }
+      ],
+      "body": [
+        {
+          "type": "p",
+          "text": "The owner named this the highest-value open work in the project, and the reason PRC-17 (#83) gives is stark rather than abstract: `nightly.yml` targeted `runs-on: [self-hosted, linux, latticefall]`, and zero runners with those labels — or any labels — were registered against this repository. `docs/STATE.md` had described the workflow as \"inert behind a repo variable\" for sessions, which reads like a one-flag fix. It was not one. Flipping `LF_NIGHTLY_ENABLED` would not have made the workflow run; it would have queued a job forever with nothing able to claim it. The workflow was not behind a flag, it was behind infrastructure that did not exist."
+        },
+        {
+          "type": "p",
+          "text": "The consequence was not abstract either. Every merge to `main` was gated on 14 of 29 checks — the tier-1 set. The other 15, including `rules parity` and `rules parity (windows)`, had run in CI zero times. And the ten runs `gate.yml` (tier 1 only) had produced were read back rather than trusted at face value: every failure in that history was CI's own onboarding breakage, never a caught regression — one run failed `gdscript parses` on an identifier the editor's class-name cache hadn't picked up yet, fixed two commits later by adding an import step, not by fixing game code. That gap between \"the workflow file exists\" and \"the workflow ran\" is the whole story here."
+        },
+        {
+          "type": "h3",
+          "text": "What landed"
+        },
+        {
+          "type": "list",
+          "items": [
+            "`tools/ci/Dockerfile` — `ubuntu:24.04` plus Godot 4.7.1 linux, `xvfb`, Mesa, and the exact jsonschema/numpy/pillow/soundfile/PyYAML versions the local `.venv` runs.",
+            "A `gate-tier3` job in `gate.yml`, running `check.py --tier 3` inside that image on every pull request — `sprite atlas`, `godot boots`, `game renders`, `menu renders`, `accessibility`, `terrain parsers agree`, `sfx determinism`, and every scenario check, none of which had ever run on a PR before.",
+            "`parity-shard.yml` — `test_parity.py --shard I/4` split across four hosted jobs, daily and on any PR touching the rules or the data.",
+            "`tools/ci/freshness_check.py` plus `freshness.yml` — fails loud past 48 hours stale, because this project has now twice believed a workflow ran when it had not."
+          ]
+        },
+        {
+          "type": "h3",
+          "text": "The load-bearing measurement"
+        },
+        {
+          "type": "p",
+          "text": "The spec had named a specific risk before any of this was built: a container's software-GL stack is not automatically the same Mesa llvmpipe behaviour this machine's coverage and contrast thresholds were tuned on, so a green container run might mean nothing. Measured inside the container, twice, on two independent full runs, it was not a lesser approximation — it was identical."
+        },
+        {
+          "type": "table",
+          "headers": [
+            "Check",
+            "Container result",
+            "This machine"
+          ],
+          "rows": [
+            [
+              "tier 3 overall",
+              "34 passed · 0 failed · 3 skipped · 80883ms",
+              "—"
+            ],
+            [
+              "game renders",
+              "coverage 0.95, 99 tones",
+              "coverage 0.95, 99 tones"
+            ],
+            [
+              "accessibility",
+              "worst contrast 5.08:1",
+              "worst contrast 5.08:1"
+            ]
+          ]
+        },
+        {
+          "type": "p",
+          "text": "Identical, not approximately. That is what makes the hosted path a real substitute rather than a cheaper stand-in, and it is why the self-hosted runner could be declined outright rather than merely deferred."
+        },
+        {
+          "type": "h3",
+          "text": "Three bugs found only by running it"
+        },
+        {
+          "type": "p",
+          "text": "None of these was findable by reading the workflow file, and all three read as something else entirely at first."
+        },
+        {
+          "type": "list",
+          "items": [
+            "`libXcursor.so.1` and the Wayland cursor library were missing, which makes Godot fail before it ever reaches `xvfb` — an X11-then-Wayland-then-\"use `--headless`\" error message that reads like a configuration problem rather than a missing package.",
+            "`git ls-files` failed with \"detected dubious ownership\" on a bind-mounted checkout owned by a different UID — and `validate_data.py`'s document discovery depends on exactly that command. This would have read as a git bug to whoever saw it red next, not as a container ownership mismatch.",
+            "Running the container as root left root-owned files in a bind-mounted tree. It does not hit the real job — the GitHub Actions container runtime does not default to root the way a local `docker run` does — but it belongs in any note about reproducing this locally."
+          ]
+        },
+        {
+          "type": "h3",
+          "text": "The decision, and what it does not cover"
+        },
+        {
+          "type": "p",
+          "text": "Self-hosted registration was declined — decision 071. The issue reserved this as an owner call, and declining is the half that does not touch the owner's own machine, so it was taken rather than deferred: a scheduled nightly on the box the owner plays from would compete with captures that already take about 8 of 16 cores, and it would mean `reap.py --kill` running unattended on a shared tree where `CLAUDE_CODE_SESSION_ID` cannot tell a sibling agent's live process from a stray. The hosted path delivers what `nightly.yml` existed for without either cost. It is reversible, and the reversal — register a runner, flip the variable — is written down in the same entry."
+        },
+        {
+          "type": "p",
+          "text": "This is not a clean win, and the record should not read as one."
+        },
+        {
+          "type": "list",
+          "items": [
+            "`rules parity (windows)` still has no CI coverage at all, and cannot get it from a hosted Linux path — it needs a Windows Godot binary. That matters specifically because a prior finding (BAL-06) established that all parity checking had been comparing CPython against the Linux build while the owner plays Windows. The leg that closed the larger hole is the one this change still cannot watch.",
+            "The hosted shard timing is a projection, not a measurement: 3m14s and 3m17s per shard measured on this 16-core machine, extrapolated to a 4-core hosted runner. The workflow's own comment says to trust a real run over that estimate once one exists.",
+            "The GHCR image push and pull only run for real on merge to `main`. The pull request that adds them is its own end-to-end test — if `gate-tier3` goes green there, the mechanism is proved; if not, the failure is in the PR, not on `main`.",
+            "Branch protection still has no required checks at all. Deliberately not fixed in the same change that introduces the jobs it would require."
+          ]
+        },
+        {
+          "type": "p",
+          "text": "One small thing worth recording as a genuine win rather than a caveat: the freshness check was proved red as well as green against the real repository before merge — `gate.yml` reported fresh at 0.1 hours and exited 0, and a workflow with no successful run exited 1. A project that has twice believed a workflow ran when it had not now has something that notices."
+        }
+      ]
     }
   ]
 }
