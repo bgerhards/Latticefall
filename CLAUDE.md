@@ -297,10 +297,12 @@ that does not touch the rules, `--tier 4` when it does. Merge with `gh pr merge 
 --delete-branch` once CI is green. Do not batch several unrelated workstreams into one branch;
 the point is that a red run names one thing.
 
-**Record the journey.** `docs/chronicle/` is a build journal published to GitHub Pages on
-every push to `main` — a documentary of how this game got made, written as it happens. The
-`chronicler` agent owns it. Run it after any session that lands work worth remembering, and
-whenever a capture, a decision or a measurement is produced that the story should keep.
+**Record the journey, and do it in the pull request.** `docs/chronicle/` is a build journal
+published to GitHub Pages on every merge to `main` — a documentary of how this game got
+made, written as it happens, live at https://bgerhards.github.io/Latticefall/. The
+`chronicler` agent owns it and **every PR updates it**: what landed, the numbers behind it,
+and the screenshots. It is step 4 of the `ship` skill rather than an afterthought, because
+it is the step most likely to be skipped and the one the owner cares most about.
 
 Two rules make it worth having. **It is append-only**: an entry records what was true and
 believed on the day it was written, and when something is later overturned you write a *new*
