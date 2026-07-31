@@ -4,6 +4,106 @@
     "cols": 12,
     "index": {
       "albedo": {
+        "anchor_damper_base|b00": [
+          0,
+          4,
+          0
+        ],
+        "anchor_damper_base|b01": [
+          0,
+          5,
+          0
+        ],
+        "anchor_damper_base|b02": [
+          0,
+          6,
+          0
+        ],
+        "anchor_damper_base|b03": [
+          0,
+          7,
+          0
+        ],
+        "anchor_damper_head|b00": [
+          0,
+          8,
+          0
+        ],
+        "anchor_damper_head|b01": [
+          0,
+          9,
+          0
+        ],
+        "anchor_damper_head|b02": [
+          0,
+          10,
+          0
+        ],
+        "anchor_damper_head|b03": [
+          0,
+          11,
+          0
+        ],
+        "anchor_damper_head|b04": [
+          0,
+          0,
+          1
+        ],
+        "anchor_damper_head|b05": [
+          0,
+          1,
+          1
+        ],
+        "anchor_damper_head|b06": [
+          0,
+          2,
+          1
+        ],
+        "anchor_damper_head|b07": [
+          0,
+          3,
+          1
+        ],
+        "anchor_damper_head|b08": [
+          0,
+          4,
+          1
+        ],
+        "anchor_damper_head|b09": [
+          0,
+          5,
+          1
+        ],
+        "anchor_damper_head|b10": [
+          0,
+          6,
+          1
+        ],
+        "anchor_damper_head|b11": [
+          0,
+          7,
+          1
+        ],
+        "anchor_damper_head|b12": [
+          0,
+          8,
+          1
+        ],
+        "anchor_damper_head|b13": [
+          0,
+          9,
+          1
+        ],
+        "anchor_damper_head|b14": [
+          0,
+          10,
+          1
+        ],
+        "anchor_damper_head|b15": [
+          0,
+          11,
+          1
+        ],
         "anchor_damper|y045": [
           0,
           0,
@@ -26,506 +126,1406 @@
         ],
         "anchor_ring|y045": [
           0,
-          4,
-          0
+          0,
+          2
         ],
         "anchor_ring|y135": [
           0,
-          5,
-          0
+          1,
+          2
         ],
         "anchor_ring|y225": [
           0,
-          6,
-          0
+          2,
+          2
         ],
         "anchor_ring|y315": [
           0,
+          3,
+          2
+        ],
+        "arc_node_base|b00": [
+          0,
+          8,
+          2
+        ],
+        "arc_node_base|b01": [
+          0,
+          9,
+          2
+        ],
+        "arc_node_base|b02": [
+          0,
+          10,
+          2
+        ],
+        "arc_node_base|b03": [
+          0,
+          11,
+          2
+        ],
+        "arc_node_head|b00": [
+          0,
+          0,
+          3
+        ],
+        "arc_node_head|b01": [
+          0,
+          1,
+          3
+        ],
+        "arc_node_head|b02": [
+          0,
+          2,
+          3
+        ],
+        "arc_node_head|b03": [
+          0,
+          3,
+          3
+        ],
+        "arc_node_head|b04": [
+          0,
+          4,
+          3
+        ],
+        "arc_node_head|b05": [
+          0,
+          5,
+          3
+        ],
+        "arc_node_head|b06": [
+          0,
+          6,
+          3
+        ],
+        "arc_node_head|b07": [
+          0,
           7,
-          0
+          3
+        ],
+        "arc_node_head|b08": [
+          0,
+          8,
+          3
+        ],
+        "arc_node_head|b09": [
+          0,
+          9,
+          3
+        ],
+        "arc_node_head|b10": [
+          0,
+          10,
+          3
+        ],
+        "arc_node_head|b11": [
+          0,
+          11,
+          3
+        ],
+        "arc_node_head|b12": [
+          0,
+          0,
+          4
+        ],
+        "arc_node_head|b13": [
+          0,
+          1,
+          4
+        ],
+        "arc_node_head|b14": [
+          0,
+          2,
+          4
+        ],
+        "arc_node_head|b15": [
+          0,
+          3,
+          4
         ],
         "arc_node|y045": [
           0,
-          8,
-          0
+          4,
+          2
         ],
         "arc_node|y135": [
           0,
-          9,
-          0
+          5,
+          2
         ],
         "arc_node|y225": [
           0,
-          10,
-          0
+          6,
+          2
         ],
         "arc_node|y315": [
           0,
+          7,
+          2
+        ],
+        "flak_array_base|b00": [
+          0,
+          8,
+          4
+        ],
+        "flak_array_base|b01": [
+          0,
+          9,
+          4
+        ],
+        "flak_array_base|b02": [
+          0,
+          10,
+          4
+        ],
+        "flak_array_base|b03": [
+          0,
           11,
-          0
+          4
+        ],
+        "flak_array_head|b00": [
+          0,
+          0,
+          5
+        ],
+        "flak_array_head|b01": [
+          0,
+          1,
+          5
+        ],
+        "flak_array_head|b02": [
+          0,
+          2,
+          5
+        ],
+        "flak_array_head|b03": [
+          0,
+          3,
+          5
+        ],
+        "flak_array_head|b04": [
+          0,
+          4,
+          5
+        ],
+        "flak_array_head|b05": [
+          0,
+          5,
+          5
+        ],
+        "flak_array_head|b06": [
+          0,
+          6,
+          5
+        ],
+        "flak_array_head|b07": [
+          0,
+          7,
+          5
+        ],
+        "flak_array_head|b08": [
+          0,
+          8,
+          5
+        ],
+        "flak_array_head|b09": [
+          0,
+          9,
+          5
+        ],
+        "flak_array_head|b10": [
+          0,
+          10,
+          5
+        ],
+        "flak_array_head|b11": [
+          0,
+          11,
+          5
+        ],
+        "flak_array_head|b12": [
+          0,
+          0,
+          6
+        ],
+        "flak_array_head|b13": [
+          0,
+          1,
+          6
+        ],
+        "flak_array_head|b14": [
+          0,
+          2,
+          6
+        ],
+        "flak_array_head|b15": [
+          0,
+          3,
+          6
         ],
         "flak_array|y045": [
           0,
-          0,
-          1
+          4,
+          4
         ],
         "flak_array|y135": [
           0,
-          1,
-          1
+          5,
+          4
         ],
         "flak_array|y225": [
           0,
-          2,
-          1
+          6,
+          4
         ],
         "flak_array|y315": [
           0,
-          3,
-          1
+          7,
+          4
         ],
         "hollow_column|y045": [
           0,
           4,
-          1
+          6
         ],
         "hollow_column|y135": [
           0,
           5,
-          1
+          6
         ],
         "hollow_column|y225": [
           0,
           6,
-          1
+          6
         ],
         "hollow_column|y315": [
           0,
           7,
-          1
+          6
         ],
         "hollow_drift|y045": [
           0,
           8,
-          1
+          6
         ],
         "hollow_drift|y135": [
           0,
           9,
-          1
+          6
         ],
         "hollow_drift|y225": [
           0,
           10,
-          1
+          6
         ],
         "hollow_drift|y315": [
           0,
           11,
-          1
+          6
         ],
         "hollow_echo|y045": [
           0,
           0,
-          2
+          7
         ],
         "hollow_echo|y135": [
           0,
           1,
-          2
+          7
         ],
         "hollow_echo|y225": [
           0,
           2,
-          2
+          7
         ],
         "hollow_echo|y315": [
           0,
           3,
-          2
+          7
         ],
         "hollow_shard|y045": [
           0,
           4,
-          2
+          7
         ],
         "hollow_shard|y135": [
           0,
           5,
-          2
+          7
         ],
         "hollow_shard|y225": [
           0,
           6,
-          2
+          7
         ],
         "hollow_shard|y315": [
           0,
           7,
-          2
+          7
         ],
         "hollow_vessel|y045": [
           0,
           8,
-          2
+          7
         ],
         "hollow_vessel|y135": [
           0,
           9,
-          2
+          7
         ],
         "hollow_vessel|y225": [
           0,
           10,
-          2
+          7
         ],
         "hollow_vessel|y315": [
           0,
           11,
-          2
+          7
+        ],
+        "ion_lance_base|b00": [
+          0,
+          4,
+          8
+        ],
+        "ion_lance_base|b01": [
+          0,
+          5,
+          8
+        ],
+        "ion_lance_base|b02": [
+          0,
+          6,
+          8
+        ],
+        "ion_lance_base|b03": [
+          0,
+          7,
+          8
+        ],
+        "ion_lance_head|b00": [
+          0,
+          8,
+          8
+        ],
+        "ion_lance_head|b01": [
+          0,
+          9,
+          8
+        ],
+        "ion_lance_head|b02": [
+          0,
+          10,
+          8
+        ],
+        "ion_lance_head|b03": [
+          0,
+          11,
+          8
+        ],
+        "ion_lance_head|b04": [
+          0,
+          0,
+          9
+        ],
+        "ion_lance_head|b05": [
+          0,
+          1,
+          9
+        ],
+        "ion_lance_head|b06": [
+          0,
+          2,
+          9
+        ],
+        "ion_lance_head|b07": [
+          0,
+          3,
+          9
+        ],
+        "ion_lance_head|b08": [
+          0,
+          4,
+          9
+        ],
+        "ion_lance_head|b09": [
+          0,
+          5,
+          9
+        ],
+        "ion_lance_head|b10": [
+          0,
+          6,
+          9
+        ],
+        "ion_lance_head|b11": [
+          0,
+          7,
+          9
+        ],
+        "ion_lance_head|b12": [
+          0,
+          8,
+          9
+        ],
+        "ion_lance_head|b13": [
+          0,
+          9,
+          9
+        ],
+        "ion_lance_head|b14": [
+          0,
+          10,
+          9
+        ],
+        "ion_lance_head|b15": [
+          0,
+          11,
+          9
         ],
         "ion_lance|y045": [
           0,
           0,
-          3
+          8
         ],
         "ion_lance|y135": [
           0,
           1,
-          3
+          8
         ],
         "ion_lance|y225": [
           0,
           2,
-          3
+          8
         ],
         "ion_lance|y315": [
           0,
           3,
-          3
+          8
+        ],
+        "mortar_emplacement_base|b00": [
+          0,
+          4,
+          10
+        ],
+        "mortar_emplacement_base|b01": [
+          0,
+          5,
+          10
+        ],
+        "mortar_emplacement_base|b02": [
+          0,
+          6,
+          10
+        ],
+        "mortar_emplacement_base|b03": [
+          0,
+          7,
+          10
+        ],
+        "mortar_emplacement_head|b00": [
+          0,
+          8,
+          10
+        ],
+        "mortar_emplacement_head|b01": [
+          0,
+          9,
+          10
+        ],
+        "mortar_emplacement_head|b02": [
+          0,
+          10,
+          10
+        ],
+        "mortar_emplacement_head|b03": [
+          0,
+          11,
+          10
+        ],
+        "mortar_emplacement_head|b04": [
+          0,
+          0,
+          11
+        ],
+        "mortar_emplacement_head|b05": [
+          0,
+          1,
+          11
+        ],
+        "mortar_emplacement_head|b06": [
+          0,
+          2,
+          11
+        ],
+        "mortar_emplacement_head|b07": [
+          0,
+          3,
+          11
+        ],
+        "mortar_emplacement_head|b08": [
+          0,
+          4,
+          11
+        ],
+        "mortar_emplacement_head|b09": [
+          0,
+          5,
+          11
+        ],
+        "mortar_emplacement_head|b10": [
+          0,
+          6,
+          11
+        ],
+        "mortar_emplacement_head|b11": [
+          0,
+          7,
+          11
+        ],
+        "mortar_emplacement_head|b12": [
+          0,
+          8,
+          11
+        ],
+        "mortar_emplacement_head|b13": [
+          0,
+          9,
+          11
+        ],
+        "mortar_emplacement_head|b14": [
+          0,
+          10,
+          11
+        ],
+        "mortar_emplacement_head|b15": [
+          0,
+          11,
+          11
         ],
         "mortar_emplacement|y045": [
           0,
-          4,
-          3
+          0,
+          10
         ],
         "mortar_emplacement|y135": [
           0,
-          5,
-          3
+          1,
+          10
         ],
         "mortar_emplacement|y225": [
           0,
-          6,
-          3
+          2,
+          10
         ],
         "mortar_emplacement|y315": [
           0,
+          3,
+          10
+        ],
+        "pulse_turret_base|b00": [
+          0,
+          4,
+          12
+        ],
+        "pulse_turret_base|b01": [
+          0,
+          5,
+          12
+        ],
+        "pulse_turret_base|b02": [
+          0,
+          6,
+          12
+        ],
+        "pulse_turret_base|b03": [
+          0,
           7,
-          3
+          12
+        ],
+        "pulse_turret_head|b00": [
+          0,
+          8,
+          12
+        ],
+        "pulse_turret_head|b01": [
+          0,
+          9,
+          12
+        ],
+        "pulse_turret_head|b02": [
+          0,
+          10,
+          12
+        ],
+        "pulse_turret_head|b03": [
+          0,
+          11,
+          12
+        ],
+        "pulse_turret_head|b04": [
+          0,
+          0,
+          13
+        ],
+        "pulse_turret_head|b05": [
+          0,
+          1,
+          13
+        ],
+        "pulse_turret_head|b06": [
+          0,
+          2,
+          13
+        ],
+        "pulse_turret_head|b07": [
+          0,
+          3,
+          13
+        ],
+        "pulse_turret_head|b08": [
+          0,
+          4,
+          13
+        ],
+        "pulse_turret_head|b09": [
+          0,
+          5,
+          13
+        ],
+        "pulse_turret_head|b10": [
+          0,
+          6,
+          13
+        ],
+        "pulse_turret_head|b11": [
+          0,
+          7,
+          13
+        ],
+        "pulse_turret_head|b12": [
+          0,
+          8,
+          13
+        ],
+        "pulse_turret_head|b13": [
+          0,
+          9,
+          13
+        ],
+        "pulse_turret_head|b14": [
+          0,
+          10,
+          13
+        ],
+        "pulse_turret_head|b15": [
+          0,
+          11,
+          13
         ],
         "pulse_turret|y045": [
           0,
-          8,
-          3
+          0,
+          12
         ],
         "pulse_turret|y135": [
           0,
-          9,
-          3
+          1,
+          12
         ],
         "pulse_turret|y225": [
           0,
-          10,
-          3
+          2,
+          12
         ],
         "pulse_turret|y315": [
           0,
-          11,
-          3
+          3,
+          12
         ],
         "reach_breacher|y045": [
           0,
           0,
-          4
+          14
         ],
         "reach_breacher|y135": [
           0,
           1,
-          4
+          14
         ],
         "reach_breacher|y225": [
           0,
           2,
-          4
+          14
         ],
         "reach_breacher|y315": [
           0,
           3,
-          4
+          14
         ],
         "reach_bulwark|y045": [
           0,
           4,
-          4
+          14
         ],
         "reach_bulwark|y135": [
           0,
           5,
-          4
+          14
         ],
         "reach_bulwark|y225": [
           0,
           6,
-          4
+          14
         ],
         "reach_bulwark|y315": [
           0,
           7,
-          4
+          14
         ],
         "reach_picket|y045": [
           0,
           8,
-          4
+          14
         ],
         "reach_picket|y135": [
           0,
           9,
-          4
+          14
         ],
         "reach_picket|y225": [
           0,
           10,
-          4
+          14
         ],
         "reach_picket|y315": [
           0,
           11,
-          4
+          14
         ],
         "reach_sapper|y045": [
           0,
           0,
-          5
+          15
         ],
         "reach_sapper|y135": [
           0,
           1,
-          5
+          15
         ],
         "reach_sapper|y225": [
           0,
           2,
-          5
+          15
         ],
         "reach_sapper|y315": [
           0,
           3,
-          5
+          15
         ],
         "reach_skiff|y045": [
           0,
           4,
-          5
+          15
         ],
         "reach_skiff|y135": [
           0,
           5,
-          5
+          15
         ],
         "reach_skiff|y225": [
           0,
           6,
-          5
+          15
         ],
         "reach_skiff|y315": [
           0,
           7,
-          5
+          15
+        ],
+        "restorer_base|b00": [
+          0,
+          0,
+          16
+        ],
+        "restorer_base|b01": [
+          0,
+          1,
+          16
+        ],
+        "restorer_base|b02": [
+          0,
+          2,
+          16
+        ],
+        "restorer_base|b03": [
+          0,
+          3,
+          16
+        ],
+        "restorer_head|b00": [
+          0,
+          4,
+          16
+        ],
+        "restorer_head|b01": [
+          0,
+          5,
+          16
+        ],
+        "restorer_head|b02": [
+          0,
+          6,
+          16
+        ],
+        "restorer_head|b03": [
+          0,
+          7,
+          16
+        ],
+        "restorer_head|b04": [
+          0,
+          8,
+          16
+        ],
+        "restorer_head|b05": [
+          0,
+          9,
+          16
+        ],
+        "restorer_head|b06": [
+          0,
+          10,
+          16
+        ],
+        "restorer_head|b07": [
+          0,
+          11,
+          16
+        ],
+        "restorer_head|b08": [
+          0,
+          0,
+          17
+        ],
+        "restorer_head|b09": [
+          0,
+          1,
+          17
+        ],
+        "restorer_head|b10": [
+          0,
+          2,
+          17
+        ],
+        "restorer_head|b11": [
+          0,
+          3,
+          17
+        ],
+        "restorer_head|b12": [
+          0,
+          4,
+          17
+        ],
+        "restorer_head|b13": [
+          0,
+          5,
+          17
+        ],
+        "restorer_head|b14": [
+          0,
+          6,
+          17
+        ],
+        "restorer_head|b15": [
+          0,
+          7,
+          17
         ],
         "restorer|y045": [
           0,
           8,
-          5
+          15
         ],
         "restorer|y135": [
           0,
           9,
-          5
+          15
         ],
         "restorer|y225": [
           0,
           10,
-          5
+          15
         ],
         "restorer|y315": [
           0,
           11,
-          5
+          15
+        ],
+        "scan_relay_base|b00": [
+          0,
+          0,
+          18
+        ],
+        "scan_relay_base|b01": [
+          0,
+          1,
+          18
+        ],
+        "scan_relay_base|b02": [
+          0,
+          2,
+          18
+        ],
+        "scan_relay_base|b03": [
+          0,
+          3,
+          18
+        ],
+        "scan_relay_head|b00": [
+          0,
+          4,
+          18
+        ],
+        "scan_relay_head|b01": [
+          0,
+          5,
+          18
+        ],
+        "scan_relay_head|b02": [
+          0,
+          6,
+          18
+        ],
+        "scan_relay_head|b03": [
+          0,
+          7,
+          18
+        ],
+        "scan_relay_head|b04": [
+          0,
+          8,
+          18
+        ],
+        "scan_relay_head|b05": [
+          0,
+          9,
+          18
+        ],
+        "scan_relay_head|b06": [
+          0,
+          10,
+          18
+        ],
+        "scan_relay_head|b07": [
+          0,
+          11,
+          18
+        ],
+        "scan_relay_head|b08": [
+          0,
+          0,
+          19
+        ],
+        "scan_relay_head|b09": [
+          0,
+          1,
+          19
+        ],
+        "scan_relay_head|b10": [
+          0,
+          2,
+          19
+        ],
+        "scan_relay_head|b11": [
+          0,
+          3,
+          19
+        ],
+        "scan_relay_head|b12": [
+          0,
+          4,
+          19
+        ],
+        "scan_relay_head|b13": [
+          0,
+          5,
+          19
+        ],
+        "scan_relay_head|b14": [
+          0,
+          6,
+          19
+        ],
+        "scan_relay_head|b15": [
+          0,
+          7,
+          19
         ],
         "scan_relay|y045": [
           0,
-          0,
-          6
+          8,
+          17
         ],
         "scan_relay|y135": [
           0,
-          1,
-          6
+          9,
+          17
         ],
         "scan_relay|y225": [
           0,
-          2,
-          6
+          10,
+          17
         ],
         "scan_relay|y315": [
           0,
+          11,
+          17
+        ],
+        "shield_wall_base|b00": [
+          0,
+          0,
+          20
+        ],
+        "shield_wall_base|b01": [
+          0,
+          1,
+          20
+        ],
+        "shield_wall_base|b02": [
+          0,
+          2,
+          20
+        ],
+        "shield_wall_base|b03": [
+          0,
           3,
-          6
+          20
+        ],
+        "shield_wall_head|b00": [
+          0,
+          4,
+          20
+        ],
+        "shield_wall_head|b01": [
+          0,
+          5,
+          20
+        ],
+        "shield_wall_head|b02": [
+          0,
+          6,
+          20
+        ],
+        "shield_wall_head|b03": [
+          0,
+          7,
+          20
+        ],
+        "shield_wall_head|b04": [
+          0,
+          8,
+          20
+        ],
+        "shield_wall_head|b05": [
+          0,
+          9,
+          20
+        ],
+        "shield_wall_head|b06": [
+          0,
+          10,
+          20
+        ],
+        "shield_wall_head|b07": [
+          0,
+          11,
+          20
+        ],
+        "shield_wall_head|b08": [
+          0,
+          0,
+          21
+        ],
+        "shield_wall_head|b09": [
+          0,
+          1,
+          21
+        ],
+        "shield_wall_head|b10": [
+          0,
+          2,
+          21
+        ],
+        "shield_wall_head|b11": [
+          0,
+          3,
+          21
+        ],
+        "shield_wall_head|b12": [
+          0,
+          4,
+          21
+        ],
+        "shield_wall_head|b13": [
+          0,
+          5,
+          21
+        ],
+        "shield_wall_head|b14": [
+          0,
+          6,
+          21
+        ],
+        "shield_wall_head|b15": [
+          0,
+          7,
+          21
         ],
         "shield_wall|y045": [
           0,
-          4,
-          6
+          8,
+          19
         ],
         "shield_wall|y135": [
           0,
-          5,
-          6
+          9,
+          19
         ],
         "shield_wall|y225": [
           0,
-          6,
-          6
+          10,
+          19
         ],
         "shield_wall|y315": [
           0,
-          7,
-          6
+          11,
+          19
         ],
         "tile_ground|y045": [
           0,
           8,
-          6
+          21
         ],
         "tile_ground|y135": [
           0,
           9,
-          6
+          21
         ],
         "tile_ground|y225": [
           0,
           10,
-          6
+          21
         ],
         "tile_ground|y315": [
           0,
           11,
-          6
+          21
         ],
         "tile_path|y045": [
           0,
           0,
-          7
+          22
         ],
         "tile_path|y135": [
           0,
           1,
-          7
+          22
         ],
         "tile_path|y225": [
           0,
           2,
-          7
+          22
         ],
         "tile_path|y315": [
           0,
           3,
-          7
+          22
         ],
         "tile_slot|y045": [
           0,
           4,
-          7
+          22
         ],
         "tile_slot|y135": [
           0,
           5,
-          7
+          22
         ],
         "tile_slot|y225": [
           0,
           6,
-          7
+          22
         ],
         "tile_slot|y315": [
           0,
           7,
-          7
+          22
         ],
         "warden_drone|y045": [
           0,
           8,
-          7
+          22
         ],
         "warden_drone|y135": [
           0,
           9,
-          7
+          22
         ],
         "warden_drone|y225": [
           0,
           10,
-          7
+          22
         ],
         "warden_drone|y315": [
           0,
           11,
-          7
+          22
         ],
         "warden_heavy|y045": [
           0,
           0,
-          8
+          23
         ],
         "warden_heavy|y135": [
           0,
           1,
-          8
+          23
         ],
         "warden_heavy|y225": [
           0,
           2,
-          8
+          23
         ],
         "warden_heavy|y315": [
           0,
           3,
-          8
+          23
         ],
         "warden_mote|y045": [
           0,
           4,
-          8
+          23
         ],
         "warden_mote|y135": [
           0,
           5,
-          8
+          23
         ],
         "warden_mote|y225": [
           0,
           6,
-          8
+          23
         ],
         "warden_mote|y315": [
           0,
           7,
-          8
+          23
         ]
       },
       "glow": {
+        "anchor_damper_base|b00": [
+          0,
+          4,
+          0
+        ],
+        "anchor_damper_base|b01": [
+          0,
+          5,
+          0
+        ],
+        "anchor_damper_base|b02": [
+          0,
+          6,
+          0
+        ],
+        "anchor_damper_base|b03": [
+          0,
+          7,
+          0
+        ],
+        "anchor_damper_head|b00": [
+          0,
+          8,
+          0
+        ],
+        "anchor_damper_head|b01": [
+          0,
+          9,
+          0
+        ],
+        "anchor_damper_head|b02": [
+          0,
+          10,
+          0
+        ],
+        "anchor_damper_head|b03": [
+          0,
+          11,
+          0
+        ],
+        "anchor_damper_head|b04": [
+          0,
+          0,
+          1
+        ],
+        "anchor_damper_head|b05": [
+          0,
+          1,
+          1
+        ],
+        "anchor_damper_head|b06": [
+          0,
+          2,
+          1
+        ],
+        "anchor_damper_head|b07": [
+          0,
+          3,
+          1
+        ],
+        "anchor_damper_head|b08": [
+          0,
+          4,
+          1
+        ],
+        "anchor_damper_head|b09": [
+          0,
+          5,
+          1
+        ],
+        "anchor_damper_head|b10": [
+          0,
+          6,
+          1
+        ],
+        "anchor_damper_head|b11": [
+          0,
+          7,
+          1
+        ],
+        "anchor_damper_head|b12": [
+          0,
+          8,
+          1
+        ],
+        "anchor_damper_head|b13": [
+          0,
+          9,
+          1
+        ],
+        "anchor_damper_head|b14": [
+          0,
+          10,
+          1
+        ],
+        "anchor_damper_head|b15": [
+          0,
+          11,
+          1
+        ],
         "anchor_damper|y045": [
           0,
           0,
@@ -548,503 +1548,1303 @@
         ],
         "anchor_ring|y045": [
           0,
-          4,
-          0
+          0,
+          2
         ],
         "anchor_ring|y135": [
           0,
-          5,
-          0
+          1,
+          2
         ],
         "anchor_ring|y225": [
           0,
-          6,
-          0
+          2,
+          2
         ],
         "anchor_ring|y315": [
           0,
+          3,
+          2
+        ],
+        "arc_node_base|b00": [
+          0,
+          8,
+          2
+        ],
+        "arc_node_base|b01": [
+          0,
+          9,
+          2
+        ],
+        "arc_node_base|b02": [
+          0,
+          10,
+          2
+        ],
+        "arc_node_base|b03": [
+          0,
+          11,
+          2
+        ],
+        "arc_node_head|b00": [
+          0,
+          0,
+          3
+        ],
+        "arc_node_head|b01": [
+          0,
+          1,
+          3
+        ],
+        "arc_node_head|b02": [
+          0,
+          2,
+          3
+        ],
+        "arc_node_head|b03": [
+          0,
+          3,
+          3
+        ],
+        "arc_node_head|b04": [
+          0,
+          4,
+          3
+        ],
+        "arc_node_head|b05": [
+          0,
+          5,
+          3
+        ],
+        "arc_node_head|b06": [
+          0,
+          6,
+          3
+        ],
+        "arc_node_head|b07": [
+          0,
           7,
-          0
+          3
+        ],
+        "arc_node_head|b08": [
+          0,
+          8,
+          3
+        ],
+        "arc_node_head|b09": [
+          0,
+          9,
+          3
+        ],
+        "arc_node_head|b10": [
+          0,
+          10,
+          3
+        ],
+        "arc_node_head|b11": [
+          0,
+          11,
+          3
+        ],
+        "arc_node_head|b12": [
+          0,
+          0,
+          4
+        ],
+        "arc_node_head|b13": [
+          0,
+          1,
+          4
+        ],
+        "arc_node_head|b14": [
+          0,
+          2,
+          4
+        ],
+        "arc_node_head|b15": [
+          0,
+          3,
+          4
         ],
         "arc_node|y045": [
           0,
-          8,
-          0
+          4,
+          2
         ],
         "arc_node|y135": [
           0,
-          9,
-          0
+          5,
+          2
         ],
         "arc_node|y225": [
           0,
-          10,
-          0
+          6,
+          2
         ],
         "arc_node|y315": [
           0,
+          7,
+          2
+        ],
+        "flak_array_base|b00": [
+          0,
+          8,
+          4
+        ],
+        "flak_array_base|b01": [
+          0,
+          9,
+          4
+        ],
+        "flak_array_base|b02": [
+          0,
+          10,
+          4
+        ],
+        "flak_array_base|b03": [
+          0,
           11,
-          0
+          4
+        ],
+        "flak_array_head|b00": [
+          0,
+          0,
+          5
+        ],
+        "flak_array_head|b01": [
+          0,
+          1,
+          5
+        ],
+        "flak_array_head|b02": [
+          0,
+          2,
+          5
+        ],
+        "flak_array_head|b03": [
+          0,
+          3,
+          5
+        ],
+        "flak_array_head|b04": [
+          0,
+          4,
+          5
+        ],
+        "flak_array_head|b05": [
+          0,
+          5,
+          5
+        ],
+        "flak_array_head|b06": [
+          0,
+          6,
+          5
+        ],
+        "flak_array_head|b07": [
+          0,
+          7,
+          5
+        ],
+        "flak_array_head|b08": [
+          0,
+          8,
+          5
+        ],
+        "flak_array_head|b09": [
+          0,
+          9,
+          5
+        ],
+        "flak_array_head|b10": [
+          0,
+          10,
+          5
+        ],
+        "flak_array_head|b11": [
+          0,
+          11,
+          5
+        ],
+        "flak_array_head|b12": [
+          0,
+          0,
+          6
+        ],
+        "flak_array_head|b13": [
+          0,
+          1,
+          6
+        ],
+        "flak_array_head|b14": [
+          0,
+          2,
+          6
+        ],
+        "flak_array_head|b15": [
+          0,
+          3,
+          6
         ],
         "flak_array|y045": [
           0,
-          0,
-          1
+          4,
+          4
         ],
         "flak_array|y135": [
           0,
-          1,
-          1
+          5,
+          4
         ],
         "flak_array|y225": [
           0,
-          2,
-          1
+          6,
+          4
         ],
         "flak_array|y315": [
           0,
-          3,
-          1
+          7,
+          4
         ],
         "hollow_column|y045": [
           0,
           4,
-          1
+          6
         ],
         "hollow_column|y135": [
           0,
           5,
-          1
+          6
         ],
         "hollow_column|y225": [
           0,
           6,
-          1
+          6
         ],
         "hollow_column|y315": [
           0,
           7,
-          1
+          6
         ],
         "hollow_drift|y045": [
           0,
           8,
-          1
+          6
         ],
         "hollow_drift|y135": [
           0,
           9,
-          1
+          6
         ],
         "hollow_drift|y225": [
           0,
           10,
-          1
+          6
         ],
         "hollow_drift|y315": [
           0,
           11,
-          1
+          6
         ],
         "hollow_echo|y045": [
           0,
           0,
-          2
+          7
         ],
         "hollow_echo|y135": [
           0,
           1,
-          2
+          7
         ],
         "hollow_echo|y225": [
           0,
           2,
-          2
+          7
         ],
         "hollow_echo|y315": [
           0,
           3,
-          2
+          7
         ],
         "hollow_shard|y045": [
           0,
           4,
-          2
+          7
         ],
         "hollow_shard|y135": [
           0,
           5,
-          2
+          7
         ],
         "hollow_shard|y225": [
           0,
           6,
-          2
+          7
         ],
         "hollow_shard|y315": [
           0,
           7,
-          2
+          7
         ],
         "hollow_vessel|y045": [
           0,
           8,
-          2
+          7
         ],
         "hollow_vessel|y135": [
           0,
           9,
-          2
+          7
         ],
         "hollow_vessel|y225": [
           0,
           10,
-          2
+          7
         ],
         "hollow_vessel|y315": [
           0,
           11,
-          2
+          7
+        ],
+        "ion_lance_base|b00": [
+          0,
+          4,
+          8
+        ],
+        "ion_lance_base|b01": [
+          0,
+          5,
+          8
+        ],
+        "ion_lance_base|b02": [
+          0,
+          6,
+          8
+        ],
+        "ion_lance_base|b03": [
+          0,
+          7,
+          8
+        ],
+        "ion_lance_head|b00": [
+          0,
+          8,
+          8
+        ],
+        "ion_lance_head|b01": [
+          0,
+          9,
+          8
+        ],
+        "ion_lance_head|b02": [
+          0,
+          10,
+          8
+        ],
+        "ion_lance_head|b03": [
+          0,
+          11,
+          8
+        ],
+        "ion_lance_head|b04": [
+          0,
+          0,
+          9
+        ],
+        "ion_lance_head|b05": [
+          0,
+          1,
+          9
+        ],
+        "ion_lance_head|b06": [
+          0,
+          2,
+          9
+        ],
+        "ion_lance_head|b07": [
+          0,
+          3,
+          9
+        ],
+        "ion_lance_head|b08": [
+          0,
+          4,
+          9
+        ],
+        "ion_lance_head|b09": [
+          0,
+          5,
+          9
+        ],
+        "ion_lance_head|b10": [
+          0,
+          6,
+          9
+        ],
+        "ion_lance_head|b11": [
+          0,
+          7,
+          9
+        ],
+        "ion_lance_head|b12": [
+          0,
+          8,
+          9
+        ],
+        "ion_lance_head|b13": [
+          0,
+          9,
+          9
+        ],
+        "ion_lance_head|b14": [
+          0,
+          10,
+          9
+        ],
+        "ion_lance_head|b15": [
+          0,
+          11,
+          9
         ],
         "ion_lance|y045": [
           0,
           0,
-          3
+          8
         ],
         "ion_lance|y135": [
           0,
           1,
-          3
+          8
         ],
         "ion_lance|y225": [
           0,
           2,
-          3
+          8
         ],
         "ion_lance|y315": [
           0,
           3,
-          3
+          8
+        ],
+        "mortar_emplacement_base|b00": [
+          0,
+          4,
+          10
+        ],
+        "mortar_emplacement_base|b01": [
+          0,
+          5,
+          10
+        ],
+        "mortar_emplacement_base|b02": [
+          0,
+          6,
+          10
+        ],
+        "mortar_emplacement_base|b03": [
+          0,
+          7,
+          10
+        ],
+        "mortar_emplacement_head|b00": [
+          0,
+          8,
+          10
+        ],
+        "mortar_emplacement_head|b01": [
+          0,
+          9,
+          10
+        ],
+        "mortar_emplacement_head|b02": [
+          0,
+          10,
+          10
+        ],
+        "mortar_emplacement_head|b03": [
+          0,
+          11,
+          10
+        ],
+        "mortar_emplacement_head|b04": [
+          0,
+          0,
+          11
+        ],
+        "mortar_emplacement_head|b05": [
+          0,
+          1,
+          11
+        ],
+        "mortar_emplacement_head|b06": [
+          0,
+          2,
+          11
+        ],
+        "mortar_emplacement_head|b07": [
+          0,
+          3,
+          11
+        ],
+        "mortar_emplacement_head|b08": [
+          0,
+          4,
+          11
+        ],
+        "mortar_emplacement_head|b09": [
+          0,
+          5,
+          11
+        ],
+        "mortar_emplacement_head|b10": [
+          0,
+          6,
+          11
+        ],
+        "mortar_emplacement_head|b11": [
+          0,
+          7,
+          11
+        ],
+        "mortar_emplacement_head|b12": [
+          0,
+          8,
+          11
+        ],
+        "mortar_emplacement_head|b13": [
+          0,
+          9,
+          11
+        ],
+        "mortar_emplacement_head|b14": [
+          0,
+          10,
+          11
+        ],
+        "mortar_emplacement_head|b15": [
+          0,
+          11,
+          11
         ],
         "mortar_emplacement|y045": [
           0,
-          4,
-          3
+          0,
+          10
         ],
         "mortar_emplacement|y135": [
           0,
-          5,
-          3
+          1,
+          10
         ],
         "mortar_emplacement|y225": [
           0,
-          6,
-          3
+          2,
+          10
         ],
         "mortar_emplacement|y315": [
           0,
+          3,
+          10
+        ],
+        "pulse_turret_base|b00": [
+          0,
+          4,
+          12
+        ],
+        "pulse_turret_base|b01": [
+          0,
+          5,
+          12
+        ],
+        "pulse_turret_base|b02": [
+          0,
+          6,
+          12
+        ],
+        "pulse_turret_base|b03": [
+          0,
           7,
-          3
+          12
+        ],
+        "pulse_turret_head|b00": [
+          0,
+          8,
+          12
+        ],
+        "pulse_turret_head|b01": [
+          0,
+          9,
+          12
+        ],
+        "pulse_turret_head|b02": [
+          0,
+          10,
+          12
+        ],
+        "pulse_turret_head|b03": [
+          0,
+          11,
+          12
+        ],
+        "pulse_turret_head|b04": [
+          0,
+          0,
+          13
+        ],
+        "pulse_turret_head|b05": [
+          0,
+          1,
+          13
+        ],
+        "pulse_turret_head|b06": [
+          0,
+          2,
+          13
+        ],
+        "pulse_turret_head|b07": [
+          0,
+          3,
+          13
+        ],
+        "pulse_turret_head|b08": [
+          0,
+          4,
+          13
+        ],
+        "pulse_turret_head|b09": [
+          0,
+          5,
+          13
+        ],
+        "pulse_turret_head|b10": [
+          0,
+          6,
+          13
+        ],
+        "pulse_turret_head|b11": [
+          0,
+          7,
+          13
+        ],
+        "pulse_turret_head|b12": [
+          0,
+          8,
+          13
+        ],
+        "pulse_turret_head|b13": [
+          0,
+          9,
+          13
+        ],
+        "pulse_turret_head|b14": [
+          0,
+          10,
+          13
+        ],
+        "pulse_turret_head|b15": [
+          0,
+          11,
+          13
         ],
         "pulse_turret|y045": [
           0,
-          8,
-          3
+          0,
+          12
         ],
         "pulse_turret|y135": [
           0,
-          9,
-          3
+          1,
+          12
         ],
         "pulse_turret|y225": [
           0,
-          10,
-          3
+          2,
+          12
         ],
         "pulse_turret|y315": [
           0,
-          11,
-          3
+          3,
+          12
         ],
         "reach_breacher|y045": [
           0,
           0,
-          4
+          14
         ],
         "reach_breacher|y135": [
           0,
           1,
-          4
+          14
         ],
         "reach_breacher|y225": [
           0,
           2,
-          4
+          14
         ],
         "reach_breacher|y315": [
           0,
           3,
-          4
+          14
         ],
         "reach_bulwark|y045": [
           0,
           4,
-          4
+          14
         ],
         "reach_bulwark|y135": [
           0,
           5,
-          4
+          14
         ],
         "reach_bulwark|y225": [
           0,
           6,
-          4
+          14
         ],
         "reach_bulwark|y315": [
           0,
           7,
-          4
+          14
         ],
         "reach_picket|y045": [
           0,
           8,
-          4
+          14
         ],
         "reach_picket|y135": [
           0,
           9,
-          4
+          14
         ],
         "reach_picket|y225": [
           0,
           10,
-          4
+          14
         ],
         "reach_picket|y315": [
           0,
           11,
-          4
+          14
         ],
         "reach_sapper|y045": [
           0,
           0,
-          5
+          15
         ],
         "reach_sapper|y135": [
           0,
           1,
-          5
+          15
         ],
         "reach_sapper|y225": [
           0,
           2,
-          5
+          15
         ],
         "reach_sapper|y315": [
           0,
           3,
-          5
+          15
         ],
         "reach_skiff|y045": [
           0,
           4,
-          5
+          15
         ],
         "reach_skiff|y135": [
           0,
           5,
-          5
+          15
         ],
         "reach_skiff|y225": [
           0,
           6,
-          5
+          15
         ],
         "reach_skiff|y315": [
           0,
           7,
-          5
+          15
+        ],
+        "restorer_base|b00": [
+          0,
+          0,
+          16
+        ],
+        "restorer_base|b01": [
+          0,
+          1,
+          16
+        ],
+        "restorer_base|b02": [
+          0,
+          2,
+          16
+        ],
+        "restorer_base|b03": [
+          0,
+          3,
+          16
+        ],
+        "restorer_head|b00": [
+          0,
+          4,
+          16
+        ],
+        "restorer_head|b01": [
+          0,
+          5,
+          16
+        ],
+        "restorer_head|b02": [
+          0,
+          6,
+          16
+        ],
+        "restorer_head|b03": [
+          0,
+          7,
+          16
+        ],
+        "restorer_head|b04": [
+          0,
+          8,
+          16
+        ],
+        "restorer_head|b05": [
+          0,
+          9,
+          16
+        ],
+        "restorer_head|b06": [
+          0,
+          10,
+          16
+        ],
+        "restorer_head|b07": [
+          0,
+          11,
+          16
+        ],
+        "restorer_head|b08": [
+          0,
+          0,
+          17
+        ],
+        "restorer_head|b09": [
+          0,
+          1,
+          17
+        ],
+        "restorer_head|b10": [
+          0,
+          2,
+          17
+        ],
+        "restorer_head|b11": [
+          0,
+          3,
+          17
+        ],
+        "restorer_head|b12": [
+          0,
+          4,
+          17
+        ],
+        "restorer_head|b13": [
+          0,
+          5,
+          17
+        ],
+        "restorer_head|b14": [
+          0,
+          6,
+          17
+        ],
+        "restorer_head|b15": [
+          0,
+          7,
+          17
         ],
         "restorer|y045": [
           0,
           8,
-          5
+          15
         ],
         "restorer|y135": [
           0,
           9,
-          5
+          15
         ],
         "restorer|y225": [
           0,
           10,
-          5
+          15
         ],
         "restorer|y315": [
           0,
           11,
-          5
+          15
+        ],
+        "scan_relay_base|b00": [
+          0,
+          0,
+          18
+        ],
+        "scan_relay_base|b01": [
+          0,
+          1,
+          18
+        ],
+        "scan_relay_base|b02": [
+          0,
+          2,
+          18
+        ],
+        "scan_relay_base|b03": [
+          0,
+          3,
+          18
+        ],
+        "scan_relay_head|b00": [
+          0,
+          4,
+          18
+        ],
+        "scan_relay_head|b01": [
+          0,
+          5,
+          18
+        ],
+        "scan_relay_head|b02": [
+          0,
+          6,
+          18
+        ],
+        "scan_relay_head|b03": [
+          0,
+          7,
+          18
+        ],
+        "scan_relay_head|b04": [
+          0,
+          8,
+          18
+        ],
+        "scan_relay_head|b05": [
+          0,
+          9,
+          18
+        ],
+        "scan_relay_head|b06": [
+          0,
+          10,
+          18
+        ],
+        "scan_relay_head|b07": [
+          0,
+          11,
+          18
+        ],
+        "scan_relay_head|b08": [
+          0,
+          0,
+          19
+        ],
+        "scan_relay_head|b09": [
+          0,
+          1,
+          19
+        ],
+        "scan_relay_head|b10": [
+          0,
+          2,
+          19
+        ],
+        "scan_relay_head|b11": [
+          0,
+          3,
+          19
+        ],
+        "scan_relay_head|b12": [
+          0,
+          4,
+          19
+        ],
+        "scan_relay_head|b13": [
+          0,
+          5,
+          19
+        ],
+        "scan_relay_head|b14": [
+          0,
+          6,
+          19
+        ],
+        "scan_relay_head|b15": [
+          0,
+          7,
+          19
         ],
         "scan_relay|y045": [
           0,
-          0,
-          6
+          8,
+          17
         ],
         "scan_relay|y135": [
           0,
-          1,
-          6
+          9,
+          17
         ],
         "scan_relay|y225": [
           0,
-          2,
-          6
+          10,
+          17
         ],
         "scan_relay|y315": [
           0,
+          11,
+          17
+        ],
+        "shield_wall_base|b00": [
+          0,
+          0,
+          20
+        ],
+        "shield_wall_base|b01": [
+          0,
+          1,
+          20
+        ],
+        "shield_wall_base|b02": [
+          0,
+          2,
+          20
+        ],
+        "shield_wall_base|b03": [
+          0,
           3,
-          6
+          20
+        ],
+        "shield_wall_head|b00": [
+          0,
+          4,
+          20
+        ],
+        "shield_wall_head|b01": [
+          0,
+          5,
+          20
+        ],
+        "shield_wall_head|b02": [
+          0,
+          6,
+          20
+        ],
+        "shield_wall_head|b03": [
+          0,
+          7,
+          20
+        ],
+        "shield_wall_head|b04": [
+          0,
+          8,
+          20
+        ],
+        "shield_wall_head|b05": [
+          0,
+          9,
+          20
+        ],
+        "shield_wall_head|b06": [
+          0,
+          10,
+          20
+        ],
+        "shield_wall_head|b07": [
+          0,
+          11,
+          20
+        ],
+        "shield_wall_head|b08": [
+          0,
+          0,
+          21
+        ],
+        "shield_wall_head|b09": [
+          0,
+          1,
+          21
+        ],
+        "shield_wall_head|b10": [
+          0,
+          2,
+          21
+        ],
+        "shield_wall_head|b11": [
+          0,
+          3,
+          21
+        ],
+        "shield_wall_head|b12": [
+          0,
+          4,
+          21
+        ],
+        "shield_wall_head|b13": [
+          0,
+          5,
+          21
+        ],
+        "shield_wall_head|b14": [
+          0,
+          6,
+          21
+        ],
+        "shield_wall_head|b15": [
+          0,
+          7,
+          21
         ],
         "shield_wall|y045": [
           0,
-          4,
-          6
+          8,
+          19
         ],
         "shield_wall|y135": [
           0,
-          5,
-          6
+          9,
+          19
         ],
         "shield_wall|y225": [
           0,
-          6,
-          6
+          10,
+          19
         ],
         "shield_wall|y315": [
           0,
-          7,
-          6
+          11,
+          19
         ],
         "tile_ground|y045": [
           0,
           8,
-          6
+          21
         ],
         "tile_ground|y135": [
           0,
           9,
-          6
+          21
         ],
         "tile_ground|y225": [
           0,
           10,
-          6
+          21
         ],
         "tile_ground|y315": [
           0,
           11,
-          6
+          21
         ],
         "tile_path|y045": [
           0,
           0,
-          7
+          22
         ],
         "tile_path|y135": [
           0,
           1,
-          7
+          22
         ],
         "tile_path|y225": [
           0,
           2,
-          7
+          22
         ],
         "tile_path|y315": [
           0,
           3,
-          7
+          22
         ],
         "tile_slot|y045": [
           0,
           4,
-          7
+          22
         ],
         "tile_slot|y135": [
           0,
           5,
-          7
+          22
         ],
         "tile_slot|y225": [
           0,
           6,
-          7
+          22
         ],
         "tile_slot|y315": [
           0,
           7,
-          7
+          22
         ],
         "warden_drone|y045": [
           0,
           8,
-          7
+          22
         ],
         "warden_drone|y135": [
           0,
           9,
-          7
+          22
         ],
         "warden_drone|y225": [
           0,
           10,
-          7
+          22
         ],
         "warden_drone|y315": [
           0,
           11,
-          7
+          22
         ],
         "warden_heavy|y045": [
           0,
           0,
-          8
+          23
         ],
         "warden_heavy|y135": [
           0,
           1,
-          8
+          23
         ],
         "warden_heavy|y225": [
           0,
           2,
-          8
+          23
         ],
         "warden_heavy|y315": [
           0,
           3,
-          8
+          23
         ],
         "warden_mote|y045": [
           0,
           4,
-          8
+          23
         ],
         "warden_mote|y135": [
           0,
           5,
-          8
+          23
         ],
         "warden_mote|y225": [
           0,
           6,
-          8
+          23
         ],
         "warden_mote|y315": [
           0,
           7,
-          8
+          23
         ]
       }
     },
@@ -1060,7 +2860,7 @@
       "albedo": "assets/renders/atlas/albedo.png",
       "glow": "assets/renders/atlas/glow.png"
     },
-    "source_digest": "9fc3c8e193edfce15d316d39587d697250f43c02fa60bece5bfdc28ed65b2e14"
+    "source_digest": "494125eede3de30df932ab1c02f401b8bc1c7aacf4e1735395025cabdb336d7d"
   },
   "blender_version": "5.2.0 LTS",
   "cell": 256,
@@ -1117,6 +2917,90 @@
         "glow": "assets/renders/anchor_damper_y315_glow.png"
       }
     },
+    "anchor_damper_base": {
+      "b00": {
+        "albedo": "assets/renders/anchor_damper_base_b00_albedo.png",
+        "glow": "assets/renders/anchor_damper_base_b00_glow.png"
+      },
+      "b01": {
+        "albedo": "assets/renders/anchor_damper_base_b01_albedo.png",
+        "glow": "assets/renders/anchor_damper_base_b01_glow.png"
+      },
+      "b02": {
+        "albedo": "assets/renders/anchor_damper_base_b02_albedo.png",
+        "glow": "assets/renders/anchor_damper_base_b02_glow.png"
+      },
+      "b03": {
+        "albedo": "assets/renders/anchor_damper_base_b03_albedo.png",
+        "glow": "assets/renders/anchor_damper_base_b03_glow.png"
+      }
+    },
+    "anchor_damper_head": {
+      "b00": {
+        "albedo": "assets/renders/anchor_damper_head_b00_albedo.png",
+        "glow": "assets/renders/anchor_damper_head_b00_glow.png"
+      },
+      "b01": {
+        "albedo": "assets/renders/anchor_damper_head_b01_albedo.png",
+        "glow": "assets/renders/anchor_damper_head_b01_glow.png"
+      },
+      "b02": {
+        "albedo": "assets/renders/anchor_damper_head_b02_albedo.png",
+        "glow": "assets/renders/anchor_damper_head_b02_glow.png"
+      },
+      "b03": {
+        "albedo": "assets/renders/anchor_damper_head_b03_albedo.png",
+        "glow": "assets/renders/anchor_damper_head_b03_glow.png"
+      },
+      "b04": {
+        "albedo": "assets/renders/anchor_damper_head_b04_albedo.png",
+        "glow": "assets/renders/anchor_damper_head_b04_glow.png"
+      },
+      "b05": {
+        "albedo": "assets/renders/anchor_damper_head_b05_albedo.png",
+        "glow": "assets/renders/anchor_damper_head_b05_glow.png"
+      },
+      "b06": {
+        "albedo": "assets/renders/anchor_damper_head_b06_albedo.png",
+        "glow": "assets/renders/anchor_damper_head_b06_glow.png"
+      },
+      "b07": {
+        "albedo": "assets/renders/anchor_damper_head_b07_albedo.png",
+        "glow": "assets/renders/anchor_damper_head_b07_glow.png"
+      },
+      "b08": {
+        "albedo": "assets/renders/anchor_damper_head_b08_albedo.png",
+        "glow": "assets/renders/anchor_damper_head_b08_glow.png"
+      },
+      "b09": {
+        "albedo": "assets/renders/anchor_damper_head_b09_albedo.png",
+        "glow": "assets/renders/anchor_damper_head_b09_glow.png"
+      },
+      "b10": {
+        "albedo": "assets/renders/anchor_damper_head_b10_albedo.png",
+        "glow": "assets/renders/anchor_damper_head_b10_glow.png"
+      },
+      "b11": {
+        "albedo": "assets/renders/anchor_damper_head_b11_albedo.png",
+        "glow": "assets/renders/anchor_damper_head_b11_glow.png"
+      },
+      "b12": {
+        "albedo": "assets/renders/anchor_damper_head_b12_albedo.png",
+        "glow": "assets/renders/anchor_damper_head_b12_glow.png"
+      },
+      "b13": {
+        "albedo": "assets/renders/anchor_damper_head_b13_albedo.png",
+        "glow": "assets/renders/anchor_damper_head_b13_glow.png"
+      },
+      "b14": {
+        "albedo": "assets/renders/anchor_damper_head_b14_albedo.png",
+        "glow": "assets/renders/anchor_damper_head_b14_glow.png"
+      },
+      "b15": {
+        "albedo": "assets/renders/anchor_damper_head_b15_albedo.png",
+        "glow": "assets/renders/anchor_damper_head_b15_glow.png"
+      }
+    },
     "anchor_ring": {
       "y045": {
         "albedo": "assets/renders/anchor_ring_y045_albedo.png",
@@ -1153,6 +3037,90 @@
         "glow": "assets/renders/arc_node_y315_glow.png"
       }
     },
+    "arc_node_base": {
+      "b00": {
+        "albedo": "assets/renders/arc_node_base_b00_albedo.png",
+        "glow": "assets/renders/arc_node_base_b00_glow.png"
+      },
+      "b01": {
+        "albedo": "assets/renders/arc_node_base_b01_albedo.png",
+        "glow": "assets/renders/arc_node_base_b01_glow.png"
+      },
+      "b02": {
+        "albedo": "assets/renders/arc_node_base_b02_albedo.png",
+        "glow": "assets/renders/arc_node_base_b02_glow.png"
+      },
+      "b03": {
+        "albedo": "assets/renders/arc_node_base_b03_albedo.png",
+        "glow": "assets/renders/arc_node_base_b03_glow.png"
+      }
+    },
+    "arc_node_head": {
+      "b00": {
+        "albedo": "assets/renders/arc_node_head_b00_albedo.png",
+        "glow": "assets/renders/arc_node_head_b00_glow.png"
+      },
+      "b01": {
+        "albedo": "assets/renders/arc_node_head_b01_albedo.png",
+        "glow": "assets/renders/arc_node_head_b01_glow.png"
+      },
+      "b02": {
+        "albedo": "assets/renders/arc_node_head_b02_albedo.png",
+        "glow": "assets/renders/arc_node_head_b02_glow.png"
+      },
+      "b03": {
+        "albedo": "assets/renders/arc_node_head_b03_albedo.png",
+        "glow": "assets/renders/arc_node_head_b03_glow.png"
+      },
+      "b04": {
+        "albedo": "assets/renders/arc_node_head_b04_albedo.png",
+        "glow": "assets/renders/arc_node_head_b04_glow.png"
+      },
+      "b05": {
+        "albedo": "assets/renders/arc_node_head_b05_albedo.png",
+        "glow": "assets/renders/arc_node_head_b05_glow.png"
+      },
+      "b06": {
+        "albedo": "assets/renders/arc_node_head_b06_albedo.png",
+        "glow": "assets/renders/arc_node_head_b06_glow.png"
+      },
+      "b07": {
+        "albedo": "assets/renders/arc_node_head_b07_albedo.png",
+        "glow": "assets/renders/arc_node_head_b07_glow.png"
+      },
+      "b08": {
+        "albedo": "assets/renders/arc_node_head_b08_albedo.png",
+        "glow": "assets/renders/arc_node_head_b08_glow.png"
+      },
+      "b09": {
+        "albedo": "assets/renders/arc_node_head_b09_albedo.png",
+        "glow": "assets/renders/arc_node_head_b09_glow.png"
+      },
+      "b10": {
+        "albedo": "assets/renders/arc_node_head_b10_albedo.png",
+        "glow": "assets/renders/arc_node_head_b10_glow.png"
+      },
+      "b11": {
+        "albedo": "assets/renders/arc_node_head_b11_albedo.png",
+        "glow": "assets/renders/arc_node_head_b11_glow.png"
+      },
+      "b12": {
+        "albedo": "assets/renders/arc_node_head_b12_albedo.png",
+        "glow": "assets/renders/arc_node_head_b12_glow.png"
+      },
+      "b13": {
+        "albedo": "assets/renders/arc_node_head_b13_albedo.png",
+        "glow": "assets/renders/arc_node_head_b13_glow.png"
+      },
+      "b14": {
+        "albedo": "assets/renders/arc_node_head_b14_albedo.png",
+        "glow": "assets/renders/arc_node_head_b14_glow.png"
+      },
+      "b15": {
+        "albedo": "assets/renders/arc_node_head_b15_albedo.png",
+        "glow": "assets/renders/arc_node_head_b15_glow.png"
+      }
+    },
     "flak_array": {
       "y045": {
         "albedo": "assets/renders/flak_array_y045_albedo.png",
@@ -1169,6 +3137,90 @@
       "y315": {
         "albedo": "assets/renders/flak_array_y315_albedo.png",
         "glow": "assets/renders/flak_array_y315_glow.png"
+      }
+    },
+    "flak_array_base": {
+      "b00": {
+        "albedo": "assets/renders/flak_array_base_b00_albedo.png",
+        "glow": "assets/renders/flak_array_base_b00_glow.png"
+      },
+      "b01": {
+        "albedo": "assets/renders/flak_array_base_b01_albedo.png",
+        "glow": "assets/renders/flak_array_base_b01_glow.png"
+      },
+      "b02": {
+        "albedo": "assets/renders/flak_array_base_b02_albedo.png",
+        "glow": "assets/renders/flak_array_base_b02_glow.png"
+      },
+      "b03": {
+        "albedo": "assets/renders/flak_array_base_b03_albedo.png",
+        "glow": "assets/renders/flak_array_base_b03_glow.png"
+      }
+    },
+    "flak_array_head": {
+      "b00": {
+        "albedo": "assets/renders/flak_array_head_b00_albedo.png",
+        "glow": "assets/renders/flak_array_head_b00_glow.png"
+      },
+      "b01": {
+        "albedo": "assets/renders/flak_array_head_b01_albedo.png",
+        "glow": "assets/renders/flak_array_head_b01_glow.png"
+      },
+      "b02": {
+        "albedo": "assets/renders/flak_array_head_b02_albedo.png",
+        "glow": "assets/renders/flak_array_head_b02_glow.png"
+      },
+      "b03": {
+        "albedo": "assets/renders/flak_array_head_b03_albedo.png",
+        "glow": "assets/renders/flak_array_head_b03_glow.png"
+      },
+      "b04": {
+        "albedo": "assets/renders/flak_array_head_b04_albedo.png",
+        "glow": "assets/renders/flak_array_head_b04_glow.png"
+      },
+      "b05": {
+        "albedo": "assets/renders/flak_array_head_b05_albedo.png",
+        "glow": "assets/renders/flak_array_head_b05_glow.png"
+      },
+      "b06": {
+        "albedo": "assets/renders/flak_array_head_b06_albedo.png",
+        "glow": "assets/renders/flak_array_head_b06_glow.png"
+      },
+      "b07": {
+        "albedo": "assets/renders/flak_array_head_b07_albedo.png",
+        "glow": "assets/renders/flak_array_head_b07_glow.png"
+      },
+      "b08": {
+        "albedo": "assets/renders/flak_array_head_b08_albedo.png",
+        "glow": "assets/renders/flak_array_head_b08_glow.png"
+      },
+      "b09": {
+        "albedo": "assets/renders/flak_array_head_b09_albedo.png",
+        "glow": "assets/renders/flak_array_head_b09_glow.png"
+      },
+      "b10": {
+        "albedo": "assets/renders/flak_array_head_b10_albedo.png",
+        "glow": "assets/renders/flak_array_head_b10_glow.png"
+      },
+      "b11": {
+        "albedo": "assets/renders/flak_array_head_b11_albedo.png",
+        "glow": "assets/renders/flak_array_head_b11_glow.png"
+      },
+      "b12": {
+        "albedo": "assets/renders/flak_array_head_b12_albedo.png",
+        "glow": "assets/renders/flak_array_head_b12_glow.png"
+      },
+      "b13": {
+        "albedo": "assets/renders/flak_array_head_b13_albedo.png",
+        "glow": "assets/renders/flak_array_head_b13_glow.png"
+      },
+      "b14": {
+        "albedo": "assets/renders/flak_array_head_b14_albedo.png",
+        "glow": "assets/renders/flak_array_head_b14_glow.png"
+      },
+      "b15": {
+        "albedo": "assets/renders/flak_array_head_b15_albedo.png",
+        "glow": "assets/renders/flak_array_head_b15_glow.png"
       }
     },
     "hollow_column": {
@@ -1279,6 +3331,90 @@
         "glow": "assets/renders/ion_lance_y315_glow.png"
       }
     },
+    "ion_lance_base": {
+      "b00": {
+        "albedo": "assets/renders/ion_lance_base_b00_albedo.png",
+        "glow": "assets/renders/ion_lance_base_b00_glow.png"
+      },
+      "b01": {
+        "albedo": "assets/renders/ion_lance_base_b01_albedo.png",
+        "glow": "assets/renders/ion_lance_base_b01_glow.png"
+      },
+      "b02": {
+        "albedo": "assets/renders/ion_lance_base_b02_albedo.png",
+        "glow": "assets/renders/ion_lance_base_b02_glow.png"
+      },
+      "b03": {
+        "albedo": "assets/renders/ion_lance_base_b03_albedo.png",
+        "glow": "assets/renders/ion_lance_base_b03_glow.png"
+      }
+    },
+    "ion_lance_head": {
+      "b00": {
+        "albedo": "assets/renders/ion_lance_head_b00_albedo.png",
+        "glow": "assets/renders/ion_lance_head_b00_glow.png"
+      },
+      "b01": {
+        "albedo": "assets/renders/ion_lance_head_b01_albedo.png",
+        "glow": "assets/renders/ion_lance_head_b01_glow.png"
+      },
+      "b02": {
+        "albedo": "assets/renders/ion_lance_head_b02_albedo.png",
+        "glow": "assets/renders/ion_lance_head_b02_glow.png"
+      },
+      "b03": {
+        "albedo": "assets/renders/ion_lance_head_b03_albedo.png",
+        "glow": "assets/renders/ion_lance_head_b03_glow.png"
+      },
+      "b04": {
+        "albedo": "assets/renders/ion_lance_head_b04_albedo.png",
+        "glow": "assets/renders/ion_lance_head_b04_glow.png"
+      },
+      "b05": {
+        "albedo": "assets/renders/ion_lance_head_b05_albedo.png",
+        "glow": "assets/renders/ion_lance_head_b05_glow.png"
+      },
+      "b06": {
+        "albedo": "assets/renders/ion_lance_head_b06_albedo.png",
+        "glow": "assets/renders/ion_lance_head_b06_glow.png"
+      },
+      "b07": {
+        "albedo": "assets/renders/ion_lance_head_b07_albedo.png",
+        "glow": "assets/renders/ion_lance_head_b07_glow.png"
+      },
+      "b08": {
+        "albedo": "assets/renders/ion_lance_head_b08_albedo.png",
+        "glow": "assets/renders/ion_lance_head_b08_glow.png"
+      },
+      "b09": {
+        "albedo": "assets/renders/ion_lance_head_b09_albedo.png",
+        "glow": "assets/renders/ion_lance_head_b09_glow.png"
+      },
+      "b10": {
+        "albedo": "assets/renders/ion_lance_head_b10_albedo.png",
+        "glow": "assets/renders/ion_lance_head_b10_glow.png"
+      },
+      "b11": {
+        "albedo": "assets/renders/ion_lance_head_b11_albedo.png",
+        "glow": "assets/renders/ion_lance_head_b11_glow.png"
+      },
+      "b12": {
+        "albedo": "assets/renders/ion_lance_head_b12_albedo.png",
+        "glow": "assets/renders/ion_lance_head_b12_glow.png"
+      },
+      "b13": {
+        "albedo": "assets/renders/ion_lance_head_b13_albedo.png",
+        "glow": "assets/renders/ion_lance_head_b13_glow.png"
+      },
+      "b14": {
+        "albedo": "assets/renders/ion_lance_head_b14_albedo.png",
+        "glow": "assets/renders/ion_lance_head_b14_glow.png"
+      },
+      "b15": {
+        "albedo": "assets/renders/ion_lance_head_b15_albedo.png",
+        "glow": "assets/renders/ion_lance_head_b15_glow.png"
+      }
+    },
     "mortar_emplacement": {
       "y045": {
         "albedo": "assets/renders/mortar_emplacement_y045_albedo.png",
@@ -1297,6 +3433,90 @@
         "glow": "assets/renders/mortar_emplacement_y315_glow.png"
       }
     },
+    "mortar_emplacement_base": {
+      "b00": {
+        "albedo": "assets/renders/mortar_emplacement_base_b00_albedo.png",
+        "glow": "assets/renders/mortar_emplacement_base_b00_glow.png"
+      },
+      "b01": {
+        "albedo": "assets/renders/mortar_emplacement_base_b01_albedo.png",
+        "glow": "assets/renders/mortar_emplacement_base_b01_glow.png"
+      },
+      "b02": {
+        "albedo": "assets/renders/mortar_emplacement_base_b02_albedo.png",
+        "glow": "assets/renders/mortar_emplacement_base_b02_glow.png"
+      },
+      "b03": {
+        "albedo": "assets/renders/mortar_emplacement_base_b03_albedo.png",
+        "glow": "assets/renders/mortar_emplacement_base_b03_glow.png"
+      }
+    },
+    "mortar_emplacement_head": {
+      "b00": {
+        "albedo": "assets/renders/mortar_emplacement_head_b00_albedo.png",
+        "glow": "assets/renders/mortar_emplacement_head_b00_glow.png"
+      },
+      "b01": {
+        "albedo": "assets/renders/mortar_emplacement_head_b01_albedo.png",
+        "glow": "assets/renders/mortar_emplacement_head_b01_glow.png"
+      },
+      "b02": {
+        "albedo": "assets/renders/mortar_emplacement_head_b02_albedo.png",
+        "glow": "assets/renders/mortar_emplacement_head_b02_glow.png"
+      },
+      "b03": {
+        "albedo": "assets/renders/mortar_emplacement_head_b03_albedo.png",
+        "glow": "assets/renders/mortar_emplacement_head_b03_glow.png"
+      },
+      "b04": {
+        "albedo": "assets/renders/mortar_emplacement_head_b04_albedo.png",
+        "glow": "assets/renders/mortar_emplacement_head_b04_glow.png"
+      },
+      "b05": {
+        "albedo": "assets/renders/mortar_emplacement_head_b05_albedo.png",
+        "glow": "assets/renders/mortar_emplacement_head_b05_glow.png"
+      },
+      "b06": {
+        "albedo": "assets/renders/mortar_emplacement_head_b06_albedo.png",
+        "glow": "assets/renders/mortar_emplacement_head_b06_glow.png"
+      },
+      "b07": {
+        "albedo": "assets/renders/mortar_emplacement_head_b07_albedo.png",
+        "glow": "assets/renders/mortar_emplacement_head_b07_glow.png"
+      },
+      "b08": {
+        "albedo": "assets/renders/mortar_emplacement_head_b08_albedo.png",
+        "glow": "assets/renders/mortar_emplacement_head_b08_glow.png"
+      },
+      "b09": {
+        "albedo": "assets/renders/mortar_emplacement_head_b09_albedo.png",
+        "glow": "assets/renders/mortar_emplacement_head_b09_glow.png"
+      },
+      "b10": {
+        "albedo": "assets/renders/mortar_emplacement_head_b10_albedo.png",
+        "glow": "assets/renders/mortar_emplacement_head_b10_glow.png"
+      },
+      "b11": {
+        "albedo": "assets/renders/mortar_emplacement_head_b11_albedo.png",
+        "glow": "assets/renders/mortar_emplacement_head_b11_glow.png"
+      },
+      "b12": {
+        "albedo": "assets/renders/mortar_emplacement_head_b12_albedo.png",
+        "glow": "assets/renders/mortar_emplacement_head_b12_glow.png"
+      },
+      "b13": {
+        "albedo": "assets/renders/mortar_emplacement_head_b13_albedo.png",
+        "glow": "assets/renders/mortar_emplacement_head_b13_glow.png"
+      },
+      "b14": {
+        "albedo": "assets/renders/mortar_emplacement_head_b14_albedo.png",
+        "glow": "assets/renders/mortar_emplacement_head_b14_glow.png"
+      },
+      "b15": {
+        "albedo": "assets/renders/mortar_emplacement_head_b15_albedo.png",
+        "glow": "assets/renders/mortar_emplacement_head_b15_glow.png"
+      }
+    },
     "pulse_turret": {
       "y045": {
         "albedo": "assets/renders/pulse_turret_y045_albedo.png",
@@ -1313,6 +3533,90 @@
       "y315": {
         "albedo": "assets/renders/pulse_turret_y315_albedo.png",
         "glow": "assets/renders/pulse_turret_y315_glow.png"
+      }
+    },
+    "pulse_turret_base": {
+      "b00": {
+        "albedo": "assets/renders/pulse_turret_base_b00_albedo.png",
+        "glow": "assets/renders/pulse_turret_base_b00_glow.png"
+      },
+      "b01": {
+        "albedo": "assets/renders/pulse_turret_base_b01_albedo.png",
+        "glow": "assets/renders/pulse_turret_base_b01_glow.png"
+      },
+      "b02": {
+        "albedo": "assets/renders/pulse_turret_base_b02_albedo.png",
+        "glow": "assets/renders/pulse_turret_base_b02_glow.png"
+      },
+      "b03": {
+        "albedo": "assets/renders/pulse_turret_base_b03_albedo.png",
+        "glow": "assets/renders/pulse_turret_base_b03_glow.png"
+      }
+    },
+    "pulse_turret_head": {
+      "b00": {
+        "albedo": "assets/renders/pulse_turret_head_b00_albedo.png",
+        "glow": "assets/renders/pulse_turret_head_b00_glow.png"
+      },
+      "b01": {
+        "albedo": "assets/renders/pulse_turret_head_b01_albedo.png",
+        "glow": "assets/renders/pulse_turret_head_b01_glow.png"
+      },
+      "b02": {
+        "albedo": "assets/renders/pulse_turret_head_b02_albedo.png",
+        "glow": "assets/renders/pulse_turret_head_b02_glow.png"
+      },
+      "b03": {
+        "albedo": "assets/renders/pulse_turret_head_b03_albedo.png",
+        "glow": "assets/renders/pulse_turret_head_b03_glow.png"
+      },
+      "b04": {
+        "albedo": "assets/renders/pulse_turret_head_b04_albedo.png",
+        "glow": "assets/renders/pulse_turret_head_b04_glow.png"
+      },
+      "b05": {
+        "albedo": "assets/renders/pulse_turret_head_b05_albedo.png",
+        "glow": "assets/renders/pulse_turret_head_b05_glow.png"
+      },
+      "b06": {
+        "albedo": "assets/renders/pulse_turret_head_b06_albedo.png",
+        "glow": "assets/renders/pulse_turret_head_b06_glow.png"
+      },
+      "b07": {
+        "albedo": "assets/renders/pulse_turret_head_b07_albedo.png",
+        "glow": "assets/renders/pulse_turret_head_b07_glow.png"
+      },
+      "b08": {
+        "albedo": "assets/renders/pulse_turret_head_b08_albedo.png",
+        "glow": "assets/renders/pulse_turret_head_b08_glow.png"
+      },
+      "b09": {
+        "albedo": "assets/renders/pulse_turret_head_b09_albedo.png",
+        "glow": "assets/renders/pulse_turret_head_b09_glow.png"
+      },
+      "b10": {
+        "albedo": "assets/renders/pulse_turret_head_b10_albedo.png",
+        "glow": "assets/renders/pulse_turret_head_b10_glow.png"
+      },
+      "b11": {
+        "albedo": "assets/renders/pulse_turret_head_b11_albedo.png",
+        "glow": "assets/renders/pulse_turret_head_b11_glow.png"
+      },
+      "b12": {
+        "albedo": "assets/renders/pulse_turret_head_b12_albedo.png",
+        "glow": "assets/renders/pulse_turret_head_b12_glow.png"
+      },
+      "b13": {
+        "albedo": "assets/renders/pulse_turret_head_b13_albedo.png",
+        "glow": "assets/renders/pulse_turret_head_b13_glow.png"
+      },
+      "b14": {
+        "albedo": "assets/renders/pulse_turret_head_b14_albedo.png",
+        "glow": "assets/renders/pulse_turret_head_b14_glow.png"
+      },
+      "b15": {
+        "albedo": "assets/renders/pulse_turret_head_b15_albedo.png",
+        "glow": "assets/renders/pulse_turret_head_b15_glow.png"
       }
     },
     "reach_breacher": {
@@ -1423,6 +3727,90 @@
         "glow": "assets/renders/restorer_y315_glow.png"
       }
     },
+    "restorer_base": {
+      "b00": {
+        "albedo": "assets/renders/restorer_base_b00_albedo.png",
+        "glow": "assets/renders/restorer_base_b00_glow.png"
+      },
+      "b01": {
+        "albedo": "assets/renders/restorer_base_b01_albedo.png",
+        "glow": "assets/renders/restorer_base_b01_glow.png"
+      },
+      "b02": {
+        "albedo": "assets/renders/restorer_base_b02_albedo.png",
+        "glow": "assets/renders/restorer_base_b02_glow.png"
+      },
+      "b03": {
+        "albedo": "assets/renders/restorer_base_b03_albedo.png",
+        "glow": "assets/renders/restorer_base_b03_glow.png"
+      }
+    },
+    "restorer_head": {
+      "b00": {
+        "albedo": "assets/renders/restorer_head_b00_albedo.png",
+        "glow": "assets/renders/restorer_head_b00_glow.png"
+      },
+      "b01": {
+        "albedo": "assets/renders/restorer_head_b01_albedo.png",
+        "glow": "assets/renders/restorer_head_b01_glow.png"
+      },
+      "b02": {
+        "albedo": "assets/renders/restorer_head_b02_albedo.png",
+        "glow": "assets/renders/restorer_head_b02_glow.png"
+      },
+      "b03": {
+        "albedo": "assets/renders/restorer_head_b03_albedo.png",
+        "glow": "assets/renders/restorer_head_b03_glow.png"
+      },
+      "b04": {
+        "albedo": "assets/renders/restorer_head_b04_albedo.png",
+        "glow": "assets/renders/restorer_head_b04_glow.png"
+      },
+      "b05": {
+        "albedo": "assets/renders/restorer_head_b05_albedo.png",
+        "glow": "assets/renders/restorer_head_b05_glow.png"
+      },
+      "b06": {
+        "albedo": "assets/renders/restorer_head_b06_albedo.png",
+        "glow": "assets/renders/restorer_head_b06_glow.png"
+      },
+      "b07": {
+        "albedo": "assets/renders/restorer_head_b07_albedo.png",
+        "glow": "assets/renders/restorer_head_b07_glow.png"
+      },
+      "b08": {
+        "albedo": "assets/renders/restorer_head_b08_albedo.png",
+        "glow": "assets/renders/restorer_head_b08_glow.png"
+      },
+      "b09": {
+        "albedo": "assets/renders/restorer_head_b09_albedo.png",
+        "glow": "assets/renders/restorer_head_b09_glow.png"
+      },
+      "b10": {
+        "albedo": "assets/renders/restorer_head_b10_albedo.png",
+        "glow": "assets/renders/restorer_head_b10_glow.png"
+      },
+      "b11": {
+        "albedo": "assets/renders/restorer_head_b11_albedo.png",
+        "glow": "assets/renders/restorer_head_b11_glow.png"
+      },
+      "b12": {
+        "albedo": "assets/renders/restorer_head_b12_albedo.png",
+        "glow": "assets/renders/restorer_head_b12_glow.png"
+      },
+      "b13": {
+        "albedo": "assets/renders/restorer_head_b13_albedo.png",
+        "glow": "assets/renders/restorer_head_b13_glow.png"
+      },
+      "b14": {
+        "albedo": "assets/renders/restorer_head_b14_albedo.png",
+        "glow": "assets/renders/restorer_head_b14_glow.png"
+      },
+      "b15": {
+        "albedo": "assets/renders/restorer_head_b15_albedo.png",
+        "glow": "assets/renders/restorer_head_b15_glow.png"
+      }
+    },
     "scan_relay": {
       "y045": {
         "albedo": "assets/renders/scan_relay_y045_albedo.png",
@@ -1441,6 +3829,90 @@
         "glow": "assets/renders/scan_relay_y315_glow.png"
       }
     },
+    "scan_relay_base": {
+      "b00": {
+        "albedo": "assets/renders/scan_relay_base_b00_albedo.png",
+        "glow": "assets/renders/scan_relay_base_b00_glow.png"
+      },
+      "b01": {
+        "albedo": "assets/renders/scan_relay_base_b01_albedo.png",
+        "glow": "assets/renders/scan_relay_base_b01_glow.png"
+      },
+      "b02": {
+        "albedo": "assets/renders/scan_relay_base_b02_albedo.png",
+        "glow": "assets/renders/scan_relay_base_b02_glow.png"
+      },
+      "b03": {
+        "albedo": "assets/renders/scan_relay_base_b03_albedo.png",
+        "glow": "assets/renders/scan_relay_base_b03_glow.png"
+      }
+    },
+    "scan_relay_head": {
+      "b00": {
+        "albedo": "assets/renders/scan_relay_head_b00_albedo.png",
+        "glow": "assets/renders/scan_relay_head_b00_glow.png"
+      },
+      "b01": {
+        "albedo": "assets/renders/scan_relay_head_b01_albedo.png",
+        "glow": "assets/renders/scan_relay_head_b01_glow.png"
+      },
+      "b02": {
+        "albedo": "assets/renders/scan_relay_head_b02_albedo.png",
+        "glow": "assets/renders/scan_relay_head_b02_glow.png"
+      },
+      "b03": {
+        "albedo": "assets/renders/scan_relay_head_b03_albedo.png",
+        "glow": "assets/renders/scan_relay_head_b03_glow.png"
+      },
+      "b04": {
+        "albedo": "assets/renders/scan_relay_head_b04_albedo.png",
+        "glow": "assets/renders/scan_relay_head_b04_glow.png"
+      },
+      "b05": {
+        "albedo": "assets/renders/scan_relay_head_b05_albedo.png",
+        "glow": "assets/renders/scan_relay_head_b05_glow.png"
+      },
+      "b06": {
+        "albedo": "assets/renders/scan_relay_head_b06_albedo.png",
+        "glow": "assets/renders/scan_relay_head_b06_glow.png"
+      },
+      "b07": {
+        "albedo": "assets/renders/scan_relay_head_b07_albedo.png",
+        "glow": "assets/renders/scan_relay_head_b07_glow.png"
+      },
+      "b08": {
+        "albedo": "assets/renders/scan_relay_head_b08_albedo.png",
+        "glow": "assets/renders/scan_relay_head_b08_glow.png"
+      },
+      "b09": {
+        "albedo": "assets/renders/scan_relay_head_b09_albedo.png",
+        "glow": "assets/renders/scan_relay_head_b09_glow.png"
+      },
+      "b10": {
+        "albedo": "assets/renders/scan_relay_head_b10_albedo.png",
+        "glow": "assets/renders/scan_relay_head_b10_glow.png"
+      },
+      "b11": {
+        "albedo": "assets/renders/scan_relay_head_b11_albedo.png",
+        "glow": "assets/renders/scan_relay_head_b11_glow.png"
+      },
+      "b12": {
+        "albedo": "assets/renders/scan_relay_head_b12_albedo.png",
+        "glow": "assets/renders/scan_relay_head_b12_glow.png"
+      },
+      "b13": {
+        "albedo": "assets/renders/scan_relay_head_b13_albedo.png",
+        "glow": "assets/renders/scan_relay_head_b13_glow.png"
+      },
+      "b14": {
+        "albedo": "assets/renders/scan_relay_head_b14_albedo.png",
+        "glow": "assets/renders/scan_relay_head_b14_glow.png"
+      },
+      "b15": {
+        "albedo": "assets/renders/scan_relay_head_b15_albedo.png",
+        "glow": "assets/renders/scan_relay_head_b15_glow.png"
+      }
+    },
     "shield_wall": {
       "y045": {
         "albedo": "assets/renders/shield_wall_y045_albedo.png",
@@ -1457,6 +3929,90 @@
       "y315": {
         "albedo": "assets/renders/shield_wall_y315_albedo.png",
         "glow": "assets/renders/shield_wall_y315_glow.png"
+      }
+    },
+    "shield_wall_base": {
+      "b00": {
+        "albedo": "assets/renders/shield_wall_base_b00_albedo.png",
+        "glow": "assets/renders/shield_wall_base_b00_glow.png"
+      },
+      "b01": {
+        "albedo": "assets/renders/shield_wall_base_b01_albedo.png",
+        "glow": "assets/renders/shield_wall_base_b01_glow.png"
+      },
+      "b02": {
+        "albedo": "assets/renders/shield_wall_base_b02_albedo.png",
+        "glow": "assets/renders/shield_wall_base_b02_glow.png"
+      },
+      "b03": {
+        "albedo": "assets/renders/shield_wall_base_b03_albedo.png",
+        "glow": "assets/renders/shield_wall_base_b03_glow.png"
+      }
+    },
+    "shield_wall_head": {
+      "b00": {
+        "albedo": "assets/renders/shield_wall_head_b00_albedo.png",
+        "glow": "assets/renders/shield_wall_head_b00_glow.png"
+      },
+      "b01": {
+        "albedo": "assets/renders/shield_wall_head_b01_albedo.png",
+        "glow": "assets/renders/shield_wall_head_b01_glow.png"
+      },
+      "b02": {
+        "albedo": "assets/renders/shield_wall_head_b02_albedo.png",
+        "glow": "assets/renders/shield_wall_head_b02_glow.png"
+      },
+      "b03": {
+        "albedo": "assets/renders/shield_wall_head_b03_albedo.png",
+        "glow": "assets/renders/shield_wall_head_b03_glow.png"
+      },
+      "b04": {
+        "albedo": "assets/renders/shield_wall_head_b04_albedo.png",
+        "glow": "assets/renders/shield_wall_head_b04_glow.png"
+      },
+      "b05": {
+        "albedo": "assets/renders/shield_wall_head_b05_albedo.png",
+        "glow": "assets/renders/shield_wall_head_b05_glow.png"
+      },
+      "b06": {
+        "albedo": "assets/renders/shield_wall_head_b06_albedo.png",
+        "glow": "assets/renders/shield_wall_head_b06_glow.png"
+      },
+      "b07": {
+        "albedo": "assets/renders/shield_wall_head_b07_albedo.png",
+        "glow": "assets/renders/shield_wall_head_b07_glow.png"
+      },
+      "b08": {
+        "albedo": "assets/renders/shield_wall_head_b08_albedo.png",
+        "glow": "assets/renders/shield_wall_head_b08_glow.png"
+      },
+      "b09": {
+        "albedo": "assets/renders/shield_wall_head_b09_albedo.png",
+        "glow": "assets/renders/shield_wall_head_b09_glow.png"
+      },
+      "b10": {
+        "albedo": "assets/renders/shield_wall_head_b10_albedo.png",
+        "glow": "assets/renders/shield_wall_head_b10_glow.png"
+      },
+      "b11": {
+        "albedo": "assets/renders/shield_wall_head_b11_albedo.png",
+        "glow": "assets/renders/shield_wall_head_b11_glow.png"
+      },
+      "b12": {
+        "albedo": "assets/renders/shield_wall_head_b12_albedo.png",
+        "glow": "assets/renders/shield_wall_head_b12_glow.png"
+      },
+      "b13": {
+        "albedo": "assets/renders/shield_wall_head_b13_albedo.png",
+        "glow": "assets/renders/shield_wall_head_b13_glow.png"
+      },
+      "b14": {
+        "albedo": "assets/renders/shield_wall_head_b14_albedo.png",
+        "glow": "assets/renders/shield_wall_head_b14_glow.png"
+      },
+      "b15": {
+        "albedo": "assets/renders/shield_wall_head_b15_albedo.png",
+        "glow": "assets/renders/shield_wall_head_b15_glow.png"
       }
     },
     "tile_ground": {

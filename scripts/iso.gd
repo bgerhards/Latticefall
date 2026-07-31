@@ -141,6 +141,20 @@ static func yaw_for_heading(heading: Vector2, previous: int = -1,
 	return wrapi(YAW_FOR_PLUS_X + int(roundf(BUCKET_DEG)) * roundi(deg / BUCKET_DEG), 0, 360)
 
 
+static func bucket_slot(bucket: int) -> String:
+	## The one place the "bNN" slot-name string is written down on the GDScript side
+	## (ART-01). Mirrors `tools/blender/render.py`'s `bucket_slot()` byte-for-byte —
+	## Python and GDScript can't share a constant across the Blender/Godot process
+	## boundary (the same problem `YAW_COUNT` solves differently, see that file's own
+	## module docstring), so this stays a small, obviously-correct one-liner in both
+	## languages rather than derived independently at each call site. Zero-padded to 2
+	## digits: 16 buckets is the largest count anything renders today, and "b00".."b15"
+	## sorts lexicographically the same as numerically, which is what
+	## `tools/blender/pack_atlas.py`'s `sorted(by_yaw)` depends on to pack
+	## deterministically.
+	return "b%02d" % bucket
+
+
 static func bucket_index_for_heading(heading: Vector2, yaw_count: int,
 		previous_index: int = -1, hysteresis_frac: float = 0.0) -> int:
 	## The rendered-yaw **bucket index** (0 .. yaw_count-1) nearest a tile-space heading,

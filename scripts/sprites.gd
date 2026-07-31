@@ -11,6 +11,12 @@ extends Node
 ## the art was produced with. A silent mismatch there would misalign every tile.
 
 const MANIFEST := "res://assets/renders/sprites.json"
+## Explicit preload, matching anchor_view.gd's own `IsoScript` const, rather than the
+## bare global `Iso` class_name — `load_library()` below already preloads this locally
+## for the same reason (this file is `@tool`, and a global class_name is only
+## guaranteed present once the editor has imported it once; see this file's own LF-025
+## note and CLAUDE.md's "a new class_name is invisible until the editor imports" trap).
+const IsoScript := preload("res://scripts/iso.gd")
 
 var tile_px: Vector2i = Vector2i(128, 64)
 var pivot: Vector2 = Vector2(128, 128)
@@ -159,11 +165,45 @@ func get_tex(name: String, yaw: int = 45, pass_name: String = "albedo") -> Textu
 	return tex
 
 
+func get_bucket_tex(name: String, bucket: int, pass_name: String = "albedo") -> Texture2D:
+	## ART-01: fetch a texture by bucket INDEX rather than a heading degree — the API a
+	## 16-bucket head or an 8-bucket unit needs, since half of 16 buckets fall on
+	## fractional degrees "y%03d" can't spell (see `Iso.yaw_for_heading()`'s own assert
+	## on this). `name` already carries the part, e.g. "pulse_turret_head" —
+	## tools/blender/render.py's `render_split_asset()` writes exactly that as a
+	## top-level manifest key, deliberately flat (same shape get_tex() already reads)
+	## rather than nested, so no change was needed to how a manifest entry is shaped —
+	## only to how its slot key is spelled. get_tex() above is untouched and stays the
+	## API every current 4-yaw caller uses; this is purely additive.
+	var slot := IsoScript.bucket_slot(bucket)
+	var key := "%s|%s|%s" % [name, slot, pass_name]
+	if _cache.has(key):
+		return _cache[key]
+	var tex: Texture2D = _from_atlas_slot(name, slot, pass_name)
+	if tex == null and _entries.has(name):
+		var by_slot: Dictionary = _entries[name]
+		if by_slot.has(slot) and by_slot[slot].has(pass_name):
+			var path := "res://" + String(by_slot[slot][pass_name])
+			if ResourceLoader.exists(path):
+				tex = load(path)
+	_cache[key] = tex
+	return tex
+
+
 func _from_atlas(name: String, yaw: int, pass_name: String) -> Texture2D:
+	return _from_atlas_slot(name, "y%03d" % yaw, pass_name)
+
+
+func _from_atlas_slot(name: String, slot: String, pass_name: String) -> Texture2D:
+	## Shared by _from_atlas() (degree-keyed slot, the untouched default path every
+	## current 4-yaw caller uses) and get_bucket_tex() below (ART-01's bucket-indexed
+	## slot, "b00".."b15") — the atlas index is keyed by an opaque slot string built by
+	## tools/blender/pack_atlas.py, which never cares whether that string encodes a
+	## degree or a bucket index.
 	if not _pages.has(pass_name):
 		return null
 	var idx: Dictionary = _index.get(pass_name, {})
-	var key := "%s|y%03d" % [name, yaw]
+	var key := "%s|%s" % [name, slot]
 	if not idx.has(key):
 		return null
 	var cell: Array = idx[key]

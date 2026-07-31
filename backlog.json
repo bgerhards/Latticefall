@@ -1,5 +1,5 @@
 {
-  "next_id": 157,
+  "next_id": 159,
   "items": [
     {
       "id": "LF-001",
@@ -1866,6 +1866,30 @@
       "title": "Backlog items filed from an agent worktree go stale against a merge, and three did so in one session. LF-068 (no _fire() call sites for the new mechanics), LF-074 (Loadout never called) and LF-069 (leak dialog unwired) all described a HEAD that the merge had already fixed -- each was confirmed by grep at filing time, in a worktree that predated the merge. The cost is not large but it is repeated: an agent is dispatched to fix something already fixed, and the real value it delivers is verification rather than the work asked for. Worth a convention: an item filed from a worktree records the commit it was observed at, and the session-start skill re-checks any item whose observation commit is behind HEAD.",
       "kind": "chore",
       "area": "tooling",
+      "pri": "med",
+      "status": "open",
+      "why": "",
+      "opened": "2026-07-31",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-157",
+      "title": "ART-01's render side is committed and the VIEW is not wired, so 22 combined sprites still draw and 22 split base/head sprites sit unused in the atlas. What anchor_view.gd's _build_drawables() needs, from the agent that built the render side: emit TWO entries per placed tower instead of one -- '<id>_base' at Iso.bucket_index_for_heading(heading, 4, prev_base, 0.25) and '<id>_head' at bucket_index_for_heading(heading, 16, prev_head, 0.25) -- same depth, with an EXPLICIT tiebreak so the head never sorts under the base, because out.sort_custom is unstable. Draw calls become Sprites.get_bucket_tex(id+'_base', bucket, pass). Two persisted prev-bucket fields per placed tower, not one. The additive glow pass walks the same list so both parts must appear there too, and main.gd's --facings must print both buckets. One coordinated change is required at cutover: tools/check.py's sprite coverage check requires the literal combined '<id>' key and will fail for any tower whose combined entry is deleted -- so that check and the deletion must land together, not before.",
+      "kind": "feature",
+      "area": "engine",
+      "pri": "med",
+      "status": "open",
+      "why": "",
+      "opened": "2026-07-31",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-158",
+      "title": "ART-01's split render was never verified in the engine: godot --headless --path . --import could not be run because live Godot processes from concurrent agents kept build.py's LF-075 liveness guard correctly refusing to import. Everything upstream is proved -- 568 cells in 2 pages in sync, sprite coverage and asset coverage both green, and a pixel composite of pulse_turret_base_b00 plus head_b00 against the committed combined pulse_turret_y045 gives an IDENTICAL silhouette bbox with the residual sitting exactly on the geometric seam. But no frame has been drawn from the new cells. Run the import and one capture when the tree is quiet; nothing else in the chain needs re-running.",
+      "kind": "chore",
+      "area": "art",
       "pri": "med",
       "status": "open",
       "why": "",
