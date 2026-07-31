@@ -9,11 +9,11 @@ not cheapness. For "does it feel finished", use the `verify` skill and the
 Checks that cannot run yet (because the subsystem does not exist) report SKIP rather than
 passing silently. A green run that quietly skipped half the suite is worse than a red one.
 
-    .venv/bin/python tools/check.py                    # tier 4 — everything, ~9 min
-    .venv/bin/python tools/check.py --tier 1            # pre-commit, ~6 s
-    .venv/bin/python tools/check.py --tier 2            # pre-push, ~14 s
-    .venv/bin/python tools/check.py --tier 3            # PR, ~66 s
-    .venv/bin/python tools/check.py --list
+    .venv/bin/python tools/check.py                    # tier 4 (default) — everything
+    .venv/bin/python tools/check.py --tier 1            # pre-commit, the fastest tier
+    .venv/bin/python tools/check.py --tier 2            # pre-push
+    .venv/bin/python tools/check.py --tier 3            # PR
+    .venv/bin/python tools/check.py --list              # every check, its tier, RENDERED tag
     .venv/bin/python tools/check.py --json /tmp/gate.json   # machine-readable, human table too
     .venv/bin/python tools/check.py --json                  # machine-readable to stdout only
 
@@ -28,61 +28,62 @@ names it rather than omitting it, which would read as a pass to anything consumi
 below — every one of them a real Godot launch, tier 3) regardless of tier, so `--tier 3
 --no-window` runs exactly tier 2 plus nothing.
 
-Measured on this machine, after {{PRC-01}} (`git ls-files`, no `SKIP_DIRS`) and {{PRC-02}}
-(enumeration fix) both landed. Tier 1 and tier 2 were re-measured live for this change; tier
-3 and 4's per-check figures are carried forward from `docs/STATE.md`'s last full gate record,
-taken before {{PRC-01}}/{{PRC-02}} landed — none of `game renders`, `menu renders`,
-`accessibility` or `rules parity` touch file enumeration, so the figures should not have
-moved, but they were not re-run for this change (see PRC-04's report for which number is
-which and why).
+**Wall-clock costs are deliberately not stated anywhere in this docstring.** PRC-16: a
+hand-written "~66 s" for tier 3 here drifted to a measured ~189 s within a single session,
+while `CLAUDE.md` carried a second, differently-wrong copy of the same figure at the same
+time — two hand-maintained numbers is worse than zero, and unlike a check *count* there is no
+registry a runtime cost could be asserted against without adding a whole caching subsystem
+just to keep a docstring honest. Run `--tier N --json` (or read `TIER_BUDGET_MS` for the
+tier-1/tier-2 budgets specifically) for the real, current figure. Check *counts* are the
+opposite case — they live in `CHECKS`, so they cost nothing to assert — and the `tier counts`
+check below does exactly that on every tier-1 run: a stale count here is a red run, not a
+silent drift. See that check's own docstring for what it caught before it existed.
 
-- **tier 1 (~6 s, pre-commit), 14 checks:** `python syntax`, `json parses`, `gdscript parses`,
-  `game data`, `wave density`, `dialog capacity`, `backlog rendered`, `agent models`,
-  `leases wired`, `banned terms`, `safe operations`, `rules autoloads`, `yaw hysteresis`,
-  `asset coverage`. No Godot window opens.
-- **tier 2 (~27.8 s, pre-push), 25 checks:** tier 1 + `sim determinism`, `sprite atlas`,
-  `sprite coverage`, `music manifest`, `sfx determinism`, `sfx loudness` (PRC-18, new — see
+- **tier 1 (pre-commit), 16 checks:** `python syntax`, `json parses`, `gdscript parses`,
+  `game data`, `wave density`, `dialog capacity`, `backlog rendered`, `chronicle current`,
+  `agent models`, `leases wired`, `banned terms`, `tier counts`, `safe operations`,
+  `rules autoloads`, `yaw hysteresis`, `asset coverage`. No Godot window opens.
+- **tier 2 (pre-push), 26 checks:** tier 1 + `sim determinism`, `sprite atlas`,
+  `sprite coverage`, `music manifest`, `sfx determinism`, `sfx loudness` (PRC-18 — see
   `_run_loudness_check`'s own comment for why it is `sfx loudness` and not `music loudness`
   that landed here), `godot boots`, `terrain parsers agree`, `hooks configured`,
   `facing harness`. The last two (PRC-06, LF-142) were measured at tier 1 first and moved
   here: each spawns at least one real Godot process (`hooks configured` runs `guard.py
   --selftest`, itself two Godot parse checks plus a `reap.py` probe; `facing harness` runs
   `yaw_band.py`, one Godot launch of `scripts/test/facing.gd`), and together they pushed
-  tier 1 from 5.7 s to 10.8 s — BLOWN against its own 10 s `--budget` contract. Tier 2's
-  budget moved to 28 s (from 25 s) when `sfx loudness` landed — see `TIER_BUDGET_MS`'s own
-  comment for the measured number behind that move.
-- **tier 3 (~182 s / 3 min, PR), 34 checks:** tier 2 + `game renders` (9.4 s), `menu renders`
-  (3.7 s), `accessibility` (43.6 s), `scenario smoke` (30.7 s), `scenario abilities` (15.9 s),
-  `scenario a11y-worst` (8.9 s), `scenario lf161-scroll` (12.7 s), `scenario gamepad`
-  (18.7 s), `save roundtrip` (10.8 s) — a full `--tier 3` run, all 34 checks green: measured
-  above, this machine, PRC-18. That is nearly triple the ~66 s this line used to claim before
-  PRC-18 landed six new Godot-launching checks in one PR — five scenario files
-  (`check_scenarios_pass` used to hardcode `smoke.json` alone; `SCENARIO_FILES` above has the
-  full reasoning for why each stayed at tier 3 rather than moving) plus `save roundtrip`
-  (`tools/save_roundtrip.py`, new — a genuine two-process save/load round trip and the
-  recovery draft, neither reachable through `data/scenarios/*.json` at all). Said plainly
-  rather than absorbed quietly, per this file's own stance on what a tier means: PR tier is
-  meant to be where a coverage regression is caught before merge, and every one of these six
-  launches Godot exactly like the three that were already here.
-- **tier 4 (~9 min or more, nightly/release), 37 checks — the default:** tier 3 +
-  `music loudness` (measured ~85.1 s, 14 tracks — see `_run_loudness_check`'s own comment for
-  why it did not join `sfx loudness` at tier 3) +
-  `rules parity` (measured ~594 s at 1152 runs, growing with every policy/anchor) +
-  `rules parity (windows)` (BAL-06 — the same 1152 runs again, against the Windows binary
-  the owner actually plays rather than the Linux build `rules parity` uses; skips loudly
-  with `skipped_reason: "subsystem"` on a machine with no Windows Godot, e.g. a Linux CI
-  box, rather than silently passing). The one thing making a balance claim in this project
-  falsifiable; never move either below tier 4 because it is "usually fine". PRC-05: both
-  are gated behind their OWN content-hash digest over exactly what can move a parity
-  outcome (`tools/test_parity.py`'s `parity_inputs_digest()`), in SEPARATE cache files
-  (`.cache/parity.json`, `.cache/parity-windows.json`) so a clean run of one can never
-  suppress the other — an unchanged tree reports `skip, skipped_reason: "cached"` in under
-  a second instead of re-running, and `--force`/`--no-cache` bypass it. A cached skip is
+  tier 1 over its own `--budget` contract while they briefly lived there. Tier 2's budget in
+  `TIER_BUDGET_MS` was raised once already, for `sfx loudness` — and is measuring over that
+  raised number again (LF-178); the fix on file there is moving a check out, not raising the
+  number a second time, so do not "fix" LF-178 by editing `TIER_BUDGET_MS`.
+- **tier 3 (PR), 35 checks:** tier 2 + `game renders`, `menu renders`, `accessibility`,
+  `scenario smoke`, `scenario abilities`, `scenario a11y-worst`, `scenario lf161-scroll`,
+  `scenario gamepad` (PRC-18 split what used to be one `scenarios pass` check hardcoding
+  `smoke.json` into one check per `data/scenarios/*.json` file — see `SCENARIO_FILES`/
+  `_run_scenario_check`'s own doc for why a failure should name the exact file rather than
+  share one check across all five), and `save roundtrip` (`tools/save_roundtrip.py` — a
+  genuine two-process save/load round trip and the recovery draft, neither reachable through
+  a scenario file at all). PR tier is meant to be where a coverage regression is caught
+  before merge, and every one of these nine launches Godot exactly like the three that were
+  here before PRC-18.
+- **tier 4 (nightly/release), 38 checks — the default:** tier 3 + `music loudness` (see
+  `_run_loudness_check`'s own comment for why it did not join `sfx loudness` at tier 3) +
+  `rules parity` (grows with every policy/anchor) + `rules parity (windows)` (BAL-06 — the
+  same runs again, against the Windows binary the owner actually plays rather than the Linux
+  build `rules parity` uses; skips loudly with `skipped_reason: "subsystem"` on a machine
+  with no Windows Godot, e.g. a Linux CI box, rather than silently passing). The one thing
+  making a balance claim in this project falsifiable; never move either below tier 4 because
+  it is "usually fine". PRC-05: both are gated behind their OWN content-hash digest over
+  exactly what can move a parity outcome (`tools/test_parity.py`'s `parity_inputs_digest()`),
+  in SEPARATE cache files (`.cache/parity.json`, `.cache/parity-windows.json`) so a clean run
+  of one can never suppress the other — an unchanged tree reports `skip, skipped_reason:
+  "cached"` instead of re-running, and `--force`/`--no-cache` bypass it. A cached skip is
   still not a pass; see the loud-skip note a few paragraphs down.
 
-`--budget` asserts the tier-1 and tier-2 contracts: with it set, exceeding 10 s at `--tier 1`
-or 25 s at `--tier 2` fails the run even if every check passed, because a tier whose budget
-silently doubles is a tier nobody will keep running.
+`--budget` asserts the tier-1 and tier-2 contracts declared in `TIER_BUDGET_MS`: with it set,
+exceeding a tier's budget fails the run even if every check passed, because a tier whose
+budget silently doubles is a tier nobody will keep running. Read `TIER_BUDGET_MS` itself for
+the current numbers rather than this sentence — see the note above on why costs are not
+duplicated into prose.
 
 `--json`'s shape, for `tools/session.py` and `tools/gate_report.py` (and eventually CI —
 `.github/workflows/gate.yml` consumes it at tier 1):
@@ -101,7 +102,8 @@ silently doubles is a tier nobody will keep running.
                   "duration_ms": float, "text": "<the printed tally line>"}
     }
 
-`checks` always lists all 28 — a check a lower tier excluded is present with
+`checks` always lists every check `CHECKS` defines, at whatever count that is today — a check
+a lower tier excluded is present with
 `status: "skip"` rather than dropped from the array, for the same reason `--no-window`'s
 skips are present: an absent entry reads as a pass to anything consuming the file. `detail`
 carries the check's *full* multi-line detail, not just the first line the human table prints
@@ -1083,6 +1085,48 @@ def check_banned_terms() -> Result:
     return Result(FAIL, "\n".join(hits)) if hits else Result(OK, f"{len(scan)} files clean")
 
 
+def check_gate_docs_consistent() -> Result:
+    """This module's own docstring states a check count per tier in its `## Tiers` section
+    ("tier N (...), C checks") — assert each against the live `CHECKS` registry rather than
+    trust it. PRC-16: that prose drifted from `CHECKS` at least twice before this check
+    existed — once when `scenarios pass` was added with no matching sentence (tier 3 stayed
+    "26 checks" while `CHECKS` had 27), once when `chronicle current` landed at tier 1 without
+    the bullet's list or count following it. Neither was a Godot problem or a data problem, so
+    nothing else in this gate would ever have caught it.
+
+    Deliberately narrow, per the issue's own risk note: this reads only the tier bullets'
+    literal "tier N (...), C checks" phrasing, nothing else in the docstring, and it asserts
+    *counts* only — a re-tier that moves a check between tiers without changing a total would
+    not be caught by this alone, which is an accepted, smaller gap, not scope this check
+    claims to close. A clever general doc-parser would just be a second thing to get wrong;
+    this is a tripwire, not a documentation engine. Wall-clock costs are deliberately absent
+    from the docstring entirely (see its own note) specifically so there is nothing numeric
+    left for this check to have to assert and get wrong.
+    """
+    doc = __doc__ or ""
+    pattern = re.compile(r"tier (\d)\s*\([^)]*\),\s*(\d+)\s*checks")
+    found = pattern.findall(doc)
+    if not found:
+        return Result(FAIL, "no 'tier N (...), C checks' bullet found in the module "
+                             "docstring's '## Tiers' section — did the phrasing change? "
+                             "update check_gate_docs_consistent's regex if so")
+    mismatches = []
+    seen = set()
+    for tier_s, stated_s in found:
+        tier, stated = int(tier_s), int(stated_s)
+        seen.add(tier)
+        actual = len([c for c in CHECKS if c.tier <= tier])
+        if actual != stated:
+            mismatches.append(f"tier {tier}: docstring says {stated} checks, "
+                               f"CHECKS has {actual} at tier <= {tier}")
+    missing = {1, 2, 3, 4} - seen
+    if missing:
+        mismatches.append(f"docstring has no bullet for tier(s) {sorted(missing)}")
+    if mismatches:
+        return Result(FAIL, "; ".join(mismatches))
+    return Result(OK, f"{len(CHECKS)} checks, tiers 1-4 all match the docstring")
+
+
 def check_sim() -> Result:
     sim = ROOT / "sim" / "run.py"
     if not sim.exists():
@@ -1625,6 +1669,10 @@ CHECKS = [
     Check("wave density",      1, check_wave_density),
     Check("dialog capacity",   1, check_dialog_capacity),
     Check("banned terms",      1, check_banned_terms),
+    # PRC-16: the module docstring's own '## Tiers' table names a check count per tier —
+    # assert it against this same registry rather than let it rot unchallenged. See
+    # check_gate_docs_consistent's own docstring for what drifted before this existed.
+    Check("tier counts",       1, check_gate_docs_consistent),
     Check("sfx determinism",   2, check_sfx_reproducible),
     Check("music manifest",    2, check_music_manifest),
     # PRC-18: split exactly like the pair above — sfx loudness is nearly free (~2s, 86
@@ -1703,25 +1751,35 @@ _JSON_STDOUT = "-"
 def main() -> int:
     ap = argparse.ArgumentParser(description="Latticefall pre-commit gate.")
     ap.add_argument("--list", action="store_true", help="list checks and exit")
+    # Both help strings below are built from CHECKS/TIER_BUDGET_MS at parser-construction
+    # time rather than hand-typed, the same idiom `--no-window`'s help already used for
+    # RENDERED — PRC-16 found the hand-typed versions of exactly these two numbers (a tier's
+    # check count, tier 2's budget) stale in the module docstring; generating them here means
+    # they cannot drift the same way, because there is nothing hand-typed left to forget to
+    # update. Costs are still not shown — see the docstring's own note on why those are read
+    # from --json instead — only counts and the budget figures themselves, both of which come
+    # straight from the registry they describe.
+    _tier_counts = ", ".join(f"{t}={len([c for c in CHECKS if c.tier <= t])}"
+                              for t in (1, 2, 3, 4))
     ap.add_argument("--tier", type=int, default=4, choices=(1, 2, 3, 4),
                     help="run only checks assigned this tier or lower (a tier is a minimum — "
-                         "see module docstring's '## Tiers' for the assignment table and "
-                         "measured cost of each). 1=pre-commit ~6s (14 checks), 2=pre-push "
-                         "~28s (25, PRC-18 added sfx loudness), 3=PR ~182s/3min (34, PRC-18 "
-                         "added 6 more Godot-launching checks — 5 scenarios + save "
-                         "roundtrip), 4=nightly/release ~9min or more (37, the default — "
-                         "BAL-06 added a second, Windows-binary parity run alongside the "
-                         "Linux one that was already there, and PRC-18 added music loudness). "
+                         "see module docstring's '## Tiers' for the assignment table). "
+                         f"Check counts by tier ({_tier_counts}) are read live from CHECKS, "
+                         "not hand-typed here; run --list or --json for exact names and "
+                         "current wall-clock cost, which is not duplicated into this help "
+                         "text because it drifts and a count does not. "
                          "Orthogonal to --no-window: --tier 3 --no-window runs exactly tier "
                          "2 plus nothing, since every rendered check is tier 3. "
                          "A check a lower tier excludes reports skip, skipped_reason=tier — "
                          "it did not run and is not a pass.")
     ap.add_argument("--budget", action="store_true",
-                    help="assert the tier-1 (10s) and tier-2 (25s) wall-clock budgets; fail "
-                         "the run if the selected tier exceeds its budget even when every "
-                         "check passed. No-op at --tier 3 or 4, which have no asserted "
-                         "budget. Exists so a tier whose cost silently doubles turns red "
-                         "instead of quietly becoming a tier nobody runs.")
+                    help="assert the tier-1 "
+                         f"({TIER_BUDGET_MS[1] / 1000:g}s) and tier-2 "
+                         f"({TIER_BUDGET_MS[2] / 1000:g}s) wall-clock budgets, read live from "
+                         "TIER_BUDGET_MS; fail the run if the selected tier exceeds its "
+                         "budget even when every check passed. No-op at --tier 3 or 4, which "
+                         "have no asserted budget. Exists so a tier whose cost silently "
+                         "doubles turns red instead of quietly becoming a tier nobody runs.")
     ap.add_argument("--no-window", action="store_true",
                     help="skip the %d checks that launch a real Godot process (%s). This is "
                          "now a SPEED option only, not a courtesy — those checks capture "

@@ -59,12 +59,16 @@ docs/            STATE, BACKLOG, DECISIONS, NOMENCLATURE, STORY
 ```bash
 .venv/bin/python tools/reap.py                     # what of ours is still running
 .venv/bin/python tools/reap.py --kill              # kill it. run at every wrap.
-.venv/bin/python tools/check.py                    # the gate, tier 4 (everything). ~9 min
-.venv/bin/python tools/check.py --tier 1            # pre-commit, ~5 s, 9 checks
-.venv/bin/python tools/check.py --tier 2            # pre-push, ~14 s, 16 checks
-.venv/bin/python tools/check.py --tier 3            # PR, ~66 s, 19 checks
+.venv/bin/python tools/check.py                    # the gate, tier 4 (everything, default)
+.venv/bin/python tools/check.py --tier 1            # pre-commit
+.venv/bin/python tools/check.py --tier 2            # pre-push
+.venv/bin/python tools/check.py --tier 3            # PR
+.venv/bin/python tools/check.py --list              # every check, its tier, RENDERED tag
 .venv/bin/python tools/check.py --json /tmp/g.json # same run, machine-readable
 .venv/bin/python tools/gate_report.py /tmp/g.json  # render that as a markdown table
+.venv/bin/python tools/wrap_gate.py                # decide a wrap's gate tier from the diff
+                                                   # + parity cache state, before anything
+                                                   # expensive starts
 .venv/bin/python tools/validate/gdscript.py        # parse every .gd, without the full gate
 .venv/bin/python tools/backlog.py add "..." --kind bug --area audio
 .venv/bin/python tools/validate/validate_data.py   # schemas + cross-references
@@ -76,6 +80,9 @@ docs/            STATE, BACKLOG, DECISIONS, NOMENCLATURE, STORY
                                                    # WCAG AA contrast + text size audit
 .venv/bin/python tools/audio/synth_sfx.py          # rebuild SFX bank
 .venv/bin/python tools/audio/ingest_music.py       # rebuild music from masters
+.venv/bin/python tools/audio/loudness.py           # ITU-R BS.1770-4 / EBU R128 LUFS check
+.venv/bin/python tools/save_roundtrip.py           # save/load round trip + recovery draft,
+                                                   # two real Godot processes
 .venv/bin/python tools/audio/serve.py              # loop audition page
 /Applications/Blender.app/Contents/MacOS/Blender -b \
   --python tools/blender/render.py -- --only pulse_turret   # render one asset
@@ -178,8 +185,20 @@ no flag means tier 4, which is exactly what the gate did before tiering existed 
 never become weaker. A check the tier excluded reports `skip` with `skipped_reason: "tier"`
 and stays in the JSON array — **it is not a pass**, and the tally line names every check that
 did not run, because a green partial run that reads like a full one is the failure this whole
-file exists to prevent. `--budget` turns tier 1's 10 s and tier 2's 25 s into assertions, so a
-tier whose cost silently doubles fails rather than quietly stops being used.
+file exists to prevent. `--budget` turns tier 1's and tier 2's wall-clock budgets into
+assertions, so a tier whose cost silently doubles fails rather than quietly stops being used.
+**Read `TIER_BUDGET_MS` in `tools/check.py` for the numbers that actually bind** — this
+sentence used to name them, tier 2's moved from 25 s to 28 s, and the sentence did not track
+it. Tier 2 is currently *over* its own budget on a clean run (`LF-178`), and the fix there is
+to move a check out, not to move the number again.
+
+**A count or a cost written into prose here rots within a day.** It happened to the tier table
+twice, and `check.py`'s own docstring now carries the counts with a tier-1 check (`tier counts`)
+asserting them against the `CHECKS` registry on every run. Costs are deliberately *not*
+asserted anywhere — they are machine- and load-dependent, and a generator to keep them honest
+would be more machinery than the number is worth. So the live source is `--list` and
+`--tier N --json`, and prose that states a number without one of those behind it should be
+treated as stale until checked.
 
 **`terrain parsers agree` is the fast-tier sibling of `rules parity`**, and it sits next to it
 for that reason: the same class of risk — two implementations of one rule drifting — at a
@@ -382,8 +401,10 @@ window it considered occluded**, stalling `await RenderingServer.frame_post_draw
 **36 minutes** and still reported ok. With no desktop in the loop, that stall cannot happen.
 Decision 052; `tools/shot.py` is the everyday way to reach this from a session.
 
-`tools/check.py --no-window` still exists, but it is now a **speed** option: skipping five
-extra Godot launches on an otherwise fast gate, not a courtesy to whoever is at the machine.
+`tools/check.py --no-window` still exists, but it is now a **speed** option: skipping the
+Godot-launching checks in `RENDERED` — nine as of `PRC-18` (`game renders`, `menu renders`,
+`accessibility`, the five per-scenario checks and `save roundtrip`); run `--list` for the live
+set — on an otherwise fast gate, not a courtesy to whoever is at the machine.
 Reach for it when time matters more than completeness — not out of politeness. A machine
 with no native Linux Godot build or no `xvfb-run` installed falls back to a real, visible
 window exactly as before, so the old caution still applies there.
@@ -441,6 +462,37 @@ compare against `HEAD`, use `git show HEAD:<path>` and diff it yourself; to keep
 copy the file to the scratchpad. The coordinator commits with `git commit --only <paths>`,
 which is atomic and index-independent, wrapped in an `index.lock` retry loop because
 concurrent agents *will* be holding it. `PRC-15` (a worktree per workstream) is the real fix.
+
+**But `git commit --only` is for MODIFICATIONS to tracked files. It cannot add, it cannot
+remove, and it fails silently at both** — reporting success while committing something other
+than what the message says. This bit twice in one session (`LF-180`). `--only <directory>`
+omitted an untracked file, so a chronicle entry's `index.html` and `chronicle.json` shipped
+**without the entry page they link to** — a dead link on the published site, nothing red
+anywhere; and naming the new file directly then errors with `did not match any file(s) known
+to git`. Separately, 222 files staged for removal with `git rm --cached` still existed on
+disk, so `--only` saw them present, **discarded the staged deletion**, and committed six files
+while the message claimed 222 removals.
+
+The two escapes, both narrow enough to stay safe in a shared tree:
+
+```bash
+git update-index --add <file> && git commit --only <file>   # introduce a NEW file
+git diff --cached --name-only                                # must be empty, THEN:
+git rm --cached <paths> && git commit                        # remove tracked files
+```
+
+**Assert afterwards, every time a commit adds or removes a file** — `git status --porcelain
+<dir>` empty for an add, `git ls-files <glob>` for a removal. The failure mode is a successful
+commit that did the wrong thing, so the only defence is checking.
+
+**`--user-data-dir` is not a flag this Godot build recognises, and it is ignored *silently*.**
+Confirmed against `--help`. A tool that passes it believing it has isolated `user://` is
+writing to the **real save** — which is what happened: an early `tools/save_roundtrip.py` ran
+twice against the live Linux dev save before an unchanged-mtime check caught it (`LF-175`).
+Set `XDG_DATA_HOME` in the child environment, which the Linux backend does honour, **and
+assert the default location's mtime is unchanged after the run**. Isolation here has to be
+checked, never assumed, because the failure mode is silent and destructive — the same class as
+the `.godot/` rule above, on the same shared machine.
 
 **Scope discipline.** Finish the whole task; if part is blocked, finish everything else and
 say plainly what was left and why.

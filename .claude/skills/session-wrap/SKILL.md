@@ -21,17 +21,23 @@ Work now lands through pull requests, each gated at tier 2 or tier 4 by the `shi
 before it opens, with CI running tier 1 on top. By the time a wrap starts, whatever landed
 has already been verified once. The wrap's own edits are `docs/STATE.md`,
 `docs/BACKLOG.md`, `docs/DECISIONS.md` and `docs/chronicle/**` — none of which touch rules,
-sim, or assets — so the wrap re-running the full ~9-minute, 28-check gate is mostly
-re-proving what the PR flow just proved. Tier 2 (~21-25s: python/GDScript/JSON syntax,
-game data, sim determinism, sprite/atlas/audio integrity, `godot boots`) is honest coverage
-for what a wrap actually changes.
+sim, or assets — so the wrap re-running the full tier-4 gate is mostly re-proving what the PR
+flow just proved. Tier 2 (`.venv/bin/python tools/check.py --tier 2 --list` for the current,
+growing check set — python/GDScript/JSON syntax, game data, sim determinism, sprite/atlas/
+audio integrity, `godot boots`, and several more added since this line was last written) is
+honest coverage for what a wrap actually changes. Check counts and costs are intentionally
+not written as numbers in this file — PRC-16 found this exact prose stale on the same day it
+was written, twice; `tools/check.py`'s own module docstring asserts its check counts against
+its `CHECKS` registry every tier-1 run instead of stating them by hand, and `--json` gives the
+current cost.
 
 **What the fast path does NOT check, and this must be said out loud every time it is
-used:** `scenarios pass`, `game renders`, `menu renders`, `accessibility` (tier 3), and —
-the expensive one — `rules parity` and `rules parity (windows)` (tier 4, the GDScript-vs-
-Python comparison this project's balance claims depend on). A tier-2 wrap is not a claim
-that the rules still agree with themselves; it is a claim that the wrap's own edits did not
-break anything mechanical.
+used:** the tier-3 scenario checks (`scenario smoke`, `scenario abilities`,
+`scenario a11y-worst`, `scenario lf161-scroll`, `scenario gamepad`), `save roundtrip`,
+`game renders`, `menu renders`, `accessibility`, and — the expensive one — `rules parity`
+and `rules parity (windows)` (tier 4, the GDScript-vs-Python comparison this project's
+balance claims depend on). A tier-2 wrap is not a claim that the rules still agree with
+themselves; it is a claim that the wrap's own edits did not break anything mechanical.
 
 Reach for `--release` (tier 4) instead when the wrap is not following a gated PR — a
 hand-run wrap after a rebase, before an actual release, or any session where you want the
@@ -86,9 +92,11 @@ full nightly-grade proof regardless of what changed.
    which detaches the process from the harness entirely and leaves you to poll for it by
    hand. Do not combine the two.
 
-   At tier 2 this finishes in ~25s and the background/foreground split barely matters. At
-   tier 4 it can run past the 600s Bash timeout ceiling on its own — this is expected and
-   is exactly why it is backgrounded rather than run with an explicit `timeout`: a `--tier 4`
+   At tier 2 this finishes in well under a minute (LF-178: it now runs close to its own
+   budget, see `TIER_BUDGET_MS` in `tools/check.py`) and the background/foreground split
+   barely matters. At tier 4 it can run past the 600s Bash timeout ceiling on its own — this
+   is expected and is exactly why it is backgrounded rather than run with an explicit
+   `timeout`: a `--tier 4`
    wrap should not block on the slowest check in the gate while the rest of the wrap sits
    idle waiting for permission to start.
 
@@ -112,8 +120,8 @@ full nightly-grade proof regardless of what changed.
 
 5. **End the turn here — do not keep the conversation open waiting on the gate.** This is
    the owner-blocking-time boundary PRC-20 is judged against, and it is a real turn
-   boundary, not a figure of speech: at tier 2 the gate is done in ~25-30s regardless (steps
-   1-4 plus this one measure well under a minute end to end, ~1:20-1:50 wall clock even
+   boundary, not a figure of speech: at tier 2 the gate is done in under half a minute
+   regardless (steps 1-4 plus this one measure well under a minute end to end even
    under heavy concurrent machine load — see PRC-20's own measurement), so there is little
    to gain from ending early there. At tier 4 it is the whole point: say plainly that the
    gate is running in the background at tier N and why, note anything steps 3-4 already
