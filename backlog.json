@@ -1,5 +1,5 @@
 {
-  "next_id": 174,
+  "next_id": 176,
   "items": [
     {
       "id": "LF-001",
@@ -2068,6 +2068,30 @@
     {
       "id": "LF-173",
       "title": "tools/chronicle.py's render_inline applies its bold-split on ** AFTER wrapping code spans in <code>, so a glob inside backticks corrupts the output: a backticked 'sim/**' renders as '<code>sim/</strong></code>' \u2014 unbalanced tags in published HTML. Also single-asterisk *emphasis* is not supported at all and prints literal asterisks. Both are live on the published site right now: the 'measuring-the-fifth-non-negotiable' entry renders '*current accepted bank*' with the asterisks visible. Found by the chronicler while drafting the next entry, which worked around it by avoiding globs in code spans and using ** for emphasis \u2014 a workaround every future entry now has to remember, which is how this stays broken. The chronicle is append-only so the existing entry must NOT be edited; fixing the renderer will correct it on the next regeneration, which is the right shape. Fix is to split on ** BEFORE extracting code spans, or to tokenise once and never re-scan text already placed inside a tag.",
+      "kind": "bug",
+      "area": "tooling",
+      "pri": "med",
+      "status": "open",
+      "why": "",
+      "opened": "2026-07-31",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-174",
+      "title": "Twelve of the sixteen zero-coverage scripts PRC-18's audit named remain at zero: pause_menu.gd, audio_director.gd (brownout ducking), ui_theme.gd (Ui autoload), cli_args.gd, dialog_view.gd (partially covered as a side effect of gamepad_build.json/abilities.json), abilities.gd (covered via abilities.json)",
+      "kind": "risk",
+      "area": "tooling",
+      "pri": "low",
+      "status": "open",
+      "why": "PRC-18 closed gamepad/save-load/recovery-draft/loudness coverage but was scoped to those five deliverables, not the full sixteen-file audit list. audio_director.gd (brownout music ducking, CLAUDE.md's own glow-dimming analogy) and pause_menu.gd are the two most worth a scenario next, since both back a described-as-shipped mechanic with zero automated proof.",
+      "opened": "2026-07-31",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-175",
+      "title": "TRAP, cost real state this session: '--user-data-dir' is NOT a flag this Godot 4.7.1 build recognises, and it is ignored SILENTLY rather than rejected \u2014 confirmed against --help. A tool that passes it believing it has isolated the save is in fact writing to the real one. Concrete cost: the first version of tools/save_roundtrip.py ran twice against the live Linux dev save at ~/.local/share/godot/app_userdata/Latticefall/progress.json before an unchanged-mtime check caught it. State was reconstructed as far as it could be, but some ambiguity remains because several agents were active on the machine at the time. VERIFIED NOT AFFECTED: the owner's Windows userdata under AppData/Roaming has no progress.json at all and was never written \u2014 only its logs directory has a recent mtime, from the Windows parity leg. The working fix, already in save_roundtrip.py: set XDG_DATA_HOME in the child environment, which the Linux backend does honour, and assert the default location's mtime is unchanged after every run rather than trusting the flag. Generalise it: any future tool that needs an isolated user:// must set XDG_DATA_HOME and must ASSERT isolation rather than assume it, because the failure mode is silent and destructive. This belongs in CLAUDE.md next to the .godot/ warning \u2014 same class of mistake, same shared machine, and the owner plays out of the same tree.",
       "kind": "bug",
       "area": "tooling",
       "pri": "med",
