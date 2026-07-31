@@ -285,6 +285,18 @@ and start. Stop only when out of work or explicitly told to.
 **No preamble, no recap.** Do not restate what was just read or narrate what is about to be
 done. Lead with the result, then the evidence for it.
 
+**Land work in small pull requests, often.** One workstream, one branch, one PR, merged as
+soon as it is green — `lf/<epic>-<short-slug>`, e.g. `lf/cam-minimap`. Not because the repo
+has other contributors, but because a PR is where CI runs before the work is on `main`, and
+because a fifty-commit push is unreviewable in a way that ten five-commit PRs are not. The
+chronicle only publishes on a push to `main`, so a merged PR is also what makes the journey
+visible.
+
+Push and open the PR when the workstream's own verification passes — `--tier 2` for anything
+that does not touch the rules, `--tier 4` when it does. Merge with `gh pr merge --squash
+--delete-branch` once CI is green. Do not batch several unrelated workstreams into one branch;
+the point is that a red run names one thing.
+
 **Record the journey.** `docs/chronicle/` is a build journal published to GitHub Pages on
 every push to `main` — a documentary of how this game got made, written as it happens. The
 `chronicler` agent owns it. Run it after any session that lands work worth remembering, and
