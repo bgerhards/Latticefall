@@ -1243,11 +1243,11 @@
       "kind": "question",
       "area": "design",
       "pri": "high",
-      "status": "open",
+      "status": "done",
       "why": "The camera cannot fix what the art cannot show",
       "opened": "2026-07-30",
-      "closed": null,
-      "note": ""
+      "closed": "2026-07-30",
+      "note": "closed at 37056a1"
     },
     {
       "id": "LF-105",

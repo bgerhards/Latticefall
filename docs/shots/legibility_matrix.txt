@@ -1,0 +1,40 @@
+CAM-05 pairwise silhouette distance
+
+Jaccard distance between alpha-threshold (>=128/255) silhouette masks, downsampled from the native 256px albedo with LANCZOS. 0 = identical silhouette, 1 = no overlap. 'collapsed' below is a shape-identity cutoff (distance <= 0.10), not a measured human-legibility threshold.
+
+== 30px ==
+  none collapsed at this size/threshold
+  closest 5 overall:
+    flak-array           pulse-turret         d=0.1583
+    warden-heavy         anchor-damper        d=0.2459
+    anchor-damper        flak-array           d=0.2481
+    ion-lance            pulse-turret         d=0.2481
+    flak-array           ion-lance            d=0.2481
+
+== 45px ==
+  none collapsed at this size/threshold
+  closest 5 overall:
+    flak-array           pulse-turret         d=0.1607
+    warden-heavy         anchor-damper        d=0.2429
+    anchor-damper        flak-array           d=0.2483
+    anchor-damper        pulse-turret         d=0.2560
+    ion-lance            pulse-turret         d=0.2754
+
+== 60px ==
+  none collapsed at this size/threshold
+  closest 5 overall:
+    flak-array           pulse-turret         d=0.1756
+    anchor-damper        pulse-turret         d=0.2462
+    anchor-damper        flak-array           d=0.2571
+    ion-lance            pulse-turret         d=0.2640
+    warden-heavy         anchor-damper        d=0.2722
+
+== 90px ==
+  none collapsed at this size/threshold
+  closest 5 overall:
+    flak-array           pulse-turret         d=0.1872
+    anchor-damper        pulse-turret         d=0.2596
+    ion-lance            pulse-turret         d=0.2629
+    warden-heavy         anchor-damper        d=0.2743
+    anchor-damper        flak-array           d=0.2768
+

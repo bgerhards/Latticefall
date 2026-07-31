@@ -1,0 +1,6858 @@
+{
+  "sizes": {
+    "30": {
+      "ids": [
+        "hollow-column",
+        "hollow-drift",
+        "hollow-echo",
+        "hollow-shard",
+        "hollow-vessel",
+        "reach-breacher",
+        "reach-bulwark",
+        "reach-picket",
+        "reach-sapper",
+        "reach-skiff",
+        "warden-drone",
+        "warden-heavy",
+        "warden-mote",
+        "anchor-damper",
+        "arc-node",
+        "flak-array",
+        "ion-lance",
+        "mortar-emplacement",
+        "pulse-turret",
+        "restorer",
+        "scan-relay",
+        "shield-wall"
+      ],
+      "matrix": [
+        [
+          0.0,
+          0.6707317073170731,
+          0.5294117647058824,
+          0.7974683544303798,
+          0.4555555555555556,
+          0.4457831325301205,
+          0.4083333333333333,
+          0.6455696202531646,
+          0.47619047619047616,
+          0.7788461538461539,
+          0.5949367088607596,
+          0.43965517241379315,
+          0.6582278481012658,
+          0.5078125,
+          0.646551724137931,
+          0.5808823529411764,
+          0.5652173913043479,
+          0.42727272727272725,
+          0.6015037593984962,
+          0.38181818181818183,
+          0.485981308411215,
+          0.5327102803738317
+        ],
+        [
+          0.6707317073170731,
+          0.0,
+          0.8823529411764706,
+          0.9777777777777777,
+          0.8,
+          0.8059701492537313,
+          0.7758620689655172,
+          0.7916666666666666,
+          0.803030303030303,
+          0.7,
+          0.8928571428571429,
+          0.8,
+          0.5384615384615384,
+          0.8264462809917356,
+          0.9615384615384616,
+          0.9007633587786259,
+          0.8538461538461538,
+          0.7961165048543689,
+          0.937984496124031,
+          0.7714285714285715,
+          0.7978723404255319,
+          0.92
+        ],
+        [
+          0.5294117647058824,
+          0.8823529411764706,
+          0.0,
+          0.6521739130434783,
+          0.48571428571428577,
+          0.5671641791044777,
+          0.6379310344827587,
+          0.5769230769230769,
+          0.582089552238806,
+          0.967032967032967,
+          0.5,
+          0.5631067961165048,
+          0.8032786885245902,
+          0.6140350877192983,
+          0.5411764705882354,
+          0.6206896551724138,
+          0.625,
+          0.5106382978723405,
+          0.6216216216216216,
+          0.5643564356435644,
+          0.5172413793103448,
+          0.5909090909090908
+        ],
+        [
+          0.7974683544303798,
+          0.9777777777777777,
+          0.6521739130434783,
+          0.0,
+          0.8125,
+          0.7307692307692308,
+          0.8571428571428572,
+          0.625,
+          0.75,
+          1.0,
+          0.736842105263158,
+          0.8431372549019608,
+          0.868421052631579,
+          0.8571428571428572,
+          0.810126582278481,
+          0.8596491228070176,
+          0.865546218487395,
+          0.8297872340425532,
+          0.8504672897196262,
+          0.8383838383838383,
+          0.8072289156626506,
+          0.825
+        ],
+        [
+          0.4555555555555556,
+          0.8,
+          0.48571428571428577,
+          0.8125,
+          0.0,
+          0.5333333333333333,
+          0.5546218487394958,
+          0.7058823529411764,
+          0.527027027027027,
+          0.92,
+          0.6666666666666667,
+          0.4716981132075472,
+          0.7746478873239436,
+          0.5172413793103448,
+          0.6060606060606061,
+          0.5853658536585367,
+          0.5680000000000001,
+          0.4752475247524752,
+          0.5847457627118644,
+          0.4257425742574258,
+          0.6116504854368932,
+          0.4666666666666667
+        ],
+        [
+          0.4457831325301205,
+          0.8059701492537313,
+          0.5671641791044777,
+          0.7307692307692308,
+          0.5333333333333333,
+          0.0,
+          0.5535714285714286,
+          0.47058823529411764,
+          0.4285714285714286,
+          0.898876404494382,
+          0.4528301886792453,
+          0.5384615384615384,
+          0.625,
+          0.5663716814159292,
+          0.6938775510204082,
+          0.6101694915254237,
+          0.6147540983606558,
+          0.5454545454545454,
+          0.6106194690265487,
+          0.4949494949494949,
+          0.696078431372549,
+          0.5934065934065934
+        ],
+        [
+          0.4083333333333333,
+          0.7758620689655172,
+          0.6379310344827587,
+          0.8571428571428572,
+          0.5546218487394958,
+          0.5535714285714286,
+          0.0,
+          0.75,
+          0.6,
+          0.8148148148148149,
+          0.7142857142857143,
+          0.328125,
+          0.7699115044247787,
+          0.36496350364963503,
+          0.6231884057971014,
+          0.4413793103448276,
+          0.43918918918918914,
+          0.41538461538461535,
+          0.44680851063829785,
+          0.3385826771653543,
+          0.5447761194029851,
+          0.4426229508196722
+        ],
+        [
+          0.6455696202531646,
+          0.7916666666666666,
+          0.5769230769230769,
+          0.625,
+          0.7058823529411764,
+          0.47058823529411764,
+          0.75,
+          0.0,
+          0.4901960784313726,
+          0.9589041095890412,
+          0.42105263157894735,
+          0.7254901960784313,
+          0.625,
+          0.75,
+          0.7529411764705882,
+          0.7543859649122807,
+          0.775,
+          0.7157894736842105,
+          0.7727272727272727,
+          0.7171717171717171,
+          0.7386363636363636,
+          0.7816091954022988
+        ],
+        [
+          0.47619047619047616,
+          0.803030303030303,
+          0.582089552238806,
+          0.75,
+          0.527027027027027,
+          0.4285714285714286,
+          0.6,
+          0.4901960784313726,
+          0.0,
+          0.9789473684210527,
+          0.4716981132075472,
+          0.5339805825242718,
+          0.6896551724137931,
+          0.5625,
+          0.6770833333333333,
+          0.6416666666666666,
+          0.6666666666666667,
+          0.638095238095238,
+          0.6194690265486726,
+          0.52,
+          0.7428571428571429,
+          0.5232558139534884
+        ],
+        [
+          0.7788461538461539,
+          0.7,
+          0.967032967032967,
+          1.0,
+          0.92,
+          0.898876404494382,
+          0.8148148148148149,
+          0.9589041095890412,
+          0.9789473684210527,
+          0.0,
+          1.0,
+          0.9130434782608696,
+          0.8636363636363636,
+          0.904109589041096,
+          0.992,
+          0.9615384615384616,
+          0.9155844155844156,
+          0.873015873015873,
+          0.9666666666666667,
+          0.8240000000000001,
+          0.7281553398058253,
+          0.992
+        ],
+        [
+          0.5949367088607596,
+          0.8928571428571429,
+          0.5,
+          0.736842105263158,
+          0.6666666666666667,
+          0.4528301886792453,
+          0.7142857142857143,
+          0.42105263157894735,
+          0.4716981132075472,
+          1.0,
+          0.0,
+          0.6862745098039216,
+          0.7708333333333334,
+          0.7142857142857143,
+          0.6904761904761905,
+          0.7192982456140351,
+          0.73109243697479,
+          0.6736842105263158,
+          0.7009345794392523,
+          0.6767676767676767,
+          0.7362637362637363,
+          0.6746987951807228
+        ],
+        [
+          0.43965517241379315,
+          0.8,
+          0.5631067961165048,
+          0.8431372549019608,
+          0.4716981132075472,
+          0.5384615384615384,
+          0.328125,
+          0.7254901960784313,
+          0.5339805825242718,
+          0.9130434782608696,
+          0.6862745098039216,
+          0.0,
+          0.7596153846153846,
+          0.24590163934426235,
+          0.4482758620689655,
+          0.3125,
+          0.3257575757575758,
+          0.32478632478632474,
+          0.32799999999999996,
+          0.32499999999999996,
+          0.5546875,
+          0.2857142857142857
+        ],
+        [
+          0.6582278481012658,
+          0.5384615384615384,
+          0.8032786885245902,
+          0.868421052631579,
+          0.7746478873239436,
+          0.625,
+          0.7699115044247787,
+          0.625,
+          0.6896551724137931,
+          0.8636363636363636,
+          0.7708333333333334,
+          0.7596153846153846,
+          0.0,
+          0.8017241379310345,
+          0.9175257731958762,
+          0.8442622950819672,
+          0.832,
+          0.7777777777777778,
+          0.864406779661017,
+          0.7524752475247525,
+          0.8172043010752688,
+          0.8709677419354839
+        ],
+        [
+          0.5078125,
+          0.8264462809917356,
+          0.6140350877192983,
+          0.8571428571428572,
+          0.5172413793103448,
+          0.5663716814159292,
+          0.36496350364963503,
+          0.75,
+          0.5625,
+          0.904109589041096,
+          0.7142857142857143,
+          0.24590163934426235,
+          0.8017241379310345,
+          0.0,
+          0.38983050847457623,
+          0.24806201550387597,
+          0.30147058823529416,
+          0.3252032520325203,
+          0.2755905511811023,
+          0.31200000000000006,
+          0.5447761194029851,
+          0.34782608695652173
+        ],
+        [
+          0.646551724137931,
+          0.9615384615384616,
+          0.5411764705882354,
+          0.810126582278481,
+          0.6060606060606061,
+          0.6938775510204082,
+          0.6231884057971014,
+          0.7529411764705882,
+          0.6770833333333333,
+          0.992,
+          0.6904761904761905,
+          0.4482758620689655,
+          0.9175257731958762,
+          0.38983050847457623,
+          0.0,
+          0.3157894736842105,
+          0.3583333333333333,
+          0.39252336448598135,
+          0.2710280373831776,
+          0.5491803278688525,
+          0.5752212389380531,
+          0.5142857142857142
+        ],
+        [
+          0.5808823529411764,
+          0.9007633587786259,
+          0.6206896551724138,
+          0.8596491228070176,
+          0.5853658536585367,
+          0.6101694915254237,
+          0.4413793103448276,
+          0.7543859649122807,
+          0.6416666666666666,
+          0.9615384615384616,
+          0.7192982456140351,
+          0.3125,
+          0.8442622950819672,
+          0.24806201550387597,
+          0.3157894736842105,
+          0.0,
+          0.24812030075187974,
+          0.33599999999999997,
+          0.15833333333333333,
+          0.4676258992805755,
+          0.6126760563380282,
+          0.4516129032258065
+        ],
+        [
+          0.5652173913043479,
+          0.8538461538461538,
+          0.625,
+          0.865546218487395,
+          0.5680000000000001,
+          0.6147540983606558,
+          0.43918918918918914,
+          0.775,
+          0.6666666666666667,
+          0.9155844155844156,
+          0.73109243697479,
+          0.3257575757575758,
+          0.832,
+          0.30147058823529416,
+          0.3583333333333333,
+          0.24812030075187974,
+          0.0,
+          0.34883720930232553,
+          0.24806201550387597,
+          0.42028985507246375,
+          0.5774647887323944,
+          0.48461538461538467
+        ],
+        [
+          0.42727272727272725,
+          0.7961165048543689,
+          0.5106382978723405,
+          0.8297872340425532,
+          0.4752475247524752,
+          0.5454545454545454,
+          0.41538461538461535,
+          0.7157894736842105,
+          0.638095238095238,
+          0.873015873015873,
+          0.6736842105263158,
+          0.32478632478632474,
+          0.7777777777777778,
+          0.3252032520325203,
+          0.39252336448598135,
+          0.33599999999999997,
+          0.34883720930232553,
+          0.0,
+          0.36585365853658536,
+          0.3362068965517241,
+          0.4336283185840708,
+          0.4642857142857143
+        ],
+        [
+          0.6015037593984962,
+          0.937984496124031,
+          0.6216216216216216,
+          0.8504672897196262,
+          0.5847457627118644,
+          0.6106194690265487,
+          0.44680851063829785,
+          0.7727272727272727,
+          0.6194690265486726,
+          0.9666666666666667,
+          0.7009345794392523,
+          0.32799999999999996,
+          0.864406779661017,
+          0.2755905511811023,
+          0.2710280373831776,
+          0.15833333333333333,
+          0.24806201550387597,
+          0.36585365853658536,
+          0.0,
+          0.4740740740740741,
+          0.6330935251798562,
+          0.41880341880341876
+        ],
+        [
+          0.38181818181818183,
+          0.7714285714285715,
+          0.5643564356435644,
+          0.8383838383838383,
+          0.4257425742574258,
+          0.4949494949494949,
+          0.3385826771653543,
+          0.7171717171717171,
+          0.52,
+          0.8240000000000001,
+          0.6767676767676767,
+          0.32499999999999996,
+          0.7524752475247525,
+          0.31200000000000006,
+          0.5491803278688525,
+          0.4676258992805755,
+          0.42028985507246375,
+          0.3362068965517241,
+          0.4740740740740741,
+          0.0,
+          0.3893805309734514,
+          0.4196428571428571
+        ],
+        [
+          0.485981308411215,
+          0.7978723404255319,
+          0.5172413793103448,
+          0.8072289156626506,
+          0.6116504854368932,
+          0.696078431372549,
+          0.5447761194029851,
+          0.7386363636363636,
+          0.7428571428571429,
+          0.7281553398058253,
+          0.7362637362637363,
+          0.5546875,
+          0.8172043010752688,
+          0.5447761194029851,
+          0.5752212389380531,
+          0.6126760563380282,
+          0.5774647887323944,
+          0.4336283185840708,
+          0.6330935251798562,
+          0.3893805309734514,
+          0.0,
+          0.6694214876033058
+        ],
+        [
+          0.5327102803738317,
+          0.92,
+          0.5909090909090908,
+          0.825,
+          0.4666666666666667,
+          0.5934065934065934,
+          0.4426229508196722,
+          0.7816091954022988,
+          0.5232558139534884,
+          0.992,
+          0.6746987951807228,
+          0.2857142857142857,
+          0.8709677419354839,
+          0.34782608695652173,
+          0.5142857142857142,
+          0.4516129032258065,
+          0.48461538461538467,
+          0.4642857142857143,
+          0.41880341880341876,
+          0.4196428571428571,
+          0.6694214876033058,
+          0.0
+        ]
+      ],
+      "pairs_by_distance": [
+        {
+          "a": "flak-array",
+          "b": "pulse-turret",
+          "distance": 0.1583
+        },
+        {
+          "a": "warden-heavy",
+          "b": "anchor-damper",
+          "distance": 0.2459
+        },
+        {
+          "a": "anchor-damper",
+          "b": "flak-array",
+          "distance": 0.2481
+        },
+        {
+          "a": "ion-lance",
+          "b": "pulse-turret",
+          "distance": 0.2481
+        },
+        {
+          "a": "flak-array",
+          "b": "ion-lance",
+          "distance": 0.2481
+        },
+        {
+          "a": "arc-node",
+          "b": "pulse-turret",
+          "distance": 0.271
+        },
+        {
+          "a": "anchor-damper",
+          "b": "pulse-turret",
+          "distance": 0.2756
+        },
+        {
+          "a": "warden-heavy",
+          "b": "shield-wall",
+          "distance": 0.2857
+        },
+        {
+          "a": "anchor-damper",
+          "b": "ion-lance",
+          "distance": 0.3015
+        },
+        {
+          "a": "anchor-damper",
+          "b": "restorer",
+          "distance": 0.312
+        },
+        {
+          "a": "warden-heavy",
+          "b": "flak-array",
+          "distance": 0.3125
+        },
+        {
+          "a": "arc-node",
+          "b": "flak-array",
+          "distance": 0.3158
+        },
+        {
+          "a": "warden-heavy",
+          "b": "mortar-emplacement",
+          "distance": 0.3248
+        },
+        {
+          "a": "warden-heavy",
+          "b": "restorer",
+          "distance": 0.325
+        },
+        {
+          "a": "anchor-damper",
+          "b": "mortar-emplacement",
+          "distance": 0.3252
+        },
+        {
+          "a": "warden-heavy",
+          "b": "ion-lance",
+          "distance": 0.3258
+        },
+        {
+          "a": "warden-heavy",
+          "b": "pulse-turret",
+          "distance": 0.328
+        },
+        {
+          "a": "reach-bulwark",
+          "b": "warden-heavy",
+          "distance": 0.3281
+        },
+        {
+          "a": "flak-array",
+          "b": "mortar-emplacement",
+          "distance": 0.336
+        },
+        {
+          "a": "mortar-emplacement",
+          "b": "restorer",
+          "distance": 0.3362
+        },
+        {
+          "a": "reach-bulwark",
+          "b": "restorer",
+          "distance": 0.3386
+        },
+        {
+          "a": "anchor-damper",
+          "b": "shield-wall",
+          "distance": 0.3478
+        },
+        {
+          "a": "ion-lance",
+          "b": "mortar-emplacement",
+          "distance": 0.3488
+        },
+        {
+          "a": "arc-node",
+          "b": "ion-lance",
+          "distance": 0.3583
+        },
+        {
+          "a": "reach-bulwark",
+          "b": "anchor-damper",
+          "distance": 0.365
+        },
+        {
+          "a": "mortar-emplacement",
+          "b": "pulse-turret",
+          "distance": 0.3659
+        },
+        {
+          "a": "hollow-column",
+          "b": "restorer",
+          "distance": 0.3818
+        },
+        {
+          "a": "restorer",
+          "b": "scan-relay",
+          "distance": 0.3894
+        },
+        {
+          "a": "anchor-damper",
+          "b": "arc-node",
+          "distance": 0.3898
+        },
+        {
+          "a": "arc-node",
+          "b": "mortar-emplacement",
+          "distance": 0.3925
+        },
+        {
+          "a": "hollow-column",
+          "b": "reach-bulwark",
+          "distance": 0.4083
+        },
+        {
+          "a": "reach-bulwark",
+          "b": "mortar-emplacement",
+          "distance": 0.4154
+        },
+        {
+          "a": "pulse-turret",
+          "b": "shield-wall",
+          "distance": 0.4188
+        },
+        {
+          "a": "restorer",
+          "b": "shield-wall",
+          "distance": 0.4196
+        },
+        {
+          "a": "ion-lance",
+          "b": "restorer",
+          "distance": 0.4203
+        },
+        {
+          "a": "reach-picket",
+          "b": "warden-drone",
+          "distance": 0.4211
+        },
+        {
+          "a": "hollow-vessel",
+          "b": "restorer",
+          "distance": 0.4257
+        },
+        {
+          "a": "hollow-column",
+          "b": "mortar-emplacement",
+          "distance": 0.4273
+        },
+        {
+          "a": "reach-breacher",
+          "b": "reach-sapper",
+          "distance": 0.4286
+        },
+        {
+          "a": "mortar-emplacement",
+          "b": "scan-relay",
+          "distance": 0.4336
+        },
+        {
+          "a": "reach-bulwark",
+          "b": "ion-lance",
+          "distance": 0.4392
+        },
+        {
+          "a": "hollow-column",
+          "b": "warden-heavy",
+          "distance": 0.4397
+        },
+        {
+          "a": "reach-bulwark",
+          "b": "flak-array",
+          "distance": 0.4414
+        },
+        {
+          "a": "reach-bulwark",
+          "b": "shield-wall",
+          "distance": 0.4426
+        },
+        {
+          "a": "hollow-column",
+          "b": "reach-breacher",
+          "distance": 0.4458
+        },
+        {
+          "a": "reach-bulwark",
+          "b": "pulse-turret",
+          "distance": 0.4468
+        },
+        {
+          "a": "warden-heavy",
+          "b": "arc-node",
+          "distance": 0.4483
+        },
+        {
+          "a": "flak-array",
+          "b": "shield-wall",
+          "distance": 0.4516
+        },
+        {
+          "a": "reach-breacher",
+          "b": "warden-drone",
+          "distance": 0.4528
+        },
+        {
+          "a": "hollow-column",
+          "b": "hollow-vessel",
+          "distance": 0.4556
+        },
+        {
+          "a": "mortar-emplacement",
+          "b": "shield-wall",
+          "distance": 0.4643
+        },
+        {
+          "a": "hollow-vessel",
+          "b": "shield-wall",
+          "distance": 0.4667
+        },
+        {
+          "a": "flak-array",
+          "b": "restorer",
+          "distance": 0.4676
+        },
+        {
+          "a": "reach-breacher",
+          "b": "reach-picket",
+          "distance": 0.4706
+        },
+        {
+          "a": "hollow-vessel",
+          "b": "warden-heavy",
+          "distance": 0.4717
+        },
+        {
+          "a": "reach-sapper",
+          "b": "warden-drone",
+          "distance": 0.4717
+        },
+        {
+          "a": "pulse-turret",
+          "b": "restorer",
+          "distance": 0.4741
+        },
+        {
+          "a": "hollow-vessel",
+          "b": "mortar-emplacement",
+          "distance": 0.4752
+        },
+        {
+          "a": "hollow-column",
+          "b": "reach-sapper",
+          "distance": 0.4762
+        },
+        {
+          "a": "ion-lance",
+          "b": "shield-wall",
+          "distance": 0.4846
+        },
+        {
+          "a": "hollow-echo",
+          "b": "hollow-vessel",
+          "distance": 0.4857
+        },
+        {
+          "a": "hollow-column",
+          "b": "scan-relay",
+          "distance": 0.486
+        },
+        {
+          "a": "reach-picket",
+          "b": "reach-sapper",
+          "distance": 0.4902
+        },
+        {
+          "a": "reach-breacher",
+          "b": "restorer",
+          "distance": 0.4949
+        },
+        {
+          "a": "hollow-echo",
+          "b": "warden-drone",
+          "distance": 0.5
+        },
+        {
+          "a": "hollow-column",
+          "b": "anchor-damper",
+          "distance": 0.5078
+        },
+        {
+          "a": "hollow-echo",
+          "b": "mortar-emplacement",
+          "distance": 0.5106
+        },
+        {
+          "a": "arc-node",
+          "b": "shield-wall",
+          "distance": 0.5143
+        },
+        {
+          "a": "hollow-echo",
+          "b": "scan-relay",
+          "distance": 0.5172
+        },
+        {
+          "a": "hollow-vessel",
+          "b": "anchor-damper",
+          "distance": 0.5172
+        },
+        {
+          "a": "reach-sapper",
+          "b": "restorer",
+          "distance": 0.52
+        },
+        {
+          "a": "reach-sapper",
+          "b": "shield-wall",
+          "distance": 0.5233
+        },
+        {
+          "a": "hollow-vessel",
+          "b": "reach-sapper",
+          "distance": 0.527
+        },
+        {
+          "a": "hollow-column",
+          "b": "hollow-echo",
+          "distance": 0.5294
+        },
+        {
+          "a": "hollow-column",
+          "b": "shield-wall",
+          "distance": 0.5327
+        },
+        {
+          "a": "hollow-vessel",
+          "b": "reach-breacher",
+          "distance": 0.5333
+        },
+        {
+          "a": "reach-sapper",
+          "b": "warden-heavy",
+          "distance": 0.534
+        },
+        {
+          "a": "hollow-drift",
+          "b": "warden-mote",
+          "distance": 0.5385
+        },
+        {
+          "a": "reach-breacher",
+          "b": "warden-heavy",
+          "distance": 0.5385
+        },
+        {
+          "a": "hollow-echo",
+          "b": "arc-node",
+          "distance": 0.5412
+        },
+        {
+          "a": "reach-bulwark",
+          "b": "scan-relay",
+          "distance": 0.5448
+        },
+        {
+          "a": "anchor-damper",
+          "b": "scan-relay",
+          "distance": 0.5448
+        },
+        {
+          "a": "reach-breacher",
+          "b": "mortar-emplacement",
+          "distance": 0.5455
+        },
+        {
+          "a": "arc-node",
+          "b": "restorer",
+          "distance": 0.5492
+        },
+        {
+          "a": "reach-breacher",
+          "b": "reach-bulwark",
+          "distance": 0.5536
+        },
+        {
+          "a": "hollow-vessel",
+          "b": "reach-bulwark",
+          "distance": 0.5546
+        },
+        {
+          "a": "warden-heavy",
+          "b": "scan-relay",
+          "distance": 0.5547
+        },
+        {
+          "a": "reach-sapper",
+          "b": "anchor-damper",
+          "distance": 0.5625
+        },
+        {
+          "a": "hollow-echo",
+          "b": "warden-heavy",
+          "distance": 0.5631
+        },
+        {
+          "a": "hollow-echo",
+          "b": "restorer",
+          "distance": 0.5644
+        },
+        {
+          "a": "hollow-column",
+          "b": "ion-lance",
+          "distance": 0.5652
+        },
+        {
+          "a": "reach-breacher",
+          "b": "anchor-damper",
+          "distance": 0.5664
+        },
+        {
+          "a": "hollow-echo",
+          "b": "reach-breacher",
+          "distance": 0.5672
+        },
+        {
+          "a": "hollow-vessel",
+          "b": "ion-lance",
+          "distance": 0.568
+        },
+        {
+          "a": "arc-node",
+          "b": "scan-relay",
+          "distance": 0.5752
+        },
+        {
+          "a": "hollow-echo",
+          "b": "reach-picket",
+          "distance": 0.5769
+        },
+        {
+          "a": "ion-lance",
+          "b": "scan-relay",
+          "distance": 0.5775
+        },
+        {
+          "a": "hollow-column",
+          "b": "flak-array",
+          "distance": 0.5809
+        },
+        {
+          "a": "hollow-echo",
+          "b": "reach-sapper",
+          "distance": 0.5821
+        },
+        {
+          "a": "hollow-vessel",
+          "b": "pulse-turret",
+          "distance": 0.5847
+        },
+        {
+          "a": "hollow-vessel",
+          "b": "flak-array",
+          "distance": 0.5854
+        },
+        {
+          "a": "hollow-echo",
+          "b": "shield-wall",
+          "distance": 0.5909
+        },
+        {
+          "a": "reach-breacher",
+          "b": "shield-wall",
+          "distance": 0.5934
+        },
+        {
+          "a": "hollow-column",
+          "b": "warden-drone",
+          "distance": 0.5949
+        },
+        {
+          "a": "reach-bulwark",
+          "b": "reach-sapper",
+          "distance": 0.6
+        },
+        {
+          "a": "hollow-column",
+          "b": "pulse-turret",
+          "distance": 0.6015
+        },
+        {
+          "a": "hollow-vessel",
+          "b": "arc-node",
+          "distance": 0.6061
+        },
+        {
+          "a": "reach-breacher",
+          "b": "flak-array",
+          "distance": 0.6102
+        },
+        {
+          "a": "reach-breacher",
+          "b": "pulse-turret",
+          "distance": 0.6106
+        },
+        {
+          "a": "hollow-vessel",
+          "b": "scan-relay",
+          "distance": 0.6117
+        },
+        {
+          "a": "flak-array",
+          "b": "scan-relay",
+          "distance": 0.6127
+        },
+        {
+          "a": "hollow-echo",
+          "b": "anchor-damper",
+          "distance": 0.614
+        },
+        {
+          "a": "reach-breacher",
+          "b": "ion-lance",
+          "distance": 0.6148
+        },
+        {
+          "a": "reach-sapper",
+          "b": "pulse-turret",
+          "distance": 0.6195
+        },
+        {
+          "a": "hollow-echo",
+          "b": "flak-array",
+          "distance": 0.6207
+        },
+        {
+          "a": "hollow-echo",
+          "b": "pulse-turret",
+          "distance": 0.6216
+        },
+        {
+          "a": "reach-bulwark",
+          "b": "arc-node",
+          "distance": 0.6232
+        },
+        {
+          "a": "hollow-echo",
+          "b": "ion-lance",
+          "distance": 0.625
+        },
+        {
+          "a": "hollow-shard",
+          "b": "reach-picket",
+          "distance": 0.625
+        },
+        {
+          "a": "reach-breacher",
+          "b": "warden-mote",
+          "distance": 0.625
+        },
+        {
+          "a": "reach-picket",
+          "b": "warden-mote",
+          "distance": 0.625
+        },
+        {
+          "a": "pulse-turret",
+          "b": "scan-relay",
+          "distance": 0.6331
+        },
+        {
+          "a": "hollow-echo",
+          "b": "reach-bulwark",
+          "distance": 0.6379
+        },
+        {
+          "a": "reach-sapper",
+          "b": "mortar-emplacement",
+          "distance": 0.6381
+        },
+        {
+          "a": "reach-sapper",
+          "b": "flak-array",
+          "distance": 0.6417
+        },
+        {
+          "a": "hollow-column",
+          "b": "reach-picket",
+          "distance": 0.6456
+        },
+        {
+          "a": "hollow-column",
+          "b": "arc-node",
+          "distance": 0.6466
+        },
+        {
+          "a": "hollow-echo",
+          "b": "hollow-shard",
+          "distance": 0.6522
+        },
+        {
+          "a": "hollow-column",
+          "b": "warden-mote",
+          "distance": 0.6582
+        },
+        {
+          "a": "hollow-vessel",
+          "b": "warden-drone",
+          "distance": 0.6667
+        },
+        {
+          "a": "reach-sapper",
+          "b": "ion-lance",
+          "distance": 0.6667
+        },
+        {
+          "a": "scan-relay",
+          "b": "shield-wall",
+          "distance": 0.6694
+        },
+        {
+          "a": "hollow-column",
+          "b": "hollow-drift",
+          "distance": 0.6707
+        },
+        {
+          "a": "warden-drone",
+          "b": "mortar-emplacement",
+          "distance": 0.6737
+        },
+        {
+          "a": "warden-drone",
+          "b": "shield-wall",
+          "distance": 0.6747
+        },
+        {
+          "a": "warden-drone",
+          "b": "restorer",
+          "distance": 0.6768
+        },
+        {
+          "a": "reach-sapper",
+          "b": "arc-node",
+          "distance": 0.6771
+        },
+        {
+          "a": "warden-drone",
+          "b": "warden-heavy",
+          "distance": 0.6863
+        },
+        {
+          "a": "reach-sapper",
+          "b": "warden-mote",
+          "distance": 0.6897
+        },
+        {
+          "a": "warden-drone",
+          "b": "arc-node",
+          "distance": 0.6905
+        },
+        {
+          "a": "reach-breacher",
+          "b": "arc-node",
+          "distance": 0.6939
+        },
+        {
+          "a": "reach-breacher",
+          "b": "scan-relay",
+          "distance": 0.6961
+        },
+        {
+          "a": "hollow-drift",
+          "b": "reach-skiff",
+          "distance": 0.7
+        },
+        {
+          "a": "warden-drone",
+          "b": "pulse-turret",
+          "distance": 0.7009
+        },
+        {
+          "a": "hollow-vessel",
+          "b": "reach-picket",
+          "distance": 0.7059
+        },
+        {
+          "a": "reach-bulwark",
+          "b": "warden-drone",
+          "distance": 0.7143
+        },
+        {
+          "a": "warden-drone",
+          "b": "anchor-damper",
+          "distance": 0.7143
+        },
+        {
+          "a": "reach-picket",
+          "b": "mortar-emplacement",
+          "distance": 0.7158
+        },
+        {
+          "a": "reach-picket",
+          "b": "restorer",
+          "distance": 0.7172
+        },
+        {
+          "a": "warden-drone",
+          "b": "flak-array",
+          "distance": 0.7193
+        },
+        {
+          "a": "reach-picket",
+          "b": "warden-heavy",
+          "distance": 0.7255
+        },
+        {
+          "a": "reach-skiff",
+          "b": "scan-relay",
+          "distance": 0.7282
+        },
+        {
+          "a": "hollow-shard",
+          "b": "reach-breacher",
+          "distance": 0.7308
+        },
+        {
+          "a": "warden-drone",
+          "b": "ion-lance",
+          "distance": 0.7311
+        },
+        {
+          "a": "warden-drone",
+          "b": "scan-relay",
+          "distance": 0.7363
+        },
+        {
+          "a": "hollow-shard",
+          "b": "warden-drone",
+          "distance": 0.7368
+        },
+        {
+          "a": "reach-picket",
+          "b": "scan-relay",
+          "distance": 0.7386
+        },
+        {
+          "a": "reach-sapper",
+          "b": "scan-relay",
+          "distance": 0.7429
+        },
+        {
+          "a": "hollow-shard",
+          "b": "reach-sapper",
+          "distance": 0.75
+        },
+        {
+          "a": "reach-bulwark",
+          "b": "reach-picket",
+          "distance": 0.75
+        },
+        {
+          "a": "reach-picket",
+          "b": "anchor-damper",
+          "distance": 0.75
+        },
+        {
+          "a": "warden-mote",
+          "b": "restorer",
+          "distance": 0.7525
+        },
+        {
+          "a": "reach-picket",
+          "b": "arc-node",
+          "distance": 0.7529
+        },
+        {
+          "a": "reach-picket",
+          "b": "flak-array",
+          "distance": 0.7544
+        },
+        {
+          "a": "warden-heavy",
+          "b": "warden-mote",
+          "distance": 0.7596
+        },
+        {
+          "a": "reach-bulwark",
+          "b": "warden-mote",
+          "distance": 0.7699
+        },
+        {
+          "a": "warden-drone",
+          "b": "warden-mote",
+          "distance": 0.7708
+        },
+        {
+          "a": "hollow-drift",
+          "b": "restorer",
+          "distance": 0.7714
+        },
+        {
+          "a": "reach-picket",
+          "b": "pulse-turret",
+          "distance": 0.7727
+        },
+        {
+          "a": "hollow-vessel",
+          "b": "warden-mote",
+          "distance": 0.7746
+        },
+        {
+          "a": "reach-picket",
+          "b": "ion-lance",
+          "distance": 0.775
+        },
+        {
+          "a": "hollow-drift",
+          "b": "reach-bulwark",
+          "distance": 0.7759
+        },
+        {
+          "a": "warden-mote",
+          "b": "mortar-emplacement",
+          "distance": 0.7778
+        },
+        {
+          "a": "hollow-column",
+          "b": "reach-skiff",
+          "distance": 0.7788
+        },
+        {
+          "a": "reach-picket",
+          "b": "shield-wall",
+          "distance": 0.7816
+        },
+        {
+          "a": "hollow-drift",
+          "b": "reach-picket",
+          "distance": 0.7917
+        },
+        {
+          "a": "hollow-drift",
+          "b": "mortar-emplacement",
+          "distance": 0.7961
+        },
+        {
+          "a": "hollow-column",
+          "b": "hollow-shard",
+          "distance": 0.7975
+        },
+        {
+          "a": "hollow-drift",
+          "b": "scan-relay",
+          "distance": 0.7979
+        },
+        {
+          "a": "hollow-drift",
+          "b": "hollow-vessel",
+          "distance": 0.8
+        },
+        {
+          "a": "hollow-drift",
+          "b": "warden-heavy",
+          "distance": 0.8
+        },
+        {
+          "a": "warden-mote",
+          "b": "anchor-damper",
+          "distance": 0.8017
+        },
+        {
+          "a": "hollow-drift",
+          "b": "reach-sapper",
+          "distance": 0.803
+        },
+        {
+          "a": "hollow-echo",
+          "b": "warden-mote",
+          "distance": 0.8033
+        },
+        {
+          "a": "hollow-drift",
+          "b": "reach-breacher",
+          "distance": 0.806
+        },
+        {
+          "a": "hollow-shard",
+          "b": "scan-relay",
+          "distance": 0.8072
+        },
+        {
+          "a": "hollow-shard",
+          "b": "arc-node",
+          "distance": 0.8101
+        },
+        {
+          "a": "hollow-shard",
+          "b": "hollow-vessel",
+          "distance": 0.8125
+        },
+        {
+          "a": "reach-bulwark",
+          "b": "reach-skiff",
+          "distance": 0.8148
+        },
+        {
+          "a": "warden-mote",
+          "b": "scan-relay",
+          "distance": 0.8172
+        },
+        {
+          "a": "reach-skiff",
+          "b": "restorer",
+          "distance": 0.824
+        },
+        {
+          "a": "hollow-shard",
+          "b": "shield-wall",
+          "distance": 0.825
+        },
+        {
+          "a": "hollow-drift",
+          "b": "anchor-damper",
+          "distance": 0.8264
+        },
+        {
+          "a": "hollow-shard",
+          "b": "mortar-emplacement",
+          "distance": 0.8298
+        },
+        {
+          "a": "warden-mote",
+          "b": "ion-lance",
+          "distance": 0.832
+        },
+        {
+          "a": "hollow-shard",
+          "b": "restorer",
+          "distance": 0.8384
+        },
+        {
+          "a": "hollow-shard",
+          "b": "warden-heavy",
+          "distance": 0.8431
+        },
+        {
+          "a": "warden-mote",
+          "b": "flak-array",
+          "distance": 0.8443
+        },
+        {
+          "a": "hollow-shard",
+          "b": "pulse-turret",
+          "distance": 0.8505
+        },
+        {
+          "a": "hollow-drift",
+          "b": "ion-lance",
+          "distance": 0.8538
+        },
+        {
+          "a": "hollow-shard",
+          "b": "reach-bulwark",
+          "distance": 0.8571
+        },
+        {
+          "a": "hollow-shard",
+          "b": "anchor-damper",
+          "distance": 0.8571
+        },
+        {
+          "a": "hollow-shard",
+          "b": "flak-array",
+          "distance": 0.8596
+        },
+        {
+          "a": "reach-skiff",
+          "b": "warden-mote",
+          "distance": 0.8636
+        },
+        {
+          "a": "warden-mote",
+          "b": "pulse-turret",
+          "distance": 0.8644
+        },
+        {
+          "a": "hollow-shard",
+          "b": "ion-lance",
+          "distance": 0.8655
+        },
+        {
+          "a": "hollow-shard",
+          "b": "warden-mote",
+          "distance": 0.8684
+        },
+        {
+          "a": "warden-mote",
+          "b": "shield-wall",
+          "distance": 0.871
+        },
+        {
+          "a": "reach-skiff",
+          "b": "mortar-emplacement",
+          "distance": 0.873
+        },
+        {
+          "a": "hollow-drift",
+          "b": "hollow-echo",
+          "distance": 0.8824
+        },
+        {
+          "a": "hollow-drift",
+          "b": "warden-drone",
+          "distance": 0.8929
+        },
+        {
+          "a": "reach-breacher",
+          "b": "reach-skiff",
+          "distance": 0.8989
+        },
+        {
+          "a": "hollow-drift",
+          "b": "flak-array",
+          "distance": 0.9008
+        },
+        {
+          "a": "reach-skiff",
+          "b": "anchor-damper",
+          "distance": 0.9041
+        },
+        {
+          "a": "reach-skiff",
+          "b": "warden-heavy",
+          "distance": 0.913
+        },
+        {
+          "a": "reach-skiff",
+          "b": "ion-lance",
+          "distance": 0.9156
+        },
+        {
+          "a": "warden-mote",
+          "b": "arc-node",
+          "distance": 0.9175
+        },
+        {
+          "a": "hollow-drift",
+          "b": "shield-wall",
+          "distance": 0.92
+        },
+        {
+          "a": "hollow-vessel",
+          "b": "reach-skiff",
+          "distance": 0.92
+        },
+        {
+          "a": "hollow-drift",
+          "b": "pulse-turret",
+          "distance": 0.938
+        },
+        {
+          "a": "reach-picket",
+          "b": "reach-skiff",
+          "distance": 0.9589
+        },
+        {
+          "a": "hollow-drift",
+          "b": "arc-node",
+          "distance": 0.9615
+        },
+        {
+          "a": "reach-skiff",
+          "b": "flak-array",
+          "distance": 0.9615
+        },
+        {
+          "a": "reach-skiff",
+          "b": "pulse-turret",
+          "distance": 0.9667
+        },
+        {
+          "a": "hollow-echo",
+          "b": "reach-skiff",
+          "distance": 0.967
+        },
+        {
+          "a": "hollow-drift",
+          "b": "hollow-shard",
+          "distance": 0.9778
+        },
+        {
+          "a": "reach-sapper",
+          "b": "reach-skiff",
+          "distance": 0.9789
+        },
+        {
+          "a": "reach-skiff",
+          "b": "arc-node",
+          "distance": 0.992
+        },
+        {
+          "a": "reach-skiff",
+          "b": "shield-wall",
+          "distance": 0.992
+        },
+        {
+          "a": "hollow-shard",
+          "b": "reach-skiff",
+          "distance": 1.0
+        },
+        {
+          "a": "reach-skiff",
+          "b": "warden-drone",
+          "distance": 1.0
+        }
+      ]
+    },
+    "45": {
+      "ids": [
+        "hollow-column",
+        "hollow-drift",
+        "hollow-echo",
+        "hollow-shard",
+        "hollow-vessel",
+        "reach-breacher",
+        "reach-bulwark",
+        "reach-picket",
+        "reach-sapper",
+        "reach-skiff",
+        "warden-drone",
+        "warden-heavy",
+        "warden-mote",
+        "anchor-damper",
+        "arc-node",
+        "flak-array",
+        "ion-lance",
+        "mortar-emplacement",
+        "pulse-turret",
+        "restorer",
+        "scan-relay",
+        "shield-wall"
+      ],
+      "matrix": [
+        [
+          0.0,
+          0.6555555555555556,
+          0.4973821989528796,
+          0.8212290502793296,
+          0.4536585365853658,
+          0.46113989637305697,
+          0.40909090909090906,
+          0.696629213483146,
+          0.5641025641025641,
+          0.7815126050420168,
+          0.6256983240223464,
+          0.4548872180451128,
+          0.6888888888888889,
+          0.49828178694158076,
+          0.6356589147286822,
+          0.5910543130990416,
+          0.5605095541401274,
+          0.4365079365079365,
+          0.6038961038961039,
+          0.403921568627451,
+          0.46887966804979253,
+          0.5390946502057613
+        ],
+        [
+          0.6555555555555556,
+          0.0,
+          0.8466666666666667,
+          0.9789473684210527,
+          0.8265895953757225,
+          0.7635135135135135,
+          0.7808764940239044,
+          0.7835051546391752,
+          0.8309859154929577,
+          0.7246376811594203,
+          0.8907563025210083,
+          0.812,
+          0.5301204819277108,
+          0.8254545454545454,
+          0.956140350877193,
+          0.8952702702702703,
+          0.8542372881355932,
+          0.782608695652174,
+          0.9178082191780822,
+          0.7892561983471075,
+          0.7857142857142857,
+          0.9144144144144144
+        ],
+        [
+          0.4973821989528796,
+          0.8466666666666667,
+          0.0,
+          0.7090909090909091,
+          0.45962732919254656,
+          0.5290322580645161,
+          0.601593625498008,
+          0.5948275862068966,
+          0.5838926174496644,
+          0.9672897196261683,
+          0.5371900826446281,
+          0.5690376569037656,
+          0.781021897810219,
+          0.5954198473282443,
+          0.533678756476684,
+          0.6119402985074627,
+          0.6072727272727273,
+          0.5159817351598174,
+          0.6115384615384616,
+          0.5367965367965368,
+          0.5507246376811594,
+          0.5700000000000001
+        ],
+        [
+          0.8212290502793296,
+          0.9789473684210527,
+          0.7090909090909091,
+          0.0,
+          0.8137931034482758,
+          0.7936507936507937,
+          0.868312757201646,
+          0.640625,
+          0.7837837837837838,
+          1.0,
+          0.7831325301204819,
+          0.8583690987124464,
+          0.9166666666666666,
+          0.8725868725868726,
+          0.8238636363636364,
+          0.8745247148288974,
+          0.8795620437956204,
+          0.8472222222222222,
+          0.8690476190476191,
+          0.8558951965065502,
+          0.8333333333333334,
+          0.8524590163934427
+        ],
+        [
+          0.4536585365853658,
+          0.8265895953757225,
+          0.45962732919254656,
+          0.8137931034482758,
+          0.0,
+          0.5340909090909092,
+          0.5513307984790874,
+          0.79375,
+          0.6149425287356323,
+          0.9134199134199135,
+          0.70625,
+          0.47540983606557374,
+          0.7839506172839507,
+          0.5037593984962406,
+          0.5900900900900901,
+          0.5845070422535211,
+          0.5609756097560976,
+          0.4698275862068966,
+          0.5884476534296028,
+          0.4137931034482759,
+          0.5897435897435898,
+          0.4807692307692307
+        ],
+        [
+          0.46113989637305697,
+          0.7635135135135135,
+          0.5290322580645161,
+          0.7936507936507937,
+          0.5340909090909092,
+          0.0,
+          0.5082644628099173,
+          0.546218487394958,
+          0.48630136986301364,
+          0.8840579710144928,
+          0.4796747967479674,
+          0.5210084033613445,
+          0.6488549618320612,
+          0.5517241379310345,
+          0.6860986547085202,
+          0.5955882352941176,
+          0.6161971830985915,
+          0.5497835497835497,
+          0.6,
+          0.5,
+          0.6974789915966386,
+          0.5837320574162679
+        ],
+        [
+          0.40909090909090906,
+          0.7808764940239044,
+          0.601593625498008,
+          0.868312757201646,
+          0.5513307984790874,
+          0.5082644628099173,
+          0.0,
+          0.7768595041322314,
+          0.6072874493927125,
+          0.8160535117056856,
+          0.71900826446281,
+          0.32155477031802115,
+          0.7704918032786885,
+          0.32441471571906355,
+          0.5850340136054422,
+          0.45092024539877296,
+          0.4457831325301205,
+          0.42611683848797255,
+          0.44654088050314467,
+          0.3238434163701067,
+          0.5662251655629139,
+          0.4188679245283019
+        ],
+        [
+          0.696629213483146,
+          0.7835051546391752,
+          0.5948275862068966,
+          0.640625,
+          0.79375,
+          0.546218487394958,
+          0.7768595041322314,
+          0.0,
+          0.5420560747663552,
+          0.9559748427672956,
+          0.5476190476190477,
+          0.7682403433476395,
+          0.6666666666666667,
+          0.7915057915057915,
+          0.7741935483870968,
+          0.7946768060836502,
+          0.8072727272727273,
+          0.7671232876712328,
+          0.8,
+          0.7641921397379913,
+          0.7810945273631841,
+          0.8092783505154639
+        ],
+        [
+          0.5641025641025641,
+          0.8309859154929577,
+          0.5838926174496644,
+          0.7837837837837838,
+          0.6149425287356323,
+          0.48630136986301364,
+          0.6072874493927125,
+          0.5420560747663552,
+          0.0,
+          0.966183574879227,
+          0.49557522123893805,
+          0.5864978902953586,
+          0.6991869918699187,
+          0.6115384615384616,
+          0.6857142857142857,
+          0.6823104693140793,
+          0.7079037800687284,
+          0.6859504132231404,
+          0.6488549618320612,
+          0.5732758620689655,
+          0.7740585774058577,
+          0.5392670157068062
+        ],
+        [
+          0.7815126050420168,
+          0.7246376811594203,
+          0.9672897196261683,
+          1.0,
+          0.9134199134199135,
+          0.8840579710144928,
+          0.8160535117056856,
+          0.9559748427672956,
+          0.966183574879227,
+          0.0,
+          1.0,
+          0.9116719242902208,
+          0.8513513513513513,
+          0.8925373134328358,
+          0.9893992932862191,
+          0.9583333333333334,
+          0.9034090909090909,
+          0.8843537414965986,
+          0.9659090909090909,
+          0.8159722222222222,
+          0.7051282051282051,
+          0.9823943661971831
+        ],
+        [
+          0.6256983240223464,
+          0.8907563025210083,
+          0.5371900826446281,
+          0.7831325301204819,
+          0.70625,
+          0.4796747967479674,
+          0.71900826446281,
+          0.5476190476190477,
+          0.49557522123893805,
+          1.0,
+          0.0,
+          0.7081545064377682,
+          0.7647058823529411,
+          0.7374517374517375,
+          0.6989247311827957,
+          0.7414448669201521,
+          0.7563636363636363,
+          0.7149321266968326,
+          0.7301587301587302,
+          0.7086956521739131,
+          0.7725118483412322,
+          0.6827956989247312
+        ],
+        [
+          0.4548872180451128,
+          0.812,
+          0.5690376569037656,
+          0.8583690987124464,
+          0.47540983606557374,
+          0.5210084033613445,
+          0.32155477031802115,
+          0.7682403433476395,
+          0.5864978902953586,
+          0.9116719242902208,
+          0.7081545064377682,
+          0.0,
+          0.7669491525423728,
+          0.24285714285714288,
+          0.44656488549618323,
+          0.30716723549488056,
+          0.3431372549019608,
+          0.3246268656716418,
+          0.3275862068965517,
+          0.3321299638989169,
+          0.5866666666666667,
+          0.30578512396694213
+        ],
+        [
+          0.6888888888888889,
+          0.5301204819277108,
+          0.781021897810219,
+          0.9166666666666666,
+          0.7839506172839507,
+          0.6488549618320612,
+          0.7704918032786885,
+          0.6666666666666667,
+          0.6991869918699187,
+          0.8513513513513513,
+          0.7647058823529411,
+          0.7669491525423728,
+          0.0,
+          0.8127340823970037,
+          0.9209302325581395,
+          0.8494623655913979,
+          0.8268551236749117,
+          0.7876106194690266,
+          0.8602941176470589,
+          0.7629310344827587,
+          0.8418604651162791,
+          0.8536585365853658
+        ],
+        [
+          0.49828178694158076,
+          0.8254545454545454,
+          0.5954198473282443,
+          0.8725868725868726,
+          0.5037593984962406,
+          0.5517241379310345,
+          0.32441471571906355,
+          0.7915057915057915,
+          0.6115384615384616,
+          0.8925373134328358,
+          0.7374517374517375,
+          0.24285714285714288,
+          0.8127340823970037,
+          0.0,
+          0.34732824427480913,
+          0.24832214765100669,
+          0.32389937106918243,
+          0.28519855595667865,
+          0.2559726962457338,
+          0.32302405498281783,
+          0.5483870967741935,
+          0.3731343283582089
+        ],
+        [
+          0.6356589147286822,
+          0.956140350877193,
+          0.533678756476684,
+          0.8238636363636364,
+          0.5900900900900901,
+          0.6860986547085202,
+          0.5850340136054422,
+          0.7741935483870968,
+          0.6857142857142857,
+          0.9893992932862191,
+          0.6989247311827957,
+          0.44656488549618323,
+          0.9209302325581395,
+          0.34732824427480913,
+          0.0,
+          0.33840304182509506,
+          0.37681159420289856,
+          0.35443037974683544,
+          0.30952380952380953,
+          0.5291970802919708,
+          0.57421875,
+          0.4870689655172413
+        ],
+        [
+          0.5910543130990416,
+          0.8952702702702703,
+          0.6119402985074627,
+          0.8745247148288974,
+          0.5845070422535211,
+          0.5955882352941176,
+          0.45092024539877296,
+          0.7946768060836502,
+          0.6823104693140793,
+          0.9583333333333334,
+          0.7414448669201521,
+          0.30716723549488056,
+          0.8494623655913979,
+          0.24832214765100669,
+          0.33840304182509506,
+          0.0,
+          0.3006329113924051,
+          0.3368055555555556,
+          0.1607142857142857,
+          0.4625,
+          0.6283987915407855,
+          0.46153846153846156
+        ],
+        [
+          0.5605095541401274,
+          0.8542372881355932,
+          0.6072727272727273,
+          0.8795620437956204,
+          0.5609756097560976,
+          0.6161971830985915,
+          0.4457831325301205,
+          0.8072727272727273,
+          0.7079037800687284,
+          0.9034090909090909,
+          0.7563636363636363,
+          0.3431372549019608,
+          0.8268551236749117,
+          0.32389937106918243,
+          0.37681159420289856,
+          0.3006329113924051,
+          0.0,
+          0.33333333333333337,
+          0.2754098360655738,
+          0.41324921135646686,
+          0.5736196319018405,
+          0.5261437908496732
+        ],
+        [
+          0.4365079365079365,
+          0.782608695652174,
+          0.5159817351598174,
+          0.8472222222222222,
+          0.4698275862068966,
+          0.5497835497835497,
+          0.42611683848797255,
+          0.7671232876712328,
+          0.6859504132231404,
+          0.8843537414965986,
+          0.7149321266968326,
+          0.3246268656716418,
+          0.7876106194690266,
+          0.28519855595667865,
+          0.35443037974683544,
+          0.3368055555555556,
+          0.33333333333333337,
+          0.0,
+          0.352112676056338,
+          0.35185185185185186,
+          0.45833333333333337,
+          0.4708171206225681
+        ],
+        [
+          0.6038961038961039,
+          0.9178082191780822,
+          0.6115384615384616,
+          0.8690476190476191,
+          0.5884476534296028,
+          0.6,
+          0.44654088050314467,
+          0.8,
+          0.6488549618320612,
+          0.9659090909090909,
+          0.7301587301587302,
+          0.3275862068965517,
+          0.8602941176470589,
+          0.2559726962457338,
+          0.30952380952380953,
+          0.1607142857142857,
+          0.2754098360655738,
+          0.352112676056338,
+          0.0,
+          0.4533762057877814,
+          0.6411042944785277,
+          0.43999999999999995
+        ],
+        [
+          0.403921568627451,
+          0.7892561983471075,
+          0.5367965367965368,
+          0.8558951965065502,
+          0.4137931034482759,
+          0.5,
+          0.3238434163701067,
+          0.7641921397379913,
+          0.5732758620689655,
+          0.8159722222222222,
+          0.7086956521739131,
+          0.3321299638989169,
+          0.7629310344827587,
+          0.32302405498281783,
+          0.5291970802919708,
+          0.4625,
+          0.41324921135646686,
+          0.35185185185185186,
+          0.4533762057877814,
+          0.0,
+          0.4386617100371747,
+          0.4202334630350194
+        ],
+        [
+          0.46887966804979253,
+          0.7857142857142857,
+          0.5507246376811594,
+          0.8333333333333334,
+          0.5897435897435898,
+          0.6974789915966386,
+          0.5662251655629139,
+          0.7810945273631841,
+          0.7740585774058577,
+          0.7051282051282051,
+          0.7725118483412322,
+          0.5866666666666667,
+          0.8418604651162791,
+          0.5483870967741935,
+          0.57421875,
+          0.6283987915407855,
+          0.5736196319018405,
+          0.45833333333333337,
+          0.6411042944785277,
+          0.4386617100371747,
+          0.0,
+          0.6857142857142857
+        ],
+        [
+          0.5390946502057613,
+          0.9144144144144144,
+          0.5700000000000001,
+          0.8524590163934427,
+          0.4807692307692307,
+          0.5837320574162679,
+          0.4188679245283019,
+          0.8092783505154639,
+          0.5392670157068062,
+          0.9823943661971831,
+          0.6827956989247312,
+          0.30578512396694213,
+          0.8536585365853658,
+          0.3731343283582089,
+          0.4870689655172413,
+          0.46153846153846156,
+          0.5261437908496732,
+          0.4708171206225681,
+          0.43999999999999995,
+          0.4202334630350194,
+          0.6857142857142857,
+          0.0
+        ]
+      ],
+      "pairs_by_distance": [
+        {
+          "a": "flak-array",
+          "b": "pulse-turret",
+          "distance": 0.1607
+        },
+        {
+          "a": "warden-heavy",
+          "b": "anchor-damper",
+          "distance": 0.2429
+        },
+        {
+          "a": "anchor-damper",
+          "b": "flak-array",
+          "distance": 0.2483
+        },
+        {
+          "a": "anchor-damper",
+          "b": "pulse-turret",
+          "distance": 0.256
+        },
+        {
+          "a": "ion-lance",
+          "b": "pulse-turret",
+          "distance": 0.2754
+        },
+        {
+          "a": "anchor-damper",
+          "b": "mortar-emplacement",
+          "distance": 0.2852
+        },
+        {
+          "a": "flak-array",
+          "b": "ion-lance",
+          "distance": 0.3006
+        },
+        {
+          "a": "warden-heavy",
+          "b": "shield-wall",
+          "distance": 0.3058
+        },
+        {
+          "a": "warden-heavy",
+          "b": "flak-array",
+          "distance": 0.3072
+        },
+        {
+          "a": "arc-node",
+          "b": "pulse-turret",
+          "distance": 0.3095
+        },
+        {
+          "a": "reach-bulwark",
+          "b": "warden-heavy",
+          "distance": 0.3216
+        },
+        {
+          "a": "anchor-damper",
+          "b": "restorer",
+          "distance": 0.323
+        },
+        {
+          "a": "reach-bulwark",
+          "b": "restorer",
+          "distance": 0.3238
+        },
+        {
+          "a": "anchor-damper",
+          "b": "ion-lance",
+          "distance": 0.3239
+        },
+        {
+          "a": "reach-bulwark",
+          "b": "anchor-damper",
+          "distance": 0.3244
+        },
+        {
+          "a": "warden-heavy",
+          "b": "mortar-emplacement",
+          "distance": 0.3246
+        },
+        {
+          "a": "warden-heavy",
+          "b": "pulse-turret",
+          "distance": 0.3276
+        },
+        {
+          "a": "warden-heavy",
+          "b": "restorer",
+          "distance": 0.3321
+        },
+        {
+          "a": "ion-lance",
+          "b": "mortar-emplacement",
+          "distance": 0.3333
+        },
+        {
+          "a": "flak-array",
+          "b": "mortar-emplacement",
+          "distance": 0.3368
+        },
+        {
+          "a": "arc-node",
+          "b": "flak-array",
+          "distance": 0.3384
+        },
+        {
+          "a": "warden-heavy",
+          "b": "ion-lance",
+          "distance": 0.3431
+        },
+        {
+          "a": "anchor-damper",
+          "b": "arc-node",
+          "distance": 0.3473
+        },
+        {
+          "a": "mortar-emplacement",
+          "b": "restorer",
+          "distance": 0.3519
+        },
+        {
+          "a": "mortar-emplacement",
+          "b": "pulse-turret",
+          "distance": 0.3521
+        },
+        {
+          "a": "arc-node",
+          "b": "mortar-emplacement",
+          "distance": 0.3544
+        },
+        {
+          "a": "anchor-damper",
+          "b": "shield-wall",
+          "distance": 0.3731
+        },
+        {
+          "a": "arc-node",
+          "b": "ion-lance",
+          "distance": 0.3768
+        },
+        {
+          "a": "hollow-column",
+          "b": "restorer",
+          "distance": 0.4039
+        },
+        {
+          "a": "hollow-column",
+          "b": "reach-bulwark",
+          "distance": 0.4091
+        },
+        {
+          "a": "ion-lance",
+          "b": "restorer",
+          "distance": 0.4132
+        },
+        {
+          "a": "hollow-vessel",
+          "b": "restorer",
+          "distance": 0.4138
+        },
+        {
+          "a": "reach-bulwark",
+          "b": "shield-wall",
+          "distance": 0.4189
+        },
+        {
+          "a": "restorer",
+          "b": "shield-wall",
+          "distance": 0.4202
+        },
+        {
+          "a": "reach-bulwark",
+          "b": "mortar-emplacement",
+          "distance": 0.4261
+        },
+        {
+          "a": "hollow-column",
+          "b": "mortar-emplacement",
+          "distance": 0.4365
+        },
+        {
+          "a": "restorer",
+          "b": "scan-relay",
+          "distance": 0.4387
+        },
+        {
+          "a": "pulse-turret",
+          "b": "shield-wall",
+          "distance": 0.44
+        },
+        {
+          "a": "reach-bulwark",
+          "b": "ion-lance",
+          "distance": 0.4458
+        },
+        {
+          "a": "reach-bulwark",
+          "b": "pulse-turret",
+          "distance": 0.4465
+        },
+        {
+          "a": "warden-heavy",
+          "b": "arc-node",
+          "distance": 0.4466
+        },
+        {
+          "a": "reach-bulwark",
+          "b": "flak-array",
+          "distance": 0.4509
+        },
+        {
+          "a": "pulse-turret",
+          "b": "restorer",
+          "distance": 0.4534
+        },
+        {
+          "a": "hollow-column",
+          "b": "hollow-vessel",
+          "distance": 0.4537
+        },
+        {
+          "a": "hollow-column",
+          "b": "warden-heavy",
+          "distance": 0.4549
+        },
+        {
+          "a": "mortar-emplacement",
+          "b": "scan-relay",
+          "distance": 0.4583
+        },
+        {
+          "a": "hollow-echo",
+          "b": "hollow-vessel",
+          "distance": 0.4596
+        },
+        {
+          "a": "hollow-column",
+          "b": "reach-breacher",
+          "distance": 0.4611
+        },
+        {
+          "a": "flak-array",
+          "b": "shield-wall",
+          "distance": 0.4615
+        },
+        {
+          "a": "flak-array",
+          "b": "restorer",
+          "distance": 0.4625
+        },
+        {
+          "a": "hollow-column",
+          "b": "scan-relay",
+          "distance": 0.4689
+        },
+        {
+          "a": "hollow-vessel",
+          "b": "mortar-emplacement",
+          "distance": 0.4698
+        },
+        {
+          "a": "mortar-emplacement",
+          "b": "shield-wall",
+          "distance": 0.4708
+        },
+        {
+          "a": "hollow-vessel",
+          "b": "warden-heavy",
+          "distance": 0.4754
+        },
+        {
+          "a": "reach-breacher",
+          "b": "warden-drone",
+          "distance": 0.4797
+        },
+        {
+          "a": "hollow-vessel",
+          "b": "shield-wall",
+          "distance": 0.4808
+        },
+        {
+          "a": "reach-breacher",
+          "b": "reach-sapper",
+          "distance": 0.4863
+        },
+        {
+          "a": "arc-node",
+          "b": "shield-wall",
+          "distance": 0.4871
+        },
+        {
+          "a": "reach-sapper",
+          "b": "warden-drone",
+          "distance": 0.4956
+        },
+        {
+          "a": "hollow-column",
+          "b": "hollow-echo",
+          "distance": 0.4974
+        },
+        {
+          "a": "hollow-column",
+          "b": "anchor-damper",
+          "distance": 0.4983
+        },
+        {
+          "a": "reach-breacher",
+          "b": "restorer",
+          "distance": 0.5
+        },
+        {
+          "a": "hollow-vessel",
+          "b": "anchor-damper",
+          "distance": 0.5038
+        },
+        {
+          "a": "reach-breacher",
+          "b": "reach-bulwark",
+          "distance": 0.5083
+        },
+        {
+          "a": "hollow-echo",
+          "b": "mortar-emplacement",
+          "distance": 0.516
+        },
+        {
+          "a": "reach-breacher",
+          "b": "warden-heavy",
+          "distance": 0.521
+        },
+        {
+          "a": "ion-lance",
+          "b": "shield-wall",
+          "distance": 0.5261
+        },
+        {
+          "a": "hollow-echo",
+          "b": "reach-breacher",
+          "distance": 0.529
+        },
+        {
+          "a": "arc-node",
+          "b": "restorer",
+          "distance": 0.5292
+        },
+        {
+          "a": "hollow-drift",
+          "b": "warden-mote",
+          "distance": 0.5301
+        },
+        {
+          "a": "hollow-echo",
+          "b": "arc-node",
+          "distance": 0.5337
+        },
+        {
+          "a": "hollow-vessel",
+          "b": "reach-breacher",
+          "distance": 0.5341
+        },
+        {
+          "a": "hollow-echo",
+          "b": "restorer",
+          "distance": 0.5368
+        },
+        {
+          "a": "hollow-echo",
+          "b": "warden-drone",
+          "distance": 0.5372
+        },
+        {
+          "a": "hollow-column",
+          "b": "shield-wall",
+          "distance": 0.5391
+        },
+        {
+          "a": "reach-sapper",
+          "b": "shield-wall",
+          "distance": 0.5393
+        },
+        {
+          "a": "reach-picket",
+          "b": "reach-sapper",
+          "distance": 0.5421
+        },
+        {
+          "a": "reach-breacher",
+          "b": "reach-picket",
+          "distance": 0.5462
+        },
+        {
+          "a": "reach-picket",
+          "b": "warden-drone",
+          "distance": 0.5476
+        },
+        {
+          "a": "anchor-damper",
+          "b": "scan-relay",
+          "distance": 0.5484
+        },
+        {
+          "a": "reach-breacher",
+          "b": "mortar-emplacement",
+          "distance": 0.5498
+        },
+        {
+          "a": "hollow-echo",
+          "b": "scan-relay",
+          "distance": 0.5507
+        },
+        {
+          "a": "hollow-vessel",
+          "b": "reach-bulwark",
+          "distance": 0.5513
+        },
+        {
+          "a": "reach-breacher",
+          "b": "anchor-damper",
+          "distance": 0.5517
+        },
+        {
+          "a": "hollow-column",
+          "b": "ion-lance",
+          "distance": 0.5605
+        },
+        {
+          "a": "hollow-vessel",
+          "b": "ion-lance",
+          "distance": 0.561
+        },
+        {
+          "a": "hollow-column",
+          "b": "reach-sapper",
+          "distance": 0.5641
+        },
+        {
+          "a": "reach-bulwark",
+          "b": "scan-relay",
+          "distance": 0.5662
+        },
+        {
+          "a": "hollow-echo",
+          "b": "warden-heavy",
+          "distance": 0.569
+        },
+        {
+          "a": "hollow-echo",
+          "b": "shield-wall",
+          "distance": 0.57
+        },
+        {
+          "a": "reach-sapper",
+          "b": "restorer",
+          "distance": 0.5733
+        },
+        {
+          "a": "ion-lance",
+          "b": "scan-relay",
+          "distance": 0.5736
+        },
+        {
+          "a": "arc-node",
+          "b": "scan-relay",
+          "distance": 0.5742
+        },
+        {
+          "a": "reach-breacher",
+          "b": "shield-wall",
+          "distance": 0.5837
+        },
+        {
+          "a": "hollow-echo",
+          "b": "reach-sapper",
+          "distance": 0.5839
+        },
+        {
+          "a": "hollow-vessel",
+          "b": "flak-array",
+          "distance": 0.5845
+        },
+        {
+          "a": "reach-bulwark",
+          "b": "arc-node",
+          "distance": 0.585
+        },
+        {
+          "a": "reach-sapper",
+          "b": "warden-heavy",
+          "distance": 0.5865
+        },
+        {
+          "a": "warden-heavy",
+          "b": "scan-relay",
+          "distance": 0.5867
+        },
+        {
+          "a": "hollow-vessel",
+          "b": "pulse-turret",
+          "distance": 0.5884
+        },
+        {
+          "a": "hollow-vessel",
+          "b": "scan-relay",
+          "distance": 0.5897
+        },
+        {
+          "a": "hollow-vessel",
+          "b": "arc-node",
+          "distance": 0.5901
+        },
+        {
+          "a": "hollow-column",
+          "b": "flak-array",
+          "distance": 0.5911
+        },
+        {
+          "a": "hollow-echo",
+          "b": "reach-picket",
+          "distance": 0.5948
+        },
+        {
+          "a": "hollow-echo",
+          "b": "anchor-damper",
+          "distance": 0.5954
+        },
+        {
+          "a": "reach-breacher",
+          "b": "flak-array",
+          "distance": 0.5956
+        },
+        {
+          "a": "reach-breacher",
+          "b": "pulse-turret",
+          "distance": 0.6
+        },
+        {
+          "a": "hollow-echo",
+          "b": "reach-bulwark",
+          "distance": 0.6016
+        },
+        {
+          "a": "hollow-column",
+          "b": "pulse-turret",
+          "distance": 0.6039
+        },
+        {
+          "a": "hollow-echo",
+          "b": "ion-lance",
+          "distance": 0.6073
+        },
+        {
+          "a": "reach-bulwark",
+          "b": "reach-sapper",
+          "distance": 0.6073
+        },
+        {
+          "a": "hollow-echo",
+          "b": "pulse-turret",
+          "distance": 0.6115
+        },
+        {
+          "a": "reach-sapper",
+          "b": "anchor-damper",
+          "distance": 0.6115
+        },
+        {
+          "a": "hollow-echo",
+          "b": "flak-array",
+          "distance": 0.6119
+        },
+        {
+          "a": "hollow-vessel",
+          "b": "reach-sapper",
+          "distance": 0.6149
+        },
+        {
+          "a": "reach-breacher",
+          "b": "ion-lance",
+          "distance": 0.6162
+        },
+        {
+          "a": "hollow-column",
+          "b": "warden-drone",
+          "distance": 0.6257
+        },
+        {
+          "a": "flak-array",
+          "b": "scan-relay",
+          "distance": 0.6284
+        },
+        {
+          "a": "hollow-column",
+          "b": "arc-node",
+          "distance": 0.6357
+        },
+        {
+          "a": "hollow-shard",
+          "b": "reach-picket",
+          "distance": 0.6406
+        },
+        {
+          "a": "pulse-turret",
+          "b": "scan-relay",
+          "distance": 0.6411
+        },
+        {
+          "a": "reach-breacher",
+          "b": "warden-mote",
+          "distance": 0.6489
+        },
+        {
+          "a": "reach-sapper",
+          "b": "pulse-turret",
+          "distance": 0.6489
+        },
+        {
+          "a": "hollow-column",
+          "b": "hollow-drift",
+          "distance": 0.6556
+        },
+        {
+          "a": "reach-picket",
+          "b": "warden-mote",
+          "distance": 0.6667
+        },
+        {
+          "a": "reach-sapper",
+          "b": "flak-array",
+          "distance": 0.6823
+        },
+        {
+          "a": "warden-drone",
+          "b": "shield-wall",
+          "distance": 0.6828
+        },
+        {
+          "a": "reach-sapper",
+          "b": "arc-node",
+          "distance": 0.6857
+        },
+        {
+          "a": "scan-relay",
+          "b": "shield-wall",
+          "distance": 0.6857
+        },
+        {
+          "a": "reach-sapper",
+          "b": "mortar-emplacement",
+          "distance": 0.686
+        },
+        {
+          "a": "reach-breacher",
+          "b": "arc-node",
+          "distance": 0.6861
+        },
+        {
+          "a": "hollow-column",
+          "b": "warden-mote",
+          "distance": 0.6889
+        },
+        {
+          "a": "hollow-column",
+          "b": "reach-picket",
+          "distance": 0.6966
+        },
+        {
+          "a": "reach-breacher",
+          "b": "scan-relay",
+          "distance": 0.6975
+        },
+        {
+          "a": "warden-drone",
+          "b": "arc-node",
+          "distance": 0.6989
+        },
+        {
+          "a": "reach-sapper",
+          "b": "warden-mote",
+          "distance": 0.6992
+        },
+        {
+          "a": "reach-skiff",
+          "b": "scan-relay",
+          "distance": 0.7051
+        },
+        {
+          "a": "hollow-vessel",
+          "b": "warden-drone",
+          "distance": 0.7062
+        },
+        {
+          "a": "reach-sapper",
+          "b": "ion-lance",
+          "distance": 0.7079
+        },
+        {
+          "a": "warden-drone",
+          "b": "warden-heavy",
+          "distance": 0.7082
+        },
+        {
+          "a": "warden-drone",
+          "b": "restorer",
+          "distance": 0.7087
+        },
+        {
+          "a": "hollow-echo",
+          "b": "hollow-shard",
+          "distance": 0.7091
+        },
+        {
+          "a": "warden-drone",
+          "b": "mortar-emplacement",
+          "distance": 0.7149
+        },
+        {
+          "a": "reach-bulwark",
+          "b": "warden-drone",
+          "distance": 0.719
+        },
+        {
+          "a": "hollow-drift",
+          "b": "reach-skiff",
+          "distance": 0.7246
+        },
+        {
+          "a": "warden-drone",
+          "b": "pulse-turret",
+          "distance": 0.7302
+        },
+        {
+          "a": "warden-drone",
+          "b": "anchor-damper",
+          "distance": 0.7375
+        },
+        {
+          "a": "warden-drone",
+          "b": "flak-array",
+          "distance": 0.7414
+        },
+        {
+          "a": "warden-drone",
+          "b": "ion-lance",
+          "distance": 0.7564
+        },
+        {
+          "a": "warden-mote",
+          "b": "restorer",
+          "distance": 0.7629
+        },
+        {
+          "a": "hollow-drift",
+          "b": "reach-breacher",
+          "distance": 0.7635
+        },
+        {
+          "a": "reach-picket",
+          "b": "restorer",
+          "distance": 0.7642
+        },
+        {
+          "a": "warden-drone",
+          "b": "warden-mote",
+          "distance": 0.7647
+        },
+        {
+          "a": "warden-heavy",
+          "b": "warden-mote",
+          "distance": 0.7669
+        },
+        {
+          "a": "reach-picket",
+          "b": "mortar-emplacement",
+          "distance": 0.7671
+        },
+        {
+          "a": "reach-picket",
+          "b": "warden-heavy",
+          "distance": 0.7682
+        },
+        {
+          "a": "reach-bulwark",
+          "b": "warden-mote",
+          "distance": 0.7705
+        },
+        {
+          "a": "warden-drone",
+          "b": "scan-relay",
+          "distance": 0.7725
+        },
+        {
+          "a": "reach-sapper",
+          "b": "scan-relay",
+          "distance": 0.7741
+        },
+        {
+          "a": "reach-picket",
+          "b": "arc-node",
+          "distance": 0.7742
+        },
+        {
+          "a": "reach-bulwark",
+          "b": "reach-picket",
+          "distance": 0.7769
+        },
+        {
+          "a": "hollow-drift",
+          "b": "reach-bulwark",
+          "distance": 0.7809
+        },
+        {
+          "a": "hollow-echo",
+          "b": "warden-mote",
+          "distance": 0.781
+        },
+        {
+          "a": "reach-picket",
+          "b": "scan-relay",
+          "distance": 0.7811
+        },
+        {
+          "a": "hollow-column",
+          "b": "reach-skiff",
+          "distance": 0.7815
+        },
+        {
+          "a": "hollow-drift",
+          "b": "mortar-emplacement",
+          "distance": 0.7826
+        },
+        {
+          "a": "hollow-shard",
+          "b": "warden-drone",
+          "distance": 0.7831
+        },
+        {
+          "a": "hollow-drift",
+          "b": "reach-picket",
+          "distance": 0.7835
+        },
+        {
+          "a": "hollow-shard",
+          "b": "reach-sapper",
+          "distance": 0.7838
+        },
+        {
+          "a": "hollow-vessel",
+          "b": "warden-mote",
+          "distance": 0.784
+        },
+        {
+          "a": "hollow-drift",
+          "b": "scan-relay",
+          "distance": 0.7857
+        },
+        {
+          "a": "warden-mote",
+          "b": "mortar-emplacement",
+          "distance": 0.7876
+        },
+        {
+          "a": "hollow-drift",
+          "b": "restorer",
+          "distance": 0.7893
+        },
+        {
+          "a": "reach-picket",
+          "b": "anchor-damper",
+          "distance": 0.7915
+        },
+        {
+          "a": "hollow-shard",
+          "b": "reach-breacher",
+          "distance": 0.7937
+        },
+        {
+          "a": "hollow-vessel",
+          "b": "reach-picket",
+          "distance": 0.7938
+        },
+        {
+          "a": "reach-picket",
+          "b": "flak-array",
+          "distance": 0.7947
+        },
+        {
+          "a": "reach-picket",
+          "b": "pulse-turret",
+          "distance": 0.8
+        },
+        {
+          "a": "reach-picket",
+          "b": "ion-lance",
+          "distance": 0.8073
+        },
+        {
+          "a": "reach-picket",
+          "b": "shield-wall",
+          "distance": 0.8093
+        },
+        {
+          "a": "hollow-drift",
+          "b": "warden-heavy",
+          "distance": 0.812
+        },
+        {
+          "a": "warden-mote",
+          "b": "anchor-damper",
+          "distance": 0.8127
+        },
+        {
+          "a": "hollow-shard",
+          "b": "hollow-vessel",
+          "distance": 0.8138
+        },
+        {
+          "a": "reach-skiff",
+          "b": "restorer",
+          "distance": 0.816
+        },
+        {
+          "a": "reach-bulwark",
+          "b": "reach-skiff",
+          "distance": 0.8161
+        },
+        {
+          "a": "hollow-column",
+          "b": "hollow-shard",
+          "distance": 0.8212
+        },
+        {
+          "a": "hollow-shard",
+          "b": "arc-node",
+          "distance": 0.8239
+        },
+        {
+          "a": "hollow-drift",
+          "b": "anchor-damper",
+          "distance": 0.8255
+        },
+        {
+          "a": "hollow-drift",
+          "b": "hollow-vessel",
+          "distance": 0.8266
+        },
+        {
+          "a": "warden-mote",
+          "b": "ion-lance",
+          "distance": 0.8269
+        },
+        {
+          "a": "hollow-drift",
+          "b": "reach-sapper",
+          "distance": 0.831
+        },
+        {
+          "a": "hollow-shard",
+          "b": "scan-relay",
+          "distance": 0.8333
+        },
+        {
+          "a": "warden-mote",
+          "b": "scan-relay",
+          "distance": 0.8419
+        },
+        {
+          "a": "hollow-drift",
+          "b": "hollow-echo",
+          "distance": 0.8467
+        },
+        {
+          "a": "hollow-shard",
+          "b": "mortar-emplacement",
+          "distance": 0.8472
+        },
+        {
+          "a": "warden-mote",
+          "b": "flak-array",
+          "distance": 0.8495
+        },
+        {
+          "a": "reach-skiff",
+          "b": "warden-mote",
+          "distance": 0.8514
+        },
+        {
+          "a": "hollow-shard",
+          "b": "shield-wall",
+          "distance": 0.8525
+        },
+        {
+          "a": "warden-mote",
+          "b": "shield-wall",
+          "distance": 0.8537
+        },
+        {
+          "a": "hollow-drift",
+          "b": "ion-lance",
+          "distance": 0.8542
+        },
+        {
+          "a": "hollow-shard",
+          "b": "restorer",
+          "distance": 0.8559
+        },
+        {
+          "a": "hollow-shard",
+          "b": "warden-heavy",
+          "distance": 0.8584
+        },
+        {
+          "a": "warden-mote",
+          "b": "pulse-turret",
+          "distance": 0.8603
+        },
+        {
+          "a": "hollow-shard",
+          "b": "reach-bulwark",
+          "distance": 0.8683
+        },
+        {
+          "a": "hollow-shard",
+          "b": "pulse-turret",
+          "distance": 0.869
+        },
+        {
+          "a": "hollow-shard",
+          "b": "anchor-damper",
+          "distance": 0.8726
+        },
+        {
+          "a": "hollow-shard",
+          "b": "flak-array",
+          "distance": 0.8745
+        },
+        {
+          "a": "hollow-shard",
+          "b": "ion-lance",
+          "distance": 0.8796
+        },
+        {
+          "a": "reach-breacher",
+          "b": "reach-skiff",
+          "distance": 0.8841
+        },
+        {
+          "a": "reach-skiff",
+          "b": "mortar-emplacement",
+          "distance": 0.8844
+        },
+        {
+          "a": "hollow-drift",
+          "b": "warden-drone",
+          "distance": 0.8908
+        },
+        {
+          "a": "reach-skiff",
+          "b": "anchor-damper",
+          "distance": 0.8925
+        },
+        {
+          "a": "hollow-drift",
+          "b": "flak-array",
+          "distance": 0.8953
+        },
+        {
+          "a": "reach-skiff",
+          "b": "ion-lance",
+          "distance": 0.9034
+        },
+        {
+          "a": "reach-skiff",
+          "b": "warden-heavy",
+          "distance": 0.9117
+        },
+        {
+          "a": "hollow-vessel",
+          "b": "reach-skiff",
+          "distance": 0.9134
+        },
+        {
+          "a": "hollow-drift",
+          "b": "shield-wall",
+          "distance": 0.9144
+        },
+        {
+          "a": "hollow-shard",
+          "b": "warden-mote",
+          "distance": 0.9167
+        },
+        {
+          "a": "hollow-drift",
+          "b": "pulse-turret",
+          "distance": 0.9178
+        },
+        {
+          "a": "warden-mote",
+          "b": "arc-node",
+          "distance": 0.9209
+        },
+        {
+          "a": "reach-picket",
+          "b": "reach-skiff",
+          "distance": 0.956
+        },
+        {
+          "a": "hollow-drift",
+          "b": "arc-node",
+          "distance": 0.9561
+        },
+        {
+          "a": "reach-skiff",
+          "b": "flak-array",
+          "distance": 0.9583
+        },
+        {
+          "a": "reach-skiff",
+          "b": "pulse-turret",
+          "distance": 0.9659
+        },
+        {
+          "a": "reach-sapper",
+          "b": "reach-skiff",
+          "distance": 0.9662
+        },
+        {
+          "a": "hollow-echo",
+          "b": "reach-skiff",
+          "distance": 0.9673
+        },
+        {
+          "a": "hollow-drift",
+          "b": "hollow-shard",
+          "distance": 0.9789
+        },
+        {
+          "a": "reach-skiff",
+          "b": "shield-wall",
+          "distance": 0.9824
+        },
+        {
+          "a": "reach-skiff",
+          "b": "arc-node",
+          "distance": 0.9894
+        },
+        {
+          "a": "hollow-shard",
+          "b": "reach-skiff",
+          "distance": 1.0
+        },
+        {
+          "a": "reach-skiff",
+          "b": "warden-drone",
+          "distance": 1.0
+        }
+      ]
+    },
+    "60": {
+      "ids": [
+        "hollow-column",
+        "hollow-drift",
+        "hollow-echo",
+        "hollow-shard",
+        "hollow-vessel",
+        "reach-breacher",
+        "reach-bulwark",
+        "reach-picket",
+        "reach-sapper",
+        "reach-skiff",
+        "warden-drone",
+        "warden-heavy",
+        "warden-mote",
+        "anchor-damper",
+        "arc-node",
+        "flak-array",
+        "ion-lance",
+        "mortar-emplacement",
+        "pulse-turret",
+        "restorer",
+        "scan-relay",
+        "shield-wall"
+      ],
+      "matrix": [
+        [
+          0.0,
+          0.6489028213166144,
+          0.5073313782991202,
+          0.8,
+          0.4540389972144847,
+          0.4537313432835821,
+          0.4171779141104295,
+          0.6878980891719746,
+          0.5263157894736843,
+          0.777511961722488,
+          0.6317460317460317,
+          0.46638655462184875,
+          0.7038216560509554,
+          0.5172413793103448,
+          0.6414686825053996,
+          0.5992779783393503,
+          0.5628415300546448,
+          0.42369020501138954,
+          0.6098003629764066,
+          0.4285714285714286,
+          0.4882629107981221,
+          0.5231143552311436
+        ],
+        [
+          0.6489028213166144,
+          0.0,
+          0.8529411764705882,
+          0.9715909090909091,
+          0.8262295081967213,
+          0.779467680608365,
+          0.7723404255319148,
+          0.7853107344632768,
+          0.8192307692307692,
+          0.7024793388429752,
+          0.8857142857142857,
+          0.8155555555555556,
+          0.5416666666666667,
+          0.8390342052313884,
+          0.9565217391304348,
+          0.9034090909090909,
+          0.8615384615384616,
+          0.7777777777777778,
+          0.920303605313093,
+          0.7973273942093542,
+          0.7918918918918919,
+          0.9182058047493403
+        ],
+        [
+          0.5073313782991202,
+          0.8529411764705882,
+          0.0,
+          0.6717948717948719,
+          0.48611111111111116,
+          0.5698924731182795,
+          0.6239495798319328,
+          0.6179245283018868,
+          0.5740740740740741,
+          0.968421052631579,
+          0.5622119815668203,
+          0.5589622641509434,
+          0.7899159663865546,
+          0.5913978494623655,
+          0.5302593659942363,
+          0.6139240506329113,
+          0.6012526096033404,
+          0.49606299212598426,
+          0.6086021505376344,
+          0.5492957746478873,
+          0.5416666666666667,
+          0.5345345345345345
+        ],
+        [
+          0.8,
+          0.9715909090909091,
+          0.6717948717948719,
+          0.0,
+          0.7992125984251969,
+          0.7706422018348624,
+          0.8633405639913232,
+          0.6386554621848739,
+          0.7549019607843137,
+          1.0,
+          0.7602739726027398,
+          0.8461538461538461,
+          0.9097222222222222,
+          0.8608695652173913,
+          0.8119122257053292,
+          0.8614718614718615,
+          0.8652631578947368,
+          0.8306878306878307,
+          0.8584070796460177,
+          0.8486997635933806,
+          0.8203592814371258,
+          0.8178807947019868
+        ],
+        [
+          0.4540389972144847,
+          0.8262295081967213,
+          0.48611111111111116,
+          0.7992125984251969,
+          0.0,
+          0.5313531353135313,
+          0.5752032520325203,
+          0.776173285198556,
+          0.5585284280936456,
+          0.9158415841584159,
+          0.7028985507246377,
+          0.4896551724137931,
+          0.8156028368794326,
+          0.5210970464135021,
+          0.595959595959596,
+          0.599601593625498,
+          0.5622489959839357,
+          0.4678217821782178,
+          0.597165991902834,
+          0.44859813084112155,
+          0.597051597051597,
+          0.4521739130434783
+        ],
+        [
+          0.4537313432835821,
+          0.779467680608365,
+          0.5698924731182795,
+          0.7706422018348624,
+          0.5313531353135313,
+          0.0,
+          0.5565217391304348,
+          0.5480769230769231,
+          0.4426877470355731,
+          0.8861111111111111,
+          0.47867298578199047,
+          0.5446009389671361,
+          0.6799999999999999,
+          0.5781584582441113,
+          0.6893939393939394,
+          0.6239669421487604,
+          0.6199186991869918,
+          0.5449999999999999,
+          0.6189473684210527,
+          0.5212264150943396,
+          0.7070217917675545,
+          0.5759312320916905
+        ],
+        [
+          0.4171779141104295,
+          0.7723404255319148,
+          0.6239495798319328,
+          0.8633405639913232,
+          0.5752032520325203,
+          0.5565217391304348,
+          0.0,
+          0.7869565217391304,
+          0.6199575371549894,
+          0.8054545454545454,
+          0.7456521739130435,
+          0.34404536862003776,
+          0.803030303030303,
+          0.3542039355992844,
+          0.6010830324909747,
+          0.4658901830282862,
+          0.44425956738768724,
+          0.42184557438794723,
+          0.44897959183673475,
+          0.31488549618320616,
+          0.5688405797101449,
+          0.49098196392785576
+        ],
+        [
+          0.6878980891719746,
+          0.7853107344632768,
+          0.6179245283018868,
+          0.6386554621848739,
+          0.776173285198556,
+          0.5480769230769231,
+          0.7869565217391304,
+          0.0,
+          0.5454545454545454,
+          0.9575971731448764,
+          0.4859154929577465,
+          0.7644230769230769,
+          0.6549295774647887,
+          0.7869565217391304,
+          0.7781065088757396,
+          0.7956989247311828,
+          0.7987421383647799,
+          0.7539267015706806,
+          0.7991266375545851,
+          0.7683215130023641,
+          0.7806267806267806,
+          0.7932098765432098
+        ],
+        [
+          0.5263157894736843,
+          0.8192307692307692,
+          0.5740740740740741,
+          0.7549019607843137,
+          0.5585284280936456,
+          0.4426877470355731,
+          0.6199575371549894,
+          0.5454545454545454,
+          0.0,
+          0.9652406417112299,
+          0.4950980392156863,
+          0.5639810426540284,
+          0.7194570135746606,
+          0.5991379310344828,
+          0.6814621409921671,
+          0.6720977596741344,
+          0.6779324055666004,
+          0.6476190476190475,
+          0.6369426751592357,
+          0.5777262180974478,
+          0.7677725118483412,
+          0.4953271028037384
+        ],
+        [
+          0.777511961722488,
+          0.7024793388429752,
+          0.968421052631579,
+          1.0,
+          0.9158415841584159,
+          0.8861111111111111,
+          0.8054545454545454,
+          0.9575971731448764,
+          0.9652406417112299,
+          0.0,
+          0.9968051118210862,
+          0.9169611307420494,
+          0.8671875,
+          0.9031719532554257,
+          0.9881422924901185,
+          0.9638364779874213,
+          0.912621359223301,
+          0.8725490196078431,
+          0.963258785942492,
+          0.8257575757575757,
+          0.7239709443099274,
+          0.987603305785124
+        ],
+        [
+          0.6317460317460317,
+          0.8857142857142857,
+          0.5622119815668203,
+          0.7602739726027398,
+          0.7028985507246377,
+          0.47867298578199047,
+          0.7456521739130435,
+          0.4859154929577465,
+          0.4950980392156863,
+          0.9968051118210862,
+          0.0,
+          0.71875,
+          0.7425149700598803,
+          0.7456521739130435,
+          0.7142857142857143,
+          0.7467532467532467,
+          0.7615062761506276,
+          0.7109375,
+          0.7411504424778761,
+          0.7234042553191489,
+          0.7786885245901639,
+          0.6731391585760518
+        ],
+        [
+          0.46638655462184875,
+          0.8155555555555556,
+          0.5589622641509434,
+          0.8461538461538461,
+          0.4896551724137931,
+          0.5446009389671361,
+          0.34404536862003776,
+          0.7644230769230769,
+          0.5639810426540284,
+          0.9169611307420494,
+          0.71875,
+          0.0,
+          0.7966903073286052,
+          0.272189349112426,
+          0.451271186440678,
+          0.3147792706333973,
+          0.35304990757855825,
+          0.32842105263157895,
+          0.32432432432432434,
+          0.32868525896414347,
+          0.6029962546816479,
+          0.3356807511737089
+        ],
+        [
+          0.7038216560509554,
+          0.5416666666666667,
+          0.7899159663865546,
+          0.9097222222222222,
+          0.8156028368794326,
+          0.6799999999999999,
+          0.803030303030303,
+          0.6549295774647887,
+          0.7194570135746606,
+          0.8671875,
+          0.7425149700598803,
+          0.7966903073286052,
+          0.0,
+          0.8430962343096234,
+          0.9177718832891246,
+          0.8650306748466258,
+          0.8408163265306122,
+          0.7892030848329049,
+          0.8762886597938144,
+          0.794392523364486,
+          0.8505434782608696,
+          0.8713450292397661
+        ],
+        [
+          0.5172413793103448,
+          0.8390342052313884,
+          0.5913978494623655,
+          0.8608695652173913,
+          0.5210970464135021,
+          0.5781584582441113,
+          0.3542039355992844,
+          0.7869565217391304,
+          0.5991379310344828,
+          0.9031719532554257,
+          0.7456521739130435,
+          0.272189349112426,
+          0.8430962343096234,
+          0.0,
+          0.35805084745762716,
+          0.2570888468809074,
+          0.29379562043795615,
+          0.31726907630522083,
+          0.24615384615384617,
+          0.3051823416506718,
+          0.5740072202166064,
+          0.4012738853503185
+        ],
+        [
+          0.6414686825053996,
+          0.9565217391304348,
+          0.5302593659942363,
+          0.8119122257053292,
+          0.595959595959596,
+          0.6893939393939394,
+          0.6010830324909747,
+          0.7781065088757396,
+          0.6814621409921671,
+          0.9881422924901185,
+          0.7142857142857143,
+          0.451271186440678,
+          0.9177718832891246,
+          0.35805084745762716,
+          0.0,
+          0.3290322580645161,
+          0.3438155136268344,
+          0.3770491803278688,
+          0.3068432671081678,
+          0.5150905432595574,
+          0.576158940397351,
+          0.49876543209876545
+        ],
+        [
+          0.5992779783393503,
+          0.9034090909090909,
+          0.6139240506329113,
+          0.8614718614718615,
+          0.599601593625498,
+          0.6239669421487604,
+          0.4658901830282862,
+          0.7956989247311828,
+          0.6720977596741344,
+          0.9638364779874213,
+          0.7467532467532467,
+          0.3147792706333973,
+          0.8650306748466258,
+          0.2570888468809074,
+          0.3290322580645161,
+          0.0,
+          0.2870201096892139,
+          0.37209302325581395,
+          0.17564870259481036,
+          0.4527972027972028,
+          0.6368330464716007,
+          0.4960159362549801
+        ],
+        [
+          0.5628415300546448,
+          0.8615384615384616,
+          0.6012526096033404,
+          0.8652631578947368,
+          0.5622489959839357,
+          0.6199186991869918,
+          0.44425956738768724,
+          0.7987421383647799,
+          0.6779324055666004,
+          0.912621359223301,
+          0.7615062761506276,
+          0.35304990757855825,
+          0.8408163265306122,
+          0.29379562043795615,
+          0.3438155136268344,
+          0.2870201096892139,
+          0.0,
+          0.3500967117988395,
+          0.2640449438202247,
+          0.39928698752228164,
+          0.5975609756097561,
+          0.5202312138728324
+        ],
+        [
+          0.42369020501138954,
+          0.7777777777777778,
+          0.49606299212598426,
+          0.8306878306878307,
+          0.4678217821782178,
+          0.5449999999999999,
+          0.42184557438794723,
+          0.7539267015706806,
+          0.6476190476190475,
+          0.8725490196078431,
+          0.7109375,
+          0.32842105263157895,
+          0.7892030848329049,
+          0.31726907630522083,
+          0.3770491803278688,
+          0.37209302325581395,
+          0.3500967117988395,
+          0.0,
+          0.3820662768031189,
+          0.310126582278481,
+          0.4575163398692811,
+          0.47845804988662133
+        ],
+        [
+          0.6098003629764066,
+          0.920303605313093,
+          0.6086021505376344,
+          0.8584070796460177,
+          0.597165991902834,
+          0.6189473684210527,
+          0.44897959183673475,
+          0.7991266375545851,
+          0.6369426751592357,
+          0.963258785942492,
+          0.7411504424778761,
+          0.32432432432432434,
+          0.8762886597938144,
+          0.24615384615384617,
+          0.3068432671081678,
+          0.17564870259481036,
+          0.2640449438202247,
+          0.3820662768031189,
+          0.0,
+          0.4262589928057554,
+          0.6563573883161512,
+          0.4639175257731959
+        ],
+        [
+          0.4285714285714286,
+          0.7973273942093542,
+          0.5492957746478873,
+          0.8486997635933806,
+          0.44859813084112155,
+          0.5212264150943396,
+          0.31488549618320616,
+          0.7683215130023641,
+          0.5777262180974478,
+          0.8257575757575757,
+          0.7234042553191489,
+          0.32868525896414347,
+          0.794392523364486,
+          0.3051823416506718,
+          0.5150905432595574,
+          0.4527972027972028,
+          0.39928698752228164,
+          0.310126582278481,
+          0.4262589928057554,
+          0.0,
+          0.4474226804123711,
+          0.40888888888888886
+        ],
+        [
+          0.4882629107981221,
+          0.7918918918918919,
+          0.5416666666666667,
+          0.8203592814371258,
+          0.597051597051597,
+          0.7070217917675545,
+          0.5688405797101449,
+          0.7806267806267806,
+          0.7677725118483412,
+          0.7239709443099274,
+          0.7786885245901639,
+          0.6029962546816479,
+          0.8505434782608696,
+          0.5740072202166064,
+          0.576158940397351,
+          0.6368330464716007,
+          0.5975609756097561,
+          0.4575163398692811,
+          0.6563573883161512,
+          0.4474226804123711,
+          0.0,
+          0.6688034188034189
+        ],
+        [
+          0.5231143552311436,
+          0.9182058047493403,
+          0.5345345345345345,
+          0.8178807947019868,
+          0.4521739130434783,
+          0.5759312320916905,
+          0.49098196392785576,
+          0.7932098765432098,
+          0.4953271028037384,
+          0.987603305785124,
+          0.6731391585760518,
+          0.3356807511737089,
+          0.8713450292397661,
+          0.4012738853503185,
+          0.49876543209876545,
+          0.4960159362549801,
+          0.5202312138728324,
+          0.47845804988662133,
+          0.4639175257731959,
+          0.40888888888888886,
+          0.6688034188034189,
+          0.0
+        ]
+      ],
+      "pairs_by_distance": [
+        {
+          "a": "flak-array",
+          "b": "pulse-turret",
+          "distance": 0.1756
+        },
+        {
+          "a": "anchor-damper",
+          "b": "pulse-turret",
+          "distance": 0.2462
+        },
+        {
+          "a": "anchor-damper",
+          "b": "flak-array",
+          "distance": 0.2571
+        },
+        {
+          "a": "ion-lance",
+          "b": "pulse-turret",
+          "distance": 0.264
+        },
+        {
+          "a": "warden-heavy",
+          "b": "anchor-damper",
+          "distance": 0.2722
+        },
+        {
+          "a": "flak-array",
+          "b": "ion-lance",
+          "distance": 0.287
+        },
+        {
+          "a": "anchor-damper",
+          "b": "ion-lance",
+          "distance": 0.2938
+        },
+        {
+          "a": "anchor-damper",
+          "b": "restorer",
+          "distance": 0.3052
+        },
+        {
+          "a": "arc-node",
+          "b": "pulse-turret",
+          "distance": 0.3068
+        },
+        {
+          "a": "mortar-emplacement",
+          "b": "restorer",
+          "distance": 0.3101
+        },
+        {
+          "a": "warden-heavy",
+          "b": "flak-array",
+          "distance": 0.3148
+        },
+        {
+          "a": "reach-bulwark",
+          "b": "restorer",
+          "distance": 0.3149
+        },
+        {
+          "a": "anchor-damper",
+          "b": "mortar-emplacement",
+          "distance": 0.3173
+        },
+        {
+          "a": "warden-heavy",
+          "b": "pulse-turret",
+          "distance": 0.3243
+        },
+        {
+          "a": "warden-heavy",
+          "b": "mortar-emplacement",
+          "distance": 0.3284
+        },
+        {
+          "a": "warden-heavy",
+          "b": "restorer",
+          "distance": 0.3287
+        },
+        {
+          "a": "arc-node",
+          "b": "flak-array",
+          "distance": 0.329
+        },
+        {
+          "a": "warden-heavy",
+          "b": "shield-wall",
+          "distance": 0.3357
+        },
+        {
+          "a": "arc-node",
+          "b": "ion-lance",
+          "distance": 0.3438
+        },
+        {
+          "a": "reach-bulwark",
+          "b": "warden-heavy",
+          "distance": 0.344
+        },
+        {
+          "a": "ion-lance",
+          "b": "mortar-emplacement",
+          "distance": 0.3501
+        },
+        {
+          "a": "warden-heavy",
+          "b": "ion-lance",
+          "distance": 0.353
+        },
+        {
+          "a": "reach-bulwark",
+          "b": "anchor-damper",
+          "distance": 0.3542
+        },
+        {
+          "a": "anchor-damper",
+          "b": "arc-node",
+          "distance": 0.3581
+        },
+        {
+          "a": "flak-array",
+          "b": "mortar-emplacement",
+          "distance": 0.3721
+        },
+        {
+          "a": "arc-node",
+          "b": "mortar-emplacement",
+          "distance": 0.377
+        },
+        {
+          "a": "mortar-emplacement",
+          "b": "pulse-turret",
+          "distance": 0.3821
+        },
+        {
+          "a": "ion-lance",
+          "b": "restorer",
+          "distance": 0.3993
+        },
+        {
+          "a": "anchor-damper",
+          "b": "shield-wall",
+          "distance": 0.4013
+        },
+        {
+          "a": "restorer",
+          "b": "shield-wall",
+          "distance": 0.4089
+        },
+        {
+          "a": "hollow-column",
+          "b": "reach-bulwark",
+          "distance": 0.4172
+        },
+        {
+          "a": "reach-bulwark",
+          "b": "mortar-emplacement",
+          "distance": 0.4218
+        },
+        {
+          "a": "hollow-column",
+          "b": "mortar-emplacement",
+          "distance": 0.4237
+        },
+        {
+          "a": "pulse-turret",
+          "b": "restorer",
+          "distance": 0.4263
+        },
+        {
+          "a": "hollow-column",
+          "b": "restorer",
+          "distance": 0.4286
+        },
+        {
+          "a": "reach-breacher",
+          "b": "reach-sapper",
+          "distance": 0.4427
+        },
+        {
+          "a": "reach-bulwark",
+          "b": "ion-lance",
+          "distance": 0.4443
+        },
+        {
+          "a": "restorer",
+          "b": "scan-relay",
+          "distance": 0.4474
+        },
+        {
+          "a": "hollow-vessel",
+          "b": "restorer",
+          "distance": 0.4486
+        },
+        {
+          "a": "reach-bulwark",
+          "b": "pulse-turret",
+          "distance": 0.449
+        },
+        {
+          "a": "warden-heavy",
+          "b": "arc-node",
+          "distance": 0.4513
+        },
+        {
+          "a": "hollow-vessel",
+          "b": "shield-wall",
+          "distance": 0.4522
+        },
+        {
+          "a": "flak-array",
+          "b": "restorer",
+          "distance": 0.4528
+        },
+        {
+          "a": "hollow-column",
+          "b": "reach-breacher",
+          "distance": 0.4537
+        },
+        {
+          "a": "hollow-column",
+          "b": "hollow-vessel",
+          "distance": 0.454
+        },
+        {
+          "a": "mortar-emplacement",
+          "b": "scan-relay",
+          "distance": 0.4575
+        },
+        {
+          "a": "pulse-turret",
+          "b": "shield-wall",
+          "distance": 0.4639
+        },
+        {
+          "a": "reach-bulwark",
+          "b": "flak-array",
+          "distance": 0.4659
+        },
+        {
+          "a": "hollow-column",
+          "b": "warden-heavy",
+          "distance": 0.4664
+        },
+        {
+          "a": "hollow-vessel",
+          "b": "mortar-emplacement",
+          "distance": 0.4678
+        },
+        {
+          "a": "mortar-emplacement",
+          "b": "shield-wall",
+          "distance": 0.4785
+        },
+        {
+          "a": "reach-breacher",
+          "b": "warden-drone",
+          "distance": 0.4787
+        },
+        {
+          "a": "reach-picket",
+          "b": "warden-drone",
+          "distance": 0.4859
+        },
+        {
+          "a": "hollow-echo",
+          "b": "hollow-vessel",
+          "distance": 0.4861
+        },
+        {
+          "a": "hollow-column",
+          "b": "scan-relay",
+          "distance": 0.4883
+        },
+        {
+          "a": "hollow-vessel",
+          "b": "warden-heavy",
+          "distance": 0.4897
+        },
+        {
+          "a": "reach-bulwark",
+          "b": "shield-wall",
+          "distance": 0.491
+        },
+        {
+          "a": "reach-sapper",
+          "b": "warden-drone",
+          "distance": 0.4951
+        },
+        {
+          "a": "reach-sapper",
+          "b": "shield-wall",
+          "distance": 0.4953
+        },
+        {
+          "a": "flak-array",
+          "b": "shield-wall",
+          "distance": 0.496
+        },
+        {
+          "a": "hollow-echo",
+          "b": "mortar-emplacement",
+          "distance": 0.4961
+        },
+        {
+          "a": "arc-node",
+          "b": "shield-wall",
+          "distance": 0.4988
+        },
+        {
+          "a": "hollow-column",
+          "b": "hollow-echo",
+          "distance": 0.5073
+        },
+        {
+          "a": "arc-node",
+          "b": "restorer",
+          "distance": 0.5151
+        },
+        {
+          "a": "hollow-column",
+          "b": "anchor-damper",
+          "distance": 0.5172
+        },
+        {
+          "a": "ion-lance",
+          "b": "shield-wall",
+          "distance": 0.5202
+        },
+        {
+          "a": "hollow-vessel",
+          "b": "anchor-damper",
+          "distance": 0.5211
+        },
+        {
+          "a": "reach-breacher",
+          "b": "restorer",
+          "distance": 0.5212
+        },
+        {
+          "a": "hollow-column",
+          "b": "shield-wall",
+          "distance": 0.5231
+        },
+        {
+          "a": "hollow-column",
+          "b": "reach-sapper",
+          "distance": 0.5263
+        },
+        {
+          "a": "hollow-echo",
+          "b": "arc-node",
+          "distance": 0.5303
+        },
+        {
+          "a": "hollow-vessel",
+          "b": "reach-breacher",
+          "distance": 0.5314
+        },
+        {
+          "a": "hollow-echo",
+          "b": "shield-wall",
+          "distance": 0.5345
+        },
+        {
+          "a": "hollow-drift",
+          "b": "warden-mote",
+          "distance": 0.5417
+        },
+        {
+          "a": "hollow-echo",
+          "b": "scan-relay",
+          "distance": 0.5417
+        },
+        {
+          "a": "reach-breacher",
+          "b": "warden-heavy",
+          "distance": 0.5446
+        },
+        {
+          "a": "reach-breacher",
+          "b": "mortar-emplacement",
+          "distance": 0.545
+        },
+        {
+          "a": "reach-picket",
+          "b": "reach-sapper",
+          "distance": 0.5455
+        },
+        {
+          "a": "reach-breacher",
+          "b": "reach-picket",
+          "distance": 0.5481
+        },
+        {
+          "a": "hollow-echo",
+          "b": "restorer",
+          "distance": 0.5493
+        },
+        {
+          "a": "reach-breacher",
+          "b": "reach-bulwark",
+          "distance": 0.5565
+        },
+        {
+          "a": "hollow-vessel",
+          "b": "reach-sapper",
+          "distance": 0.5585
+        },
+        {
+          "a": "hollow-echo",
+          "b": "warden-heavy",
+          "distance": 0.559
+        },
+        {
+          "a": "hollow-echo",
+          "b": "warden-drone",
+          "distance": 0.5622
+        },
+        {
+          "a": "hollow-vessel",
+          "b": "ion-lance",
+          "distance": 0.5622
+        },
+        {
+          "a": "hollow-column",
+          "b": "ion-lance",
+          "distance": 0.5628
+        },
+        {
+          "a": "reach-sapper",
+          "b": "warden-heavy",
+          "distance": 0.564
+        },
+        {
+          "a": "reach-bulwark",
+          "b": "scan-relay",
+          "distance": 0.5688
+        },
+        {
+          "a": "hollow-echo",
+          "b": "reach-breacher",
+          "distance": 0.5699
+        },
+        {
+          "a": "anchor-damper",
+          "b": "scan-relay",
+          "distance": 0.574
+        },
+        {
+          "a": "hollow-echo",
+          "b": "reach-sapper",
+          "distance": 0.5741
+        },
+        {
+          "a": "hollow-vessel",
+          "b": "reach-bulwark",
+          "distance": 0.5752
+        },
+        {
+          "a": "reach-breacher",
+          "b": "shield-wall",
+          "distance": 0.5759
+        },
+        {
+          "a": "arc-node",
+          "b": "scan-relay",
+          "distance": 0.5762
+        },
+        {
+          "a": "reach-sapper",
+          "b": "restorer",
+          "distance": 0.5777
+        },
+        {
+          "a": "reach-breacher",
+          "b": "anchor-damper",
+          "distance": 0.5782
+        },
+        {
+          "a": "hollow-echo",
+          "b": "anchor-damper",
+          "distance": 0.5914
+        },
+        {
+          "a": "hollow-vessel",
+          "b": "arc-node",
+          "distance": 0.596
+        },
+        {
+          "a": "hollow-vessel",
+          "b": "scan-relay",
+          "distance": 0.5971
+        },
+        {
+          "a": "hollow-vessel",
+          "b": "pulse-turret",
+          "distance": 0.5972
+        },
+        {
+          "a": "ion-lance",
+          "b": "scan-relay",
+          "distance": 0.5976
+        },
+        {
+          "a": "reach-sapper",
+          "b": "anchor-damper",
+          "distance": 0.5991
+        },
+        {
+          "a": "hollow-column",
+          "b": "flak-array",
+          "distance": 0.5993
+        },
+        {
+          "a": "hollow-vessel",
+          "b": "flak-array",
+          "distance": 0.5996
+        },
+        {
+          "a": "reach-bulwark",
+          "b": "arc-node",
+          "distance": 0.6011
+        },
+        {
+          "a": "hollow-echo",
+          "b": "ion-lance",
+          "distance": 0.6013
+        },
+        {
+          "a": "warden-heavy",
+          "b": "scan-relay",
+          "distance": 0.603
+        },
+        {
+          "a": "hollow-echo",
+          "b": "pulse-turret",
+          "distance": 0.6086
+        },
+        {
+          "a": "hollow-column",
+          "b": "pulse-turret",
+          "distance": 0.6098
+        },
+        {
+          "a": "hollow-echo",
+          "b": "flak-array",
+          "distance": 0.6139
+        },
+        {
+          "a": "hollow-echo",
+          "b": "reach-picket",
+          "distance": 0.6179
+        },
+        {
+          "a": "reach-breacher",
+          "b": "pulse-turret",
+          "distance": 0.6189
+        },
+        {
+          "a": "reach-breacher",
+          "b": "ion-lance",
+          "distance": 0.6199
+        },
+        {
+          "a": "reach-bulwark",
+          "b": "reach-sapper",
+          "distance": 0.62
+        },
+        {
+          "a": "hollow-echo",
+          "b": "reach-bulwark",
+          "distance": 0.6239
+        },
+        {
+          "a": "reach-breacher",
+          "b": "flak-array",
+          "distance": 0.624
+        },
+        {
+          "a": "hollow-column",
+          "b": "warden-drone",
+          "distance": 0.6317
+        },
+        {
+          "a": "flak-array",
+          "b": "scan-relay",
+          "distance": 0.6368
+        },
+        {
+          "a": "reach-sapper",
+          "b": "pulse-turret",
+          "distance": 0.6369
+        },
+        {
+          "a": "hollow-shard",
+          "b": "reach-picket",
+          "distance": 0.6387
+        },
+        {
+          "a": "hollow-column",
+          "b": "arc-node",
+          "distance": 0.6415
+        },
+        {
+          "a": "reach-sapper",
+          "b": "mortar-emplacement",
+          "distance": 0.6476
+        },
+        {
+          "a": "hollow-column",
+          "b": "hollow-drift",
+          "distance": 0.6489
+        },
+        {
+          "a": "reach-picket",
+          "b": "warden-mote",
+          "distance": 0.6549
+        },
+        {
+          "a": "pulse-turret",
+          "b": "scan-relay",
+          "distance": 0.6564
+        },
+        {
+          "a": "scan-relay",
+          "b": "shield-wall",
+          "distance": 0.6688
+        },
+        {
+          "a": "hollow-echo",
+          "b": "hollow-shard",
+          "distance": 0.6718
+        },
+        {
+          "a": "reach-sapper",
+          "b": "flak-array",
+          "distance": 0.6721
+        },
+        {
+          "a": "warden-drone",
+          "b": "shield-wall",
+          "distance": 0.6731
+        },
+        {
+          "a": "reach-sapper",
+          "b": "ion-lance",
+          "distance": 0.6779
+        },
+        {
+          "a": "reach-breacher",
+          "b": "warden-mote",
+          "distance": 0.68
+        },
+        {
+          "a": "reach-sapper",
+          "b": "arc-node",
+          "distance": 0.6815
+        },
+        {
+          "a": "hollow-column",
+          "b": "reach-picket",
+          "distance": 0.6879
+        },
+        {
+          "a": "reach-breacher",
+          "b": "arc-node",
+          "distance": 0.6894
+        },
+        {
+          "a": "hollow-drift",
+          "b": "reach-skiff",
+          "distance": 0.7025
+        },
+        {
+          "a": "hollow-vessel",
+          "b": "warden-drone",
+          "distance": 0.7029
+        },
+        {
+          "a": "hollow-column",
+          "b": "warden-mote",
+          "distance": 0.7038
+        },
+        {
+          "a": "reach-breacher",
+          "b": "scan-relay",
+          "distance": 0.707
+        },
+        {
+          "a": "warden-drone",
+          "b": "mortar-emplacement",
+          "distance": 0.7109
+        },
+        {
+          "a": "warden-drone",
+          "b": "arc-node",
+          "distance": 0.7143
+        },
+        {
+          "a": "warden-drone",
+          "b": "warden-heavy",
+          "distance": 0.7188
+        },
+        {
+          "a": "reach-sapper",
+          "b": "warden-mote",
+          "distance": 0.7195
+        },
+        {
+          "a": "warden-drone",
+          "b": "restorer",
+          "distance": 0.7234
+        },
+        {
+          "a": "reach-skiff",
+          "b": "scan-relay",
+          "distance": 0.724
+        },
+        {
+          "a": "warden-drone",
+          "b": "pulse-turret",
+          "distance": 0.7412
+        },
+        {
+          "a": "warden-drone",
+          "b": "warden-mote",
+          "distance": 0.7425
+        },
+        {
+          "a": "reach-bulwark",
+          "b": "warden-drone",
+          "distance": 0.7457
+        },
+        {
+          "a": "warden-drone",
+          "b": "anchor-damper",
+          "distance": 0.7457
+        },
+        {
+          "a": "warden-drone",
+          "b": "flak-array",
+          "distance": 0.7468
+        },
+        {
+          "a": "reach-picket",
+          "b": "mortar-emplacement",
+          "distance": 0.7539
+        },
+        {
+          "a": "hollow-shard",
+          "b": "reach-sapper",
+          "distance": 0.7549
+        },
+        {
+          "a": "hollow-shard",
+          "b": "warden-drone",
+          "distance": 0.7603
+        },
+        {
+          "a": "warden-drone",
+          "b": "ion-lance",
+          "distance": 0.7615
+        },
+        {
+          "a": "reach-picket",
+          "b": "warden-heavy",
+          "distance": 0.7644
+        },
+        {
+          "a": "reach-sapper",
+          "b": "scan-relay",
+          "distance": 0.7678
+        },
+        {
+          "a": "reach-picket",
+          "b": "restorer",
+          "distance": 0.7683
+        },
+        {
+          "a": "hollow-shard",
+          "b": "reach-breacher",
+          "distance": 0.7706
+        },
+        {
+          "a": "hollow-drift",
+          "b": "reach-bulwark",
+          "distance": 0.7723
+        },
+        {
+          "a": "hollow-vessel",
+          "b": "reach-picket",
+          "distance": 0.7762
+        },
+        {
+          "a": "hollow-column",
+          "b": "reach-skiff",
+          "distance": 0.7775
+        },
+        {
+          "a": "hollow-drift",
+          "b": "mortar-emplacement",
+          "distance": 0.7778
+        },
+        {
+          "a": "reach-picket",
+          "b": "arc-node",
+          "distance": 0.7781
+        },
+        {
+          "a": "warden-drone",
+          "b": "scan-relay",
+          "distance": 0.7787
+        },
+        {
+          "a": "hollow-drift",
+          "b": "reach-breacher",
+          "distance": 0.7795
+        },
+        {
+          "a": "reach-picket",
+          "b": "scan-relay",
+          "distance": 0.7806
+        },
+        {
+          "a": "hollow-drift",
+          "b": "reach-picket",
+          "distance": 0.7853
+        },
+        {
+          "a": "reach-bulwark",
+          "b": "reach-picket",
+          "distance": 0.787
+        },
+        {
+          "a": "reach-picket",
+          "b": "anchor-damper",
+          "distance": 0.787
+        },
+        {
+          "a": "warden-mote",
+          "b": "mortar-emplacement",
+          "distance": 0.7892
+        },
+        {
+          "a": "hollow-echo",
+          "b": "warden-mote",
+          "distance": 0.7899
+        },
+        {
+          "a": "hollow-drift",
+          "b": "scan-relay",
+          "distance": 0.7919
+        },
+        {
+          "a": "reach-picket",
+          "b": "shield-wall",
+          "distance": 0.7932
+        },
+        {
+          "a": "warden-mote",
+          "b": "restorer",
+          "distance": 0.7944
+        },
+        {
+          "a": "reach-picket",
+          "b": "flak-array",
+          "distance": 0.7957
+        },
+        {
+          "a": "warden-heavy",
+          "b": "warden-mote",
+          "distance": 0.7967
+        },
+        {
+          "a": "hollow-drift",
+          "b": "restorer",
+          "distance": 0.7973
+        },
+        {
+          "a": "reach-picket",
+          "b": "ion-lance",
+          "distance": 0.7987
+        },
+        {
+          "a": "reach-picket",
+          "b": "pulse-turret",
+          "distance": 0.7991
+        },
+        {
+          "a": "hollow-shard",
+          "b": "hollow-vessel",
+          "distance": 0.7992
+        },
+        {
+          "a": "hollow-column",
+          "b": "hollow-shard",
+          "distance": 0.8
+        },
+        {
+          "a": "reach-bulwark",
+          "b": "warden-mote",
+          "distance": 0.803
+        },
+        {
+          "a": "reach-bulwark",
+          "b": "reach-skiff",
+          "distance": 0.8055
+        },
+        {
+          "a": "hollow-shard",
+          "b": "arc-node",
+          "distance": 0.8119
+        },
+        {
+          "a": "hollow-drift",
+          "b": "warden-heavy",
+          "distance": 0.8156
+        },
+        {
+          "a": "hollow-vessel",
+          "b": "warden-mote",
+          "distance": 0.8156
+        },
+        {
+          "a": "hollow-shard",
+          "b": "shield-wall",
+          "distance": 0.8179
+        },
+        {
+          "a": "hollow-drift",
+          "b": "reach-sapper",
+          "distance": 0.8192
+        },
+        {
+          "a": "hollow-shard",
+          "b": "scan-relay",
+          "distance": 0.8204
+        },
+        {
+          "a": "reach-skiff",
+          "b": "restorer",
+          "distance": 0.8258
+        },
+        {
+          "a": "hollow-drift",
+          "b": "hollow-vessel",
+          "distance": 0.8262
+        },
+        {
+          "a": "hollow-shard",
+          "b": "mortar-emplacement",
+          "distance": 0.8307
+        },
+        {
+          "a": "hollow-drift",
+          "b": "anchor-damper",
+          "distance": 0.839
+        },
+        {
+          "a": "warden-mote",
+          "b": "ion-lance",
+          "distance": 0.8408
+        },
+        {
+          "a": "warden-mote",
+          "b": "anchor-damper",
+          "distance": 0.8431
+        },
+        {
+          "a": "hollow-shard",
+          "b": "warden-heavy",
+          "distance": 0.8462
+        },
+        {
+          "a": "hollow-shard",
+          "b": "restorer",
+          "distance": 0.8487
+        },
+        {
+          "a": "warden-mote",
+          "b": "scan-relay",
+          "distance": 0.8505
+        },
+        {
+          "a": "hollow-drift",
+          "b": "hollow-echo",
+          "distance": 0.8529
+        },
+        {
+          "a": "hollow-shard",
+          "b": "pulse-turret",
+          "distance": 0.8584
+        },
+        {
+          "a": "hollow-shard",
+          "b": "anchor-damper",
+          "distance": 0.8609
+        },
+        {
+          "a": "hollow-shard",
+          "b": "flak-array",
+          "distance": 0.8615
+        },
+        {
+          "a": "hollow-drift",
+          "b": "ion-lance",
+          "distance": 0.8615
+        },
+        {
+          "a": "hollow-shard",
+          "b": "reach-bulwark",
+          "distance": 0.8633
+        },
+        {
+          "a": "warden-mote",
+          "b": "flak-array",
+          "distance": 0.865
+        },
+        {
+          "a": "hollow-shard",
+          "b": "ion-lance",
+          "distance": 0.8653
+        },
+        {
+          "a": "reach-skiff",
+          "b": "warden-mote",
+          "distance": 0.8672
+        },
+        {
+          "a": "warden-mote",
+          "b": "shield-wall",
+          "distance": 0.8713
+        },
+        {
+          "a": "reach-skiff",
+          "b": "mortar-emplacement",
+          "distance": 0.8725
+        },
+        {
+          "a": "warden-mote",
+          "b": "pulse-turret",
+          "distance": 0.8763
+        },
+        {
+          "a": "hollow-drift",
+          "b": "warden-drone",
+          "distance": 0.8857
+        },
+        {
+          "a": "reach-breacher",
+          "b": "reach-skiff",
+          "distance": 0.8861
+        },
+        {
+          "a": "reach-skiff",
+          "b": "anchor-damper",
+          "distance": 0.9032
+        },
+        {
+          "a": "hollow-drift",
+          "b": "flak-array",
+          "distance": 0.9034
+        },
+        {
+          "a": "hollow-shard",
+          "b": "warden-mote",
+          "distance": 0.9097
+        },
+        {
+          "a": "reach-skiff",
+          "b": "ion-lance",
+          "distance": 0.9126
+        },
+        {
+          "a": "hollow-vessel",
+          "b": "reach-skiff",
+          "distance": 0.9158
+        },
+        {
+          "a": "reach-skiff",
+          "b": "warden-heavy",
+          "distance": 0.917
+        },
+        {
+          "a": "warden-mote",
+          "b": "arc-node",
+          "distance": 0.9178
+        },
+        {
+          "a": "hollow-drift",
+          "b": "shield-wall",
+          "distance": 0.9182
+        },
+        {
+          "a": "hollow-drift",
+          "b": "pulse-turret",
+          "distance": 0.9203
+        },
+        {
+          "a": "hollow-drift",
+          "b": "arc-node",
+          "distance": 0.9565
+        },
+        {
+          "a": "reach-picket",
+          "b": "reach-skiff",
+          "distance": 0.9576
+        },
+        {
+          "a": "reach-skiff",
+          "b": "pulse-turret",
+          "distance": 0.9633
+        },
+        {
+          "a": "reach-skiff",
+          "b": "flak-array",
+          "distance": 0.9638
+        },
+        {
+          "a": "reach-sapper",
+          "b": "reach-skiff",
+          "distance": 0.9652
+        },
+        {
+          "a": "hollow-echo",
+          "b": "reach-skiff",
+          "distance": 0.9684
+        },
+        {
+          "a": "hollow-drift",
+          "b": "hollow-shard",
+          "distance": 0.9716
+        },
+        {
+          "a": "reach-skiff",
+          "b": "shield-wall",
+          "distance": 0.9876
+        },
+        {
+          "a": "reach-skiff",
+          "b": "arc-node",
+          "distance": 0.9881
+        },
+        {
+          "a": "reach-skiff",
+          "b": "warden-drone",
+          "distance": 0.9968
+        },
+        {
+          "a": "hollow-shard",
+          "b": "reach-skiff",
+          "distance": 1.0
+        }
+      ]
+    },
+    "90": {
+      "ids": [
+        "hollow-column",
+        "hollow-drift",
+        "hollow-echo",
+        "hollow-shard",
+        "hollow-vessel",
+        "reach-breacher",
+        "reach-bulwark",
+        "reach-picket",
+        "reach-sapper",
+        "reach-skiff",
+        "warden-drone",
+        "warden-heavy",
+        "warden-mote",
+        "anchor-damper",
+        "arc-node",
+        "flak-array",
+        "ion-lance",
+        "mortar-emplacement",
+        "pulse-turret",
+        "restorer",
+        "scan-relay",
+        "shield-wall"
+      ],
+      "matrix": [
+        [
+          0.0,
+          0.6525885558583107,
+          0.5006435006435006,
+          0.8118948824343015,
+          0.44621026894865523,
+          0.4502617801047121,
+          0.4123524069028156,
+          0.7069444444444444,
+          0.5103359173126615,
+          0.7823343848580442,
+          0.6334716459197787,
+          0.4523364485981308,
+          0.7087378640776699,
+          0.4991379310344828,
+          0.6298763082778307,
+          0.5964771817453963,
+          0.5614457831325301,
+          0.43768400392541706,
+          0.5969180859691808,
+          0.4050144648023144,
+          0.487603305785124,
+          0.5111821086261981
+        ],
+        [
+          0.6525885558583107,
+          0.0,
+          0.8576,
+          0.9748743718592965,
+          0.8201438848920863,
+          0.782392026578073,
+          0.771780303030303,
+          0.7878787878787878,
+          0.8141891891891893,
+          0.6955719557195572,
+          0.8950617283950617,
+          0.80811078140455,
+          0.5671641791044777,
+          0.832579185520362,
+          0.9534391534391534,
+          0.9058823529411765,
+          0.8624787775891342,
+          0.7874601487778958,
+          0.9188503803888419,
+          0.7848484848484849,
+          0.7983392645314353,
+          0.9114942528735632
+        ],
+        [
+          0.5006435006435006,
+          0.8576,
+          0.0,
+          0.6905829596412556,
+          0.4700460829493087,
+          0.570754716981132,
+          0.6207865168539326,
+          0.6333333333333333,
+          0.5606557377049181,
+          0.9660421545667447,
+          0.5566801619433198,
+          0.5674273858921162,
+          0.7985347985347986,
+          0.5835748792270532,
+          0.529040404040404,
+          0.6109022556390977,
+          0.6001846722068329,
+          0.49828962371721774,
+          0.6023054755043228,
+          0.5376458112407211,
+          0.5446756425948592,
+          0.5434500648508431
+        ],
+        [
+          0.8118948824343015,
+          0.9748743718592965,
+          0.6905829596412556,
+          0.0,
+          0.804159445407279,
+          0.7842741935483871,
+          0.8680892337536372,
+          0.6486486486486487,
+          0.7698924731182796,
+          1.0,
+          0.7666666666666666,
+          0.8527214514407684,
+          0.9164086687306502,
+          0.8638589618021547,
+          0.821673525377229,
+          0.8654404646660213,
+          0.8702147525676938,
+          0.8432494279176201,
+          0.8623762376237624,
+          0.8511777301927195,
+          0.8242343541944075,
+          0.8244604316546762
+        ],
+        [
+          0.44621026894865523,
+          0.8201438848920863,
+          0.4700460829493087,
+          0.804159445407279,
+          0.0,
+          0.537463976945245,
+          0.5723327305605787,
+          0.7923930269413629,
+          0.5422222222222222,
+          0.9131868131868132,
+          0.6979332273449921,
+          0.48882113821138207,
+          0.803767660910518,
+          0.50853889943074,
+          0.5862068965517242,
+          0.5957446808510638,
+          0.5620567375886525,
+          0.4748124330117899,
+          0.5898825654923217,
+          0.43023255813953487,
+          0.5784851811196488,
+          0.4598997493734336
+        ],
+        [
+          0.4502617801047121,
+          0.782392026578073,
+          0.570754716981132,
+          0.7842741935483871,
+          0.537463976945245,
+          0.0,
+          0.5486381322957199,
+          0.5607675906183369,
+          0.4263157894736842,
+          0.8932515337423312,
+          0.49382716049382713,
+          0.5355648535564854,
+          0.6893203883495146,
+          0.561046511627907,
+          0.6756152125279642,
+          0.6228150873965042,
+          0.6196043165467626,
+          0.5509761388286334,
+          0.6094339622641509,
+          0.504812834224599,
+          0.7107790821771611,
+          0.5598991172761665
+        ],
+        [
+          0.4123524069028156,
+          0.771780303030303,
+          0.6207865168539326,
+          0.8680892337536372,
+          0.5723327305605787,
+          0.5486381322957199,
+          0.0,
+          0.7947470817120623,
+          0.6151658767772512,
+          0.810064935064935,
+          0.7392996108949417,
+          0.33981403212172445,
+          0.8017408123791102,
+          0.35421686746987957,
+          0.5937248592115849,
+          0.4687964338781575,
+          0.45092250922509225,
+          0.42845326716294463,
+          0.44070390206579957,
+          0.325938566552901,
+          0.5605199025182779,
+          0.4699551569506727
+        ],
+        [
+          0.7069444444444444,
+          0.7878787878787878,
+          0.6333333333333333,
+          0.6486486486486487,
+          0.7923930269413629,
+          0.5607675906183369,
+          0.7947470817120623,
+          0.0,
+          0.5688888888888889,
+          0.9582664526484751,
+          0.5216049382716049,
+          0.7745726495726496,
+          0.6687697160883281,
+          0.7933398628795298,
+          0.7861799217731421,
+          0.8061420345489443,
+          0.8096564531104922,
+          0.7721088435374149,
+          0.8076171875,
+          0.7740899357601713,
+          0.800251256281407,
+          0.8002699055330634
+        ],
+        [
+          0.5103359173126615,
+          0.8141891891891893,
+          0.5606557377049181,
+          0.7698924731182796,
+          0.5422222222222222,
+          0.4263157894736842,
+          0.6151658767772512,
+          0.5688888888888889,
+          0.0,
+          0.9655581947743468,
+          0.4892241379310345,
+          0.5543822597676875,
+          0.7272727272727273,
+          0.586977648202138,
+          0.6731875719217492,
+          0.6660600545950864,
+          0.6737213403880071,
+          0.6490683229813665,
+          0.6309297912713472,
+          0.559536354056902,
+          0.7597471022128557,
+          0.4904891304347826
+        ],
+        [
+          0.7823343848580442,
+          0.6955719557195572,
+          0.9660421545667447,
+          1.0,
+          0.9131868131868132,
+          0.8932515337423312,
+          0.810064935064935,
+          0.9582664526484751,
+          0.9655581947743468,
+          0.0,
+          1.0,
+          0.9155485398579322,
+          0.859402460456942,
+          0.901355421686747,
+          0.9868766404199475,
+          0.96262341325811,
+          0.9182795698924731,
+          0.8755364806866953,
+          0.9649749821300929,
+          0.8253424657534246,
+          0.7180043383947939,
+          0.9872958257713249
+        ],
+        [
+          0.6334716459197787,
+          0.8950617283950617,
+          0.5566801619433198,
+          0.7666666666666666,
+          0.6979332273449921,
+          0.49382716049382713,
+          0.7392996108949417,
+          0.5216049382716049,
+          0.4892241379310345,
+          1.0,
+          0.0,
+          0.7136752136752137,
+          0.768637532133676,
+          0.7375122428991185,
+          0.711864406779661,
+          0.7466281310211946,
+          0.7567316620241411,
+          0.7162162162162162,
+          0.7346534653465346,
+          0.7158119658119658,
+          0.7762998790810157,
+          0.6694796061884669
+        ],
+        [
+          0.4523364485981308,
+          0.80811078140455,
+          0.5674273858921162,
+          0.8527214514407684,
+          0.48882113821138207,
+          0.5355648535564854,
+          0.33981403212172445,
+          0.7745726495726496,
+          0.5543822597676875,
+          0.9155485398579322,
+          0.7136752136752137,
+          0.0,
+          0.7926315789473684,
+          0.2742504409171076,
+          0.449438202247191,
+          0.33417935702199664,
+          0.3576104746317512,
+          0.3321033210332104,
+          0.33390410958904104,
+          0.32886505808757815,
+          0.601165695253955,
+          0.3222453222453222
+        ],
+        [
+          0.7087378640776699,
+          0.5671641791044777,
+          0.7985347985347986,
+          0.9164086687306502,
+          0.803767660910518,
+          0.6893203883495146,
+          0.8017408123791102,
+          0.6687697160883281,
+          0.7272727272727273,
+          0.859402460456942,
+          0.768637532133676,
+          0.7926315789473684,
+          0.0,
+          0.8288973384030418,
+          0.9174418604651162,
+          0.8701180744777475,
+          0.8491921005385996,
+          0.7926421404682275,
+          0.8756906077348067,
+          0.7870762711864407,
+          0.8562874251497006,
+          0.867515923566879
+        ],
+        [
+          0.4991379310344828,
+          0.832579185520362,
+          0.5835748792270532,
+          0.8638589618021547,
+          0.50853889943074,
+          0.561046511627907,
+          0.35421686746987957,
+          0.7933398628795298,
+          0.586977648202138,
+          0.901355421686747,
+          0.7375122428991185,
+          0.2742504409171076,
+          0.8288973384030418,
+          0.0,
+          0.3590951932139491,
+          0.2768456375838926,
+          0.3101777059773829,
+          0.30528200537153094,
+          0.2596401028277635,
+          0.30147697654213723,
+          0.5627035830618892,
+          0.37416267942583736
+        ],
+        [
+          0.6298763082778307,
+          0.9534391534391534,
+          0.529040404040404,
+          0.821673525377229,
+          0.5862068965517242,
+          0.6756152125279642,
+          0.5937248592115849,
+          0.7861799217731421,
+          0.6731875719217492,
+          0.9868766404199475,
+          0.711864406779661,
+          0.449438202247191,
+          0.9174418604651162,
+          0.3590951932139491,
+          0.0,
+          0.3144230769230769,
+          0.33858998144712427,
+          0.3536711478800414,
+          0.2938856015779092,
+          0.5165919282511211,
+          0.5730994152046784,
+          0.4951560818083961
+        ],
+        [
+          0.5964771817453963,
+          0.9058823529411765,
+          0.6109022556390977,
+          0.8654404646660213,
+          0.5957446808510638,
+          0.6228150873965042,
+          0.4687964338781575,
+          0.8061420345489443,
+          0.6660600545950864,
+          0.96262341325811,
+          0.7466281310211946,
+          0.33417935702199664,
+          0.8701180744777475,
+          0.2768456375838926,
+          0.3144230769230769,
+          0.0,
+          0.29220779220779225,
+          0.35775862068965514,
+          0.1872227151730257,
+          0.4620797498045348,
+          0.6299151888974557,
+          0.4804618117229129
+        ],
+        [
+          0.5614457831325301,
+          0.8624787775891342,
+          0.6001846722068329,
+          0.8702147525676938,
+          0.5620567375886525,
+          0.6196043165467626,
+          0.45092250922509225,
+          0.8096564531104922,
+          0.6737213403880071,
+          0.9182795698924731,
+          0.7567316620241411,
+          0.3576104746317512,
+          0.8491921005385996,
+          0.3101777059773829,
+          0.33858998144712427,
+          0.29220779220779225,
+          0.0,
+          0.3421501706484642,
+          0.26293823038397324,
+          0.4099920697858842,
+          0.5908385093167702,
+          0.510221465076661
+        ],
+        [
+          0.43768400392541706,
+          0.7874601487778958,
+          0.49828962371721774,
+          0.8432494279176201,
+          0.4748124330117899,
+          0.5509761388286334,
+          0.42845326716294463,
+          0.7721088435374149,
+          0.6490683229813665,
+          0.8755364806866953,
+          0.7162162162162162,
+          0.3321033210332104,
+          0.7926421404682275,
+          0.30528200537153094,
+          0.3536711478800414,
+          0.35775862068965514,
+          0.3421501706484642,
+          0.0,
+          0.3563318777292577,
+          0.3262279888785913,
+          0.460952380952381,
+          0.46837944664031617
+        ],
+        [
+          0.5969180859691808,
+          0.9188503803888419,
+          0.6023054755043228,
+          0.8623762376237624,
+          0.5898825654923217,
+          0.6094339622641509,
+          0.44070390206579957,
+          0.8076171875,
+          0.6309297912713472,
+          0.9649749821300929,
+          0.7346534653465346,
+          0.33390410958904104,
+          0.8756906077348067,
+          0.2596401028277635,
+          0.2938856015779092,
+          0.1872227151730257,
+          0.26293823038397324,
+          0.3563318777292577,
+          0.0,
+          0.43855421686746987,
+          0.6476484194294525,
+          0.4471021159153634
+        ],
+        [
+          0.4050144648023144,
+          0.7848484848484849,
+          0.5376458112407211,
+          0.8511777301927195,
+          0.43023255813953487,
+          0.504812834224599,
+          0.325938566552901,
+          0.7740899357601713,
+          0.559536354056902,
+          0.8253424657534246,
+          0.7158119658119658,
+          0.32886505808757815,
+          0.7870762711864407,
+          0.30147697654213723,
+          0.5165919282511211,
+          0.4620797498045348,
+          0.4099920697858842,
+          0.3262279888785913,
+          0.43855421686746987,
+          0.0,
+          0.4361602982292637,
+          0.3992055610724925
+        ],
+        [
+          0.487603305785124,
+          0.7983392645314353,
+          0.5446756425948592,
+          0.8242343541944075,
+          0.5784851811196488,
+          0.7107790821771611,
+          0.5605199025182779,
+          0.800251256281407,
+          0.7597471022128557,
+          0.7180043383947939,
+          0.7762998790810157,
+          0.601165695253955,
+          0.8562874251497006,
+          0.5627035830618892,
+          0.5730994152046784,
+          0.6299151888974557,
+          0.5908385093167702,
+          0.460952380952381,
+          0.6476484194294525,
+          0.4361602982292637,
+          0.0,
+          0.6710280373831776
+        ],
+        [
+          0.5111821086261981,
+          0.9114942528735632,
+          0.5434500648508431,
+          0.8244604316546762,
+          0.4598997493734336,
+          0.5598991172761665,
+          0.4699551569506727,
+          0.8002699055330634,
+          0.4904891304347826,
+          0.9872958257713249,
+          0.6694796061884669,
+          0.3222453222453222,
+          0.867515923566879,
+          0.37416267942583736,
+          0.4951560818083961,
+          0.4804618117229129,
+          0.510221465076661,
+          0.46837944664031617,
+          0.4471021159153634,
+          0.3992055610724925,
+          0.6710280373831776,
+          0.0
+        ]
+      ],
+      "pairs_by_distance": [
+        {
+          "a": "flak-array",
+          "b": "pulse-turret",
+          "distance": 0.1872
+        },
+        {
+          "a": "anchor-damper",
+          "b": "pulse-turret",
+          "distance": 0.2596
+        },
+        {
+          "a": "ion-lance",
+          "b": "pulse-turret",
+          "distance": 0.2629
+        },
+        {
+          "a": "warden-heavy",
+          "b": "anchor-damper",
+          "distance": 0.2743
+        },
+        {
+          "a": "anchor-damper",
+          "b": "flak-array",
+          "distance": 0.2768
+        },
+        {
+          "a": "flak-array",
+          "b": "ion-lance",
+          "distance": 0.2922
+        },
+        {
+          "a": "arc-node",
+          "b": "pulse-turret",
+          "distance": 0.2939
+        },
+        {
+          "a": "anchor-damper",
+          "b": "restorer",
+          "distance": 0.3015
+        },
+        {
+          "a": "anchor-damper",
+          "b": "mortar-emplacement",
+          "distance": 0.3053
+        },
+        {
+          "a": "anchor-damper",
+          "b": "ion-lance",
+          "distance": 0.3102
+        },
+        {
+          "a": "arc-node",
+          "b": "flak-array",
+          "distance": 0.3144
+        },
+        {
+          "a": "warden-heavy",
+          "b": "shield-wall",
+          "distance": 0.3222
+        },
+        {
+          "a": "reach-bulwark",
+          "b": "restorer",
+          "distance": 0.3259
+        },
+        {
+          "a": "mortar-emplacement",
+          "b": "restorer",
+          "distance": 0.3262
+        },
+        {
+          "a": "warden-heavy",
+          "b": "restorer",
+          "distance": 0.3289
+        },
+        {
+          "a": "warden-heavy",
+          "b": "mortar-emplacement",
+          "distance": 0.3321
+        },
+        {
+          "a": "warden-heavy",
+          "b": "pulse-turret",
+          "distance": 0.3339
+        },
+        {
+          "a": "warden-heavy",
+          "b": "flak-array",
+          "distance": 0.3342
+        },
+        {
+          "a": "arc-node",
+          "b": "ion-lance",
+          "distance": 0.3386
+        },
+        {
+          "a": "reach-bulwark",
+          "b": "warden-heavy",
+          "distance": 0.3398
+        },
+        {
+          "a": "ion-lance",
+          "b": "mortar-emplacement",
+          "distance": 0.3422
+        },
+        {
+          "a": "arc-node",
+          "b": "mortar-emplacement",
+          "distance": 0.3537
+        },
+        {
+          "a": "reach-bulwark",
+          "b": "anchor-damper",
+          "distance": 0.3542
+        },
+        {
+          "a": "mortar-emplacement",
+          "b": "pulse-turret",
+          "distance": 0.3563
+        },
+        {
+          "a": "warden-heavy",
+          "b": "ion-lance",
+          "distance": 0.3576
+        },
+        {
+          "a": "flak-array",
+          "b": "mortar-emplacement",
+          "distance": 0.3578
+        },
+        {
+          "a": "anchor-damper",
+          "b": "arc-node",
+          "distance": 0.3591
+        },
+        {
+          "a": "anchor-damper",
+          "b": "shield-wall",
+          "distance": 0.3742
+        },
+        {
+          "a": "restorer",
+          "b": "shield-wall",
+          "distance": 0.3992
+        },
+        {
+          "a": "hollow-column",
+          "b": "restorer",
+          "distance": 0.405
+        },
+        {
+          "a": "ion-lance",
+          "b": "restorer",
+          "distance": 0.41
+        },
+        {
+          "a": "hollow-column",
+          "b": "reach-bulwark",
+          "distance": 0.4124
+        },
+        {
+          "a": "reach-breacher",
+          "b": "reach-sapper",
+          "distance": 0.4263
+        },
+        {
+          "a": "reach-bulwark",
+          "b": "mortar-emplacement",
+          "distance": 0.4285
+        },
+        {
+          "a": "hollow-vessel",
+          "b": "restorer",
+          "distance": 0.4302
+        },
+        {
+          "a": "restorer",
+          "b": "scan-relay",
+          "distance": 0.4362
+        },
+        {
+          "a": "hollow-column",
+          "b": "mortar-emplacement",
+          "distance": 0.4377
+        },
+        {
+          "a": "pulse-turret",
+          "b": "restorer",
+          "distance": 0.4386
+        },
+        {
+          "a": "reach-bulwark",
+          "b": "pulse-turret",
+          "distance": 0.4407
+        },
+        {
+          "a": "hollow-column",
+          "b": "hollow-vessel",
+          "distance": 0.4462
+        },
+        {
+          "a": "pulse-turret",
+          "b": "shield-wall",
+          "distance": 0.4471
+        },
+        {
+          "a": "warden-heavy",
+          "b": "arc-node",
+          "distance": 0.4494
+        },
+        {
+          "a": "hollow-column",
+          "b": "reach-breacher",
+          "distance": 0.4503
+        },
+        {
+          "a": "reach-bulwark",
+          "b": "ion-lance",
+          "distance": 0.4509
+        },
+        {
+          "a": "hollow-column",
+          "b": "warden-heavy",
+          "distance": 0.4523
+        },
+        {
+          "a": "hollow-vessel",
+          "b": "shield-wall",
+          "distance": 0.4599
+        },
+        {
+          "a": "mortar-emplacement",
+          "b": "scan-relay",
+          "distance": 0.461
+        },
+        {
+          "a": "flak-array",
+          "b": "restorer",
+          "distance": 0.4621
+        },
+        {
+          "a": "mortar-emplacement",
+          "b": "shield-wall",
+          "distance": 0.4684
+        },
+        {
+          "a": "reach-bulwark",
+          "b": "flak-array",
+          "distance": 0.4688
+        },
+        {
+          "a": "reach-bulwark",
+          "b": "shield-wall",
+          "distance": 0.47
+        },
+        {
+          "a": "hollow-echo",
+          "b": "hollow-vessel",
+          "distance": 0.47
+        },
+        {
+          "a": "hollow-vessel",
+          "b": "mortar-emplacement",
+          "distance": 0.4748
+        },
+        {
+          "a": "flak-array",
+          "b": "shield-wall",
+          "distance": 0.4805
+        },
+        {
+          "a": "hollow-column",
+          "b": "scan-relay",
+          "distance": 0.4876
+        },
+        {
+          "a": "hollow-vessel",
+          "b": "warden-heavy",
+          "distance": 0.4888
+        },
+        {
+          "a": "reach-sapper",
+          "b": "warden-drone",
+          "distance": 0.4892
+        },
+        {
+          "a": "reach-sapper",
+          "b": "shield-wall",
+          "distance": 0.4905
+        },
+        {
+          "a": "reach-breacher",
+          "b": "warden-drone",
+          "distance": 0.4938
+        },
+        {
+          "a": "arc-node",
+          "b": "shield-wall",
+          "distance": 0.4952
+        },
+        {
+          "a": "hollow-echo",
+          "b": "mortar-emplacement",
+          "distance": 0.4983
+        },
+        {
+          "a": "hollow-column",
+          "b": "anchor-damper",
+          "distance": 0.4991
+        },
+        {
+          "a": "hollow-column",
+          "b": "hollow-echo",
+          "distance": 0.5006
+        },
+        {
+          "a": "reach-breacher",
+          "b": "restorer",
+          "distance": 0.5048
+        },
+        {
+          "a": "hollow-vessel",
+          "b": "anchor-damper",
+          "distance": 0.5085
+        },
+        {
+          "a": "ion-lance",
+          "b": "shield-wall",
+          "distance": 0.5102
+        },
+        {
+          "a": "hollow-column",
+          "b": "reach-sapper",
+          "distance": 0.5103
+        },
+        {
+          "a": "hollow-column",
+          "b": "shield-wall",
+          "distance": 0.5112
+        },
+        {
+          "a": "arc-node",
+          "b": "restorer",
+          "distance": 0.5166
+        },
+        {
+          "a": "reach-picket",
+          "b": "warden-drone",
+          "distance": 0.5216
+        },
+        {
+          "a": "hollow-echo",
+          "b": "arc-node",
+          "distance": 0.529
+        },
+        {
+          "a": "reach-breacher",
+          "b": "warden-heavy",
+          "distance": 0.5356
+        },
+        {
+          "a": "hollow-vessel",
+          "b": "reach-breacher",
+          "distance": 0.5375
+        },
+        {
+          "a": "hollow-echo",
+          "b": "restorer",
+          "distance": 0.5376
+        },
+        {
+          "a": "hollow-vessel",
+          "b": "reach-sapper",
+          "distance": 0.5422
+        },
+        {
+          "a": "hollow-echo",
+          "b": "shield-wall",
+          "distance": 0.5435
+        },
+        {
+          "a": "hollow-echo",
+          "b": "scan-relay",
+          "distance": 0.5447
+        },
+        {
+          "a": "reach-breacher",
+          "b": "reach-bulwark",
+          "distance": 0.5486
+        },
+        {
+          "a": "reach-breacher",
+          "b": "mortar-emplacement",
+          "distance": 0.551
+        },
+        {
+          "a": "reach-sapper",
+          "b": "warden-heavy",
+          "distance": 0.5544
+        },
+        {
+          "a": "hollow-echo",
+          "b": "warden-drone",
+          "distance": 0.5567
+        },
+        {
+          "a": "reach-sapper",
+          "b": "restorer",
+          "distance": 0.5595
+        },
+        {
+          "a": "reach-breacher",
+          "b": "shield-wall",
+          "distance": 0.5599
+        },
+        {
+          "a": "reach-bulwark",
+          "b": "scan-relay",
+          "distance": 0.5605
+        },
+        {
+          "a": "hollow-echo",
+          "b": "reach-sapper",
+          "distance": 0.5607
+        },
+        {
+          "a": "reach-breacher",
+          "b": "reach-picket",
+          "distance": 0.5608
+        },
+        {
+          "a": "reach-breacher",
+          "b": "anchor-damper",
+          "distance": 0.561
+        },
+        {
+          "a": "hollow-column",
+          "b": "ion-lance",
+          "distance": 0.5614
+        },
+        {
+          "a": "hollow-vessel",
+          "b": "ion-lance",
+          "distance": 0.5621
+        },
+        {
+          "a": "anchor-damper",
+          "b": "scan-relay",
+          "distance": 0.5627
+        },
+        {
+          "a": "hollow-drift",
+          "b": "warden-mote",
+          "distance": 0.5672
+        },
+        {
+          "a": "hollow-echo",
+          "b": "warden-heavy",
+          "distance": 0.5674
+        },
+        {
+          "a": "reach-picket",
+          "b": "reach-sapper",
+          "distance": 0.5689
+        },
+        {
+          "a": "hollow-echo",
+          "b": "reach-breacher",
+          "distance": 0.5708
+        },
+        {
+          "a": "hollow-vessel",
+          "b": "reach-bulwark",
+          "distance": 0.5723
+        },
+        {
+          "a": "arc-node",
+          "b": "scan-relay",
+          "distance": 0.5731
+        },
+        {
+          "a": "hollow-vessel",
+          "b": "scan-relay",
+          "distance": 0.5785
+        },
+        {
+          "a": "hollow-echo",
+          "b": "anchor-damper",
+          "distance": 0.5836
+        },
+        {
+          "a": "hollow-vessel",
+          "b": "arc-node",
+          "distance": 0.5862
+        },
+        {
+          "a": "reach-sapper",
+          "b": "anchor-damper",
+          "distance": 0.587
+        },
+        {
+          "a": "hollow-vessel",
+          "b": "pulse-turret",
+          "distance": 0.5899
+        },
+        {
+          "a": "ion-lance",
+          "b": "scan-relay",
+          "distance": 0.5908
+        },
+        {
+          "a": "reach-bulwark",
+          "b": "arc-node",
+          "distance": 0.5937
+        },
+        {
+          "a": "hollow-vessel",
+          "b": "flak-array",
+          "distance": 0.5957
+        },
+        {
+          "a": "hollow-column",
+          "b": "flak-array",
+          "distance": 0.5965
+        },
+        {
+          "a": "hollow-column",
+          "b": "pulse-turret",
+          "distance": 0.5969
+        },
+        {
+          "a": "hollow-echo",
+          "b": "ion-lance",
+          "distance": 0.6002
+        },
+        {
+          "a": "warden-heavy",
+          "b": "scan-relay",
+          "distance": 0.6012
+        },
+        {
+          "a": "hollow-echo",
+          "b": "pulse-turret",
+          "distance": 0.6023
+        },
+        {
+          "a": "reach-breacher",
+          "b": "pulse-turret",
+          "distance": 0.6094
+        },
+        {
+          "a": "hollow-echo",
+          "b": "flak-array",
+          "distance": 0.6109
+        },
+        {
+          "a": "reach-bulwark",
+          "b": "reach-sapper",
+          "distance": 0.6152
+        },
+        {
+          "a": "reach-breacher",
+          "b": "ion-lance",
+          "distance": 0.6196
+        },
+        {
+          "a": "hollow-echo",
+          "b": "reach-bulwark",
+          "distance": 0.6208
+        },
+        {
+          "a": "reach-breacher",
+          "b": "flak-array",
+          "distance": 0.6228
+        },
+        {
+          "a": "hollow-column",
+          "b": "arc-node",
+          "distance": 0.6299
+        },
+        {
+          "a": "flak-array",
+          "b": "scan-relay",
+          "distance": 0.6299
+        },
+        {
+          "a": "reach-sapper",
+          "b": "pulse-turret",
+          "distance": 0.6309
+        },
+        {
+          "a": "hollow-echo",
+          "b": "reach-picket",
+          "distance": 0.6333
+        },
+        {
+          "a": "hollow-column",
+          "b": "warden-drone",
+          "distance": 0.6335
+        },
+        {
+          "a": "pulse-turret",
+          "b": "scan-relay",
+          "distance": 0.6476
+        },
+        {
+          "a": "hollow-shard",
+          "b": "reach-picket",
+          "distance": 0.6486
+        },
+        {
+          "a": "reach-sapper",
+          "b": "mortar-emplacement",
+          "distance": 0.6491
+        },
+        {
+          "a": "hollow-column",
+          "b": "hollow-drift",
+          "distance": 0.6526
+        },
+        {
+          "a": "reach-sapper",
+          "b": "flak-array",
+          "distance": 0.6661
+        },
+        {
+          "a": "reach-picket",
+          "b": "warden-mote",
+          "distance": 0.6688
+        },
+        {
+          "a": "warden-drone",
+          "b": "shield-wall",
+          "distance": 0.6695
+        },
+        {
+          "a": "scan-relay",
+          "b": "shield-wall",
+          "distance": 0.671
+        },
+        {
+          "a": "reach-sapper",
+          "b": "arc-node",
+          "distance": 0.6732
+        },
+        {
+          "a": "reach-sapper",
+          "b": "ion-lance",
+          "distance": 0.6737
+        },
+        {
+          "a": "reach-breacher",
+          "b": "arc-node",
+          "distance": 0.6756
+        },
+        {
+          "a": "reach-breacher",
+          "b": "warden-mote",
+          "distance": 0.6893
+        },
+        {
+          "a": "hollow-echo",
+          "b": "hollow-shard",
+          "distance": 0.6906
+        },
+        {
+          "a": "hollow-drift",
+          "b": "reach-skiff",
+          "distance": 0.6956
+        },
+        {
+          "a": "hollow-vessel",
+          "b": "warden-drone",
+          "distance": 0.6979
+        },
+        {
+          "a": "hollow-column",
+          "b": "reach-picket",
+          "distance": 0.7069
+        },
+        {
+          "a": "hollow-column",
+          "b": "warden-mote",
+          "distance": 0.7087
+        },
+        {
+          "a": "reach-breacher",
+          "b": "scan-relay",
+          "distance": 0.7108
+        },
+        {
+          "a": "warden-drone",
+          "b": "arc-node",
+          "distance": 0.7119
+        },
+        {
+          "a": "warden-drone",
+          "b": "warden-heavy",
+          "distance": 0.7137
+        },
+        {
+          "a": "warden-drone",
+          "b": "restorer",
+          "distance": 0.7158
+        },
+        {
+          "a": "warden-drone",
+          "b": "mortar-emplacement",
+          "distance": 0.7162
+        },
+        {
+          "a": "reach-skiff",
+          "b": "scan-relay",
+          "distance": 0.718
+        },
+        {
+          "a": "reach-sapper",
+          "b": "warden-mote",
+          "distance": 0.7273
+        },
+        {
+          "a": "warden-drone",
+          "b": "pulse-turret",
+          "distance": 0.7347
+        },
+        {
+          "a": "warden-drone",
+          "b": "anchor-damper",
+          "distance": 0.7375
+        },
+        {
+          "a": "reach-bulwark",
+          "b": "warden-drone",
+          "distance": 0.7393
+        },
+        {
+          "a": "warden-drone",
+          "b": "flak-array",
+          "distance": 0.7466
+        },
+        {
+          "a": "warden-drone",
+          "b": "ion-lance",
+          "distance": 0.7567
+        },
+        {
+          "a": "reach-sapper",
+          "b": "scan-relay",
+          "distance": 0.7597
+        },
+        {
+          "a": "hollow-shard",
+          "b": "warden-drone",
+          "distance": 0.7667
+        },
+        {
+          "a": "warden-drone",
+          "b": "warden-mote",
+          "distance": 0.7686
+        },
+        {
+          "a": "hollow-shard",
+          "b": "reach-sapper",
+          "distance": 0.7699
+        },
+        {
+          "a": "hollow-drift",
+          "b": "reach-bulwark",
+          "distance": 0.7718
+        },
+        {
+          "a": "reach-picket",
+          "b": "mortar-emplacement",
+          "distance": 0.7721
+        },
+        {
+          "a": "reach-picket",
+          "b": "restorer",
+          "distance": 0.7741
+        },
+        {
+          "a": "reach-picket",
+          "b": "warden-heavy",
+          "distance": 0.7746
+        },
+        {
+          "a": "warden-drone",
+          "b": "scan-relay",
+          "distance": 0.7763
+        },
+        {
+          "a": "hollow-column",
+          "b": "reach-skiff",
+          "distance": 0.7823
+        },
+        {
+          "a": "hollow-drift",
+          "b": "reach-breacher",
+          "distance": 0.7824
+        },
+        {
+          "a": "hollow-shard",
+          "b": "reach-breacher",
+          "distance": 0.7843
+        },
+        {
+          "a": "hollow-drift",
+          "b": "restorer",
+          "distance": 0.7848
+        },
+        {
+          "a": "reach-picket",
+          "b": "arc-node",
+          "distance": 0.7862
+        },
+        {
+          "a": "warden-mote",
+          "b": "restorer",
+          "distance": 0.7871
+        },
+        {
+          "a": "hollow-drift",
+          "b": "mortar-emplacement",
+          "distance": 0.7875
+        },
+        {
+          "a": "hollow-drift",
+          "b": "reach-picket",
+          "distance": 0.7879
+        },
+        {
+          "a": "hollow-vessel",
+          "b": "reach-picket",
+          "distance": 0.7924
+        },
+        {
+          "a": "warden-heavy",
+          "b": "warden-mote",
+          "distance": 0.7926
+        },
+        {
+          "a": "warden-mote",
+          "b": "mortar-emplacement",
+          "distance": 0.7926
+        },
+        {
+          "a": "reach-picket",
+          "b": "anchor-damper",
+          "distance": 0.7933
+        },
+        {
+          "a": "reach-bulwark",
+          "b": "reach-picket",
+          "distance": 0.7947
+        },
+        {
+          "a": "hollow-drift",
+          "b": "scan-relay",
+          "distance": 0.7983
+        },
+        {
+          "a": "hollow-echo",
+          "b": "warden-mote",
+          "distance": 0.7985
+        },
+        {
+          "a": "reach-picket",
+          "b": "scan-relay",
+          "distance": 0.8003
+        },
+        {
+          "a": "reach-picket",
+          "b": "shield-wall",
+          "distance": 0.8003
+        },
+        {
+          "a": "reach-bulwark",
+          "b": "warden-mote",
+          "distance": 0.8017
+        },
+        {
+          "a": "hollow-vessel",
+          "b": "warden-mote",
+          "distance": 0.8038
+        },
+        {
+          "a": "hollow-shard",
+          "b": "hollow-vessel",
+          "distance": 0.8042
+        },
+        {
+          "a": "reach-picket",
+          "b": "flak-array",
+          "distance": 0.8061
+        },
+        {
+          "a": "reach-picket",
+          "b": "pulse-turret",
+          "distance": 0.8076
+        },
+        {
+          "a": "hollow-drift",
+          "b": "warden-heavy",
+          "distance": 0.8081
+        },
+        {
+          "a": "reach-picket",
+          "b": "ion-lance",
+          "distance": 0.8097
+        },
+        {
+          "a": "reach-bulwark",
+          "b": "reach-skiff",
+          "distance": 0.8101
+        },
+        {
+          "a": "hollow-column",
+          "b": "hollow-shard",
+          "distance": 0.8119
+        },
+        {
+          "a": "hollow-drift",
+          "b": "reach-sapper",
+          "distance": 0.8142
+        },
+        {
+          "a": "hollow-drift",
+          "b": "hollow-vessel",
+          "distance": 0.8201
+        },
+        {
+          "a": "hollow-shard",
+          "b": "arc-node",
+          "distance": 0.8217
+        },
+        {
+          "a": "hollow-shard",
+          "b": "scan-relay",
+          "distance": 0.8242
+        },
+        {
+          "a": "hollow-shard",
+          "b": "shield-wall",
+          "distance": 0.8245
+        },
+        {
+          "a": "reach-skiff",
+          "b": "restorer",
+          "distance": 0.8253
+        },
+        {
+          "a": "warden-mote",
+          "b": "anchor-damper",
+          "distance": 0.8289
+        },
+        {
+          "a": "hollow-drift",
+          "b": "anchor-damper",
+          "distance": 0.8326
+        },
+        {
+          "a": "hollow-shard",
+          "b": "mortar-emplacement",
+          "distance": 0.8432
+        },
+        {
+          "a": "warden-mote",
+          "b": "ion-lance",
+          "distance": 0.8492
+        },
+        {
+          "a": "hollow-shard",
+          "b": "restorer",
+          "distance": 0.8512
+        },
+        {
+          "a": "hollow-shard",
+          "b": "warden-heavy",
+          "distance": 0.8527
+        },
+        {
+          "a": "warden-mote",
+          "b": "scan-relay",
+          "distance": 0.8563
+        },
+        {
+          "a": "hollow-drift",
+          "b": "hollow-echo",
+          "distance": 0.8576
+        },
+        {
+          "a": "reach-skiff",
+          "b": "warden-mote",
+          "distance": 0.8594
+        },
+        {
+          "a": "hollow-shard",
+          "b": "pulse-turret",
+          "distance": 0.8624
+        },
+        {
+          "a": "hollow-drift",
+          "b": "ion-lance",
+          "distance": 0.8625
+        },
+        {
+          "a": "hollow-shard",
+          "b": "anchor-damper",
+          "distance": 0.8639
+        },
+        {
+          "a": "hollow-shard",
+          "b": "flak-array",
+          "distance": 0.8654
+        },
+        {
+          "a": "warden-mote",
+          "b": "shield-wall",
+          "distance": 0.8675
+        },
+        {
+          "a": "hollow-shard",
+          "b": "reach-bulwark",
+          "distance": 0.8681
+        },
+        {
+          "a": "warden-mote",
+          "b": "flak-array",
+          "distance": 0.8701
+        },
+        {
+          "a": "hollow-shard",
+          "b": "ion-lance",
+          "distance": 0.8702
+        },
+        {
+          "a": "reach-skiff",
+          "b": "mortar-emplacement",
+          "distance": 0.8755
+        },
+        {
+          "a": "warden-mote",
+          "b": "pulse-turret",
+          "distance": 0.8757
+        },
+        {
+          "a": "reach-breacher",
+          "b": "reach-skiff",
+          "distance": 0.8933
+        },
+        {
+          "a": "hollow-drift",
+          "b": "warden-drone",
+          "distance": 0.8951
+        },
+        {
+          "a": "reach-skiff",
+          "b": "anchor-damper",
+          "distance": 0.9014
+        },
+        {
+          "a": "hollow-drift",
+          "b": "flak-array",
+          "distance": 0.9059
+        },
+        {
+          "a": "hollow-drift",
+          "b": "shield-wall",
+          "distance": 0.9115
+        },
+        {
+          "a": "hollow-vessel",
+          "b": "reach-skiff",
+          "distance": 0.9132
+        },
+        {
+          "a": "reach-skiff",
+          "b": "warden-heavy",
+          "distance": 0.9155
+        },
+        {
+          "a": "hollow-shard",
+          "b": "warden-mote",
+          "distance": 0.9164
+        },
+        {
+          "a": "warden-mote",
+          "b": "arc-node",
+          "distance": 0.9174
+        },
+        {
+          "a": "reach-skiff",
+          "b": "ion-lance",
+          "distance": 0.9183
+        },
+        {
+          "a": "hollow-drift",
+          "b": "pulse-turret",
+          "distance": 0.9189
+        },
+        {
+          "a": "hollow-drift",
+          "b": "arc-node",
+          "distance": 0.9534
+        },
+        {
+          "a": "reach-picket",
+          "b": "reach-skiff",
+          "distance": 0.9583
+        },
+        {
+          "a": "reach-skiff",
+          "b": "flak-array",
+          "distance": 0.9626
+        },
+        {
+          "a": "reach-skiff",
+          "b": "pulse-turret",
+          "distance": 0.965
+        },
+        {
+          "a": "reach-sapper",
+          "b": "reach-skiff",
+          "distance": 0.9656
+        },
+        {
+          "a": "hollow-echo",
+          "b": "reach-skiff",
+          "distance": 0.966
+        },
+        {
+          "a": "hollow-drift",
+          "b": "hollow-shard",
+          "distance": 0.9749
+        },
+        {
+          "a": "reach-skiff",
+          "b": "arc-node",
+          "distance": 0.9869
+        },
+        {
+          "a": "reach-skiff",
+          "b": "shield-wall",
+          "distance": 0.9873
+        },
+        {
+          "a": "hollow-shard",
+          "b": "reach-skiff",
+          "distance": 1.0
+        },
+        {
+          "a": "reach-skiff",
+          "b": "warden-drone",
+          "distance": 1.0
+        }
+      ]
+    }
+  },
+  "collapse_threshold": 0.1,
+  "note": "Jaccard distance between alpha-threshold (>=128/255) silhouette masks, downsampled from the native 256px albedo with LANCZOS. 0 = identical silhouette, 1 = no overlap. 'collapsed' below is a shape-identity cutoff (distance <= 0.10), not a measured human-legibility threshold."
+}
