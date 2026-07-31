@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>A verification is a document now, not a flag — Latticefall build journal</title>
+<meta name="description" content="main.gd had grown twenty-one one-off verification flags because a fixed-frame run has nobody to press a key. A scenario is now a JSON timeline of actions and assertions instead — and building it surfaced a timing fact worth more than the feature: a synthetic press is queued, not delivered on the frame it lands on.">
+<link rel="stylesheet" href="../chronicle.css">
+</head>
+<body>
+
+<nav class="entry-nav top"><a class="back" href="../index.html">&larr; the journal</a></nav>
+<article>
+  <header class="entry-header">
+    <time datetime="2026-07-31">July 31, 2026 · 08:33</time>
+    <h1>A verification is a document now, not a flag</h1>
+    <div class="chips"><span class="chip chip-epic">PRC</span><span class="chip chip-decision">decision 064</span></div>
+    <p class="summary lede">main.gd had grown twenty-one one-off verification flags because a fixed-frame run has nobody to press a key. A scenario is now a JSON timeline of actions and assertions instead — and building it surfaced a timing fact worth more than the feature: a synthetic press is queued, not delivered on the frame it lands on.</p>
+    
+  </header>
+  <div class="entry-body">
+    <p><code>main.gd</code> had accumulated twenty-one one-off verification flags — <code>--paused</code>, <code>--select</code>, <code>--pick</code>, <code>--cursor</code>, <code>--scroll</code>, <code>--build</code>, <code>--speed</code>, <code>--chain</code>, <code>--ability-at</code>, <code>--press-at</code>, and a dozen more — each justified on its own the day it was added, several duplicating each other, and none able to say what should be <strong>true</strong> once the state was reached. Only how to get there.</p><p>A scenario is JSON now: an anchor, a timeline of actions at named frames, and assertions at named frames. Every verb is a thin wrapper over the exact code path its equivalent flag already used — <code>shot</code>, <code>a11y</code> and <code>facings</code> feed <code>main.gd</code>'s existing capture code rather than a second copy of it. Assertions are a dotted path into the game's own state export, a comparator, and an optional tolerance, deliberately <strong>not</strong> an expression evaluator — a verification harness that can run arbitrary expressions is a second language to build and to get wrong.</p><h3>Two things this made falsifiable that used to be prose</h3><p><code>data/tuning.json</code>'s ability numbers are assertions rather than a comment nobody re-checks: Overcharge is asserted 12 to 16.2 MW exactly, Shutter's flat add is asserted at +55 MW, and Threshold Surge's falloff is read out of the function that actually computes it and asserted to four decimal places. And a scenario now pins the worst accessibility case on record — anchor-24, 200% interface scale, built, selected and scrolled — with the contrast report taken on the same frame as the screenshot, which is the pairing the analyser has always required and which no flag ever enforced before this. Zero failing, zero warnings, worst contrast 5.75:1.</p><h3>A timing fact worth more than the feature</h3><p>Fixing this properly meant routing a synthetic key press through the engine's real input pipeline rather than calling one node's handler directly, so a press can reach whichever node actually owns it — the panel-hide toggle and the tactical map each needed their own boot flag before this, precisely because the old shortcut only ever reached one node. That produced the fact worth recording: the event this way is <strong>queued, not delivered inline</strong>. An assertion written for the same frame as the press fails; the identical assertion one frame later passes. Measured, then written into the schema, the runner and the dispatcher, so the next person building a scenario does not lose an afternoon rediscovering it.</p><p>The twenty-one flags were not deleted in this change — several were the only evidence path for work committed hours earlier, so removing them has to be its own deliberate change rather than quiet attrition. <code>scenarios pass</code> joins the gate at tier 3, measured at about 30 seconds against tier 2's entire 25-second budget, which is exactly why it did not join tier 2 instead.</p>
+  </div>
+  <section class="commits"><h4>Commits</h4><ul class="commit-list"><li><code>fcf9233</code> feat(tooling): a verification is a data file with assertions, not another flag</li></ul></section>
+</article>
+<nav class="entry-nav bottom">
+  <span><a class="back" href="../index.html">&larr; the journal</a></span> <span><a class="prev" href="closing-the-loop.html">&larr; Closing the loop</a></span> <span><a class="next" href="sixteen-yaw-turret.html">Sixteen yaws on the part that turns &rarr;</a></span>
+</nav>
+
+</body>
+</html>
