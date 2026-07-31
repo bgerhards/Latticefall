@@ -97,6 +97,30 @@ func _load_atlas(atlas: Dictionary) -> void:
 	atlas_ok = _pages.size() > 0
 
 
+static func name_for(id: String) -> String:
+	## The one place the data-id -> sprite-name convention is written down (PRC-14).
+	##
+	## Before this, `anchor_view.gd` derived it inline, twice over — once for a placed
+	## tower, once for a unit — and `tools/blender/render.py`'s FX loader and
+	## `tools/check.py`'s `sprite coverage` each re-derived the same transform a third and
+	## fourth time, independently. None of those four sites could disagree today because
+	## the convention is a one-line string transform, but PRC-14's whole point is that
+	## "cannot disagree because it is simple" stops being true once ART-01 splits a head
+	## sprite from its base and takes the naming past a bare hyphen swap. `static` so a
+	## caller with no `Sprites` instance at all (the `@tool` editor path — see
+	## `_sprite_lib()`'s own LF-025 doc) can still call `SpritesScript.name_for(id)`
+	## without instantiating anything.
+	##
+	## Python has no way to import this across the Blender/Godot boundary (the same
+	## problem `YAW_COUNT` solved differently — see render.py's own doc), so
+	## `tools/blender/gen_assets.py` keeps a byte-identical mirror of this one line next to
+	## a comment pointing back here. This is meant to be the sole site in `scripts/`
+	## performing this exact string transform; `anchor_view.gd`'s two remaining inline
+	## call sites still need to be swapped to call this instead (owned by another
+	## workstream — see this file's own module-level history for context, PRC-14).
+	return id.replace("-", "_")
+
+
 func has(name: String) -> bool:
 	return _entries.has(name)
 
