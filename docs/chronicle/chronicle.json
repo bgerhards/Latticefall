@@ -1428,6 +1428,110 @@
           "text": "`tools/check.py` is not touched by this change. That file was owned by another workstream in flight the same session this landed, so wiring the two checks in was left for that workstream to pick up rather than risked as a collision. The registration is recorded in the commit body rather than left to be re-derived: `Check(\"sfx loudness\", 2, check_sfx_loudness)` and `Check(\"music loudness\", 4, check_music_loudness)`, split across tiers because the SFX half costs about 2 seconds and the music half alone, at roughly 85 seconds, would exceed tier 3's entire current budget on its own."
         }
       ]
+    },
+    {
+      "id": "before-it-spends-anything",
+      "date": "2026-07-31",
+      "time": "13:02",
+      "title": "The wrap decides its tier before it spends anything",
+      "summary": "The owner's own complaint opened this one: the last session wrap took over thirty-two minutes and was still not finished, with roughly twenty of those minutes gone before the commit and journal had even started. Tier 4 on that run measured 1,755,759 ms — 29 minutes, ~13 of it rules parity. Only one of the three faults found was a slow check; the wrap now decides its tier before spending anything, and the escalation it added fired for real, twice, for reasons nobody staged.",
+      "tags": [
+        "PRC"
+      ],
+      "commits": [
+        {
+          "hash": "57820a8",
+          "subject": "feat(process): the wrap decides its tier before it spends anything"
+        }
+      ],
+      "body": [
+        {
+          "type": "p",
+          "text": "The complaint was the owner's own: the previous session wrap took over thirty-two minutes and was still not finished. Roughly 20 of those >32 minutes had gone by with the final commit and the journal entry still outstanding. `PRC-20` (`#93`) measured what actually happened on that run — tier 4 of `check.py`, unconditional, total **1,755,759 ms — 29 minutes**, of which `rules parity` alone cost roughly **13 minutes**."
+        },
+        {
+          "type": "p",
+          "text": "The issue spec named three faults, and it is worth being precise that only one of them was a slow check. First, the wrap ran the full gate unconditionally, and that is simply the wrong **place** to do it: work now lands through pull requests, each already gated before it opens, so by the time a wrap starts, everything on `main` has already been verified once — the wrap's full gate was largely re-proving what the PR flow just proved. Second, the fix for the slow part already existed and was not being used on this path — a content-hash cache makes `rules parity` skip entirely when nothing that can affect it changed, and a wrap invoking the gate with no flags paid full price regardless. Third, everything was serialised behind the slowest check — the backlog groom, the STATE rewrite, the journal entry and the commit itself do not depend on the gate's result until the very last step, and were pure wall-clock spent waiting on it."
+        },
+        {
+          "type": "p",
+          "text": "The cost was also growing, and growing **because of good work**: `rules parity` was 864 runs at roughly 9 minutes in the morning of the same day and 1,440 runs by the evening, because `BAL-02` added four capped-core grading policies and `BAL-01` four scheduled ones. Every policy that makes grading more truthful multiplies the parity matrix — the tension is real and this journal has no tidy resolution for it beyond `#85`, which is what actually right-sizes the matrix rather than just hiding its cost from the wrap."
+        },
+        {
+          "type": "h3",
+          "text": "What landed"
+        },
+        {
+          "type": "p",
+          "text": "A new tool decides the tier **before** anything expensive starts. Tier 2 by default — and the choice is justified in the skill itself, not just made: the wrap is verifying **the wrap's own edits**, `docs/STATE.md`, `docs/BACKLOG.md`, `docs/DECISIONS.md` and everything under `docs/chronicle/`, none of which touch rules or assets. Tier 4 runs on `--release`, or automatically on either of two self-explaining triggers: the session's own diff touching `scripts/anchor_sim.gd` or anything under `sim/`, `data/` or `assets/`, or a parity digest cache miss for any other reason. The second trigger is deliberate and covers the case with **no repo diff at all** — the digest folds in the Godot binary's own version string, so an engine upgrade invalidates the cache and must force the full check."
+        },
+        {
+          "type": "p",
+          "text": "The skill itself is reordered around that decision: reap, decide the tier, launch the gate **in the background**, do the backlog groom, decisions, STATE narrative and journal entry while it runs, **end the turn** — the owner-blocking boundary — then join on the completion notification, regenerate STATE's AUTO block from the gate's own saved JSON, commit, reap again. Backgrounding goes through the harness's own tracking under an explicit opt-in, never a raw shell `&` or `nohup`: the project's launch guard denies those outright, for the reason `CLAUDE.md` already states — an untracked background process is precisely the thing that re-invokes the model and bills a session everyone believed was over."
+        },
+        {
+          "type": "p",
+          "text": "The parity harness now prints its content-hash digest on **every** full run, cached or not — previously there was no way to tell a cached skip from a slow run without watching it happen."
+        },
+        {
+          "type": "h3",
+          "text": "The numbers, against the issue's own targets"
+        },
+        {
+          "type": "table",
+          "headers": [
+            "measurement",
+            "result",
+            "target"
+          ],
+          "rows": [
+            [
+              "tier-2 gate",
+              "24.9 s under 92%-CPU parity load · 26.4 s idle",
+              "—"
+            ],
+            [
+              "full mechanical wrap",
+              "**1:20.63** contended · **1:46.40** idle",
+              "under 5 min"
+            ],
+            [
+              "owner-blocking time",
+              "bounded by the turn-end, so under 1 min",
+              "under 1 min"
+            ],
+            [
+              "reap check",
+              "clean at every checkpoint, including after two ~13-min parity runs",
+              "clean"
+            ]
+          ]
+        },
+        {
+          "type": "h3",
+          "text": "Proved both ways, and the real half was not staged"
+        },
+        {
+          "type": "p",
+          "text": "The escalation logic was not merely asserted to work — it fired for real, twice, on the actual shared working tree, for two reasons nobody arranged: untracked sprite-render `.import` litter left behind by a different workstream, and mid-session uncommitted edits to two sim files from a concurrent agent, which also produced a genuine digest cache miss on their own. And it correctly did **not** fire on a docs-only diff — `tier 2, reasons []`. A shared tree with several agents in it is a harder environment than any test would have staged, and this is what it actually did to the tooling: proved the escalation both ways in the course of one ordinary session, not as a planned demonstration of it."
+        },
+        {
+          "type": "h3",
+          "text": "The honest half"
+        },
+        {
+          "type": "p",
+          "text": "Tier 2's own 25-second budget is now genuinely tight — 24.9 to 26.4 seconds measured, against a 25 s budget the wrap does not itself assert. And it sits close to that line with a timer that cannot be fully trusted: `LF-170`, filed this session, records the gate timing its checks with a wall-clock call rather than a monotonic one, observed once reporting a **negative 796 ms** elapsed under heavy concurrent load. One data point, not reproduced on demand — but a timer that can move backwards under load is the wrong instrument to be sitting this close to a threshold with."
+        },
+        {
+          "type": "p",
+          "text": "`LF-169`, filed the same session: the asset-path escalation trigger fires on editor-generated import sidecars that carry no gameplay content at all, so a shared tree can escalate the wrap for reasons unrelated to the session's own work — exactly the mechanism that fired above. It interacts directly with `LF-165`, filed the session before, which already found hundreds of those sidecars sitting untracked in every agent's working tree."
+        },
+        {
+          "type": "p",
+          "text": "Two items closed on the way past rather than opened new. `LF-134` turned out to already be fixed — the parity harness's own subprocess had carried a timeout since an earlier commit, and the backlog item had simply never been marked done. Worth recording as its own small lesson: an argument for closing an item at the commit that fixes it, not at the next wrap that happens to notice. And `LF-115` was a latent trap rather than a live bug — the STATE regeneration tool never forwarded its tier flag to the gate, which cost nothing only because the default was the full gate regardless of what was asked for. This change is exactly what would have made that silent default dangerous, so it was fixed in the same commit that created the hazard, not left for the next session to rediscover."
+        }
+      ]
     }
   ]
 }
