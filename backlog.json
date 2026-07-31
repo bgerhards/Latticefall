@@ -1,5 +1,5 @@
 {
-  "next_id": 98,
+  "next_id": 105,
   "items": [
     {
       "id": "LF-001",
@@ -1161,6 +1161,90 @@
       "pri": "med",
       "status": "open",
       "why": "Otherwise performance regresses invisibly",
+      "opened": "2026-07-30",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-098",
+      "title": "An emplacement with nothing in range re-scans every unit on every tick, forever. anchor_sim.gd _step(): when target.is_empty() it does p.erase(aim); continue WITHOUT resetting cooldown, which has already gone <= 0 \u2014 so the next tick scans all U units again. Same in sim/engine.py. MEASURED: a board whose guns cover a currently empty lane costs 2.19x at 8 towers/32 units rising to 2.87x at 100/800 versus the same board with targets in range. This is exactly the shape a big multi-lane board produces, since most guns are idle most of the time. Fix must be mirrored in both engines and must not change WHICH unit is selected",
+      "kind": "bug",
+      "area": "engine",
+      "pri": "high",
+      "status": "open",
+      "why": "2.9x sim cost for guns that are doing nothing",
+      "opened": "2026-07-30",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-099",
+      "title": "_covered_by() is called per unit per tick from the movement loop and iterates EVERY placed emplacement, testing eff.get(type) != effect inside the loop \u2014 so it costs O(towers) per unit even when no emplacement on the board has that effect at all. MEASURED: this is the unconditional 0.248-0.275 microseconds per tower-unit pair floor that persists even when only ~4 percent of towers are off cooldown. At 60 towers and 400 units that is 24000 wasted iterations per tick, 30 times a second. Fix is to filter placed by effect type once per tick; about ten lines in each rule file, mirrored",
+      "kind": "bug",
+      "area": "engine",
+      "pri": "high",
+      "status": "open",
+      "why": "Pure waste in the hottest loop, paid even when the effect is unused",
+      "opened": "2026-07-30",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-100",
+      "title": "fx_additive _draw_hit_flashes() is quadratic in unit count: it scans the live hit list for every unit, and the hit list grows with the number of units being shot. MEASURED at 32x32: 0.31ms at 150 units, 0.96 at 300, 3.67 at 600, 7.67 at 900 \u2014 roughly U^1.9, and 29 percent of all draw cost at 900 units. Fix is to key hits by tile bucket rather than scanning. Presentation only, no parity exposure",
+      "kind": "bug",
+      "area": "engine",
+      "pri": "med",
+      "status": "open",
+      "why": "The only quadratic term in the renderer",
+      "opened": "2026-07-30",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-101",
+      "title": "drawables() is rebuilt and re-sorted FOUR times per frame \u2014 anchor_view.gd:1152 and :1154 (shadow and sprite passes), glow_layer.gd:36, fx_additive.gd:209. Each call allocates an Array of one Dictionary per emplacement and per unit, computes depth, yaw and screen position, then sort_custom with a GDScript lambda. MEASURED at about 3.2 microseconds per entity per call, so 12.8 per entity per frame. Building it once and sharing it is 1.46x on its own and 2.47x combined with tile-list caching at 64x64 with 60 emplacements and 400 units. Presentation only",
+      "kind": "bug",
+      "area": "engine",
+      "pri": "high",
+      "status": "open",
+      "why": "Four identical rebuilds and sorts per frame",
+      "opened": "2026-07-30",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-102",
+      "title": "tools/blender/render.py calibrate() cannot converge at 384 or 1024 px cells. It corrects ORTHO_SCALE from the WIDTH ratio only, so a one pixel height shortfall never resolves \u2014 reproduced deterministically: tile 192x95 against expected 192x96, and 512x255 against 512x256. 256 and 512 happen to work by luck. This blocks raising the render base, so it is a prerequisite for any atlas resolution increase. Also note pack_atlas.py has its own hardcoded CELL = 256 that is not read from the manifest, so two constants must move in lockstep",
+      "kind": "bug",
+      "area": "art",
+      "pri": "med",
+      "status": "open",
+      "why": "Blocks raising sprite fidelity at all",
+      "opened": "2026-07-30",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-103",
+      "title": "validate_data.py computes board saturation from base draw_mw only and never looks at upgrade.draw_mw, so an emplacement's upgraded draw is invisible to the saturation guard. Latent today; it starts to matter as soon as there are spectacle weapons with steep upgrade draws, which is exactly what the theatre-scale plan adds",
+      "kind": "bug",
+      "area": "tooling",
+      "pri": "low",
+      "status": "open",
+      "why": "The guard that protects the power decision does not see upgraded draw",
+      "opened": "2026-07-30",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-104",
+      "title": "THEATRE SCALE. Sprite legibility at zoom-out is a design problem, not a camera feature. MEASURED: fitting a 64x64 board needs zoom 0.234x at 100 percent interface scale and 0.117x at 200 percent, which renders a 256px sprite at 30-60px on screen \u2014 likely below the threshold for telling one enemy type from another. So a big board plus a fixed 256px atlas is a legibility wall. Options are bigger tiles (raising Iso.TILE_W/TILE_H, a whole-game layout change touching every screen-space calculation, the measured pivot and the a11y baselines), a zoom floor with a minimap doing the wide read, or silhouette-first art authored to survive 30px. This needs a human decision before the camera work is finished",
+      "kind": "question",
+      "area": "design",
+      "pri": "high",
+      "status": "open",
+      "why": "The camera cannot fix what the art cannot show",
       "opened": "2026-07-30",
       "closed": null,
       "note": ""
