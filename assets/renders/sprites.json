@@ -844,10 +844,39 @@
       "albedo": "assets/renders/atlas/albedo.png",
       "glow": "assets/renders/atlas/glow.png"
     },
-    "source_digest": "2dc92555dea37b5559699a014319d43d5831c4f6615fd204b5b74e0cf8c35707"
+    "source_digest": "9fc3c8e193edfce15d316d39587d697250f43c02fa60bece5bfdc28ed65b2e14"
   },
+  "blender_version": "5.2.0 LTS",
   "cell": 256,
   "elevation_deg": 30.0,
+  "hashes": {
+    "anchor_damper": "6283f04d47c99e53944ade8a4a22dfc33f3561fe4625a9a87850c7545c1921a8",
+    "anchor_ring": "62afbc8a7c82bbd0261f2c456c9d423d3d840f9cee8055fd1c485ab88dec9203",
+    "arc_node": "727e22ac8c5debd94c4728052e3b144585d1a5be67dea63209cf0e923cf6f9bc",
+    "flak_array": "099b06a5ef791d84f164a2d399e9586b0b508890947368b1a3097119dceee485",
+    "hollow_column": "25998d188966c67fc075491cc2c255433880712987015620293205d17b7e8783",
+    "hollow_drift": "995b9925b0f3aac3a2ab59d5d769430ba7888e6d89d5517d943e7a8c3937dfdf",
+    "hollow_echo": "f0b3b6cee4e08de12fb8878ed6b1a89952a9e0c6999c864a7665f03d2fce0b37",
+    "hollow_shard": "87829ea46316576299c266982843df570dbd36fa4853c86f10663fd393254f0d",
+    "hollow_vessel": "ef92d9f2a7801ea6e986f35a2ab818dab291c588da3697d95638d8024d2cb123",
+    "ion_lance": "b11e343dd44da29e05bd35de43df6b20864fc64a37399368e12ce896af56c7d4",
+    "mortar_emplacement": "5068b887d79dd4d67af4e202b75ff451875cbad1acca2716457cfe497fc8916a",
+    "pulse_turret": "d13f839aef313bc167d4fcf9a3b679b93209f3cc578c6b75760f3407d8fa7f56",
+    "reach_breacher": "7ef129ee143674092d014a9eadb7944092654b94a617e9cb06785f79e4a0b8cf",
+    "reach_bulwark": "9d84c0d945cd9be81949de4a1626a012a57af4dae2e0d0c9707ac1a98dfd57f5",
+    "reach_picket": "01f37685660086163f1899adc4e3ed72e89aaa05086fba3807a2d1de651babcb",
+    "reach_sapper": "eee86c412b8b0f2119ee46b7ef182359efd0a79965969efaf73ff1610f0e9b0c",
+    "reach_skiff": "db5050db0240ecd8b145d0f12d2e5d912829bc36f10701df82183f0a834e657a",
+    "restorer": "a243c29da9383b8aa5b15f8007ea16529bb07c0e17d81895f6b5633cbe80fe83",
+    "scan_relay": "b0b5265756b9df1fd223273f21f01135e1e839be1ce9df343e025c32bd9044a4",
+    "shield_wall": "6690d8e5736b68fe69c18b6848efc9ca9b7cc6ad1cf8240ff7867172bd4d5148",
+    "tile_ground": "11dec0f9921010292a3ea77326ecd7b4b3a3cb9cb9f3a129044d5de922db1c8e",
+    "tile_path": "dba2b454ce0ce38a924b3a585ba21cdf62c4ae2c1d6b79d1dee9c0d08bbb0ef5",
+    "tile_slot": "344f6a1221e66f521f379d27a1996172066e465cdea9154f6f5e97558f94f460",
+    "warden_drone": "10b7a24b43d7468c861ed2829d44343716f794958852e469132469a97b571dbe",
+    "warden_heavy": "51d65d1039127814dc7a6eb50124546ec83acc92fd175dd2af861e0445a78f3c",
+    "warden_mote": "1dc4e7a1fbc6728be48ccdf17e96beec9e12759881e2efc925ae4c3b62cd8956"
+  },
   "ortho_scale": 2.784232950922031,
   "pivot": [
     127.5,
@@ -1327,6 +1356,7 @@
     128,
     64
   ],
+  "yaw_count": 4,
   "yaws": [
     45,
     135,

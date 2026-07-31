@@ -77,13 +77,18 @@ PASSES = ("albedo", "glow")
 # — a page built here still has to upload correctly on whatever GPU the owner's Windows
 # Godot editor runs on, which this probe cannot see.
 #
-# 4096 is picked as the working floor: comfortably above the current 3072px page (room to
-# grow before ART-01's ~680-asset library needs true multi-page packing, not just a bigger
-# single page), comfortably below both the 16384 measured here and every desktop/GLES3
-# target this project has ever run on, and far enough above the 2048 spec minimum that no
-# GL Compatibility implementation shipped in the GLES3 era is actually likely to be capped
-# there in practice — the spec minimum has not been the practical minimum for a long time.
-GL_MAX_TEXTURE_SIZE_FLOOR = 4096
+# ART-04/LF-090: raised from 4096 to 8192. At cell=512 the current 26-asset/4-yaw library
+# (104 cells, COLS=12 unchanged) packs to 6144x4608 — over the old 4096 floor on the width
+# alone, which would have raised SystemExit from pack() on the first 512px attempt. 8192
+# rather than jumping straight to the 16384 measured on this machine: 8192 is the long-
+# standing common ceiling for GLES3-era hardware (many mobile/older desktop GL
+# implementations cap there even when a modern desktop GPU reports 16384), so it clears
+# the current 6144px page with real headroom (comfortably below both 8192's own margin and
+# 16384) while staying inside a limit this project can still expect to hold elsewhere, not
+# just on the one machine this was measured on. Still needs re-measuring on whatever GPU
+# renders this in production, per the 16384-measured-here comment above — this floor is a
+# choice bounded by that number, not a replacement for it.
+GL_MAX_TEXTURE_SIZE_FLOOR = 8192
 
 
 def source_digest(groups: dict) -> str:

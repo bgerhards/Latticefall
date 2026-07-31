@@ -1,5 +1,5 @@
 {
-  "next_id": 151,
+  "next_id": 152,
   "items": [
     {
       "id": "LF-001",
@@ -583,11 +583,11 @@
       "kind": "bug",
       "area": "art",
       "pri": "med",
-      "status": "open",
+      "status": "done",
       "why": "",
       "opened": "2026-07-28",
-      "closed": null,
-      "note": ""
+      "closed": "2026-07-31",
+      "note": "closed at c66699a"
     },
     {
       "id": "LF-050",
@@ -1783,6 +1783,18 @@
       "kind": "chore",
       "area": "art",
       "pri": "med",
+      "status": "done",
+      "why": "",
+      "opened": "2026-07-31",
+      "closed": "2026-07-31",
+      "note": "closed at c66699a"
+    },
+    {
+      "id": "LF-150",
+      "title": "No profiling hook exists for HUD-layer Control._draw() cost. main.gd --profile (CAM-06) instruments AnchorView, GlowLayer, FxAdditive and CombatFx only, so CAM-04's minimap could not be measured against its own 0.3ms acceptance criterion, and no future HUD performance work can be measured either. The panels are the most redrawn thing on screen after the board. Same shape as the existing hook; it just needs to reach CanvasLayer children.",
+      "kind": "chore",
+      "area": "engine",
+      "pri": "med",
       "status": "open",
       "why": "",
       "opened": "2026-07-31",
@@ -1790,10 +1802,10 @@
       "note": ""
     },
     {
-      "id": "LF-150",
-      "title": "No profiling hook exists for HUD-layer Control._draw() cost. main.gd --profile (CAM-06) instruments AnchorView, GlowLayer, FxAdditive and CombatFx only, so CAM-04's minimap could not be measured against its own 0.3ms acceptance criterion, and no future HUD performance work can be measured either. The panels are the most redrawn thing on screen after the board. Same shape as the existing hook; it just needs to reach CanvasLayer children.",
-      "kind": "chore",
-      "area": "engine",
+      "id": "LF-151",
+      "title": "ART-04 (512px atlas cells) is blocked by scripts/iso.gd's hardcoded TILE_W=128 / TILE_H=64, and the block is SILENT. Everything through the pipeline works at 512: calibrate converges (pivot 255.5, 342.5), the page comes out 6144x4608 at 216 MiB uncompressed RGBA8, well inside this machine's measured GL_MAX_TEXTURE_SIZE of 16384, and a full rebuild took 2m30.8s. But sprites.gd's tile-size assertion then fails and EVERY draw falls back to flat placeholder grey -- caught only by sampling actual pixel colour against the expected material colour, not by eye. The real question ART-04 hides is a design one decision 056 did not settle: at 512px cells, is a sprite meant to be twice as BIG on screen (raise TILE_W/TILE_H -- a whole-game layout change touching every screen-space calculation, the measured pivot, and the a11y baselines) or the SAME size at twice the resolution (keep tile size, scale the atlas down at draw)? The second is almost certainly what is wanted and is far cheaper, but it is a real decision and it needs iso.gd and anchor_view.gd. Repo is back at 256px cells, verified correct.",
+      "kind": "question",
+      "area": "art",
       "pri": "med",
       "status": "open",
       "why": "",

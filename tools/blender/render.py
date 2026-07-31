@@ -45,6 +45,7 @@ import sys
 import tempfile
 
 import bpy
+import mathutils
 
 # ── projection (decision 017 — measured, not derived) ───────────────────────
 ELEVATION_DEG = 30.0            # arcsin(0.5). A 1x1 tile lands on exactly 2:1.
@@ -236,6 +237,29 @@ def cone(verts, radius1, radius2, depth, loc, rot=(0, 0, 0), material=None):
                                     depth=depth, location=loc, rotation=rot)
     o = bpy.context.active_object
     return put(o, material) if material else o
+
+
+def axis_offset(rot, dz, base=(0.0, 0.0, 0.0)):
+    """World-space point at signed distance `dz` along local +Z after Euler `rot`,
+    starting from `base` — for stacking two primitives on one shared, rotated
+    centerline (LF-049) instead of each rotating independently about its own origin.
+
+    `primitive_cone_add(location=loc, rotation=rot)` bakes `rot` onto the new object
+    about its OWN origin at `loc` — it never rotates `loc` itself. Two cones built with
+    the same `rot` but `loc=(0, 0, z1)` and `loc=(0, 0, z2)` therefore sit on PARALLEL
+    tilted axes offset from each other by roughly `(z2 - z1) * tan(angle)`, not on one
+    shared axis — the lit cone pokes out to one side and hides behind the dark cone from
+    the opposite camera yaw. Passing `axis_offset(rot, z)` as `loc` instead makes both
+    centers scalar multiples of the same rotated direction vector from `base`, which is
+    colinear by construction.
+
+    Confirmed against the installed Blender 5.2: `primitive_cone_add`'s `rotation=`
+    argument sets `object.rotation_euler` directly (mode 'XYZ', Blender's default), which
+    is exactly what `mathutils.Euler(rot, 'XYZ').to_matrix()` reproduces — this is not
+    assumed from memory.
+    """
+    return tuple(mathutils.Vector(base) + mathutils.Euler(rot, 'XYZ').to_matrix()
+                 @ mathutils.Vector((0.0, 0.0, dz)))
 
 
 def sphere(radius, loc, segments=20, rings=12, material=None):
@@ -668,11 +692,14 @@ def a_hollow_shard():
     # One piece of what the Echo is a cluster of, travelling alone. Half the Echo's height
     # and a single blade rather than five, so the two read as the same material at two
     # scales — which is the only thing the act ever says about what the Hollow is made of.
-    cone(6, 0.17, 0.018, 0.62, (0.0, 0.0, 0.31),
-         rot=(math.radians(11), math.radians(-8), 0),
+    # LF-049: the dark body and the lit tip share one rotation but must also share one
+    # AXIS — both locations come from axis_offset() off the same origin so they're
+    # colinear, rather than independently rotating about two different (0,0,z) origins
+    # (which produced parallel, laterally offset axes and collapsed the glow at yaw 315).
+    shard_rot = (math.radians(11), math.radians(-8), 0)
+    cone(6, 0.17, 0.018, 0.62, axis_offset(shard_rot, 0.31), rot=shard_rot,
          material=mat("hsb", HOLLOW_DARK, 0.2, 0.55))
-    cone(6, 0.075, 0.014, 0.30, (0.0, 0.0, 0.50),
-         rot=(math.radians(11), math.radians(-8), 0),
+    cone(6, 0.075, 0.014, 0.30, axis_offset(shard_rot, 0.50), rot=shard_rot,
          material=mat("hsg", HOLLOW_LIT, 0.0, 0.3,
                       emit=(0.60, 0.52, 0.94), emit_strength=1.2))
     # A low sliver of debris travelling with it, so the sprite has a base to sit on and
@@ -686,13 +713,21 @@ def a_hollow_echo():
     # instantly at 100% zoom without having any features to read.
     # Thicker and wider than the first cut: at 0.10 radius the shards were hairlines and
     # the act's baseline unit was invisible on a dark deck.
+    echo_rot = (math.radians(7), math.radians(-5), 0)
     for i, (x, y, h, t) in enumerate([(0.0, 0.0, 1.05, 1.0), (-0.22, 0.16, 0.80, 0.85),
                                       (0.23, -0.14, 0.70, 0.8), (0.07, 0.26, 0.56, 0.7),
                                       (-0.10, -0.22, 0.50, 0.65)]):
-        cone(6, 0.20 * t, 0.020, h, (x, y, h * 0.5),
-             rot=(math.radians(7), math.radians(-5), 0),
+        if x == 0.0 and y == 0.0:
+            # LF-049: this central shard (x=0,y=0) is the one the lit core below is
+            # meant to sit on the same axis as — axis_offset() keeps them colinear. The
+            # other four shards are standalone, at their own hand-placed (x,y) with no
+            # companion cone, so they are left as independently-rotated placements.
+            loc = axis_offset(echo_rot, h * 0.5)
+        else:
+            loc = (x, y, h * 0.5)
+        cone(6, 0.20 * t, 0.020, h, loc, rot=echo_rot,
              material=mat("he%d" % i, HOLLOW_DARK, 0.2, 0.55))
-    cone(6, 0.09, 0.016, 0.50, (0.0, 0.0, 0.84), rot=(math.radians(7), math.radians(-5), 0),
+    cone(6, 0.09, 0.016, 0.50, axis_offset(echo_rot, 0.84), rot=echo_rot,
          material=mat("hec", HOLLOW_LIT, 0.0, 0.3,
                       emit=(0.58, 0.50, 0.92), emit_strength=1.2))
 
