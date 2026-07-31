@@ -1773,7 +1773,7 @@
       "date": "2026-07-31",
       "time": "19:47",
       "title": "Behind infrastructure that did not exist",
-      "summary": "`rules parity` — in the gate's own words the one thing making a balance claim in this project falsifiable — had never run in CI, not once. `docs/STATE.md` had called `nightly.yml` \"inert behind a repo variable\" for sessions; it was actually targeting a self-hosted runner label with zero runners registered. PRC-17 (#83) replaces it with a container that runs the real gate on every pull request, and measures — twice — that a hosted software-GL stack reproduces this machine's numbers exactly rather than approximately.",
+      "summary": "`rules parity` — in the gate's own words the one thing making a balance claim in this project falsifiable — had never run in CI, not once. PRC-17 (#83) replaces the unreachable self-hosted `nightly.yml` with a container gate on every pull request — whose first real run went red, for the first genuine reason in this project's CI history rather than its own onboarding breakage, because the local verification behind it had quietly been measured against an already-imported tree.",
       "tags": [
         "PRC"
       ],
@@ -1788,6 +1788,10 @@
         {
           "hash": "328b054",
           "subject": "ci: run the real gate on every PR, and parity in CI for the first time ever"
+        },
+        {
+          "hash": "75b53b7",
+          "subject": "fix(ci): the container job never imported, and the local repro could not see it"
         }
       ],
       "body": [
@@ -1797,7 +1801,7 @@
         },
         {
           "type": "p",
-          "text": "The consequence was not abstract either. Every merge to `main` was gated on 14 of 29 checks — the tier-1 set. The other 15, including `rules parity` and `rules parity (windows)`, had run in CI zero times. And the ten runs `gate.yml` (tier 1 only) had produced were read back rather than trusted at face value: every failure in that history was CI's own onboarding breakage, never a caught regression — one run failed `gdscript parses` on an identifier the editor's class-name cache hadn't picked up yet, fixed two commits later by adding an import step, not by fixing game code. That gap between \"the workflow file exists\" and \"the workflow ran\" is the whole story here."
+          "text": "The consequence was not abstract either. Every merge to `main` was gated on 14 of 29 checks — the tier-1 set. The other 15, including `rules parity` and `rules parity (windows)`, had run in CI zero times. And the ten runs `gate.yml` (tier 1 only) had produced were read back rather than trusted at face value: every failure in that history was CI's own onboarding breakage, never a caught regression."
         },
         {
           "type": "h3",
@@ -1814,56 +1818,64 @@
         },
         {
           "type": "h3",
-          "text": "The load-bearing measurement"
+          "text": "The first real run of it went red, and that is the good half"
         },
         {
           "type": "p",
-          "text": "The spec had named a specific risk before any of this was built: a container's software-GL stack is not automatically the same Mesa llvmpipe behaviour this machine's coverage and contrast thresholds were tuned on, so a green container run might mean nothing. Measured inside the container, twice, on two independent full runs, it was not a lesser approximation — it was identical."
+          "text": "The pull request's first real run of `gate-tier3` was red: `tier 3 — 22 passed · 12 failed · 3 skipped`, 27 minutes. It failed on verbatim the two clean-checkout errors `gate.yml`'s own tier-1 header comment already documents — `Loadout` not declared, because a `class_name` global is invisible until the editor imports, and the LFS-tracked font failing to preload, which takes every script reading `Ui.SANS` down with it (`LF-162`). Everything else cascaded from there: five scenarios timing out at 120 seconds and three rendered checks at roughly 300 seconds, all waiting on a frame an unimported Godot can never produce. That cascade alone was about 1603 of the run's 1638 seconds — the 27 minutes was almost entirely timeouts, not work."
+        },
+        {
+          "type": "p",
+          "text": "`hooks configured` failed too, and correctly. Its `post-lint-gd` selftest parses `scripts/hud.gd`, which reads consts off the same font-preloading `Ui` autoload — so on an unimported checkout that file genuinely does not parse, and the guard was reporting truth about a broken environment rather than a bug: 44 of 45 unimported, 45 of 45 imported, no change needed to `tools/hooks/guard.py`. Worth a line on its own, since it is the same guard an earlier entry spent a full session hardening."
+        },
+        {
+          "type": "p",
+          "text": "This is the first time in this project's history that CI went red for a real reason rather than its own onboarding breakage — every prior red run, across the entire population this journal has recorded, was CI still being built rather than a caught bug. The very first thing the new job did was catch something, in a pull request, contained, never reaching `main`. That is the whole argument for the one-branch-one-PR flow, and it landed on the change that gave the flow its own teeth."
+        },
+        {
+          "type": "h3",
+          "text": "Why the local verification missed it"
+        },
+        {
+          "type": "p",
+          "text": "The container had already been reported \"verified twice\" before this pull request opened, at `34 passed · 0 failed`. Both of those runs used a scratch clone that still carried a `.godot/` import cache left behind by an earlier one-off `--import`. `.godot/` is gitignored, so a later `git checkout` to a newer commit never cleared it — both \"clean\" runs were therefore measured against an already-imported tree, which is not the path CI actually takes, and `gate-tier3` had no Import step at all. That gap was invisible to anyone whose local reproduction always happened to carry the cache. The lesson is not \"check your work\" — it is that a local reproduction which shares any state at all with the machine that built it is not a reproduction, and a gitignored cache directory surviving a `git checkout` is exactly the kind of state nobody thinks to look for."
+        },
+        {
+          "type": "h3",
+          "text": "Re-verified on the path CI actually takes"
+        },
+        {
+          "type": "p",
+          "text": "Fresh clone, `git lfs pull`, the import cache confirmed absent and the font confirmed as 200 KB of real TrueType rather than an LFS pointer, then the exact sequence the fixed workflow now runs:"
         },
         {
           "type": "table",
           "headers": [
-            "Check",
-            "Container result",
-            "This machine"
+            "Step",
+            "Result"
           ],
           "rows": [
             [
-              "tier 3 overall",
-              "34 passed · 0 failed · 3 skipped · 80883ms",
-              "—"
+              "import",
+              "12.5s, 2243 log lines, 0 recoverable errors"
+            ],
+            [
+              "tier 3",
+              "34 passed · 0 failed · 3 skipped · 77071ms"
             ],
             [
               "game renders",
-              "coverage 0.95, 99 tones",
               "coverage 0.95, 99 tones"
             ],
             [
               "accessibility",
-              "worst contrast 5.08:1",
               "worst contrast 5.08:1"
             ]
           ]
         },
         {
           "type": "p",
-          "text": "Identical, not approximately. That is what makes the hosted path a real substitute rather than a cheaper stand-in, and it is why the self-hosted runner could be declined outright rather than merely deferred."
-        },
-        {
-          "type": "h3",
-          "text": "Three bugs found only by running it"
-        },
-        {
-          "type": "p",
-          "text": "None of these was findable by reading the workflow file, and all three read as something else entirely at first."
-        },
-        {
-          "type": "list",
-          "items": [
-            "`libXcursor.so.1` and the Wayland cursor library were missing, which makes Godot fail before it ever reaches `xvfb` — an X11-then-Wayland-then-\"use `--headless`\" error message that reads like a configuration problem rather than a missing package.",
-            "`git ls-files` failed with \"detected dubious ownership\" on a bind-mounted checkout owned by a different UID — and `validate_data.py`'s document discovery depends on exactly that command. This would have read as a git bug to whoever saw it red next, not as a container ownership mismatch.",
-            "Running the container as root left root-owned files in a bind-mounted tree. It does not hit the real job — the GitHub Actions container runtime does not default to root the way a local `docker run` does — but it belongs in any note about reproducing this locally."
-          ]
+          "text": "The underlying claim holds: the container reproduces this machine's coverage and contrast thresholds exactly, not approximately. What was false was that it had been established on the path CI actually takes. It has been now, and the number was right both times — only the route to it was wrong the first two."
         },
         {
           "type": "h3",
@@ -1871,24 +1883,25 @@
         },
         {
           "type": "p",
-          "text": "Self-hosted registration was declined — decision 071. The issue reserved this as an owner call, and declining is the half that does not touch the owner's own machine, so it was taken rather than deferred: a scheduled nightly on the box the owner plays from would compete with captures that already take about 8 of 16 cores, and it would mean `reap.py --kill` running unattended on a shared tree where `CLAUDE_CODE_SESSION_ID` cannot tell a sibling agent's live process from a stray. The hosted path delivers what `nightly.yml` existed for without either cost. It is reversible, and the reversal — register a runner, flip the variable — is written down in the same entry."
+          "text": "Self-hosted registration was declined — decision 071, amended in place with this red run rather than superseded, because the decision had not merged and nothing it claimed had been published yet. The issue reserved the self-hosted question as an owner call, and declining is the half that does not touch the owner's own machine, so it was taken rather than deferred: a scheduled nightly on the box the owner plays from would compete with captures that already take about 8 of 16 cores, and it would mean `reap.py --kill` running unattended on a shared tree where `CLAUDE_CODE_SESSION_ID` cannot tell a sibling agent's live process from a stray. The hosted path delivers what `nightly.yml` existed for without either cost. It is reversible, and the reversal — register a runner, flip the variable — is written down in the same decision."
         },
         {
           "type": "p",
-          "text": "This is not a clean win, and the record should not read as one."
+          "text": "This is still not a clean win, and the record should not read as one."
         },
         {
           "type": "list",
           "items": [
             "`rules parity (windows)` still has no CI coverage at all, and cannot get it from a hosted Linux path — it needs a Windows Godot binary. That matters specifically because a prior finding (BAL-06) established that all parity checking had been comparing CPython against the Linux build while the owner plays Windows. The leg that closed the larger hole is the one this change still cannot watch.",
-            "The hosted shard timing is a projection, not a measurement: 3m14s and 3m17s per shard measured on this 16-core machine, extrapolated to a 4-core hosted runner. The workflow's own comment says to trust a real run over that estimate once one exists.",
-            "The GHCR image push and pull only run for real on merge to `main`. The pull request that adds them is its own end-to-end test — if `gate-tier3` goes green there, the mechanism is proved; if not, the failure is in the PR, not on `main`.",
+            "Real hosted-runner wall time is still unmeasured. The fixed job runs about 90 seconds end to end on this machine; there is no structural reason to expect anything near the original 27 minutes now, but one real green run on a hosted runner is the confirmation, not that estimate.",
+            "The hosted parity-shard timing is a projection, not a measurement: 3m14s and 3m17s per shard measured on this 16-core machine, extrapolated to a 4-core hosted runner. The workflow's own comment says to trust a real run over that estimate once one exists.",
+            "The GHCR image push and pull only run for real on merge to `main`. This pull request is its own end-to-end test — if `gate-tier3` goes green here, the mechanism is proved; if not, the failure is in the PR, not on `main`.",
             "Branch protection still has no required checks at all. Deliberately not fixed in the same change that introduces the jobs it would require."
           ]
         },
         {
           "type": "p",
-          "text": "One small thing worth recording as a genuine win rather than a caveat: the freshness check was proved red as well as green against the real repository before merge — `gate.yml` reported fresh at 0.1 hours and exited 0, and a workflow with no successful run exited 1. A project that has twice believed a workflow ran when it had not now has something that notices."
+          "text": "One small thing worth recording as a genuine win rather than a caveat: the freshness check was proved red as well as green against the real repository before merge — `gate.yml` reported fresh at 0.1 hours and exited 0, and a workflow with no successful run exited 1. A project that has now twice believed a workflow ran when it had not, and once believed a local check was clean when it was not, has something that at least notices the first kind."
         }
       ]
     }
