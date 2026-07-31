@@ -105,6 +105,15 @@ on and 40 px of height. Decision 049. `--a11y <path>` must be paired with the
 `--shot` on the *same frame*: the analyser samples the background out of that PNG, so a
 report taken a frame later describes a screen that was never measured.
 
+**The hooks are reached through `tools/shot.py --extra`, and `--extra` must be the LAST flag
+on `shot.py`'s own command line.** It is `argparse.REMAINDER`, so everything after it is
+forwarded to Godot verbatim — including tokens shaped like `--ui-scale`, which is the point.
+It was `nargs="*"` until `LF-073`, which meant argparse rejected any flag-shaped token and the
+tool's own documented example had never once been run; the workaround was to bypass `shot.py`
+and drive the Linux binary under `xvfb-run` by hand. All ten forwarded hooks are now verified
+against real captures. `--shot-menu` is the exception and does **not** work through `shot.py` —
+`LF-109`.
+
 **The interface scale goes to 200% and the worst case is `--anchor anchor-24 --ui-scale
 2.0`** — a 960x540 logical viewport, into which the two instrument panels want about
 1480 px of stacked height. Both panels scroll vertically with their controls pinned outside

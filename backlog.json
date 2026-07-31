@@ -1,5 +1,5 @@
 {
-  "next_id": 109,
+  "next_id": 110,
   "items": [
     {
       "id": "LF-001",
@@ -871,11 +871,11 @@
       "kind": "bug",
       "area": "tooling",
       "pri": "med",
-      "status": "open",
+      "status": "done",
       "why": "",
       "opened": "2026-07-30",
-      "closed": null,
-      "note": ""
+      "closed": "2026-07-30",
+      "note": "closed at 199f967"
     },
     {
       "id": "LF-074",
@@ -1293,6 +1293,18 @@
       "pri": "med",
       "status": "open",
       "why": "Raising yaw count silently freezes every turret facing",
+      "opened": "2026-07-30",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-109",
+      "title": "tools/shot.py cannot take a menu screenshot and its comment used to claim it could. shot.py unconditionally forwards --anchor and --shot, and menu.gd's _boot_from_cli() tests argv.has('--anchor') or argv.has('--shot') BEFORE it looks at --shot-menu, so --extra --shot-menu is silently dropped and the run screenshots the game instead (confirmed: SHOT/FRAME emitted, MENUFRAME never). The gate's 'menu renders' check reaches it by other means, so this is only a hole in the everyday tool. Fix is a shot.py --menu mode that skips forwarding --anchor/--shot, or a menu.gd precedence change. Found while verifying PRC-09.",
+      "kind": "bug",
+      "area": "tooling",
+      "pri": "med",
+      "status": "open",
+      "why": "",
       "opened": "2026-07-30",
       "closed": null,
       "note": ""

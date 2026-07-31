@@ -18,6 +18,12 @@ the launch up; this file is the everyday front door to it.
     .venv/bin/python tools/shot.py anchor-01 --out /tmp/shot.png --no-autoplay \\
         --extra --paused
 
+`--extra` must be the LAST flag on this tool's own command line. It is declared with
+`argparse.REMAINDER`, so every token after it — including ones that look like `shot.py`'s
+own flags, e.g. `--ui-scale` — is taken verbatim as a raw flag for the game's own CLI
+(`scripts/main.gd`'s `_setup_cli()`) rather than parsed by this tool. Put `--ui-scale`,
+`--a11y`, `--difficulty`, etc. before `--extra`, never after.
+
 Exits non-zero (and prints why) if Godot never reached the shot, if it reported a nonzero
 PNG write error, or if the frame is effectively blank (coverage below 0.02) — a blank frame
 is a failed look at the game, not a successful one that happened to show nothing. Bounds the
@@ -64,9 +70,10 @@ def _err(line: str) -> None:
 
 def build_extra_args(args: argparse.Namespace) -> list[str]:
     """Everything after `--` on Godot's own command line, in the order `main.gd`'s
-    `_setup_cli()` expects it (see `scripts/main.gd`). `--extra` is appended before `--shot`
-    so any positional value it carries (e.g. `--select 1`) cannot be mistaken for the frame
-    count that must immediately follow `--shot <path>`."""
+    `_setup_cli()` expects it (see `scripts/main.gd`). `args.extra` (captured by
+    `argparse.REMAINDER`, so it is always the tail of this tool's own argv) is appended
+    before `--shot` so any positional value it carries (e.g. `--select 1`) cannot be
+    mistaken for the frame count that must immediately follow `--shot <path>`."""
     extra: list[str] = []
     if args.autoplay:
         extra.append("--autoplay")
@@ -149,9 +156,16 @@ def run_shot(args: argparse.Namespace) -> int:
                  f"min {MIN_COVERAGE}) — that is a failed look at the game, not a "
                  f"successful one")
             return 1
-    # A menu shot (`--extra --shot-menu ...`) reports MENUFRAME instead of FRAME, and the
-    # coverage floor there is intentionally not enforced by this tool — `check_menu_renders`
-    # in tools/check.py already knows the menu's own, much lower, floor.
+    # `--extra --shot-menu ...` does NOT reach the menu through this tool — verified, not
+    # assumed. `build_extra_args()` unconditionally forwards `--anchor <id>` and
+    # `--shot <path> <frames>`, and `menu.gd`'s `_boot_from_cli()` checks `argv.has
+    # ("--anchor") or argv.has("--shot")` *before* it ever looks at `--shot-menu`, so a
+    # forwarded `--shot-menu` is silently dropped and the run screenshots the game as usual
+    # (a `SHOT`/`FRAME` pair comes back, never `MENUFRAME`). `check_menu_renders` in
+    # tools/check.py reaches the real menu shot by calling `toolpaths.godot_argv()` directly
+    # with only `--shot-menu` on the line — never through this tool. If this tool is ever
+    # made to support a menu shot, the coverage floor below should stay unenforced for it,
+    # same as `check_menu_renders`' own lower floor.
 
     if r.returncode not in (0, None):
         _err(f"shot: godot exited {r.returncode}")
@@ -192,11 +206,15 @@ def main() -> int:
     ap.add_argument("--ui-scale", type=float, default=None,
                     help="force an interface scale (e.g. 2.0 for 200%%) without touching "
                          "the player's saved progress")
-    ap.add_argument("--extra", nargs="*", default=[],
+    ap.add_argument("--extra", nargs=argparse.REMAINDER, default=[],
                     help="additional raw flags forwarded to the game's own CLI, e.g. "
-                         "--extra --select 1 --pick pulse-turret. See scripts/main.gd's "
-                         "_setup_cli() for the full list (--paused, --pick, --scroll, "
-                         "--cursor, ...)")
+                         "--extra --select 1 --pick pulse-turret. MUST COME LAST: it is "
+                         "argparse.REMAINDER, so it swallows every token after it verbatim, "
+                         "even ones shaped like this tool's own flags (--ui-scale, --a11y, "
+                         "...) — put those before --extra, not after. See "
+                         "scripts/main.gd's _setup_cli() for the full forwarded-flag list "
+                         "(--paused, --select, --pick, --scroll, --cursor, --build, "
+                         "--speed, --ability, --ability-at, --press-at, --chain, ...)")
     ap.add_argument("--timeout", type=float, default=DEFAULT_TIMEOUT,
                     help=f"seconds to wait before killing Godot and reaping stragglers "
                          f"(default: {DEFAULT_TIMEOUT:.0f})")
