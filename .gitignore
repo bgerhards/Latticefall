@@ -38,3 +38,19 @@ assets/audio/_loop_checks/
 
 # Agent worktrees — a git worktree inside the repo is not repo content
 .claude/worktrees/
+
+# Godot import sidecars for the LOOSE sprite renders (LF-165).
+#
+# The game never loads a loose render: scripts/sprites.gd reads assets/renders/sprites.json
+# and the two packed atlas pages, and nothing else. The 570 per-render PNGs are intermediate
+# build output, so the .import sidecar the editor writes next to each one is bookkeeping about
+# build output — regenerated on any import, and carrying no content.
+#
+# They were tracked inconsistently: 570 render PNGs, 224 tracked sidecars, and 360 more sitting
+# untracked in every agent's `git status`, which made `git status --porcelain | grep -v import`
+# a reflex. They were also load-bearing by accident until wrap_gate.py started ignoring them by
+# suffix — the session wrap escalated to tier 4 on every invocation because of this litter.
+#
+# The atlas pages' sidecars ARE kept: those two PNGs are what the engine actually imports.
+assets/renders/**/*.png.import
+!assets/renders/atlas/*.png.import
