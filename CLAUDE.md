@@ -312,6 +312,22 @@ expensive thing this project can do by accident. The **built-in** agents (`Explo
 The `FNR==1{n=0}` is load-bearing: awk's counter persists across files, so without it only
 the first agent is ever inspected and the check reports 1 no matter what the others say.
 
+**`git stash` is not a private operation, and neither is `git add`.** When several agents share
+one working tree — which is how this project fans out — the working tree and the index are
+*global*. An agent that stashed to get a clean baseline swept up **eleven files across five
+workstreams** and left the tree looking like `HEAD`; every other agent then spent minutes
+reading `HEAD` content instead of its own edits, which silently invalidates any measurement
+taken in that window. It was recovered only because the stash was popped. Likewise a stray
+`git add` or `git reset` changes what the coordinator's commit captures — a stage-then-commit
+pair lost a commit outright, and the retry loop then committed nothing twelve times in a row
+without failing.
+
+So: **an agent never runs `git stash`, `git reset`, `git checkout -- <path>` or `git add`.** To
+compare against `HEAD`, use `git show HEAD:<path>` and diff it yourself; to keep a baseline,
+copy the file to the scratchpad. The coordinator commits with `git commit --only <paths>`,
+which is atomic and index-independent, wrapped in an `index.lock` retry loop because
+concurrent agents *will* be holding it. `PRC-15` (a worktree per workstream) is the real fix.
+
 **Scope discipline.** Finish the whole task; if part is blocked, finish everything else and
 say plainly what was left and why.
 
