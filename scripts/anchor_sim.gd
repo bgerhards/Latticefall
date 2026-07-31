@@ -30,6 +30,13 @@ const CAPACITY_FLOOR: float = 0.45
 ## rebuilt free every wave and the build decision stops being a decision.
 const SELL_REFUND: float = 0.6
 
+## Added to SELL_REFUND by the caller, and left at 0.0 by anything that does not set it —
+## which is every grading path, so this cannot move a grade. It exists because
+## `Recoveries.sell_refund_add()` may not be read from inside this file at all: parity.gd
+## preloads this script into a `--script` MainLoop where autoloads do not exist, and one
+## reference to an autoload here takes the entire rules script down silently. See sell().
+var sell_refund_bonus: float = 0.0
+
 ## name -> [enemy hp multiplier, bounty multiplier]. Mirrors DIFFICULTIES in engine.py.
 const DIFFICULTIES: Dictionary = {
 	"standard": [1.00, 1.00],
@@ -370,13 +377,16 @@ func sell(index: int) -> int:
 		return 0
 	var p: Dictionary = placed[index]
 	var paid: int = int(p["tower"]["cost"]) + int(p.get("upgrade_paid", 0))
-	## Recoveries.sell_refund_add() is read HERE rather than transformed into the sim's
-	## inputs, because there is nothing to transform — sell() is GDScript-only and
-	## sim/engine.py has no sell at all (decision 033), so this cannot reach parity. It is
-	## one of the three effects decision 054 exempts from the Loadout path for that reason.
-	## Clamped at 1.0: a refund above what was paid would make build-and-sell a money
-	## printer, which no recovery in the pool is priced to be.
-	var refund := int(floor(float(paid) * minf(1.0, SELL_REFUND + Recoveries.sell_refund_add())))
+	## `sell_refund_bonus` is an INPUT the caller sets, never `Recoveries.sell_refund_add()`
+	## read from here. That is not style, it is load-bearing: scripts/test/parity.gd
+	## `preload`s this file and runs it as a `--script` MainLoop, where autoloads do not
+	## exist — so a single reference to `Recoveries` anywhere in this file makes the whole
+	## script fail to load, `AnchorSimScript.new()` returns a bare GDScript with no `new`,
+	## and all 1,152 parity rows come back as empty dictionaries rather than as an error
+	## naming this line. Decision 054 said recoveries transform the sim's inputs and never
+	## branch inside it; this is the mechanism that enforces it.
+	## Clamped at 1.0: a refund above what was paid makes build-and-sell a money printer.
+	var refund := int(floor(float(paid) * minf(1.0, SELL_REFUND + sell_refund_bonus)))
 	free_slots.append(p["slot"])
 	placed.remove_at(index)
 	_rebuild_effect_lists()   # eager, not tick-gated (LF-099) — see _eff_slow

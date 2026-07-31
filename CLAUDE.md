@@ -373,6 +373,17 @@ expensive thing this project can do by accident. The **built-in** agents (`Explo
 The `FNR==1{n=0}` is load-bearing: awk's counter persists across files, so without it only
 the first agent is ever inspected and the check reports 1 no matter what the others say.
 
+**`scripts/anchor_sim.gd` may never reference an autoload, and the symptom is not an error.**
+`scripts/test/parity.gd` `preload`s the rules and runs them as a `--script` MainLoop, where
+autoloads **do not exist**. One `Recoveries.` in that file makes the whole script fail to
+load, so `AnchorSimScript.new()` returns a bare `GDScript` with no `new`, and all 1,152
+parity rows come back as **empty dictionaries** — the harness then dies on `KeyError:
+'anchor'`, pointing at itself rather than at the line that broke. `gdscript parses` stays
+green throughout, because `--check-only` resolves autoloads from `project.godot` and the
+runtime does not. This is what decision 054 is mechanically for: a recovery transforms the
+sim's **inputs** — a field the caller sets, like `sell_refund_bonus` — and never branches
+inside the sim. The same applies to `Content`, `Progress`, `Tuning`, `Display` and `Audio`.
+
 **Pass an explicit timeout to anything that runs longer than two minutes.** The Bash tool's
 default is 120 s and it does not fail a slow command — it pushes it into the *background*,
 where the harness keeps tracking it and re-invokes the model when it eventually exits. Four

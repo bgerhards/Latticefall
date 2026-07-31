@@ -190,6 +190,11 @@ func boot(aid: String, diff: String) -> void:
 	# by construction. Without this call the whole recovery draft is inert (LF-074).
 	sim.setup(Loadout.anchor(anchor), Loadout.towers(Content.towers),
 			Loadout.enemies(Content.enemies), difficulty)
+	## The ninth recovery effect. Set from OUT here rather than read from inside
+	## anchor_sim.gd, because that file is preloaded by scripts/test/parity.gd as a
+	## `--script` MainLoop with no autoloads — one `Recoveries.` reference in the rules
+	## takes the whole script down and returns 1,152 empty parity rows. Decision 054.
+	sim.sell_refund_bonus = Recoveries.sell_refund_add()
 	sim.brownout_changed.connect(_on_brownout)
 	sim.unit_killed.connect(_on_unit_killed)
 	sim.unit_leaked.connect(func(_u): Audio.sfx("ui_deny"))
