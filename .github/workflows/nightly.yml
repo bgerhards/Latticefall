@@ -2,7 +2,7 @@ name: Gate (tier 4, nightly)
 
 # PRC-08. The full ~9-minute gate — everything `gate.yml` cannot run: `game renders`,
 # `menu renders`, `accessibility` (tier 3, need a real GPU-backed Godot frame under Xvfb —
-# decision 052) and `rules parity` (tier 4, 864 simulations through both implementations,
+# decision 052) and `rules parity` (tier 4, 1152 simulations through both implementations,
 # ~9 minutes on its own). None of that exists on a hosted `ubuntu-latest` runner. This
 # workflow assumes a **self-hosted runner** that already satisfies decision 052 — a native
 # Linux Godot build plus `xvfb-run` against a Mesa software-GL stack, e.g. the owner's own
@@ -10,16 +10,24 @@ name: Gate (tier 4, nightly)
 # image with the same three things baked in is option 2; nobody has built one, and this
 # workflow does not pretend to run on it).
 #
-# **Inert by default.** `jobs.<job>.if` below gates the whole job behind the
-# `LF_NIGHTLY_ENABLED` repository variable (Settings → Secrets and variables → Actions →
-# Variables). Until it is set to the literal string `true`, every scheduled and manual run of
-# this workflow shows as skipped rather than queuing on a runner that does not exist —
-# there is no such runner registered against this repo as of this change.
+# **BAL-06 / LF-105: tier 4 also runs `rules parity (windows)`**, a second ~9-minute
+# comparison against the Windows Godot build the owner actually plays, not the Linux build
+# `rules parity` above uses. On a self-hosted runner with no Windows Godot reachable (this
+# needs the SAME machine to also carry a Windows console build under `/mnt/*/godot/` and
+# WSL interop to reach it — see `tools/toolpaths.py`'s `resolve_windows_godot()`), that
+# check reports `skip, skipped_reason: "subsystem"` rather than failing the job outright
+# (this workflow does not pass `gate_report.py --fail-on-subsystem-skip`, unlike
+# `gate.yml`'s tier-1 job) — a skip is visible in the report, never silently a pass, but it
+# also does not block a release on a runner that genuinely has no Windows build. Wiring a
+# hard failure on that particular skip is a deliberate choice for whoever sets up the
+# self-hosted runner this targets, once one exists with a known Windows build available.
 #
 # **Sharding is not wired up.** PRC-05 (`tools/test_parity.py --shard I/N`) is the intended
-# way to split `rules parity`'s 864 runs across several self-hosted jobs; it has not landed
-# yet, so this workflow runs the whole tier-4 gate as one job on one runner. Re-visit this
-# once `--shard` exists — the matrix strategy commented below is the shape it should take.
+# way to split each parity check's 1152 runs across several self-hosted jobs; it has not
+# landed as a matrix here, so this workflow runs the whole tier-4 gate (both parity checks
+# included) as one job on one runner. Re-visit this once a matrix lands — the strategy
+# commented below is the shape it should take, and BAL-06 measured the Windows side's own
+# wall-clock as the reason `--shard` may be needed there specifically (see BAL-06's report).
 #
 # **Reap is report-only, not `--kill`.** A self-hosted runner is very likely the same machine
 # an owner is working on interactively (CLAUDE.md's reaper section is explicit that this
