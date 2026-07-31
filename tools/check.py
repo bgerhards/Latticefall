@@ -35,16 +35,23 @@ taken before {{PRC-01}}/{{PRC-02}} landed — none of `game renders`, `menu rend
 moved, but they were not re-run for this change (see PRC-04's report for which number is
 which and why).
 
-- **tier 1 (~6 s, pre-commit), 13 checks:** `python syntax`, `json parses`, `gdscript parses`,
+- **tier 1 (~6 s, pre-commit), 14 checks:** `python syntax`, `json parses`, `gdscript parses`,
   `game data`, `wave density`, `dialog capacity`, `backlog rendered`, `agent models`,
-  `leases wired`, `banned terms`, `safe operations`, `rules autoloads`, `yaw hysteresis`.
-  No Godot window opens.
-- **tier 2 (~14 s, pre-push), 20 checks:** tier 1 + `sim determinism`, `sprite atlas`,
+  `leases wired`, `banned terms`, `safe operations`, `rules autoloads`, `yaw hysteresis`,
+  `asset coverage`. No Godot window opens.
+- **tier 2 (~21-23 s, pre-push, re-measured live for this change — this machine had other
+  Godot processes contending for cycles at the time, hence the range), 23 checks:** tier 1 + `sim determinism`, `sprite atlas`,
   `sprite coverage`, `music manifest`, `sfx determinism`, `godot boots`,
-  `terrain parsers agree`.
-- **tier 3 (~66 s, PR), 23 checks:** tier 2 + `game renders` (6.5 s), `menu renders` (4.8 s),
+  `terrain parsers agree`, `hooks configured`, `facing harness`. The last two (PRC-06,
+  LF-142) were measured at tier 1 first and moved here: each spawns at least one real
+  Godot process (`hooks configured` runs `guard.py --selftest`, itself two Godot parse
+  checks plus a `reap.py` probe; `facing harness` runs `yaw_band.py`, one Godot launch of
+  `scripts/test/facing.gd`), and together they pushed tier 1 from 5.7 s to 10.8 s — BLOWN
+  against its own 10 s `--budget` contract. Tier 2's 25 s budget has the headroom tier 1
+  does not.
+- **tier 3 (~66 s, PR), 26 checks:** tier 2 + `game renders` (6.5 s), `menu renders` (4.8 s),
   `accessibility` (41.2 s).
-- **tier 4 (~9 min, nightly/release), 24 checks — the default:** tier 3 + `rules parity`
+- **tier 4 (~9 min, nightly/release), 27 checks — the default:** tier 3 + `rules parity`
   (measured ~594 s at 1152 runs, growing with every policy/anchor). The one thing making a
   balance claim in this project falsifiable; never move it below tier 4 because it is
   "usually fine". PRC-05: that cost is now gated behind a content-hash digest over exactly
@@ -510,6 +517,131 @@ def check_agent_models() -> Result:
     if wrong:
         return Result(FAIL, f"model is not sonnet: {', '.join(wrong)}")
     return Result(OK, f"{len(agents)} agents pinned to sonnet")
+
+
+HOOK_EVENTS: tuple[str, ...] = ("PreToolUse", "PostToolUse", "SubagentStop", "SessionEnd")
+
+
+def check_hooks_configured() -> Result:
+    """PRC-06. `.claude/settings.json`'s hook wiring and `tools/hooks/guard.py` encode six
+    working-agreement rules that each cost a real diagnosis pass this session (LF-075's
+    blanked level, LF-133's session-scoped `--kill`, a `git stash` that swept eleven files
+    across five workstreams, a bypassed `toolpaths.py` that silently processed nothing).
+    A silently dropped hook or a typo in `settings.json` would take all six away with no
+    signal at all — the same shape `agent models` (above) already guards against for a
+    different silent-Opus-fallback failure, and the same "everyone remembers to check a
+    text file is not a control" reasoning applies here.
+
+    Checked mechanically rather than by provoking a live hook: `guard.py`'s own module
+    docstring records that live firing is UNPROVEN — LF-112 found a hook added mid-session
+    was never observed firing, most likely because `settings.json` is read once at session
+    start, so "did this fire just now" cannot be asked from inside this process at all.
+    What CAN be asserted here, and is: the file parses as JSON, every one of the four
+    events `guard.py` actually handles (`evaluate()`'s own dispatch) is wired to *something*,
+    the target script exists, and its rule table is internally self-consistent
+    (`--selftest`, which drives `evaluate()` directly against a fixed case table covering
+    every rule in both directions — no live hook firing required, see that flag's own
+    docstring for why).
+    """
+    settings = ROOT / ".claude" / "settings.json"
+    guard = ROOT / "tools" / "hooks" / "guard.py"
+    if not settings.exists():
+        return Result(SKIP, "no .claude/settings.json")
+    try:
+        doc = json.loads(settings.read_text())
+    except Exception as exc:  # noqa: BLE001
+        return Result(FAIL, f".claude/settings.json does not parse: {exc}")
+    hooks = doc.get("hooks")
+    if not isinstance(hooks, dict):
+        return Result(FAIL, '.claude/settings.json has no top-level "hooks" object')
+    missing_events = [e for e in HOOK_EVENTS if not hooks.get(e)]
+    if missing_events:
+        return Result(FAIL, f".claude/settings.json is missing hook wiring for: "
+                            f"{', '.join(missing_events)}")
+    if not guard.exists():
+        return Result(FAIL, "tools/hooks/guard.py missing, but settings.json wires it")
+    r = run(PY, str(guard), "--selftest", timeout=30.0)
+    if r.returncode != 0:
+        return Result(FAIL, (r.stdout + r.stderr).strip()[-1500:])
+    m = re.search(r"(\d+) passed, (\d+) failed, (\d+) total", r.stdout)
+    tally = f"guard.py --selftest {m.group(1)}/{m.group(3)} ok" if m \
+        else "guard.py --selftest exit 0"
+    return Result(OK, f"{len(HOOK_EVENTS)} events wired ({', '.join(HOOK_EVENTS)}) · {tally}")
+
+
+def check_asset_coverage() -> Result:
+    """PRC-14. `sprite coverage` (above) already catches one direction of the asset<->data
+    coupling — a data id with no sprite. It cannot catch the other: a rendered asset no
+    data id references, which quietly grows the atlas with a dead cell and nothing says so.
+    `tools/blender/gen_assets.py` was written this session specifically to be the
+    bidirectional check (see its own module docstring), so this calls its `check()`
+    directly rather than re-deriving the id<->asset naming convention a second time here.
+
+    A sibling of `sprite coverage`, not a merge into it: the two checks compare against
+    different sources of truth at different pipeline stages. `sprite coverage` reads
+    `assets/renders/sprites.json`, the *rendered* manifest — "has this actually been
+    rendered". This reads `render.py`'s `ASSETS` dict via `ast` — no Blender, no manifest
+    needed at all — "is this *going* to render to something no data id will ever ask for".
+    Conflating them would make a missing manifest (nothing rendered yet) silently mask the
+    orphan direction, which is exactly the failure mode this exists to prevent. Tier 1
+    because, like `gen_assets.py`'s own docstring stresses, this needs no Blender process
+    and no manifest on disk — it is pure `ast`/`json`, comparably cheap to `sprite
+    coverage`'s own JSON read.
+    """
+    script = ROOT / "tools" / "blender" / "gen_assets.py"
+    if not script.exists():
+        return Result(SKIP, "tools/blender/gen_assets.py missing")
+    sys.path.insert(0, str(ROOT / "tools" / "blender"))
+    try:
+        import gen_assets                                          # noqa: PLC0415
+    except Exception as exc:  # noqa: BLE001
+        return Result(FAIL, f"cannot import gen_assets: {exc}")
+    missing, orphaned = gen_assets.check()
+    if missing or orphaned:
+        parts = []
+        if missing:
+            parts.append("no render asset for data id(s): " + ", ".join(missing))
+        if orphaned:
+            parts.append("render asset(s) claimed by no data id, growing the atlas for "
+                         "nothing: " + ", ".join(orphaned))
+        return Result(FAIL, "; ".join(parts))
+    tower_ids, enemy_ids = gen_assets.data_ids()
+    n_ids = len(tower_ids) + len(enemy_ids)
+    n_assets = len(gen_assets.render_asset_names())
+    return Result(OK, f"{n_ids} data ids <-> {n_assets} render assets, both directions clean")
+
+
+def check_facing_harness() -> Result:
+    """LF-142. `tools/yaw_band.py` and `scripts/test/facing.gd` read `anchor_sim.gd`'s
+    `wave_queue()`/`spawn()` tuple shapes directly, with no shared accessor between them —
+    and broke silently once already this session, when the multi-lane migration changed
+    `wave_queue()`'s tuple to `[time, lane, enemy_id]`. Neither file runs in any gate tier,
+    so the next drift is discovered by whoever next needs a facing measurement, mid-task,
+    exactly like this time.
+
+    A smoke run, not a measurement: the narrowest possible sweep (one yaw count, one
+    hysteresis fraction) against anchor-07 — decision 049's own anchor — asserting only
+    that the harness still runs end to end and reports both an `EMPLACEMENTS` row and a
+    `UNITS` row, never that any number in them is right (that is `tools/yaw_band.py`'s own
+    job, run by hand). A tuple-shape mismatch surfaces as `facing.gd` erroring out (the
+    wrong argument count/type into `spawn()`/`wave_queue()`) rather than as a wrong number,
+    so "exited 0 and printed what it always prints" is exactly the right level of assertion
+    here — anything sharper would be re-deriving `yaw_band.py`'s own analysis.
+    """
+    script = ROOT / "tools" / "yaw_band.py"
+    if not script.exists():
+        return Result(SKIP, "tools/yaw_band.py missing")
+    if toolpaths.godot() is None:
+        return Result(SKIP, "godot not installed")
+    r = run(PY, str(script), "--anchor", "anchor-07", "--yaws", "4", "--frac", "0",
+            timeout=60.0)
+    if r.returncode != 0:
+        return Result(FAIL, (r.stdout + r.stderr).strip()[-1200:])
+    if "EMPLACEMENTS" not in r.stdout or "UNITS" not in r.stdout:
+        return Result(FAIL, "yaw_band.py exited 0 but did not report both an EMPLACEMENTS "
+                            "and a UNITS row — the harness ran but did not produce its "
+                            "usual shape:\n" + r.stdout.strip()[-800:])
+    return Result(OK, "yaw_band.py + facing.gd smoke ok (anchor-07, yaws=4, frac=0)")
 
 
 ## Every launch site docs/issues/PRC-07-reaper-leases.md names, mapped to the tool name its
@@ -1241,6 +1373,9 @@ CHECKS = [
     Check("music manifest",    2, check_music_manifest),
     Check("sprite atlas",      2, check_sprite_atlas),
     Check("sprite coverage",   2, check_sprite_coverage),
+    # PRC-14 — sibling of "sprite coverage" above, the other direction. See
+    # check_asset_coverage's own docstring for why it is a sibling rather than a merge.
+    Check("asset coverage",    1, check_asset_coverage),
     Check("backlog rendered",  1, check_backlog_rendered),
     Check("agent models",      1, check_agent_models),
     Check("leases wired",      1, check_leases_wired),
@@ -1259,6 +1394,15 @@ CHECKS = [
     Check("safe operations",   1, check_safe_ops),
     Check("rules autoloads",   1, check_autoload_in_rules),
     Check("yaw hysteresis",    1, check_yaw_hysteresis),
+    # PRC-06 / LF-142: both measured too expensive for tier 1's 10s budget (each spawns at
+    # least one real Godot process — guard.py --selftest spawns two plus a reap.py probe,
+    # yaw_band.py spawns one for facing.gd). Measured pushing tier 1 from 5.7s to 10.8s,
+    # BLOWN against its own --budget contract. tier 2's budget is 25s with headroom to
+    # spare, and both checks are the same shape as tier 2's existing Godot-spawning checks
+    # (godot boots, sim determinism, terrain parsers agree) rather than tier 1's "no Godot
+    # window opens" checks — see the module docstring's ## Tiers table.
+    Check("hooks configured",  2, check_hooks_configured),
+    Check("facing harness",    2, check_facing_harness),
 ]
 
 
@@ -1282,8 +1426,8 @@ def main() -> int:
     ap.add_argument("--tier", type=int, default=4, choices=(1, 2, 3, 4),
                     help="run only checks assigned this tier or lower (a tier is a minimum — "
                          "see module docstring's '## Tiers' for the assignment table and "
-                         "measured cost of each). 1=pre-commit ~6s (13 checks), 2=pre-push "
-                         "~14s (20), 3=PR ~66s (23), 4=nightly/release ~9min (24, the "
+                         "measured cost of each). 1=pre-commit ~6s (14 checks), 2=pre-push "
+                         "~21s (23), 3=PR ~66s (26), 4=nightly/release ~9min (27, the "
                          "default — unchanged from today's behaviour with no flags). "
                          "Orthogonal to --no-window: --tier 3 --no-window runs exactly tier "
                          "2 plus nothing, since the three rendered checks are all tier 3. "
