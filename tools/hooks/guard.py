@@ -41,8 +41,12 @@ rule in the first place:
   - `.godot/` writes, backgrounding a long run, and a raw engine invocation: neither role
     legitimately needs to break these, so both are held to the same rule, each with a
     documented, visible escape hatch for a genuine, deliberate exception.
-  - git safety (stash/reset/checkout--/add): denied for anyone. The coordinator's sanctioned
-    commit path is `git commit -- <paths>` (pathspec form), which needs none of the four.
+  - git safety (stash/reset/checkout--): denied for anyone. `git add` is denied in its wide
+    forms (`-A`/`.`/`-u`/bare) for anyone, and allowed only for a single explicit pathspec
+    (LF-166) — that shape cannot reproduce the documented harm regardless of who runs it.
+    The coordinator's sanctioned commit path is `git commit -- <paths>` (pathspec form),
+    which needs none of stash/reset/checkout--, and `git add <one-file>` for the one case
+    (a brand-new untracked file) pathspec-commit cannot reach on its own.
   - The one place role actually matters — `tools/reap.py --kill` at subagent wrap-up vs. at
     session wrap — is handled by NOT denying anything at `SubagentStop` (see below), which is
     the "prefer warning over denying" instruction this issue was given when a distinction
@@ -106,25 +110,108 @@ def _file_path(payload: dict) -> str:
     return str(_tool_input(payload).get("file_path", ""))
 
 
-def _segments(command: str) -> list[str]:
-    """Split a shell command into pipeline stages on `;`, `&`, `|`, `&&`, `||`.
-
-    Not a real shell parser — a command hidden inside `$(...)` or backticks is invisible to
-    this, same as any regex-based approach. That is a real, documented limitation (see
-    `rule_git_safety`'s docstring): it catches the ordinary, accidental case this issue is
-    about, not a deliberately obfuscated one.
-    """
-    return [s.strip() for s in re.split(r"&&|\|\||[;|&]", command) if s.strip()]
+_OPERATORS = {"&", "&&", "|", "||", ";"}
+_ENV_ASSIGN_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
 
 
-def _leading_argv0(segment: str) -> str:
-    """The executable a shell segment would run, skipping any `FOO=bar` env-assignment
-    prefix (e.g. `LF_ALLOW_RAW_ENGINE=1 blender ...` -> `blender`)."""
-    tokens = segment.split()
+def _strip_env_prefix(tokens: list[str]) -> list[str]:
+    """Drop any leading `FOO=bar` env-assignment tokens (e.g. `LF_ALLOW_RAW_ENGINE=1 blender
+    ...` -> `["blender", ...]`), so `tokens[0]` is always the real argv0 candidate."""
     i = 0
-    while i < len(tokens) and re.match(r"^[A-Za-z_][A-Za-z0-9_]*=", tokens[i]):
+    while i < len(tokens) and _ENV_ASSIGN_RE.match(tokens[i]):
         i += 1
-    return tokens[i] if i < len(tokens) else ""
+    return tokens[i:]
+
+
+def _segments(command: str) -> list[list[str]]:
+    """Split a shell command into pipeline-stage TOKEN LISTS on `;`, `&`, `|`, `&&`, `||` —
+    quote-aware, via `shlex`, so a `|` inside a quoted grep pattern or a `-m` commit message
+    is text, not an operator, and no longer splits the command in two (LF-171 occurrence 1:
+    `ps ... | grep -E "test_parity|sim.run|godot"` used to fragment into a bogus `godot"`
+    segment). Each returned segment has already had `_strip_env_prefix` applied.
+
+    Still not a real shell parser — a command hidden inside `$(...)` or backticks is
+    invisible to this, same as any regex/token-based approach. That is a real, documented
+    limitation (see `rule_git_safety`'s docstring): it catches the ordinary, accidental case
+    these rules are about, not a deliberately obfuscated one.
+    """
+    try:
+        lexer = shlex.shlex(command, posix=True, punctuation_chars="&|;")
+        lexer.whitespace_split = True
+        tokens = list(lexer)
+    except ValueError:
+        # Unbalanced quote or similar: fall back to a plain whitespace split with no
+        # operator-splitting, so the content is still visible to a rule as one segment
+        # rather than silently dropped.
+        tokens = command.split()
+        segments = [tokens] if tokens else []
+        return [s for s in (_strip_env_prefix(seg) for seg in segments) if s]
+
+    segments: list[list[str]] = []
+    current: list[str] = []
+    for tok in tokens:
+        if tok in _OPERATORS:
+            if current:
+                segments.append(current)
+            current = []
+        else:
+            current.append(tok)
+    if current:
+        segments.append(current)
+    return [s for s in (_strip_env_prefix(seg) for seg in segments) if s]
+
+
+_INSPECTOR_ARGV0 = {"ps", "grep", "rg", "awk", "cat", "head", "tail", "echo"}
+_INSPECTOR_GIT_SUBCOMMANDS = {"log", "show", "diff", "status"}
+
+
+def _is_inspector_segment(tokens: list[str]) -> bool:
+    """True for a segment that only reads or reports — never writes, launches, or mutates —
+    so its own text (a grep pattern, a `ps` argv column, a PR comment body) is never a
+    reliable signal about what the COMMAND does, only about what it is looking at or
+    quoting. LF-171 occurrences 1 and 3: `ps -eo ... | grep -E "...|godot"` lists processes;
+    `gh pr comment ... --body "...Godot_v4.7.1..."` pastes another tool's own output. Neither
+    invokes anything."""
+    if not tokens:
+        return False
+    argv0 = tokens[0].rsplit("/", 1)[-1]
+    if argv0 in _INSPECTOR_ARGV0:
+        return True
+    if argv0 == "sed" and len(tokens) > 1 and tokens[1] == "-n":
+        return True
+    if argv0 == "git" and len(tokens) > 1 and tokens[1] in _INSPECTOR_GIT_SUBCOMMANDS:
+        return True
+    if (argv0 == "gh" and len(tokens) > 2 and tokens[1] in ("pr", "issue")
+            and tokens[2] == "comment"):
+        return True
+    return False
+
+
+_PAYLOAD_VALUE_FLAGS = {"-m", "--message", "-F", "--file", "--body", "--body-file"}
+
+
+def _scrub_payload_values(tokens: list[str]) -> str:
+    """Re-join a segment's tokens for TEXT pattern matching, blanking the value of any
+    payload-bearing flag (-m/--message/-F/--file/--body/--body-file) so a path or filename
+    mentioned only in prose — a commit message, a PR body — cannot be mistaken for the
+    command invoking it. Structural tokens (the verb, its own flags, real path arguments)
+    pass through untouched. LF-171 occurrence 2: `git commit -m "...a .godot/imported/
+    sidecar cannot affect the rules..."` was denied on the message text alone; a commit
+    message is not a filesystem write."""
+    out: list[str] = []
+    skip_next = False
+    for tok in tokens:
+        if skip_next:
+            out.append("\0")
+            skip_next = False
+            continue
+        if "=" in tok and tok.split("=", 1)[0] in _PAYLOAD_VALUE_FLAGS:
+            out.append(tok.split("=", 1)[0] + "=\0")
+            continue
+        out.append(tok)
+        if tok in _PAYLOAD_VALUE_FLAGS:
+            skip_next = True
+    return " ".join(out)
 
 
 # ───────────────────────────────────────────────────────────── rule: .godot writes ──
@@ -153,11 +240,19 @@ def rule_godot_write(payload: dict) -> Decision | None:
             return Decision("deny", MSG_GODOT_WRITE, "godot-write")
         return None
     if tool == "Bash":
+        # Deliberately NOT skipping inspector segments here (unlike rule_raw_engine): a
+        # write is about what happens to a PATH, and `cat X > .godot/imported/y` is a real
+        # write performed by the shell's own redirect even though `cat` itself only reads —
+        # skipping the segment would let a real overwrite through. Payload-value scrubbing
+        # is the only thing that changes here (LF-171 occurrence 2: the `.godot/imported/`
+        # mention lived inside a `-m` commit message, which is prose, not a path argument).
         cmd = _command(payload)
-        if not _GODOT_PATH_RE.search(cmd):
-            return None
-        if _GODOT_WRITE_VERB_RE.search(cmd) or ">" in cmd:
-            return Decision("deny", MSG_GODOT_WRITE, "godot-write")
+        for tokens in _segments(cmd):
+            text = _scrub_payload_values(tokens)
+            if not _GODOT_PATH_RE.search(text):
+                continue
+            if _GODOT_WRITE_VERB_RE.search(text) or ">" in text:
+                return Decision("deny", MSG_GODOT_WRITE, "godot-write")
         return None
     return None
 
@@ -223,25 +318,34 @@ _ALLOW_RAW_ENGINE_MARK = "LF_ALLOW_RAW_ENGINE=1"
 
 
 def _raw_engine_hit(command: str) -> str | None:
-    """What the command invokes directly, or None if nothing matches. Distinctive filename
-    substrings are checked against the whole command (safe: they don't occur incidentally);
-    the bare tokens "godot"/"godot4"/"blender" are checked only in the argv0 position of a
-    shell segment, so a path reference like `tools/blender/render.py` (an argument, not an
-    executable) is never a false hit."""
-    if re.search(r"(?i)godot_v[\d.]", command):
-        return "a Godot binary by its versioned filename"
-    if "/Applications/Godot" in command or re.search(r"(?i)/godot\.app/", command):
-        return "the macOS Godot.app bundle"
-    if "/Applications/Blender" in command or re.search(r"(?i)/blender\.app/", command):
-        return "the macOS Blender.app bundle"
-    if re.search(r"(?i)blender\.exe\b", command):
-        return "a Blender .exe"
-    if re.search(r"(?i)blender foundation", command):
-        return "a Blender install path"
-    if re.search(r"/mnt/[^\s]*godot[^\s]*", command, re.I):
-        return "a Godot install path under /mnt"
-    for seg in _segments(command):
-        base = _leading_argv0(seg).rsplit("/", 1)[-1].lower()
+    """What the command invokes directly, or None if nothing matches. Scoped per pipeline
+    segment (see `_segments`): a read-only inspector segment (`_is_inspector_segment`) is
+    skipped entirely before any pattern runs, and every remaining segment's payload-flag
+    values are scrubbed first (`_scrub_payload_values`) — so a distinctive filename
+    substring only counts when it appears in the command's OWN structure, never inside a
+    `ps`/`grep` argv column or a `-m`/`--body` payload someone is quoting or explaining
+    (LF-171 occurrence 3: `gh pr comment ... --body "...verified against
+    Godot_v4.7.1-stable_win64.exe.log"` pasted another tool's output, and does not invoke
+    anything). The bare tokens "godot"/"godot4"/"blender" are checked only in the argv0
+    position of a segment, so a path reference like `tools/blender/render.py` (an argument,
+    not an executable) is never a false hit."""
+    for tokens in _segments(command):
+        if _is_inspector_segment(tokens):
+            continue
+        text = _scrub_payload_values(tokens)
+        if re.search(r"(?i)godot_v[\d.]", text):
+            return "a Godot binary by its versioned filename"
+        if "/Applications/Godot" in text or re.search(r"(?i)/godot\.app/", text):
+            return "the macOS Godot.app bundle"
+        if "/Applications/Blender" in text or re.search(r"(?i)/blender\.app/", text):
+            return "the macOS Blender.app bundle"
+        if re.search(r"(?i)blender\.exe\b", text):
+            return "a Blender .exe"
+        if re.search(r"(?i)blender foundation", text):
+            return "a Blender install path"
+        if re.search(r"/mnt/[^\s]*godot[^\s]*", text, re.I):
+            return "a Godot install path under /mnt"
+        base = tokens[0].rsplit("/", 1)[-1].lower() if tokens else ""
         if base in ("godot", "godot4", "blender"):
             return f"`{base}` invoked directly"
     return None
@@ -273,8 +377,18 @@ MSG_GIT_SAFETY = (
     "read committed content. A coordinator commits with `git commit -- <paths>` (pathspec "
     "form), which needs none of stash/reset/checkout--/add."
 )
+MSG_GIT_ADD_WIDE = (
+    "Denied: `git add` in a tree several agents share, unless it names exactly one explicit "
+    "path (`git add path/to/one/file`) — LF-166. `git add -A`/`.`/`-u`/`--all`/`--update`, "
+    "a wildcard pathspec, or bare `git add` stage whatever else changed in the shared tree, "
+    "the same class of harm as the stash that once swept eleven files across five "
+    "workstreams; a single named path cannot do that, so it is the sanctioned exception. "
+    "If `git commit --only <dir>` is silently dropping a new untracked file, add that one "
+    "file by name — `git add path/to/new/file` — then commit."
+)
 
-_GIT_DENY_SUBCOMMANDS = {"stash", "add", "reset"}
+_GIT_DENY_SUBCOMMANDS = {"stash", "reset"}
+_GIT_ADD_MAGIC_PREFIXES = (":", "..")
 
 
 def _git_checkout_is_destructive(args: list[str]) -> bool:
@@ -285,14 +399,39 @@ def _git_checkout_is_destructive(args: list[str]) -> bool:
     return "--" in args
 
 
+def _git_add_is_narrow_pathspec(args: list[str]) -> bool:
+    """True only for `git add <one-path>` (optionally with a leading `--` separator) and
+    nothing else — the narrow exception LF-166 carves out of `git add`. Any flag (including
+    `-A`/`--all`/`-u`/`--update`), zero args, more than one positional argument, or a
+    wildcard/`.`/`..`/magic (`:...`) pathspec keeps this False and the wide deny stands. Only
+    a single, explicit, literal path is exempt, because that is provably incapable of the
+    documented harm (a stash/broad-add sweeping other agents' files across workstreams)."""
+    if args and args[0] == "--":
+        args = args[1:]
+    if len(args) != 1:
+        return False
+    path = args[0]
+    if path.startswith("-"):
+        return False
+    if path in (".", ".."):
+        return False
+    if path.startswith(_GIT_ADD_MAGIC_PREFIXES):
+        return False
+    return not any(ch in path for ch in "*?[")
+
+
 def rule_git_safety(payload: dict) -> Decision | None:
-    """Deny `git stash`, `git add`, `git reset` (any form) and the file-discarding forms of
-    `git checkout` (`checkout --`, `checkout .`) — exactly the four verbs CLAUDE.md already
-    names as never-run-by-an-agent. `git checkout <branch>` (switching branches) is left
-    alone; it is not one of the four and is an ordinary operation. Scoped deliberately to
-    just these four, not the wider destructive-op list (`clean -f`, `branch -D`, `restore`)
-    the top-level Bash tool guidance already covers by its own judgement — widening this
-    hook past what the issue actually named would be scope creep in a safety-critical file.
+    """Deny `git stash`, `git reset` (any form), the file-discarding forms of `git checkout`
+    (`checkout --`, `checkout .`), and every WIDE form of `git add` — the four verbs
+    CLAUDE.md names as never-run-by-an-agent, with `git add` narrowed (LF-166) to exempt
+    exactly one shape: a single explicit pathspec (`git add path/to/one/file`), which cannot
+    reproduce the documented harm (a stash/broad-add sweeping other agents' files across
+    workstreams) the way `git add -A`/`.`/`-u`/bare `git add` can. `git checkout <branch>`
+    (switching branches) is left alone; it is not one of the four and is an ordinary
+    operation. Scoped deliberately to just these four verbs, not the wider destructive-op
+    list (`clean -f`, `branch -D`, `restore`) the top-level Bash tool guidance already
+    covers by its own judgement — widening this hook past what the issue actually named
+    would be scope creep in a safety-critical file.
 
     Not a full shell parser (see `_segments`): a git verb hidden inside `$(...)` or a
     backtick substitution is invisible to this, same limitation as every rule in this file
@@ -303,21 +442,17 @@ def rule_git_safety(payload: dict) -> Decision | None:
     if payload.get("tool_name") != "Bash":
         return None
     cmd = _command(payload)
-    for seg in _segments(cmd):
-        try:
-            tokens = shlex.split(seg)
-        except ValueError:
-            tokens = seg.split()
-        i = 0
-        while i < len(tokens) and re.match(r"^[A-Za-z_][A-Za-z0-9_]*=", tokens[i]):
-            i += 1
-        tokens = tokens[i:]
+    for tokens in _segments(cmd):
         if len(tokens) < 2:
             continue
         argv0 = tokens[0].rsplit("/", 1)[-1]
         if argv0 != "git":
             continue
         subcmd = tokens[1]
+        if subcmd == "add":
+            if _git_add_is_narrow_pathspec(tokens[2:]):
+                continue
+            return Decision("deny", MSG_GIT_ADD_WIDE, "git-safety")
         if subcmd in _GIT_DENY_SUBCOMMANDS:
             return Decision("deny", MSG_GIT_SAFETY.format(verb=subcmd), "git-safety")
         if subcmd == "checkout" and _git_checkout_is_destructive(tokens[2:]):
@@ -493,7 +628,14 @@ def _selftest() -> int:
          "allow"),
 
         ("git-safety: git stash denied", bash("git stash"), "deny"),
-        ("git-safety: git add denied", bash("git add scripts/hud.gd"), "deny"),
+        ("git-safety: git add single explicit pathspec allowed (LF-166 exception)",
+         bash("git add scripts/hud.gd"), "allow"),
+        ("git-safety: git add -A denied", bash("git add -A"), "deny"),
+        ("git-safety: git add . denied", bash("git add ."), "deny"),
+        ("git-safety: git add -u denied", bash("git add -u"), "deny"),
+        ("git-safety: bare git add denied", bash("git add"), "deny"),
+        ("git-safety: git add of two paths denied (not a single pathspec)",
+         bash("git add scripts/hud.gd scripts/menu.gd"), "deny"),
         ("git-safety: git reset denied", bash("git reset --hard HEAD"), "deny"),
         ("git-safety: git checkout -- <path> denied",
          bash("git checkout -- scripts/hud.gd"), "deny"),
@@ -502,6 +644,34 @@ def _selftest() -> int:
         ("git-safety: git status allowed", bash("git status"), "allow"),
         ("git-safety: coordinator commit via pathspec allowed",
          bash("git commit -m msg -- scripts/hud.gd"), "allow"),
+
+        # LF-171/LF-166: false positives measured live this session, and their fixes.
+        ("LF-171 occ.1: ps | grep for godot lists processes, does not launch one",
+         bash('ps -eo pid,etime,pcpu,args | grep -E "test_parity|sim.run|godot"'), "allow"),
+        ("LF-171 occ.2: commit message mentioning .godot/ path is prose, not a write",
+         bash('git commit -m "docs: a .godot/imported/ sidecar cannot affect the rules '
+              '-> explained in the parity check comments"'),
+         "allow"),
+        ("LF-171 occ.3: gh pr comment pasting a tool's own output, not invoking it",
+         bash('gh pr comment 98 --body "test_parity.py passed: 1152/1152 rows match, '
+              'verified against Godot_v4.7.1-stable_win64.exe.log"'),
+         "allow"),
+        ("LF-166: git add of a single new file is the sanctioned coordinator path",
+         bash("git add docs/chronicle/entries/quality-is-not-just-looks.html"), "allow"),
+
+        # Deny-proof: the same danger shapes LF-171/LF-166 must not have loosened.
+        ("deny-proof: git add -A still denied even after LF-166's narrowing",
+         bash("git add -A"), "deny"),
+        ("deny-proof: bare godot invocation (no --import) still denied",
+         bash("godot --headless --path . --script scripts/test/parity.gd"), "deny"),
+        ("deny-proof: a real write under the import cache is still denied",
+         bash("mv .godot/imported/foo.ctex /tmp/bak.ctex"), "deny"),
+        ("deny-proof: grep whose PATTERN literally invokes nothing is not a raw-engine hit, "
+         "but an actual bare blender call two segments later still is",
+         bash('grep -l godot README.md && blender -b --python x.py'), "deny"),
+        ("deny-proof: a real redirect write via a read-only tool (cat > .godot/...) is still "
+         "denied — inspector-skip is NOT applied to rule_godot_write, only to rule_raw_engine",
+         bash("cat foo.ctex > .godot/imported/foo.ctex"), "deny"),
 
         ("post-lint: clean .gd allowed", post("scripts/hud.gd"), "allow"),
         ("post-lint: broken .gd denied",
