@@ -2270,3 +2270,54 @@ asserts its bucket width is a whole number, so it fails **loudly** the moment `Y
 becomes 16, and a generic `bucket_index_for_heading()` exists for `ART-01` to build the
 naming on. A loud failure at a known place beats a naming convention invented in advance of
 the work that needs it.
+
+---
+
+## 061 — The safe operation set is a gate check, and decision 030 was half right
+
+**Date.** 2026-07-31. **Supersedes decision 030.**
+
+**Context.** Decision 030 said the rules use squared distances and axis-aligned paths because
+"Godot's `Vector2` is float32 and `distance_to` is not correctly rounded". That bundled two
+causes and only one survives a probe. PRD §2.1, 100,000 float64 pairs across five value
+regimes, raw IEEE-754 bytes compared on CPython, Linux Godot **and Windows Godot**:
+
+| | verdict |
+|---|---|
+| `+ − × ÷`, **`sqrt`**, `fmod`, `floor`, `min`/`max`, comparisons | **Safe.** 0 mismatches out of 100,000 on all three runtimes. |
+| `atan2` 0.084%, `sin` 0.133%, `cos` 0.120%, `pow` 0.130%, `log` 0.031%, `exp` 0.069%, `tan` **4.32%** | **Banned.** Windows Godot's MSVC UCRT diverges from glibc. |
+| `Vector2.distance_to` / `.length` / `.normalized` / `.angle` / `.rotated` | **Banned**, and this was the real culprit — float32. 2,000,000 points on an exact integer radius disagree with float64 on the `<= r` test **10.2%** of the time. |
+
+**`sqrt` is safe.** IEEE-754 §5.4.1 requires it to be correctly rounded, both runtimes issue
+`SQRTSD`, and it matched 100,000 of 100,000. Decision 030 banned it by association with
+`distance_to`, and that ban was blocking off-grid geometry for no reason: an end-to-end
+continuous-position loop with `sqrt`-normalised directions, 4,000 ticks × 64 units, came out
+bit-identical on all three runtimes.
+
+**Decision.** The safe set is `+ − × ÷ sqrt fmod floor min max` and comparisons. The banned set
+is the trigonometric and transcendental functions above, `**`, and Vector2's float32-lossy
+methods. It is now a **tier-1 gate check** (`safe operations`) over `scripts/anchor_sim.gd`,
+`sim/engine.py` and `scripts/test/parity.gd`, so cross-platform parity holds by design rather
+than by accident — the rules happen to use none of the banned set today, which is exactly the
+kind of luck that stops being true in one commit.
+
+The Python side is parsed with `ast`, not grepped: a regex misses `from math import sin as s`
+and false-positives on the word "cos" in a comment. The GDScript side strips comments and
+strings first, because `anchor_sim.gd`'s own docstrings discuss the banned names.
+`# safe-ops-exempt: <reason>` is the escape hatch, mirroring `nomenclature-exempt`.
+
+**Deliberately not banned: the bare `Vector2` type.** `point_at()` and the presentation signals
+ship `Vector2` values today and are correct — the float32 hazard is in the *math helpers*, not
+in carrying a pair of numbers to the draw layer. Banning the type would redden shipped, correct
+code, which is how a check earns a blanket exemption and stops meaning anything.
+
+**Two sibling checks landed with it**, both tier 1, both for failures that had already
+happened. `rules autoloads` reads the autoload names out of `project.godot` and fails if the
+rules reference one — that failure returns 1,152 *empty* parity rows and an error naming the
+harness, while `gdscript parses` stays green (see decision 054 and the traps in `CLAUDE.md`).
+`yaw hysteresis` asserts `YAW_HYSTERESIS_FRAC < 0.5`, the band width at which every facing
+freezes permanently (decision 060).
+
+**All three were proved red before being trusted**, each by breaking the real file in place and
+restoring it byte-exact. A check nobody has seen fail is a check nobody should believe. Total
+cost: 30 ms of a 5.7 s tier 1.

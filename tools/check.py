@@ -35,15 +35,16 @@ taken before {{PRC-01}}/{{PRC-02}} landed — none of `game renders`, `menu rend
 moved, but they were not re-run for this change (see PRC-04's report for which number is
 which and why).
 
-- **tier 1 (~6 s, pre-commit), 10 checks:** `python syntax`, `json parses`, `gdscript parses`,
+- **tier 1 (~6 s, pre-commit), 13 checks:** `python syntax`, `json parses`, `gdscript parses`,
   `game data`, `wave density`, `dialog capacity`, `backlog rendered`, `agent models`,
-  `leases wired`, `banned terms`. No Godot window opens.
-- **tier 2 (~14 s, pre-push), 17 checks:** tier 1 + `sim determinism`, `sprite atlas`,
+  `leases wired`, `banned terms`, `safe operations`, `rules autoloads`, `yaw hysteresis`.
+  No Godot window opens.
+- **tier 2 (~14 s, pre-push), 20 checks:** tier 1 + `sim determinism`, `sprite atlas`,
   `sprite coverage`, `music manifest`, `sfx determinism`, `godot boots`,
   `terrain parsers agree`.
-- **tier 3 (~66 s, PR), 20 checks:** tier 2 + `game renders` (6.5 s), `menu renders` (4.8 s),
+- **tier 3 (~66 s, PR), 23 checks:** tier 2 + `game renders` (6.5 s), `menu renders` (4.8 s),
   `accessibility` (41.2 s).
-- **tier 4 (~9 min, nightly/release), 21 checks — the default:** tier 3 + `rules parity`
+- **tier 4 (~9 min, nightly/release), 24 checks — the default:** tier 3 + `rules parity`
   (542 s). The one thing making a balance claim in this project falsifiable; never move it
   below tier 4 because it is "usually fine".
 
@@ -68,7 +69,7 @@ silently doubles is a tier nobody will keep running.
                   "text": "<the printed tally line>"}
     }
 
-`checks` always lists all 19 — a check a lower tier excluded is present with
+`checks` always lists all 24 — a check a lower tier excluded is present with
 `status: "skip"` rather than dropped from the array, for the same reason `--no-window`'s
 skips are present: an absent entry reads as a pass to anything consuming the file. `detail`
 carries the check's *full* multi-line detail, not just the first line the human table prints
@@ -86,6 +87,7 @@ import argparse
 import hashlib
 import json
 import py_compile
+import re
 import subprocess
 import sys
 import time
@@ -537,6 +539,251 @@ def check_leases_wired() -> Result:
     return Result(OK, f"{len(LEASE_SITES)} launch sites leased")
 
 
+def _strip_gd_comment(line: str) -> str:
+    """A GDScript source line with its trailing `#` comment removed, string contents left
+    alone. A plain substring/regex scan over raw source cannot tell a real reference from
+    one inside a comment or a string literal — and `scripts/anchor_sim.gd` is full of prose
+    *about* the exact identifiers this file's checks ban, discussing why they must not
+    appear (see `check_autoload_in_rules`). This is a small hand-rolled quote-tracking
+    scanner rather than a regex, because a regex `#.*$` would itself be fooled by a `#`
+    inside a string.
+    """
+    out: list[str] = []
+    quote: str | None = None
+    i = 0
+    while i < len(line):
+        c = line[i]
+        if quote:
+            out.append(c)
+            if c == "\\" and i + 1 < len(line):
+                out.append(line[i + 1])
+                i += 2
+                continue
+            if c == quote:
+                quote = None
+            i += 1
+            continue
+        if c in ('"', "'"):
+            quote = c
+            out.append(c)
+            i += 1
+            continue
+        if c == "#":
+            break
+        out.append(c)
+        i += 1
+    return "".join(out)
+
+
+## BAL-07 / LF-106. PRD §2.1 measured 100,000 float64 samples across five value regimes, 24
+## operations, raw IEEE-754 bytes compared on CPython, Linux Godot 4.7.1 and Windows Godot
+## 4.7.1: `+ - * / sqrt fmod floor min max` and comparisons are bit-identical on all three —
+## decision 030 is partly superseded here, because it banned sqrt and the measurement clears
+## it (IEEE-754 requires sqrt to be correctly rounded; 100,000/100,000 matched). These seven
+## are not bit-identical, so they are banned in the rules:
+SAFE_OPS_DIVERGENCE: dict[str, str] = {
+    "atan2": "0.084%", "sin": "0.133%", "cos": "0.120%", "pow": "0.130%",
+    "log": "0.031%", "exp": "0.069%", "tan": "4.32%",
+}
+## The actual LF-106 culprit was never a bare `sqrt` — it was `Vector2.distance_to`, one of
+## Vector2's own geometry methods, which run in Godot's `real_t` (float32): for 2,000,000
+## points placed exactly on an integer radius, float32 and float64 disagreed on the `<= r`
+## test 10.2% of the time. Bare `Vector2`/`Vector2i` *values* are not banned by this check —
+## `scripts/anchor_sim.gd`'s `point_at()` returns one for drawing, and its `built`/
+## `shot_fired`/`unit_damaged`/`splash_landed` signals carry them to presentation code, all
+## shipped and correct (decision 030) — banning the type outright would redden that on sight,
+## which is the exact "over-scope and get disabled" failure BAL-07's own risk note warns
+## about. What is banned is the specific float32-lossy methods a rule could route a real
+## comparison through.
+SAFE_OPS_VECTOR_METHODS: tuple[str, ...] = (
+    "distance_to", "length", "normalized", "angle", "rotated",
+)
+SAFE_OPS_VECTOR_DIVERGENCE = "10.2%"
+
+## The rules exist twice — see decision 030 and `check_rules_parity` — and this is the file
+## list both engines and their harness are built from. `anchor_view.gd`, `iso.gd` and
+## `fx_additive.gd` are deliberately excluded: facing and yaw are presentation-only
+## (decision 049) and legitimately use trigonometry.
+SAFE_OPS_SCOPE: list[str] = ["scripts/anchor_sim.gd", "sim/engine.py", "scripts/test/parity.gd"]
+
+SAFE_OPS_EXEMPT_MARKER = "safe-ops-exempt"
+
+
+def _safe_ops_gd_violations(rel: str) -> tuple[list[str], int]:
+    """Banned-operation hits in one GDScript rules file, plus its exemption count."""
+    path = ROOT / rel
+    fn_re = re.compile(r"(?<![.\w])(" + "|".join(SAFE_OPS_DIVERGENCE) + r")\s*\(")
+    vec_re = re.compile(r"\.(" + "|".join(SAFE_OPS_VECTOR_METHODS) + r")\s*\(")
+    hits: list[str] = []
+    exempt = 0
+    for lineno, raw in enumerate(path.read_text().splitlines(), 1):
+        if SAFE_OPS_EXEMPT_MARKER in raw:
+            exempt += 1
+            continue
+        line = _strip_gd_comment(raw)
+        for m in fn_re.finditer(line):
+            name = m.group(1)
+            hits.append(f"{rel}:{lineno}: `{name}(` is banned in the rules — measured "
+                        f"{SAFE_OPS_DIVERGENCE[name]} divergence between Windows Godot and "
+                        f"CPython over 100,000 samples (BAL-07): {raw.strip()}")
+        for m in vec_re.finditer(line):
+            name = m.group(1)
+            hits.append(f"{rel}:{lineno}: `.{name}(` runs through Vector2's float32 math — "
+                        f"measured {SAFE_OPS_VECTOR_DIVERGENCE} divergence against float64 "
+                        f"on an exact-boundary test (BAL-07): {raw.strip()}")
+        if "**" in line:
+            hits.append(f"{rel}:{lineno}: `**` (pow) is banned in the rules — measured "
+                        f"{SAFE_OPS_DIVERGENCE['pow']} divergence (BAL-07): {raw.strip()}")
+    return hits, exempt
+
+
+def _safe_ops_py_violations(rel: str) -> tuple[list[str], int]:
+    """Banned-operation hits in the Python rules file, via `ast` rather than a regex — a
+    regex would miss `from math import sin as s` and false-positive on the word "cos" in a
+    comment (both called out in BAL-07's own risk notes)."""
+    import ast                                                     # noqa: PLC0415
+
+    path = ROOT / rel
+    text = path.read_text()
+    exempt_lines = {i for i, line in enumerate(text.splitlines(), 1)
+                    if SAFE_OPS_EXEMPT_MARKER in line}
+    tree = ast.parse(text, filename=rel)
+
+    aliases: dict[str, str] = {}
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom) and node.module == "math":
+            for alias in node.names:
+                if alias.name in SAFE_OPS_DIVERGENCE:
+                    aliases[alias.asname or alias.name] = alias.name
+
+    hits: list[str] = []
+    for node in ast.walk(tree):
+        name = None
+        if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Pow):
+            name = "pow"
+        elif isinstance(node, ast.Call):
+            fn = node.func
+            if isinstance(fn, ast.Attribute) and fn.attr in SAFE_OPS_DIVERGENCE:
+                name = fn.attr
+            elif isinstance(fn, ast.Name):
+                if fn.id in SAFE_OPS_DIVERGENCE:
+                    name = fn.id
+                elif fn.id in aliases:
+                    name = aliases[fn.id]
+        if name and getattr(node, "lineno", None) not in exempt_lines:
+            hits.append(f"{rel}:{node.lineno}: `{name}` is banned in the rules — measured "
+                        f"{SAFE_OPS_DIVERGENCE[name]} divergence between Windows Godot and "
+                        f"CPython over 100,000 samples (BAL-07)")
+    return hits, len(exempt_lines)
+
+
+def check_safe_ops() -> Result:
+    """The rules use none of `atan2 sin cos tan pow log exp` today, so cross-platform parity
+    holds by accident rather than by design (BAL-07, LF-106) — this makes it hold by design.
+
+    `+ - * / sqrt fmod floor min max` and comparisons are bit-identical across CPython,
+    Linux Godot and Windows Godot over 100,000 samples; the seven above are not, up to
+    `tan`'s 4.32%. Decision 030 is partly superseded: it banned `sqrt`, but `sqrt` matched
+    100,000/100,000 — the real culprit was `Vector2.distance_to`, a float32 helper, which is
+    why this checks the *specific* lossy Vector2 methods rather than the type itself. See
+    `SAFE_OPS_VECTOR_METHODS` above for why bare `Vector2`/`Vector2i` values are in scope but
+    not banned outright.
+
+    Scope is exactly `SAFE_OPS_SCOPE` — the rules and their parity harness — never
+    `anchor_view.gd`/`iso.gd`/`fx_additive.gd`, which are presentation and legitimately use
+    trigonometry (decision 049). A `# safe-ops-exempt: <reason>` marker on the line is the
+    escape hatch, matching `nomenclature-exempt`'s idiom.
+    """
+    missing = [rel for rel in SAFE_OPS_SCOPE if not (ROOT / rel).exists()]
+    if missing:
+        return Result(SKIP, f"scope file(s) missing: {', '.join(missing)}")
+
+    hits: list[str] = []
+    exempt = 0
+    for rel in SAFE_OPS_SCOPE:
+        if rel.endswith(".py"):
+            h, e = _safe_ops_py_violations(rel)
+        else:
+            h, e = _safe_ops_gd_violations(rel)
+        hits += h
+        exempt += e
+
+    if hits:
+        return Result(FAIL, "\n".join(hits))
+    exempt_note = f", {exempt} exemption(s)" if exempt else ""
+    return Result(OK, f"{len(SAFE_OPS_SCOPE)} files clean ({', '.join(SAFE_OPS_SCOPE)})"
+                      f"{exempt_note}")
+
+
+def check_autoload_in_rules() -> Result:
+    """LF-148. `scripts/test/parity.gd` preloads `scripts/anchor_sim.gd` as a `--script`
+    MainLoop, where autoloads do not exist — so a reference to one makes the whole script
+    fail to LOAD: `AnchorSimScript.new()` returns a bare `GDScript` with no `new()`, all
+    1152 parity rows come back as empty dictionaries, and `test_parity.py` dies on
+    `KeyError: 'anchor'`, naming itself rather than the offending line. `gdscript parses`
+    (elsewhere in this file) stays green throughout, because `--check-only` resolves
+    autoloads from `project.godot` and this runtime path never does.
+
+    Autoload names are read out of `project.godot`'s `[autoload]` block (via
+    `tools/validate/gdscript.py`'s existing parser — the same one `gdscript parses` already
+    trusts) rather than hardcoded, so a new autoload does not need a matching change here.
+
+    Comments are stripped before matching: `anchor_sim.gd` carries its own docstring
+    *about* this exact trap — several lines discussing why `Recoveries` must not appear —
+    and a plain substring scan would flag its own warning.
+    """
+    target = ROOT / "scripts" / "anchor_sim.gd"
+    if not target.exists():
+        return Result(SKIP, "scripts/anchor_sim.gd missing")
+
+    sys.path.insert(0, str(ROOT / "tools" / "validate"))
+    import gdscript                                                # noqa: PLC0415
+
+    autoloads = gdscript.parse_project_autoloads(ROOT / "project.godot")
+    if not autoloads:
+        return Result(SKIP, "no autoloads declared in project.godot")
+
+    pat = re.compile(r"\b(" + "|".join(re.escape(a) for a in sorted(autoloads)) + r")\b")
+    hits = []
+    for lineno, raw in enumerate(target.read_text().splitlines(), 1):
+        line = _strip_gd_comment(raw)
+        m = pat.search(line)
+        if m:
+            hits.append(f"scripts/anchor_sim.gd:{lineno}: references autoload "
+                        f"`{m.group(1)}` — parity.gd preloads this file as a --script "
+                        f"MainLoop where autoloads do not exist, so it fails to LOAD "
+                        f"(LF-148): {raw.strip()}")
+    if hits:
+        return Result(FAIL, "\n".join(hits))
+    return Result(OK, f"clean against {len(autoloads)} autoload(s): "
+                      f"{', '.join(sorted(autoloads))}")
+
+
+def check_yaw_hysteresis() -> Result:
+    """LF-141. `YAW_HYSTERESIS_FRAC` in `scripts/iso.gd` is a fraction of a bucket
+    (decision 060) rather than a bare degree count, so it survives a `YAW_COUNT` change —
+    but at or above 0.5 the band exceeds half a bucket and every emplacement's facing
+    freezes permanently, the exact `LF-108` failure the fraction was introduced to prevent.
+    `sprites.gd` already asserts this at boot; this is the gate-time equivalent so the
+    failure shows up before the game ever runs.
+    """
+    path = ROOT / "scripts" / "iso.gd"
+    if not path.exists():
+        return Result(SKIP, "scripts/iso.gd missing")
+    text = path.read_text()
+    m = re.search(r"YAW_HYSTERESIS_FRAC\s*:\s*float\s*=\s*([0-9]*\.?[0-9]+)", text)
+    if not m:
+        return Result(FAIL, "scripts/iso.gd: could not find a YAW_HYSTERESIS_FRAC "
+                            "declaration — LF-141's guard has nothing to check")
+    value = float(m.group(1))
+    lineno = text[:m.start()].count("\n") + 1
+    if value >= 0.5:
+        return Result(FAIL, f"scripts/iso.gd:{lineno}: YAW_HYSTERESIS_FRAC={value!r} is >= "
+                            f"0.5 — at or above half a bucket every emplacement's facing "
+                            f"freezes permanently (LF-108, LF-141)")
+    return Result(OK, f"YAW_HYSTERESIS_FRAC={value!r} (< 0.5)")
+
+
 def check_banned_terms() -> Result:
     """Nomenclature is a legal risk, so it gets a mechanical check, not a promise.
 
@@ -975,6 +1222,11 @@ CHECKS = [
     # relationship is visible: same class of risk, a fraction of the cost.
     Check("terrain parsers agree", 2, check_terrain_parity),
     Check("rules parity",      4, check_rules_parity),
+    # BAL-07, LF-148, LF-141 — all three cost a real diagnosis pass once already; all three
+    # are pure text/AST analysis over a handful of known files, so tier 1 costs them nothing.
+    Check("safe operations",   1, check_safe_ops),
+    Check("rules autoloads",   1, check_autoload_in_rules),
+    Check("yaw hysteresis",    1, check_yaw_hysteresis),
 ]
 
 
@@ -998,8 +1250,8 @@ def main() -> int:
     ap.add_argument("--tier", type=int, default=4, choices=(1, 2, 3, 4),
                     help="run only checks assigned this tier or lower (a tier is a minimum — "
                          "see module docstring's '## Tiers' for the assignment table and "
-                         "measured cost of each). 1=pre-commit ~6s (10 checks), 2=pre-push "
-                         "~14s (17), 3=PR ~66s (20), 4=nightly/release ~9min (21, the "
+                         "measured cost of each). 1=pre-commit ~6s (13 checks), 2=pre-push "
+                         "~14s (20), 3=PR ~66s (23), 4=nightly/release ~9min (24, the "
                          "default — unchanged from today's behaviour with no flags). "
                          "Orthogonal to --no-window: --tier 3 --no-window runs exactly tier "
                          "2 plus nothing, since the three rendered checks are all tier 3. "
