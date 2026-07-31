@@ -13,6 +13,15 @@
 *.ttf   filter=lfs diff=lfs merge=lfs -text
 *.otf   filter=lfs diff=lfs merge=lfs -text
 
+# --- The build journal's images are NOT LFS ---
+# docs/chronicle/ is published to GitHub Pages, and actions/checkout does not fetch LFS by
+# default — so an LFS-tracked PNG deploys as a 130-byte pointer file and the page serves
+# text where an image should be. That is exactly what happened on the first deploy.
+# Turning LFS on in the workflow instead would pull the ENTIRE sprite library (~31 MB of
+# renders the page never uses) on every publish, against a 1 GB quota. These are a handful
+# of screenshots; plain blobs are the right call, and it keeps the site self-contained.
+docs/chronicle/assets/** -filter -diff -merge
+
 # --- Godot / text: keep diffable ---
 *.gd     text eol=lf
 *.tscn   text eol=lf
