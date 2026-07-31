@@ -200,6 +200,11 @@ func boot(aid: String, diff: String) -> void:
 	sim.unit_leaked.connect(func(_u): Audio.sfx("ui_deny"))
 	sim.unit_leaked.connect(_on_unit_leaked_dialog)
 	sim.built.connect(_on_built)
+	# ART-06: recoil is driven off the same `shot_fired` signal combat_fx.gd already
+	# listens to (anchor_sim.gd:58) — presentation-only, and safe to write onto `p` for
+	# the same reason `aim`/`view_bucket_head` already are (placed records are only ever
+	# compared by `slot`). See `_on_shot_fired()`'s own doc.
+	sim.shot_fired.connect(_on_shot_fired)
 
 	# Abilities: GDScript-only bookkeeping (scripts/abilities.gd), fed from data/tuning.json
 	# via the Tuning autoload — never read by AnchorSim itself (see the GDScript-only state
@@ -1399,6 +1404,40 @@ func _idle_heading(slot: Vector2) -> Vector2:
 const BASE_YAW_COUNT := 4
 const HEAD_YAW_COUNT := 16
 
+# ART-06: traverse/recoil/reload. All three are pure presentation, read off the placed
+# record's existing rules-owned fields (`aim`, `cooldown`, `tower.fire_interval`) and the
+# `shot_fired` signal already emitted for combat_fx.gd's benefit — nothing here is a new
+# rule and nothing here is written back to anything `sim/engine.py` or `anchor_sim.gd`
+# reads. Costed against zero new rendered cells: traverse is a cross-fade between two
+# buckets ART-01 already rendered, recoil is a screen-space translation, and the reload
+# readout is drawn with `draw_arc()`, not a sprite — see this issue's own report for the
+# measured page/VRAM/render-time deltas (all zero).
+##
+## Timed off `sim.t` (simulated seconds, DT=1/30 — anchor_sim.gd), not `Engine`/`Time` wall
+## clock or `_process(delta)`: `cooldown`/`fire_interval` are already in that unit, and
+## `sim.t` keeps advancing at exactly the rate the player's chosen game speed multiplies
+## it by (`_process()`'s `_accum += delta * speed` above), so a recoil or a traverse at 4x
+## speed compresses the same way the rest of the board already does, rather than one
+## clock racing the other.
+const TRAVERSE_TRANS_S := 0.15   ## cross-fade duration for a head bucket change
+const RECOIL_DURATION_S := 0.12  ## decay window, per this issue's own task list
+const RECOIL_MAX_PX := 6.0       ## capped screen-space kick, head layer only
+
+
+func _on_shot_fired(placed: Dictionary, from_tile: Vector2, to_tile: Vector2,
+		_target_kind: Dictionary) -> void:
+	## Presentation-only recoil bookkeeping. `placed` is the exact Dictionary reference
+	## `anchor_sim.gd`'s `_step()` holds in its own `placed` array (it emits `p` directly,
+	## same object `_face_parts()` below already annotates), so writing `view_recoil_*`
+	## keys onto it is exactly as safe as `aim`/`view_bucket_head` already are — placed
+	## records are only ever compared by `slot`, never by value. Direction is stored as
+	## the raw tile-space delta (unnormalised — a zero-length one, an emplacement firing
+	## on its own tile, is possible and is guarded at the read site instead) rather than
+	## a screen-space vector, so it survives a camera rotation this project does not have
+	## but a Vector2 delta costs nothing extra to keep general.
+	placed["view_recoil_t0"] = sim.t
+	placed["view_recoil_dir"] = to_tile - from_tile
+
 
 func _face_parts(p: Dictionary, heading: Vector2) -> Dictionary:
 	## Bucket an emplacement's heading at both resolutions, remembering each answer
@@ -1416,8 +1455,58 @@ func _face_parts(p: Dictionary, heading: Vector2) -> Dictionary:
 	var prev_head: int = int(p.get("view_bucket_head", -1))
 	var head := IsoScript.bucket_index_for_heading(
 			heading, HEAD_YAW_COUNT, prev_head, IsoScript.YAW_HYSTERESIS_FRAC)
+	# ART-06 traverse: remember the bucket just left, and when, so _build_drawables() can
+	# cross-fade from it for TRAVERSE_TRANS_S instead of snapping. Only when the head
+	# actually moved and there was a real previous bucket to fade from — a brand-new
+	# emplacement's first frame (prev_head == -1) has nothing to fade from and must not
+	# manufacture one.
+	if head != prev_head and prev_head >= 0:
+		p["view_head_trans_from"] = prev_head
+		p["view_head_trans_t0"] = sim.t
 	p["view_bucket_head"] = head
 	return {"base": base, "head": head}
+
+
+func _reload_frac(p: Dictionary, online: bool) -> float:
+	## ART-06 reload readout. `cooldown` counts down from `fire_interval` to 0 and is reset
+	## to `fire_interval` the instant a shot lands (anchor_sim.gd's `_step()`, mirrored in
+	## sim/engine.py) — so this fraction is 1.0 the frame a shot fires and reaches exactly
+	## 0.0 the frame the gun is ready to fire again, which is the acceptance criterion
+	## verbatim. A support tower (`damage <= 0.0`) never has its cooldown ticked by the fire
+	## loop at all — `cooldown` simply stays whatever `build_at()` initialised it to (0.0)
+	## forever — so this naturally returns 0.0 for one without a separate check; the
+	## `fire_interval > 0.0` guard below is only to keep a division safe, not to distinguish
+	## a weapon from a support tower.
+	if not online:
+		return 0.0
+	var fi := float(p["tower"].get("fire_interval", 0.0))
+	if fi <= 0.0:
+		return 0.0
+	return clampf(float(p.get("cooldown", 0.0)) / fi, 0.0, 1.0)
+
+
+func _recoil_offset(p: Dictionary) -> Vector2:
+	## ART-06 recoil. Screen-space translation only (never a rotation — see this issue's
+	## own risk note and ART-01's measured 36.7px swing on a rotated 96px barrel), applied
+	## to the head layer's draw position and nowhere else — the base's own `at` in
+	## `_build_drawables()` above is untouched. Decays from `RECOIL_MAX_PX` to 0 over
+	## `RECOIL_DURATION_S` of `sim.t`, eased (squared) so the kick reads as an impulse
+	## rather than a linear slide back.
+	if not p.has("view_recoil_t0"):
+		return Vector2.ZERO
+	var rt: float = sim.t - float(p["view_recoil_t0"])
+	if rt >= RECOIL_DURATION_S or rt < 0.0:
+		return Vector2.ZERO
+	var dir: Vector2 = p.get("view_recoil_dir", Vector2.ZERO)
+	if dir.length_squared() < 1e-9:
+		return Vector2.ZERO
+	# tile_to_screen() is linear in (tx, ty), so the screen-space direction of a tile-space
+	# delta is just that same projection of the delta itself, normalised. A zero-length
+	# result here (the projection of a nonzero tile vector cannot be zero, since the
+	# transform is invertible) never reaches — guarded above on `dir` instead.
+	var screen_dir := IsoScript.tile_to_screen(dir.x, dir.y).normalized()
+	var k: float = 1.0 - rt / RECOIL_DURATION_S
+	return -screen_dir * RECOIL_MAX_PX * k * k
 
 
 ## CAM-07: last frame `drawables()` built its list for, and the cached result — see
@@ -1494,8 +1583,18 @@ func _build_drawables() -> Array:
 			"online": online,
 			"at": at,
 			"ref": p,
+			# ART-06 reload readout: fraction of `fire_interval` remaining, 0 when ready
+			# to fire (also 0, harmlessly, for a support tower -- see `_reload_frac()`'s
+			# own doc). Read off the placed record's own rules-owned fields, never
+			# written back to them.
+			"reload_frac": _reload_frac(p, online),
 		})
-		out.append({
+		# ART-06 recoil/traverse, computed once here rather than inside
+		# `_draw_entities()`/`glow_layer.gd` -- one source for every layer that reads
+		# this list, same reasoning `_face_parts()` above already documents for the
+		# bucket itself.
+		var head_at := at + _recoil_offset(p)
+		var head_entry := {
 			"depth": depth,
 			"layer": 1,
 			"kind": "tower",
@@ -1504,9 +1603,21 @@ func _build_drawables() -> Array:
 			"bucket": buckets["head"],
 			"yaw_count": HEAD_YAW_COUNT,
 			"online": online,
-			"at": at,
+			"at": head_at,
 			"ref": p,
-		})
+		}
+		var trans_from := int(p.get("view_head_trans_from", -1))
+		if trans_from >= 0:
+			var trans_t0: float = float(p.get("view_head_trans_t0", -INF))
+			var tt: float = sim.t - trans_t0
+			if tt < TRAVERSE_TRANS_S:
+				# Fading OUT: 1.0 at the instant the bucket changed (so the first frame of
+				# a transition looks identical to the frame before it) down to 0.0 at
+				# TRAVERSE_TRANS_S (so the last frame is indistinguishable from no
+				# transition at all -- no snap-then-fade double motion).
+				head_entry["trans_from_bucket"] = trans_from
+				head_entry["trans_from_alpha"] = clampf(1.0 - tt / TRAVERSE_TRANS_S, 0.0, 1.0)
+		out.append(head_entry)
 	for u in sim.units:
 		if not u["alive"]:
 			continue
@@ -1711,9 +1822,12 @@ func _draw_contact_shadow(at: Vector2, radius: float) -> void:
 func _draw_entities() -> void:
 	var dim: float = 0.6 if sim.brownout else 1.0
 	# Every shadow first, so a nearer sprite's shadow cannot land on top of a farther
-	# sprite that has already been drawn. ART-01: base and head share one "at", so the head
-	# part is skipped here — a second identical shadow drawn on top of the first would only
-	# double its opacity, not add anything a viewer could see.
+	# sprite that has already been drawn. ART-01: base and head share one screen point at
+	# rest, so the head part is skipped here — a second identical shadow drawn on top of
+	# the first would only double its opacity, not add anything a viewer could see. ART-06:
+	# recoil moves the head's own "at" by a few px, not the base's — the shadow is a
+	# ground-plane thing and stays with the base regardless, which this skip already gives
+	# for free.
 	for d in drawables():
 		if d.get("part", "") == "head":
 			continue
@@ -1725,6 +1839,15 @@ func _draw_entities() -> void:
 			if d["kind"] == "tower" and not d["online"]:
 				tint = Color(0.45, 0.48, 0.5)      # offline reads as cold, not just unlit
 			draw_texture(tex, d["at"] - _sprite_lib().pivot, tint)
+			# ART-06 traverse: the bucket just left, fading out on top of the current one —
+			# see `_face_parts()`/`_build_drawables()` for how these two keys are populated.
+			# Only a head drawable ever carries them.
+			if d.has("trans_from_bucket"):
+				var from_tex: Texture2D = _sprite_lib().get_bucket_tex(
+						d["sprite"], int(d["trans_from_bucket"]), "albedo")
+				if from_tex != null:
+					var fade := Color(tint.r, tint.g, tint.b, tint.a * float(d["trans_from_alpha"]))
+					draw_texture(from_tex, d["at"] - _sprite_lib().pivot, fade)
 			if d["kind"] == "unit":
 				_draw_health(d["ref"], d["at"])
 		elif d["kind"] == "tower":
@@ -1736,6 +1859,11 @@ func _draw_entities() -> void:
 			_draw_unit(d["ref"])
 		if d["kind"] == "tower" and d.get("part", "") != "head":
 			_draw_rank_pip(d["ref"], d["at"])
+			# ART-06 reload readout, on the base per this issue's own task list. Nothing
+			# drawn at 0.0 — ready-and-idle and offline both read as "nothing here", which
+			# is deliberate: see this issue's report for why a third, suppressed, reading
+			# is not yet possible.
+			_draw_reload_arc(d["at"], float(d.get("reload_frac", 0.0)))
 
 
 func _draw_rank_pip(p: Dictionary, at: Vector2) -> void:
@@ -1755,6 +1883,21 @@ func _draw_rank_pip(p: Dictionary, at: Vector2) -> void:
 	var c := at + Vector2(-26, -48)
 	draw_circle(c, 9.0, Color(C_AMBER, 0.92))
 	_label(c + Vector2(0, 4), name, Color(0.09, 0.07, 0.03))
+
+
+func _draw_reload_arc(at: Vector2, frac: float) -> void:
+	## ART-06 reload readout, on the base's own foot point rather than the rank pip's
+	## upper-left offset (`Vector2(-26, -48)` above) or the selection ring's tile-diamond
+	## radius (`IsoScript.diamond` at scale 1.0, roughly 64x32 half-extents) — Ui.BOARD_ARC_R
+	## sits well inside both, per this issue's own risk note about competing with existing
+	## board furniture. Colour and geometry come from `Ui` (decisions 045/046), not a
+	## literal: `Ui.C_AMBER` already reads "armed, attention, cost" elsewhere in the HUD,
+	## which is exactly what a gun mid-reload is.
+	if frac <= 0.0:
+		return
+	const START := -PI * 0.5   # 12 o'clock
+	draw_arc(at + Vector2(0, 8), Ui.BOARD_ARC_R, START, START + TAU * frac, 20,
+			Ui.C_AMBER, Ui.BOARD_ARC_W, true)
 
 
 func _draw_editor_overlay(anchor: Dictionary) -> void:

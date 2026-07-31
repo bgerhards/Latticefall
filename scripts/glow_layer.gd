@@ -92,3 +92,12 @@ func _draw_impl() -> void:
 		if d["kind"] == "tower" and not d["online"]:
 			continue
 		draw_texture(tex, d["at"] - Sprites.pivot, tint)
+		# ART-06: a head mid-traverse cross-fades in the albedo pass (anchor_view.gd's
+		# `_draw_entities()`) — the glow layer must not disagree about what a placed tower
+		# looks like this frame, same rule this file's own comment above already states
+		# for the plain bucket/yaw split. Only ever set on a head entry.
+		if d.has("trans_from_bucket"):
+			var from_tex := Sprites.get_bucket_tex(d["sprite"], int(d["trans_from_bucket"]), "glow")
+			if from_tex != null:
+				var fade := Color(tint.r, tint.g, tint.b, tint.a * float(d["trans_from_alpha"]))
+				draw_texture(from_tex, d["at"] - Sprites.pivot, fade)

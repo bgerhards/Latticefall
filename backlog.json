@@ -1,5 +1,5 @@
 {
-  "next_id": 160,
+  "next_id": 161,
   "items": [
     {
       "id": "LF-001",
@@ -1903,6 +1903,18 @@
       "kind": "chore",
       "area": "tooling",
       "pri": "low",
+      "status": "open",
+      "why": "",
+      "opened": "2026-07-31",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-160",
+      "title": "ART-06 shipped two of three emplacement readings and the third is blocked on WAR-10. Idle reads as no arc and no recoil, firing as a cycling reload arc plus recoil, and offline as the existing grey tint with the arc suppressed. SUPPRESSED cannot be distinguished from idle because WAR-10 has not landed: no emp_until or equivalent field exists on the placed record in either engine, so there is nothing for the view to read. This blocks ART-06's own acceptance criterion of three states with three readings. Once WAR-10 adds the field the view side is small -- a separate colour or state on the reload arc, and refusing traverse while suppressed. Hand this to whoever picks up WAR-10.",
+      "kind": "feature",
+      "area": "engine",
+      "pri": "med",
       "status": "open",
       "why": "",
       "opened": "2026-07-31",

@@ -67,7 +67,14 @@ MIN_COVERAGE = 0.02
 RELAY_PREFIXES = ("SHOT ", "MENUSHOT ", "DRAFTSHOT ", "FRAME ", "STATE ", "AUDIO ", "FACE ",
                   "LANE ", "MENUFRAME ", "CLEARED ", "CAMERA ", "DRAG ", "WHEEL ",
                   "DIALOG-TRIGGER ", "DEBRIEF-PRESS ", "DEBRIEF-PRESSED ", "DRAFT-BOOT ",
-                  "AUTO-TAKE ", "RECOVERY-TAKEN ", "PLACEHOLDER ")
+                  "AUTO-TAKE ", "RECOVERY-TAKEN ", "PLACEHOLDER ",
+                  # ART-06: main.gd's `--profile` (CAM-06/CAM-07) has printed "PROFILE
+                  # layer=... mean_ms=... p95_ms=..." since it was added, but nothing ever
+                  # added its prefix here — the exact LF-… failure mode this list's own
+                  # comment warns about (the flag reaches Godot, Godot prints, this filter
+                  # drops it). Found while taking ART-06's own required frame-time-budget
+                  # measurement, which needs this line to see anything at all.
+                  "PROFILE ")
 
 # LF-153: the three screens that can end a run with a saved PNG, each printing its own
 # "<X> <path> err=<n> <w>x<h>" confirmation line — `main.gd`'s `SHOT`, `menu.gd`'s
