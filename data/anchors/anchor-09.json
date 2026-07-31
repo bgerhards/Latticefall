@@ -101,11 +101,11 @@
     ],
     [
       14,
-      1
+      2
     ],
     [
       14,
-      5
+      9
     ]
   ],
   "waves": [
@@ -258,7 +258,7 @@
       "spawns": [
         {
           "enemy": "reach-picket",
-          "count": 10,
+          "count": 8,
           "interval": 0.7
         },
         {
@@ -292,7 +292,7 @@
       "spawns": [
         {
           "enemy": "reach-picket",
-          "count": 11,
+          "count": 9,
           "interval": 0.7
         },
         {
@@ -332,7 +332,7 @@
       "spawns": [
         {
           "enemy": "reach-picket",
-          "count": 11,
+          "count": 9,
           "interval": 0.7
         },
         {

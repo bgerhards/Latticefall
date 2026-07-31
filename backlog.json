@@ -1,5 +1,5 @@
 {
-  "next_id": 145,
+  "next_id": 148,
   "items": [
     {
       "id": "LF-001",
@@ -1627,11 +1627,11 @@
       "kind": "bug",
       "area": "design",
       "pri": "med",
-      "status": "open",
+      "status": "done",
       "why": "",
       "opened": "2026-07-31",
-      "closed": null,
-      "note": ""
+      "closed": "2026-07-31",
+      "note": "closed at df023ce"
     },
     {
       "id": "LF-137",
@@ -1722,6 +1722,42 @@
       "title": "sfx determinism failed once for a subagent mid-session and passed on every other run, including twice immediately afterwards on the same tree ('ui_confirm byte-identical'). The agent attributed it to pre-existing audio synthesis nondeterminism; nothing supports that and the check has been green every other time it has run today. More likely a transient under heavy concurrent load, or a partially-written file read by a check racing whatever produced it. Filed so the next occurrence is a second data point rather than a first one -- if it recurs, capture both WAVs and diff them rather than trusting either explanation.",
       "kind": "bug",
       "area": "audio",
+      "pri": "med",
+      "status": "open",
+      "why": "",
+      "opened": "2026-07-31",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-145",
+      "title": "Multi-lane targeting picks 'furthest along' by raw dist-along-own-lane (engine.py _step's fire loop), never normalized by each lane's path_length. A slot in range of both a long main lane and a short flank lane will almost always fire on main once a main unit's raw dist exceeds the flank lane's total length -- on anchor-09 (main path_length 37, flank 14) this meant every slot within range of both lanes was structurally main-biased, and the only way to get real flank defense was a slot geometrically exclusive to the flank lane (out of range of main entirely). Future multi-lane anchors need slots authored with this bias in mind, or a normalized-progress tie-break in the engine (out of scope here, sim/engine.py is shared, parity-critical code).",
+      "kind": "risk",
+      "area": "engine",
+      "pri": "med",
+      "status": "open",
+      "why": "",
+      "opened": "2026-07-31",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-146",
+      "title": "anchor-09's main lane (lane 0) alone, with the original 10-slot board and no flank pressure at all, wins brutal for only 6 of 16 grader policies, several with a 1-2 life margin (control, reserved-mass, mortar-core). This pre-existing tightness is what made LF-136's flank fix so sensitive: any slot/fund diversion for flank defense wiped out those policies' entire margin. Worth a dedicated brutal-tightness pass on anchor-09's main wave table independent of the flank lane.",
+      "kind": "risk",
+      "area": "design",
+      "pri": "med",
+      "status": "open",
+      "why": "",
+      "opened": "2026-07-31",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-147",
+      "title": "tools/sweep.py can scale capacity/funds/lives and a uniform per-wave spawn-count weight, but has no way to sweep per-lane wave weight or slot placement. LF-136 (anchor-09's flank fix) needed both -- flank-only spawn tuning and hand-picked exclusive slot geometry -- and had to be done with a throwaway ad-hoc script instead. A --lane-weight knob (scale only spawns tagged with a given lane index) would cover the first half for any future multi-lane anchor; slot placement is deliberately out of sweep's scope per its own docstring and should stay manual.",
+      "kind": "feature",
+      "area": "tooling",
       "pri": "med",
       "status": "open",
       "why": "",
