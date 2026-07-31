@@ -35,14 +35,15 @@ taken before {{PRC-01}}/{{PRC-02}} landed — none of `game renders`, `menu rend
 moved, but they were not re-run for this change (see PRC-04's report for which number is
 which and why).
 
-- **tier 1 (~6 s, pre-commit), 9 checks:** `python syntax`, `json parses`, `gdscript parses`,
+- **tier 1 (~6 s, pre-commit), 10 checks:** `python syntax`, `json parses`, `gdscript parses`,
   `game data`, `wave density`, `dialog capacity`, `backlog rendered`, `agent models`,
-  `banned terms`. No Godot window opens.
-- **tier 2 (~14 s, pre-push), 15 checks:** tier 1 + `sim determinism`, `sprite atlas`,
-  `sprite coverage`, `music manifest`, `sfx determinism`, `godot boots`.
-- **tier 3 (~66 s, PR), 18 checks:** tier 2 + `game renders` (6.5 s), `menu renders` (4.8 s),
+  `leases wired`, `banned terms`. No Godot window opens.
+- **tier 2 (~14 s, pre-push), 17 checks:** tier 1 + `sim determinism`, `sprite atlas`,
+  `sprite coverage`, `music manifest`, `sfx determinism`, `godot boots`,
+  `terrain parsers agree`.
+- **tier 3 (~66 s, PR), 20 checks:** tier 2 + `game renders` (6.5 s), `menu renders` (4.8 s),
   `accessibility` (41.2 s).
-- **tier 4 (~9 min, nightly/release), 19 checks — the default:** tier 3 + `rules parity`
+- **tier 4 (~9 min, nightly/release), 21 checks — the default:** tier 3 + `rules parity`
   (542 s). The one thing making a balance claim in this project falsifiable; never move it
   below tier 4 because it is "usually fine".
 
@@ -97,6 +98,7 @@ ROOT = Path(__file__).resolve().parents[1]
 PY = sys.executable
 
 sys.path.insert(0, str(ROOT / "tools"))
+import lease                                                   # noqa: E402
 import toolpaths                                              # noqa: E402
 
 OK, FAIL, SKIP = "ok", "FAIL", "skip"
@@ -162,23 +164,43 @@ def run(*args: str, timeout: float = DEFAULT_TIMEOUT) -> subprocess.CompletedPro
     `subprocess.run(timeout=...)` kills the direct child only. That is not sufficient here:
     the parity check's Godot reparents to init and survives its parent (see CLAUDE.md), so
     the timeout path calls the reaper rather than trusting the kill.
+
+    Leased for tools/reap.py (PRC-07), so a sibling agent's `tools/reap.py --kill` spares
+    this gate's own Godot/Blender/etc. children instead of ending them mid-check. Whether
+    the lease also serialises against LF-116's measured capture cost is auto-detected from
+    `args[0]`: `toolpaths.godot_argv(..., want_window=False)` prefixes the whole command
+    with `xvfb-run` exactly when a window would otherwise land on the owner's desktop, and
+    that prefix is the one reliable signal that this particular launch is a Mesa llvmpipe
+    capture rather than a plain headless run (`godot boots`, `rules parity`) or a bare
+    Python subprocess (`game data`, `sfx determinism`, ...) — neither of those was part of
+    what LF-116 measured, so neither waits for a capture slot.
     """
+    is_capture = bool(args) and Path(args[0]).name == "xvfb-run"
+    acquire = lease.acquire_capture if is_capture else lease.acquire
+    tool = "check-capture" if is_capture else "check"
     try:
-        return subprocess.run(args, capture_output=True, text=True,
-                              cwd=str(ROOT), timeout=timeout)
-    except subprocess.TimeoutExpired as exc:
-        reaper = ROOT / "tools" / "reap.py"
-        swept = ""
-        if reaper.exists():
-            got = subprocess.run([PY, str(reaper), "--kill"], capture_output=True,
-                                 text=True, cwd=str(ROOT), timeout=60)
-            swept = got.stdout.strip().replace("\n", " · ")
-        out = exc.stdout or b""
-        return subprocess.CompletedProcess(
-            args, TIMED_OUT,
-            stdout=out.decode(errors="replace") if isinstance(out, bytes) else out,
-            stderr=f"timed out after {timeout:.0f}s; reaped: {swept or 'nothing'}",
-        )
+        with acquire(tool, list(args), ttl_s=timeout + 60.0):
+            try:
+                return subprocess.run(args, capture_output=True, text=True,
+                                      cwd=str(ROOT), timeout=timeout)
+            except subprocess.TimeoutExpired as exc:
+                reaper = ROOT / "tools" / "reap.py"
+                swept = ""
+                if reaper.exists():
+                    got = subprocess.run([PY, str(reaper), "--kill"], capture_output=True,
+                                         text=True, cwd=str(ROOT), timeout=60)
+                    swept = got.stdout.strip().replace("\n", " · ")
+                out = exc.stdout or b""
+                return subprocess.CompletedProcess(
+                    args, TIMED_OUT,
+                    stdout=out.decode(errors="replace") if isinstance(out, bytes) else out,
+                    stderr=f"timed out after {timeout:.0f}s; reaped: {swept or 'nothing'}",
+                )
+    except TimeoutError as exc:
+        # No capture slot freed within tools/lease.py's wait window — the launch never
+        # even started. Reported the same shape check.py's own TIMED_OUT path uses, so
+        # every caller of run() handles it identically without a new branch.
+        return subprocess.CompletedProcess(args, TIMED_OUT, stdout="", stderr=str(exc))
 
 
 # ─────────────────────────────────────────────────────────────── checks ──
@@ -473,6 +495,46 @@ def check_agent_models() -> Result:
     if wrong:
         return Result(FAIL, f"model is not sonnet: {', '.join(wrong)}")
     return Result(OK, f"{len(agents)} agents pinned to sonnet")
+
+
+## Every launch site docs/issues/PRC-07-reaper-leases.md names, mapped to the tool name its
+## `lease.acquire()`/`acquire_capture()` call is expected to carry — the tool name is not
+## load-bearing (nothing keys off it), it just makes a false positive impossible to get
+## from an unrelated `lease.acquire(` string elsewhere in the file matching by accident.
+LEASE_SITES: dict[str, str] = {
+    "tools/shot.py": "shot",
+    "tools/check.py": "check",
+    "tools/test_parity.py": "test-parity",
+    "tools/blender/build.py": "blender-build",
+    "tools/audio/serve.py": "audio-serve",
+    "sim/run.py": "sim-run",
+    "tools/sweep.py": "sweep",
+}
+
+
+def check_leases_wired() -> Result:
+    """Every subprocess/pool launch site PRC-07 named goes through `tools/lease.py`'s
+    `acquire()` or `acquire_capture()`, so `tools/reap.py` can tell a leaked process from
+    one legitimately mid-capture for another session instead of killing both alike.
+
+    Grepped rather than executed — same argument as `agent models`: a launch site that
+    forgot to wrap itself is a fact about the source right now, not something that needs a
+    live capture to notice, and by the time a live capture would have caught it, a sibling
+    agent may already have lost a process to it.
+    """
+    missing = []
+    for rel, tool in LEASE_SITES.items():
+        p = ROOT / rel
+        if not p.exists():
+            missing.append(f"{rel} (file missing)")
+            continue
+        text = p.read_text()
+        if "lease.acquire(" not in text and "lease.acquire_capture(" not in text:
+            missing.append(rel)
+    if missing:
+        return Result(FAIL, f"no lease.acquire()/acquire_capture() found: "
+                            f"{', '.join(missing)}")
+    return Result(OK, f"{len(LEASE_SITES)} launch sites leased")
 
 
 def check_banned_terms() -> Result:
@@ -902,6 +964,7 @@ CHECKS = [
     Check("sprite coverage",   2, check_sprite_coverage),
     Check("backlog rendered",  1, check_backlog_rendered),
     Check("agent models",      1, check_agent_models),
+    Check("leases wired",      1, check_leases_wired),
     Check("sim determinism",   2, check_sim),
     Check("gdscript parses",   1, check_gdscript_parses),
     Check("godot boots",       2, check_godot_boots),
@@ -935,8 +998,8 @@ def main() -> int:
     ap.add_argument("--tier", type=int, default=4, choices=(1, 2, 3, 4),
                     help="run only checks assigned this tier or lower (a tier is a minimum — "
                          "see module docstring's '## Tiers' for the assignment table and "
-                         "measured cost of each). 1=pre-commit ~6s (9 checks), 2=pre-push "
-                         "~14s (15), 3=PR ~66s (18), 4=nightly/release ~9min (19, the "
+                         "measured cost of each). 1=pre-commit ~6s (10 checks), 2=pre-push "
+                         "~14s (17), 3=PR ~66s (20), 4=nightly/release ~9min (21, the "
                          "default — unchanged from today's behaviour with no flags). "
                          "Orthogonal to --no-window: --tier 3 --no-window runs exactly tier "
                          "2 plus nothing, since the three rendered checks are all tier 3. "

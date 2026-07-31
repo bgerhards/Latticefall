@@ -317,6 +317,27 @@ re-invokes the model when it finally exits or emits**, so a forgotten loop bills
 against a session that everyone believed was over. This has already spilled the owner's
 subscription usage into paid credits once. Treat it as a money bug, not as hygiene.
 
+**The reaper is scoped by leases now, and `--kill` is still not safe in a fan-out.** Every
+launch site takes a lease under `.cache/leases/` naming its pid, session, tool, argv and a
+TTL, and `reap.py` classifies each stray by walking the parent chain to the lease that owns
+it — `orphan`, `expired`, `own-session`, `sibling`, `unleased`. Plain `--kill` spares a
+sibling; `--all` ends it and says how many it took. That replaces classification by
+command-line shape, which could not tell "leaked" from "mid-capture right now" and which,
+during one seven-agent session, listed six to eight processes belonging to other agents that
+`--kill` would have destroyed.
+
+**But `CLAUDE_CODE_SESSION_ID` is per top-level CLI session, not per subagent** — a sibling
+fanned out by the same orchestrator inherits it, so `own-session` is coarser than "this
+agent" and plain `--kill` can still silently end a live sibling's Godot. `LF-133`. Until
+that has a finer identifier: **an agent never runs `--kill`**; the coordinator runs it at
+wrap, once every agent has reported.
+
+**Captures are bounded to two at a time**, through the same lease. Not politeness —
+measured: Godot capture is llvmpipe software GL and one capture takes about eight of this
+machine's sixteen cores, so three at once drove load average to 18.6 and turned a
+nine-second frame into minutes, which is what made agents hit the command timeout and stall.
+`LF-116`.
+
 **Godot capture is invisible now — `LF-061` is closed, not bounded.** `game renders`,
 `menu renders` and `accessibility` need a real GPU-backed Godot frame (GL Compatibility
 reads back nothing headlessly), but on this machine that no longer means a window on the

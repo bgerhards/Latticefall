@@ -30,7 +30,14 @@ from sim.content import all_anchor_ids, load_anchor, load_enemies, load_towers  
 from sim.engine import DIFFICULTIES, Sim, standard_policies  # noqa: E402
 
 sys.path.insert(0, str(ROOT / "tools"))
+import lease  # noqa: E402  — scopes this run for tools/reap.py (PRC-07)
 import toolpaths  # noqa: E402
+
+## Generous: this project's own `rules parity` gate check gives the whole comparison
+## (python side included) up to 1800s (`tools/check.py`'s PARITY_TIMEOUT) and measures
+## ~542s in practice. `run_godot()`'s own subprocess.run has no timeout of its own, so the
+## lease's TTL is the only backstop against a wedged Godot leaving a permanent lease.
+PARITY_LEASE_TTL_S = 1800.0
 
 LOAD_TOLERANCE_MW = 0.01
 
@@ -44,7 +51,11 @@ def run_godot(anchor: str | None) -> list[dict]:
     if anchor:
         extra += ["--", "--anchor", anchor]
     cmd = toolpaths.godot_argv(ROOT, extra, want_window=True)
-    r = subprocess.run(cmd, capture_output=True, text=True, cwd=str(ROOT))
+    # `want_window=True` above means this never goes through `xvfb-run` — a true
+    # `--headless` script run, not a rendered capture — so an ordinary lease is enough;
+    # this does not compete for tools/lease.py's bounded capture slots (LF-116).
+    with lease.acquire("test-parity", cmd, ttl_s=PARITY_LEASE_TTL_S):
+        r = subprocess.run(cmd, capture_output=True, text=True, cwd=str(ROOT))
     for line in r.stdout.splitlines():
         if line.startswith("PARITY_JSON "):
             return json.loads(line[len("PARITY_JSON "):])

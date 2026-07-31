@@ -33,6 +33,7 @@ twice before it answered.
 from __future__ import annotations
 
 import argparse
+import contextlib
 import json
 import os
 import sys
@@ -47,6 +48,13 @@ from sim.content import (DATA, Spawn, Wave, all_anchor_ids, load_anchor,  # noqa
                          load_enemies, load_towers)
 from sim.engine import DIFFICULTIES  # noqa: E402
 from sim.run import grade_anchor  # noqa: E402
+import lease  # noqa: E402  — scopes the --jobs pool for tools/reap.py (PRC-07); this file
+              # already lives in tools/, so it is importable with no extra sys.path setup
+
+## Generous: a wide box (a whole act, cap x funds x weight x lives) legitimately runs long
+## — "a balance question usually needs the box widened two or three times before it
+## answers" per this file's own docstring. The TTL is a crash backstop, not a budget.
+SWEEP_LEASE_TTL_S = 3600.0
 
 
 def scaled_waves(waves: tuple[Wave, ...], weight: float) -> tuple[Wave, ...]:
@@ -153,30 +161,39 @@ def sweep_one(anchor_id: str, args) -> int:
             for cap in caps for fu in funds for wt in weights for lv in lives]
     n_jobs = (os.cpu_count() or 1) if args.jobs == 0 else args.jobs
 
-    if n_jobs <= 1:
-        _init_worker()
-        results = (_grade_cell(j) for j in jobs)
-    else:
-        pool = Pool(min(n_jobs, len(jobs)), initializer=_init_worker)
-        results = pool.imap(_grade_cell, jobs)
+    # Leased only for the parallel path — the workers fork from this process, so one
+    # lease here covers the whole pool via tools/reap.py's ancestor walk, and a sibling
+    # agent's `tools/reap.py --kill` spares it instead of orphaning it mid-sweep (PRC-07).
+    # Held for the pool's full lifetime, including the `pool.join()` below, via ExitStack
+    # rather than a `with Pool(...)` because which branch even creates a pool depends on
+    # `n_jobs` and the existing serial/parallel split is not itself worth restructuring.
+    with contextlib.ExitStack() as stack:
+        if n_jobs <= 1:
+            _init_worker()
+            results = (_grade_cell(j) for j in jobs)
+        else:
+            stack.enter_context(lease.acquire(
+                "sweep", [f"jobs={n_jobs}", f"cells={len(jobs)}"], ttl_s=SWEEP_LEASE_TTL_S))
+            pool = Pool(min(n_jobs, len(jobs)), initializer=_init_worker)
+            results = pool.imap(_grade_cell, jobs)
 
-    clean: list[tuple] = []
-    for cap, fu, wt, lv, r in results:
-        cells = [r["by_difficulty"][d] for d in diffs]
-        peak = max(c["peak_load_ratio"] for c in cells)
-        line = (f"{cap:>6.0f} {int(fu):>7d} {wt:>5.2f} {lv:>4d}  "
-                + " ".join(f"{c['distinct_winning_builds']:>2d}/"
-                           f"{c['distinct_builds_tried']:<4d}" for c in cells)
-                + f" {peak:>5.0%}  ")
-        if r["ok"]:
-            score = cell_score(r, wt, lv)
-            clean.append((score, cap, int(fu), wt, lv, r))
-            print(line + "ok")
-        elif not args.quiet:
-            print(line + r["problems"][0][:60])
-    if n_jobs > 1:
-        pool.close()
-        pool.join()
+        clean: list[tuple] = []
+        for cap, fu, wt, lv, r in results:
+            cells = [r["by_difficulty"][d] for d in diffs]
+            peak = max(c["peak_load_ratio"] for c in cells)
+            line = (f"{cap:>6.0f} {int(fu):>7d} {wt:>5.2f} {lv:>4d}  "
+                    + " ".join(f"{c['distinct_winning_builds']:>2d}/"
+                               f"{c['distinct_builds_tried']:<4d}" for c in cells)
+                    + f" {peak:>5.0%}  ")
+            if r["ok"]:
+                score = cell_score(r, wt, lv)
+                clean.append((score, cap, int(fu), wt, lv, r))
+                print(line + "ok")
+            elif not args.quiet:
+                print(line + r["problems"][0][:60])
+        if n_jobs > 1:
+            pool.close()
+            pool.join()
 
     print(f"\n{len(clean)} clean cell(s) of {total}")
 

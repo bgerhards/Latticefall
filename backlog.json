@@ -1,5 +1,5 @@
 {
-  "next_id": 133,
+  "next_id": 136,
   "items": [
     {
       "id": "LF-001",
@@ -739,11 +739,11 @@
       "kind": "chore",
       "area": "tooling",
       "pri": "med",
-      "status": "open",
+      "status": "done",
       "why": "",
       "opened": "2026-07-29",
-      "closed": null,
-      "note": ""
+      "closed": "2026-07-31",
+      "note": "closed at fbb4110"
     },
     {
       "id": "LF-063",
@@ -1577,6 +1577,42 @@
       "id": "LF-132",
       "title": "sim/content.py's all_anchor_ids() discovers anchors with a raw glob('anchor-*.json') over data/anchors/, so ANY untracked file dropped there is treated as real content. Measured consequence: a scratch 64x64 synthetic anchor used for a draw-path benchmark was picked up by tools/density.py and broke the gate's wave density check outright -- act 1 suddenly had a 700-unit anchor as its busiest reference. validate_data.py is already immune because PRC-02 moved it to git ls-files; content.py was not converted because nothing pointed at it. Same reasoning applies: a scratch or generated anchor is not content until it is tracked. This will bite again the moment anyone builds the large-board generator (TS-05/LF-080), which is exactly a workflow of generate, grade, discard.",
       "kind": "bug",
+      "area": "tooling",
+      "pri": "med",
+      "status": "open",
+      "why": "",
+      "opened": "2026-07-31",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-133",
+      "title": "CLAUDE_CODE_SESSION_ID is per top-level CLI session, NOT per subagent, so the reaper's new own-session lease class is coarser than 'this agent'. Discovered while building the leases: reap.py --json showed a live test_parity.py and a batch of godot --check-only processes carrying the SAME session id as the agent inspecting them, because a sibling subagent fanned out by the same orchestrator inherits it -- which is exactly the fan-out pattern CLAUDE.md prescribes. Consequence: plain reap.py --kill can still silently end a live sibling subagent's process. It is narrower than the old kill-by-command-shape behaviour but it is not safe, and the remaining hole is precisely the multi-agent case the leases were built for. No finer identifier is exposed in the environment; tightening own-session to never auto-kill would break the leftover-cleanup path SessionEnd depends on. Needs either a harness-exposed per-subagent id or a design change -- until then the honest rule is that only --all is ever safe to reason about, and plain --kill is safe only in a single-agent session.",
+      "kind": "risk",
+      "area": "tooling",
+      "pri": "med",
+      "status": "open",
+      "why": "",
+      "opened": "2026-07-31",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-134",
+      "title": "tools/test_parity.py's run_godot() has no timeout on its own subprocess.run, so a wedged Godot hangs the parity run itself indefinitely. The new lease TTL bounds when ANOTHER session may reap that process, which is a different problem -- it does nothing for the run that is stuck waiting on it. Parity is the longest thing in the gate at 9m40s and 1152 runs, so a hang there is also the most expensive one to sit through. Every other gate subprocess is already bounded (DEFAULT_TIMEOUT 300s, PARITY_TIMEOUT 1800s in check.py); this is the one that got missed because it bounds itself from the outside.",
+      "kind": "bug",
+      "area": "tooling",
+      "pri": "med",
+      "status": "open",
+      "why": "",
+      "opened": "2026-07-31",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-135",
+      "title": "MAX_CONCURRENT_CAPTURES=2 in tools/lease.py is unit-tested but never live-validated. The bound comes from a real measurement -- one Godot capture takes about 8 of this machine's 16 cores, and three concurrent captures drove load average to 18.6 and turned a nine-second frame into minutes (LF-116) -- but the cap itself was only exercised against three threads and a fake workload, not against real concurrent shot.py and gate captures, because doing that safely needs a window when no other agent is working in the tree. Validate it then, and record whether 2 is actually the right number or whether the honest answer is 1.",
+      "kind": "chore",
       "area": "tooling",
       "pri": "med",
       "status": "open",

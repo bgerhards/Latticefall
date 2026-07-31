@@ -27,10 +27,18 @@ import sys
 from multiprocessing import Pool
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
+sys.path.insert(0, str(ROOT / "tools"))
 
 from sim.content import all_anchor_ids, load_anchor, load_enemies, load_towers  # noqa: E402
 from sim.engine import DIFFICULTIES, Sim, standard_policies  # noqa: E402
+import lease  # noqa: E402  — scopes the --jobs pool for tools/reap.py (PRC-07)
+
+## Generous: a wide manual grading run (a whole act, or all 24 anchors at --jobs 0) is
+## legitimately slower than the 3.5-minute serial baseline this file's docstring measures.
+## The TTL is a crash backstop for the pool, not a performance budget.
+POOL_LEASE_TTL_S = 1800.0
 
 # An anchor whose peak load never gets near capacity is not using the game's hook.
 PRESSURE_FLOOR = 0.75
@@ -50,8 +58,13 @@ def grade_all(anchor_ids: list[str], difficulties: list[str], jobs: int = 1) -> 
     work = [(i, difficulties) for i in anchor_ids]
     if jobs <= 1 or len(work) == 1:
         return [_grade_one(w) for w in work]
-    with Pool(min(jobs, len(work))) as pool:
-        return list(pool.imap(_grade_one, work))
+    # Leased so a sibling agent's `tools/reap.py --kill` spares this pool's workers
+    # instead of orphaning them mid-grade (PRC-07) — the workers fork from this process,
+    # so one lease here covers the whole pool via tools/reap.py's ancestor walk.
+    with lease.acquire("sim-run", [f"jobs={jobs}", f"anchors={len(work)}"],
+                       ttl_s=POOL_LEASE_TTL_S):
+        with Pool(min(jobs, len(work))) as pool:
+            return list(pool.imap(_grade_one, work))
 
 
 def grade_anchor(anchor, difficulties: list[str], towers=None, enemies=None) -> dict:

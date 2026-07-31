@@ -56,6 +56,8 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "tools"))
 sys.path.insert(0, str(ROOT / "tools" / "blender"))
 
+import lease                # noqa: E402  — scopes each Blender launch for tools/reap.py
+                             # (PRC-07), same tools/ directory as this file
 import reap                # noqa: E402  — same tool suite; reused rather than shelled out to
 import toolpaths            # noqa: E402
 import mask_glow            # noqa: E402  — pure Python + numpy/PIL, safe to import directly
@@ -87,23 +89,28 @@ def _run_blender(script_args: list[str], timeout: float) -> subprocess.Completed
         argv = toolpaths.blender_argv(RENDER_SCRIPT, script_args)
     except RuntimeError as exc:
         raise SystemExit(f"build: {exc}")
-    try:
-        return subprocess.run(argv, capture_output=True, text=True, cwd=str(ROOT),
-                               timeout=timeout)
-    except subprocess.TimeoutExpired as exc:
-        # subprocess.run(timeout=...) only kills the direct child. Blender under WSL
-        # interop (this machine's install is a Windows .exe — see toolpaths.py) can
-        # leave the same class of survivor tools/reap.py exists for; reap right away
-        # rather than leaving it for whoever notices the fan later.
-        procs = reap.find()
-        killed = reap._kill(procs, quiet=False) if procs else 0
-        _err(f"build: Blender timed out after {timeout:.0f}s; reaped {killed} of "
-             f"{len(procs)} stray process(es)")
-        for p in procs:
-            _err(f"  pid {p['pid']}  {p['kind']}  {p['cmd'][:120]}")
-        out = exc.stdout or ""
-        _err((out.decode(errors="replace") if isinstance(out, bytes) else out)[-2000:])
-        raise SystemExit(1)
+    # Leased so a sibling agent's `tools/reap.py --kill` spares this Blender render
+    # instead of ending it mid-build (PRC-07). Not a bounded "capture" lease — LF-116
+    # measured Godot/Xvfb specifically; Blender's own resource cost is a separate,
+    # unmeasured question, so this does not compete for tools/lease.py's capture slots.
+    with lease.acquire("blender-build", argv, ttl_s=timeout + 120.0):
+        try:
+            return subprocess.run(argv, capture_output=True, text=True, cwd=str(ROOT),
+                                   timeout=timeout)
+        except subprocess.TimeoutExpired as exc:
+            # subprocess.run(timeout=...) only kills the direct child. Blender under WSL
+            # interop (this machine's install is a Windows .exe — see toolpaths.py) can
+            # leave the same class of survivor tools/reap.py exists for; reap right away
+            # rather than leaving it for whoever notices the fan later.
+            procs = reap.find()
+            killed = reap._kill(procs, quiet=False) if procs else 0
+            _err(f"build: Blender timed out after {timeout:.0f}s; reaped {killed} of "
+                 f"{len(procs)} stray process(es)")
+            for p in procs:
+                _err(f"  pid {p['pid']}  {p['kind']}  {p['cmd'][:120]}")
+            out = exc.stdout or ""
+            _err((out.decode(errors="replace") if isinstance(out, bytes) else out)[-2000:])
+            raise SystemExit(1)
 
 
 def query_hashes(only: str | None, cell: int | None, timeout: float) -> dict:
