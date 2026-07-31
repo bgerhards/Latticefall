@@ -2642,3 +2642,64 @@ both engines.
 
 **Reopen when**: the campaign is re-graded and stable (`BAL-04`, itself gated on `LF-163`), and
 a specific play problem exists that only these solve. Not before.
+
+---
+
+## 070 — The session wrap gates at tier 2, and the gate never sits on the critical path
+
+**Date.** 2026-07-31. Closes `PRC-20` (#93), which the spec called the highest-priority item in
+the programme.
+
+**Context.** A wrap took **over thirty-two minutes** and was still not finished — roughly 20 of
+them gone with the commit and journal still outstanding. Tier 4 on that run measured
+**1,755,759 ms**, ~13 minutes of it `rules parity`. The cost was *growing because of good work*:
+parity went 864 → 1440 runs in one day because `BAL-01` and `BAL-02` added eight policies
+between them. Every policy that makes grading more truthful multiplies the matrix.
+
+**Decision. The wrap runs `--tier 2` by default, and starts it in the background before doing
+anything else.** The backlog groom, the decisions, the STATE rewrite and the journal all run
+while it does; the wrap joins before the commit, because nothing before the commit depends on
+the gate's result. Measured: full mechanical wrap **1:20.63** contended and **1:46.40** idle
+against a 5-minute target, owner-blocking bounded by the turn-end at under a minute.
+
+**The argument is not "the gate is slow", it is "the wrap is the wrong place to run it".** Work
+now lands through pull requests, each gated at tier 2 or 4 *before* it opens, with CI on top. By
+the time a wrap starts, everything on `main` has been verified once. What the wrap itself edits
+is `docs/STATE.md`, `docs/BACKLOG.md`, `docs/DECISIONS.md` and `docs/chronicle/**` — none of
+which touch rules, sim or assets. Tier 4 there is largely re-proving what the PR flow just
+proved.
+
+**It escalates itself rather than trusting the operator.** `tools/wrap_gate.py` goes to tier 4
+on `--release`, on the session's own diff touching `scripts/anchor_sim.gd`, `sim/`, `data/` or
+`assets/`, or on a parity digest cache miss for any other reason — that last one deliberately
+covers the case with no repo diff at all, because the digest includes the engine version string
+and an upgrade must invalidate it.
+
+**Rejected: keep tier 4 and make parity faster.** `PRC-19` (#85) should still right-size the
+matrix — 288 of the 1440 runs exercise one shared dispatch mechanism across all 24 anchors — but
+that is a separate saving and it does not address the actual fault. Even a parity run twice as
+fast leaves the wrap re-verifying work a gated PR already verified, and leaves the journal
+queued behind it.
+
+**Rejected: scope the escalation trigger to tracked files only**, which is `PRC-02`'s reasoning
+and the shape the backlog item proposed. It is the one place that reasoning does not transfer: a
+brand-new `sim/foo.py` or `data/anchors/anchor-25.json` is untracked at exactly the moment it
+most needs tier 4. The honest cut is by what a file can *affect* — `.import` and `.uid` sidecars
+are excluded by suffix because neither can move a rule, a wave table or a rendered pixel, and
+neither is in the parity digest.
+
+**The failure this nearly shipped as, recorded because it is the useful part.** On the tree that
+built it, `wrap_gate.py` escalated to tier 4 on *every single invocation* — 360 reasons, all of
+them Godot `.import` sidecars — so the fast wrap would never once have run. It had already been
+filed as a low-priority chore off the same observation; **invoking the tool is what showed it was
+the difference between the feature working and not existing.**
+
+**Known and not fixed here.** Tier 2 now measures 24.9–26.4 s against its own 25 s budget, and
+`LF-170` records that `check.py` times checks with `time.time()` rather than `time.monotonic()`
+and was observed reporting a *negative* 796 ms under load. A timer that can run backwards is the
+wrong instrument to sit that close to a threshold with, and `--budget` turns those numbers into
+assertions.
+
+**A fast wrap that quietly skipped verification would be strictly worse than a slow one**, so the
+tier tally stays loud: a tier-excluded check reports `skip` with a reason, is **not** a pass, and
+is named in the summary line.

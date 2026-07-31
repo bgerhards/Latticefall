@@ -1608,6 +1608,69 @@
           "text": "The practical upshot: `BAL-04` is unblocked. No grade in the current 72-cell table depends on Surge being available on demand. But it inherits no evidence either way about whether the 130-damage, 35%-falloff numbers are correctly tuned — nothing in this regrade exercised that question, because nothing in the current winner lists depends on the ability at all. “The grader has no evidence either way, because nothing depends on the ability” is what `BAL-04` actually gets handed. That is a different, and more useful, thing to hand it than either “trust it” or “don't.”"
         }
       ]
+    },
+    {
+      "id": "the-stronger-test-nobody-ran",
+      "date": "2026-07-31",
+      "time": "17:10",
+      "title": "The stronger test was the one nobody ran",
+      "summary": "PRC-18's testing audit grepped every tracked scripts/*.gd filename against every tools/*.py, scripts/test/*.gd and data/scenarios/*.json file. Sixteen scripts came back with zero references, and gamepad input had no test in any form anywhere in the project — while two scenario files already on disk pinned real numbers to four decimal places and had simply never been wired into the gate. This entry closes gamepad, save/load, the recovery draft and audio loudness, and records the session's most expensive mistake along the way: a save-isolation flag that does not exist on this Godot build, silently ignored rather than rejected, that ran a tool twice against the real shared Linux dev save before an unchanged-mtime check caught it.",
+      "tags": [
+        "PRC"
+      ],
+      "body": [
+        {
+          "type": "p",
+          "text": "PRC-18 started from a blunt, mechanical audit: grep every tracked `scripts/*.gd` filename against every `tools/*.py`, `scripts/test/*.gd` and `data/scenarios/*.json` file, as a proxy for whether anything in the verification surface ever touches that script's behaviour. Sixteen came back with zero hits — `recoveries.gd` and `draft.gd` (the between-anchor recovery draft, already flagged fragile twice by LF-065 and LF-070), `progress.gd` (save/load), `pause_menu.gd`, `audio_director.gd`, `ui_theme.gd`, `abilities.gd`, `dialog_view.gd`, `cli_args.gd` among them. Gamepad input was worse than zero references — it was zero anything: grepping Godot's own `Joypad`, `JoyButton` and `JoyMotion` identifiers across the whole project returned no hits at all, in any file, while `CLAUDE.md`'s invariant table and the PRD both state full keyboard, mouse and gamepad control as a shipped non-negotiable."
+        },
+        {
+          "type": "p",
+          "text": "The sharper part of the finding was not the empty column, it was the full one nobody read. `check_scenarios_pass` hardcoded a single path, `smoke.json`, confirmed by reading the function body. Sitting next to it on disk, unreferenced by anything: `abilities.json`, which pins `dealt = 130 * lerp(0.35, 1.0, dist/path_length) = 47.1782638888889` to four decimal places, plus `a11y-worst.json` and `lf161_edge_scroll_contained.json`. `smoke.json` says in its own note field that it is not a claim about anchor-01's balance. The stronger test was the one nobody ran."
+        },
+        {
+          "type": "h3",
+          "text": "The failure — a silent flag, a real save, twice"
+        },
+        {
+          "type": "p",
+          "text": "`--user-data-dir` is not a flag this project's Godot build recognises. Confirmed against `--help` directly, not assumed. It is also not rejected — Godot does not error on an argument shaped like a flag it does not have; it is simply never read. The first version of `tools/save_roundtrip.py` believed that flag isolated its scratch save, and it did not: the tool ran twice against the real, shared Linux dev/test save at `~/.local/share/godot/app_userdata/Latticefall/progress.json` before an unchanged-mtime check on the default location caught it. State was reconstructed as far as it could be, but some ambiguity remains, because several agents were active on the machine at the time. The owner's Windows save was checked directly and is clear — that directory has no `progress.json` at all, and only its logs folder carries a recent mtime, from the unrelated Windows parity leg of the gate."
+        },
+        {
+          "type": "p",
+          "text": "The mechanism that actually works is `XDG_DATA_HOME` set in the child process's environment, which Godot's Linux backend does honour — and, just as important, asserting the default save location's mtime is unchanged after every run, rather than trusting the isolation flag to have worked. That second half is the real lesson: the failure mode is silent and destructive, so isolation has to be checked, not assumed. Filed as LF-175, and it belongs next to `CLAUDE.md`'s existing `.godot/` cache warning — same class of mistake, same shared machine, same tree the owner plays out of. It is also the third time in this session that a silent failure has been the expensive one, after LF-166's dropped file publishing a dead link and `wrap_gate.py` escalating on every invocation making a whole feature inert without ever going red."
+        },
+        {
+          "type": "h3",
+          "text": "What landed"
+        },
+        {
+          "type": "list",
+          "items": [
+            "Loudness measurement wired into the gate at last: `sfx loudness` at tier 2 (measured 1.9–2.0 s), `music loudness` at tier 4 (85.1 s) — the module itself, a real BS.1770 integrated-LUFS implementation, landed separately and is described in the previous entry; this is the check registration that actually runs it.",
+            "One check per scenario file instead of one hardcoded path: `smoke.json` (30.7 s), `abilities.json` (15.9 s), `a11y-worst.json` (8.9 s), `lf161_edge_scroll_contained.json` (12.7 s) and the new `gamepad_build.json` (18.7 s). Split rather than looped deliberately — a loop's failure names whichever file happened to run first that iteration and buries the rest in detail text; a red run should name one thing.",
+            "Gamepad injection proved to work: `Input.parse_input_event()` with a real `InputEventJoypadButton` or `InputEventJoypadMotion` on device 0 — not the `InputEventAction`-shaped `press` verb LF-139 already proved — is matched by the InputMap and reaches `_unhandled_input()` one frame later, exactly like the keyboard path. `Input.get_connected_joypads()` stays empty throughout, so none of this needed a physical pad. A new `gamepad` scenario verb and `data/scenarios/gamepad_build.json` drive cursor, build and select entirely through synthetic device-0 events.",
+            "A real collision surfaced building that scenario, previously invisible: `lf_build` and `lf_confirm` share the same device-0 button-0 binding, and `dialog_view.gd` deliberately swallows it while the boot brief is on screen, so the button that advances a dialog line does not also place an emplacement. The scenario now pages through the dialog by gamepad first, matching what a real player on a controller actually has to do before reaching the board.",
+            "Save/load round trip, `tools/save_roundtrip.py`, driving `draft.gd` through two separate Godot processes sharing an isolated save location — proving persistence across process death, not merely in-memory state. Tier 3, ~9.6–10.8 s. Closes the verification half of LF-065.",
+            "Every one of the above was proved red before it was trusted: a broken assertion planted in `abilities.json`, `a11y-worst.json`, `lf161_edge_scroll_contained.json` and the gamepad scenario each failed naming the exact expression and file; the loudness checks failed against ±20 dB and +12 dB gain-shifted scratch copies; the save round trip failed, naming the exact field mismatch, when the second launch was pointed at a different scratch directory than the first."
+          ]
+        },
+        {
+          "type": "h3",
+          "text": "The honest cost"
+        },
+        {
+          "type": "p",
+          "text": "Tier 3 grew from a claimed ~66 s to a measured ~182 s — roughly three minutes. That is the real price of running scenarios that already existed on disk. It stayed at tier 3 rather than moving to tier 4 on purpose: there is no tier in between, and pushing it to nightly would hide a PR-time coverage regression until then, which is the exact class of gap this issue exists to close."
+        },
+        {
+          "type": "p",
+          "text": "Tier 2's budget moved 25,000 → 28,000 ms. `sfx loudness` cost only about 2 seconds, but a real tier-2 run measured 27.8 s afterward — over the old budget. That is marginal creep, not the doubling `--budget` exists to catch, but raising a threshold to fit a measurement is exactly the move this project is normally suspicious of, so it is worth saying plainly rather than letting it pass unremarked. It sits alongside LF-170, which found `check.py`'s own timing checks using `time.time()` and reporting a negative 796 ms elapsed under load."
+        },
+        {
+          "type": "p",
+          "text": "Twelve of the sixteen originally-named zero-coverage scripts are still uncovered: `pause_menu.gd`, `audio_director.gd`, `ui_theme.gd` and `cli_args.gd` entirely; `dialog_view.gd` and `abilities.gd` only partially, as a side effect of this PR's own scenarios. Filed as LF-174 rather than left to quietly stay at zero with no record anyone looked."
+        }
+      ]
     }
   ]
 }

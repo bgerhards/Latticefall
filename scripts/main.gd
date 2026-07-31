@@ -466,6 +466,37 @@ func _dispatch_action_press(action: String) -> void:
 	Input.parse_input_event(press)
 
 
+## PRC-18: the `gamepad` scenario verb. `_dispatch_action_press()` above synthesizes an
+## `InputEventAction` — already action-shaped, so it proves `Input.parse_input_event()`
+## reaches every node's `_unhandled_input()` (LF-139) but says nothing about whether a
+## genuinely DEVICE-shaped event (what a real controller actually produces) is matched
+## against `project.godot`'s `[input]` bindings the same way. Probed standalone first
+## (`--script`, no scene tree) before wiring this in: a synthetic `InputEventJoypadButton`/
+## `InputEventJoypadMotion` on device 0 is recognised by `Input.is_action_pressed()` one
+## frame after `parse_input_event()` — same one-frame queueing delay `press`/`cursor`
+## already have (see that doc above) — and `Input.get_connected_joypads()` stayed EMPTY
+## throughout, i.e. the InputMap matches a synthetic event by device index/button/axis
+## regardless of whether a physical pad is attached. `device` is always 0, matching every
+## `lf_*` gamepad binding in `project.godot`.
+func _dispatch_gamepad_event(args: Array) -> void:
+	var kind := String(args[0])
+	if kind == "button":
+		var btn := InputEventJoypadButton.new()
+		btn.device = 0
+		btn.button_index = int(args[1])
+		btn.pressed = true
+		Input.parse_input_event(btn)
+	elif kind == "axis":
+		var mot := InputEventJoypadMotion.new()
+		mot.device = 0
+		mot.axis = int(args[1])
+		mot.axis_value = float(args[2]) if args.size() > 2 else 1.0
+		Input.parse_input_event(mot)
+	else:
+		push_error("scenario: gamepad action has unknown kind %s (want button|axis)" % kind)
+	print("GAMEPAD frame=%d kind=%s args=%s" % [_frame, kind, str(args)])
+
+
 func _bed_for(aid: String) -> String:
 	var act := int(Content.anchor(aid).get("act", 1))
 	match act:
@@ -862,6 +893,11 @@ func _run_scenario_action(verb: String, args: Array) -> void:
 			# `--press-at` now does.
 			_dispatch_action_press(String(args[0]))
 			print("PRESS-AT frame=%d action=%s" % [_frame, String(args[0])])
+		"gamepad":
+			# PRC-18: unlike `press` above (action-shaped InputEventAction), this synthesizes
+			# a real device-shaped InputEventJoypadButton/InputEventJoypadMotion — see
+			# _dispatch_gamepad_event()'s own doc for why that distinction is the point.
+			_dispatch_gamepad_event(args)
 		"ability":
 			_fire_ability_at(String(args[0]))
 		"speed":
