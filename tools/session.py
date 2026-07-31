@@ -43,6 +43,26 @@ def _parse_gate(out: str) -> tuple[str, list[str]]:
     return summary, lines
 
 
+def _render_gate_json(doc: dict) -> tuple[str, list[str]]:
+    """The same (summary, per-check lines) shape `_parse_gate` scrapes from human text, but
+    built from a `tools/check.py --json` document instead — see PRC-03. Structured data
+    means the block does not need `_parse_gate`'s caveats: real per-check `ms`, a real
+    `status`, and the check's *full* detail rather than whatever line happened to start with
+    `[`.
+    """
+    mark = {"ok": "  ok  ", "FAIL": " FAIL ", "skip": " skip "}
+    lines = []
+    for c in doc.get("checks", []):
+        detail_lines = (c.get("detail") or "").splitlines()
+        first = detail_lines[0] if detail_lines else ""
+        lines.append(f"[{mark.get(c['status'], c['status'])}] {c['name']:<20s} "
+                     f"{c['ms']:6.0f}ms  {first}")
+        if c["status"] == "FAIL":
+            lines += [f"           {l}" for l in detail_lines[1:]]
+    summary = doc.get("summary", {}).get("text") or "unknown"
+    return summary, lines
+
+
 def gate(no_window: bool = False, gate_from: Path | None = None) -> tuple[str, list[str]]:
     """The gate's per-check lines for the STATE block, run now or read from a saved run.
 
@@ -52,6 +72,13 @@ def gate(no_window: bool = False, gate_from: Path | None = None) -> tuple[str, l
     gate's output and hand it over instead. Pipe it through `python -u`, or the block
     buffering on a redirected stdout means the file is empty until the run ends.
 
+    `gate_from` may point at either a `tools/check.py --json` artefact or the older saved
+    stdout of a plain run — JSON is tried first and preferred when it parses as this file's
+    schema. The old text-scrape path is a *loose* read of whatever line happened to start
+    with `[`, which is why its result carried the "(from gate.txt, not re-run)" hedge; the
+    JSON path is the run's own structured record, so nothing is being hedged and the caveat
+    is dropped. The text path remains for any artefact saved before this existed.
+
     `no_window` forwards `--no-window`, which is not cosmetic: three checks open a real
     Godot window on whoever's desktop this runs on, and macOS stalls a window it thinks is
     occluded — so regenerating STATE while somebody is using the machine both interrupts
@@ -60,8 +87,15 @@ def gate(no_window: bool = False, gate_from: Path | None = None) -> tuple[str, l
     18 green.
     """
     if gate_from is not None:
-        out = gate_from.read_text()
-        summary, lines = _parse_gate(out)
+        text = gate_from.read_text()
+        doc = None
+        try:
+            doc = json.loads(text)
+        except json.JSONDecodeError:
+            doc = None
+        if isinstance(doc, dict) and doc.get("schema") == "latticefall-gate":
+            return _render_gate_json(doc)
+        summary, lines = _parse_gate(text)
         return summary + f"   (from {gate_from.name}, not re-run)", lines
 
     cmd = [sys.executable, "-u", str(ROOT / "tools" / "check.py")]
@@ -168,7 +202,9 @@ def main() -> int:
     ap.add_argument("--print", action="store_true", dest="show")
     ap.add_argument("--gate-from", type=Path, metavar="FILE",
                     help="read a saved gate run instead of re-running it. The wrap runs the "
-                         "gate already; without this the block costs a second parity run.")
+                         "gate already; without this the block costs a second parity run. "
+                         "Accepts a tools/check.py --json artefact (preferred: structured, "
+                         "no hedging in the block) or the older saved stdout of a plain run.")
     ap.add_argument("--no-window", action="store_true",
                     help="forward --no-window to the gate: skip the three checks that\nopen a real Godot window. Use when somebody is working on this machine.")
     args = ap.parse_args()

@@ -60,6 +60,9 @@ docs/            STATE, BACKLOG, DECISIONS, NOMENCLATURE, STORY
 .venv/bin/python tools/reap.py                     # what of ours is still running
 .venv/bin/python tools/reap.py --kill              # kill it. run at every wrap.
 .venv/bin/python tools/check.py                    # the gate. run before every commit.
+.venv/bin/python tools/check.py --json /tmp/g.json # same run, machine-readable
+.venv/bin/python tools/gate_report.py /tmp/g.json  # render that as a markdown table
+.venv/bin/python tools/validate/gdscript.py        # parse every .gd, without the full gate
 .venv/bin/python tools/backlog.py add "..." --kind bug --area audio
 .venv/bin/python tools/validate/validate_data.py   # schemas + cross-references
 .venv/bin/python tools/density.py                  # units, leak, hp, drain and screen
@@ -149,7 +152,28 @@ one measured pivot serves every sprite only because every cell is identical, and
 would reintroduce LF-027.
 
 `tools/check.py` is the single gate: schema validation, data cross-references, sim
-determinism, asset manifest integrity, Python syntax. **If it fails, do not commit.**
+determinism, asset manifest integrity, Python **and GDScript** syntax. **If it fails, do not
+commit.**
+
+**The gate enumerates files with `git ls-files`, never `rglob`.** A denylist of directories
+to skip rots — it already produced six false nomenclature hits off an agent worktree under
+`.claude/` (LF-051) — whereas "tracked in this repository" is the definition of the thing the
+check means. It is also 45 seconds faster on WSL2, where every `stat` crosses a filesystem
+boundary: banned terms alone went from 31.9 s to 1.4 s. `addons/` is excluded from the
+nomenclature scan as a pathspec, because vendored third-party code is not our naming and a
+red run nobody can act on is worse than no check.
+
+**`gdscript parses` runs before `godot boots`, and that order is the point.** A GDScript
+parse error is a hang or a blank frame, never an error at the failure site, so `godot boots`
+reports it as something else entirely; the parse check names the file and line. It sits in
+`tools/validate/gdscript.py`, launches one `--check-only` per script concurrently (31 scripts
+in under two seconds), and filters the spurious "Identifier not found" that autoloads produce
+when a script is checked in isolation.
+
+**`--json [PATH]` makes the gate machine-readable.** `tools/gate_report.py` renders it as a
+table for a PR comment, and `tools/session.py` prefers the JSON artefact over scraping the
+human output, which is how `docs/STATE.md`'s gate block stops carrying a "not re-run" caveat.
+The human output is byte-identical whether or not `--json` is passed.
 
 **Grading is parallel; nothing else about it changed.** The sim has no RNG and no shared
 state, so `--jobs` on `sim/run.py` and `tools/sweep.py` buys wall-clock and returns the

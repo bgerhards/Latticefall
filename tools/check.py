@@ -11,6 +11,31 @@ passing silently. A green run that quietly skipped half the suite is worse than 
 
     .venv/bin/python tools/check.py
     .venv/bin/python tools/check.py --list
+    .venv/bin/python tools/check.py --json /tmp/gate.json   # machine-readable, human table too
+    .venv/bin/python tools/check.py --json                  # machine-readable to stdout only
+
+`--json`'s shape, for `tools/session.py` and `tools/gate_report.py` (and eventually CI —
+there is no `.github/` directory yet):
+
+    {
+      "schema": "latticefall-gate", "version": 1,
+      "started_at": "<UTC ISO 8601>", "duration_ms": <float>,
+      "root_commit": "<sha or null>", "dirty": <bool>,
+      "tier": null,                        # reserved; no tiering exists yet
+      "checks": [
+        {"name": str, "status": "ok"|"FAIL"|"skip", "ms": float, "detail": str,
+         "skipped_reason": null|"subsystem"|"flag"|"cached"}, ...
+      ],
+      "summary": {"passed": int, "failed": int, "skipped": int, "skipped_by_flag": int,
+                  "total": int, "duration_ms": float, "text": "<the printed tally line>"}
+    }
+
+`detail` carries the check's *full* multi-line detail, not just the first line the human
+table prints — a PR comment needs all of it. `skipped_reason` exists because a skip because
+a subsystem does not exist yet is not the same claim as a skip because `--no-window` was
+passed, and the plain exit code cannot tell them apart; `--json` with no path still runs the
+three rendered checks (only `--no-window` skips them) — a JSON run that quietly skipped half
+the suite would be exactly the failure mode this whole file exists to prevent.
 """
 
 from __future__ import annotations
@@ -22,6 +47,7 @@ import py_compile
 import subprocess
 import sys
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -34,8 +60,9 @@ OK, FAIL, SKIP = "ok", "FAIL", "skip"
 
 
 class Result:
-    def __init__(self, status: str, detail: str = "") -> None:
-        self.status, self.detail = status, detail
+    def __init__(self, status: str, detail: str = "",
+                 skipped_reason: str | None = None) -> None:
+        self.status, self.detail, self.skipped_reason = status, detail, skipped_reason
 
 
 ## Every subprocess the gate starts is bounded, because an unbounded one is not a slow
@@ -50,6 +77,40 @@ DEFAULT_TIMEOUT = 300.0
 ## about eleven minutes, so it gets its own ceiling rather than dragging the default up.
 PARITY_TIMEOUT = 1800.0
 TIMED_OUT = 124                       # conventional shell exit code for a timeout
+
+
+def tracked(*globs: str) -> list[Path]:
+    """Every file this repo tracks matching `globs`, as absolute paths under ROOT.
+
+    Shells `git ls-files -z -- <globs>` and splits on `\\0`: this repo's paths are not
+    guaranteed free of spaces (docs/ filenames especially, even though today's aren't), and
+    newline-splitting is the classic way this kind of helper breaks silently.
+
+    `git ls-files` is "in this repository, right now" — untracked scratch files, build
+    output, and agent worktrees under `.claude/` never show up. That is what closes LF-051: a
+    worktree carrying its own copy of `docs/NOMENCLATURE.md` scored six false hits against a
+    hand-maintained `SKIP_DIRS` denylist, because `rglob` cannot tell "a second checkout of
+    this repo" from "this repo". `git ls-files` needs no such list — a file has to be tracked
+    to be seen at all, so the false positive is structurally impossible rather than denied.
+
+    Falls back to the old `rglob` walk, filtered the same way `SKIP_DIRS` used to filter it,
+    when this is not a git checkout at all (an export tarball) — so the gate still runs
+    rather than crashing on `git`'s nonzero exit.
+
+    A path `git ls-files` names but that is missing from the working tree (a staged deletion,
+    or an index that briefly disagrees with disk) is dropped rather than handed to a caller
+    that will `read_text()` it and turn "one file was deleted" into "check itself raised".
+    """
+    if not (ROOT / ".git").exists():
+        FALLBACK_SKIP_DIRS = {".venv", "addons", ".godot", ".claude"}
+        out: list[Path] = []
+        for g in globs:
+            out += [p for p in ROOT.rglob(g) if not FALLBACK_SKIP_DIRS.intersection(p.parts)]
+        return sorted(set(out))
+    r = subprocess.run(["git", "ls-files", "-z", "--", *globs],
+                       capture_output=True, text=True, cwd=str(ROOT))
+    paths = (ROOT / p for p in r.stdout.split("\0") if p)
+    return sorted(p for p in paths if p.exists())
 
 
 def run(*args: str, timeout: float = DEFAULT_TIMEOUT) -> subprocess.CompletedProcess:
@@ -80,8 +141,7 @@ def run(*args: str, timeout: float = DEFAULT_TIMEOUT) -> subprocess.CompletedPro
 # ─────────────────────────────────────────────────────────────── checks ──
 
 def check_python_syntax() -> Result:
-    files = [p for p in ROOT.rglob("*.py")
-             if ".venv" not in p.parts and "addons" not in p.parts]
+    files = tracked("*.py")
     bad = []
     for p in files:
         try:
@@ -266,15 +326,14 @@ def check_sprite_coverage() -> Result:
 
 
 def check_json_parses() -> Result:
+    files = tracked("*.json")
     bad = []
-    for p in ROOT.rglob("*.json"):
-        if ".venv" in p.parts or "addons" in p.parts or ".godot" in p.parts:
-            continue
+    for p in files:
         try:
             json.loads(p.read_text())
         except Exception as e:
             bad.append(f"{p.relative_to(ROOT)}: {e}")
-    return Result(FAIL, "\n".join(bad)) if bad else Result(OK)
+    return Result(FAIL, "\n".join(bad)) if bad else Result(OK, f"{len(files)} files")
 
 
 def check_sfx_reproducible() -> Result:
@@ -379,13 +438,19 @@ def check_banned_terms() -> Result:
     banned = ["stargate", "goa'uld", "jaffa", "naquadah", "tok'ra", "ha'tak",
               "asgard", "chevron", "dial-home", "zero point module", "kawoosh"]
     hits = []
-    # `.claude` holds agent worktrees — a second checkout of this repo, nomenclature bible
-    # included, which the exact-path exemption below does not recognise and which therefore
-    # failed the gate with six hits against a file that is the authority on those terms.
-    SKIP_DIRS = {".venv", "addons", ".godot", ".claude"}
-    scan = [p for p in list(ROOT.rglob("*.py")) + list(ROOT.rglob("*.json"))
-            + list(ROOT.rglob("*.gd")) + list(ROOT.rglob("*.md"))
-            if not SKIP_DIRS.intersection(p.parts) and p != nom]
+    # `.claude` used to hold agent worktrees — a second checkout of this repo, nomenclature
+    # bible included, which the exact-path exemption below does not recognise and which
+    # therefore failed the gate with six false hits against a file that is the authority on
+    # those terms (LF-051). That was fixed with a hand-maintained SKIP_DIRS denylist; `git
+    # ls-files` makes the false positive structurally impossible instead — an untracked
+    # worktree is never "in this repository" to begin with, so there is nothing left to deny.
+    # `addons/` is excluded as a pathspec rather than as a denylist entry, and the distinction
+    # matters: this is not "a directory we forgot to skip", it is third-party code this project
+    # did not author and could not fix if it ever did hit. The check exists to police OUR
+    # naming — a vendored plugin turning the gate red for a word in someone else's source is a
+    # red run nobody can act on. 121 tracked files, 0 hits today; the risk is the next upgrade.
+    scan = [p for p in tracked("*.py", "*.json", "*.gd", "*.md", ":(exclude)addons/**")
+            if p != nom]
     for p in scan:
         try:
             text = p.read_text(errors="ignore")
@@ -411,6 +476,48 @@ def check_sim() -> Result:
     if a.stdout != b.stdout:
         return Result(FAIL, "same seed produced different output — sim is not deterministic")
     return Result(OK, "deterministic")
+
+
+def check_gdscript_parses() -> Result:
+    """Parse-check every tracked GDScript file in isolation. See `tools/validate/gdscript.py`
+    for the why: a parse error here is a hang or a blank frame with no error at the failure
+    site, never an obvious crash, and `godot boots` below only greps stdout for whatever the
+    *main scene* happens to load — this catches `draft.gd`, `options_menu.gd`,
+    `scripts/test/*.gd`, everything `godot boots` cannot see. Placed before `godot boots` so
+    the specific failure is reported before the vague one.
+
+    Not a lint, and not a `class_name`-visibility check — see that module's docstring for
+    what a clean run here does and does not prove.
+    """
+    if toolpaths.godot() is None:
+        return Result(SKIP, "godot not installed")
+
+    sys.path.insert(0, str(ROOT / "tools" / "validate"))
+    import gdscript                                            # noqa: PLC0415
+    from concurrent.futures import ThreadPoolExecutor          # noqa: PLC0415
+
+    files = gdscript.tracked_gd_files()
+    autoloads = gdscript.parse_project_autoloads(ROOT / "project.godot")
+
+    def runner(*argv: str) -> subprocess.CompletedProcess:
+        # Routed through this file's own bounded run(), not gdscript.py's plain
+        # subprocess.run default — a wedged Godot here is a red run, not a silent wait
+        # (LF-061 precedent), and reap.py only fires on an actual timeout.
+        return run(*argv, timeout=30.0)
+
+    bad: dict[str, list[str]] = {}
+    with ThreadPoolExecutor(max_workers=8) as ex:
+        futs = {ex.submit(gdscript.check_file, p, autoloads, runner): p for p in files}
+        for fut in futs:
+            p = futs[fut]
+            diags = fut.result()
+            if diags:
+                bad[str(p.relative_to(ROOT))] = diags
+
+    if bad:
+        lines = [d for _, diags in sorted(bad.items()) for d in diags]
+        return Result(FAIL, "\n".join(lines))
+    return Result(OK, f"{len(files)} scripts parse clean")
 
 
 def check_godot_boots() -> Result:
@@ -704,12 +811,27 @@ CHECKS = [
     ("backlog rendered",  check_backlog_rendered),
     ("agent models",      check_agent_models),
     ("sim determinism",   check_sim),
+    ("gdscript parses",   check_gdscript_parses),
     ("godot boots",       check_godot_boots),
     ("game renders",      check_game_renders),
     ("menu renders",      check_menu_renders),
     ("accessibility",     check_accessibility),
     ("rules parity",      check_rules_parity),
 ]
+
+
+def _git_line(*args: str) -> str:
+    """One trimmed line of `git <args>`, or "" — used only for the JSON artefact's
+    provenance fields, never for anything a check's pass/fail depends on."""
+    r = subprocess.run(["git", *args], capture_output=True, text=True, cwd=str(ROOT))
+    return r.stdout.strip()
+
+
+# A run passed with no explicit --json still asks for it, so with-no-value ("--json" alone,
+# meaning "stdout, and suppress the human table") is distinguishable from "not passed at
+# all" (default None, meaning "no JSON, nothing changes"). argparse's own None default
+# already means "flag absent"; this sentinel is what "flag present, no path" parses to.
+_JSON_STDOUT = "-"
 
 
 def main() -> int:
@@ -723,6 +845,12 @@ def main() -> int:
                          "gate after rules parity. Reach for this when you want the fast "
                          "gate, not because anything about the full run disturbs anyone."
                          % ", ".join(sorted(RENDERED)))
+    ap.add_argument("--json", nargs="?", const=_JSON_STDOUT, default=None, metavar="PATH",
+                    help="emit a machine-readable gate result (see module docstring for the "
+                         "schema). With no PATH, JSON goes to stdout and the human table is "
+                         "suppressed. With PATH, JSON is written there AND the human table "
+                         "still prints to stdout — CI wants the file, a human running this "
+                         "by hand still wants the table. Never implies --no-window.")
     args = ap.parse_args()
 
     if args.list:
@@ -730,40 +858,88 @@ def main() -> int:
             print(name + ("  [renders a frame]" if name in RENDERED else ""))
         return 0
 
+    emit_json = args.json is not None
+    json_to_stdout = args.json == _JSON_STDOUT
+    json_path = Path(args.json) if (emit_json and not json_to_stdout) else None
+    # Suppress the human table only when JSON is the *sole* output (no path given). A run
+    # that also wrote a file keeps the table — that is what "write both" means.
+    quiet = json_to_stdout
+
+    started_at = datetime.now(timezone.utc).isoformat()
     failed = skipped = by_flag = 0
     t0 = time.time()
+    records: list[dict] = []
     for name, fn in CHECKS:
         start = time.time()
         try:
             if args.no_window and name in RENDERED:
                 res = Result(SKIP, "skipped by --no-window (speed option; capture is "
-                                   "invisible either way)")
+                                   "invisible either way)", skipped_reason="flag")
                 by_flag += 1
             else:
                 res = fn()
+                # Every other SKIP in this file is a fact about the project (a subsystem
+                # that does not exist yet), not a choice about this run — set the reason
+                # here, once, rather than touching every check function that returns SKIP.
+                if res.status == SKIP and res.skipped_reason is None:
+                    res.skipped_reason = "subsystem"
         except Exception as e:
             res = Result(FAIL, f"check itself raised: {type(e).__name__}: {e}")
         ms = (time.time() - start) * 1000
         mark = {OK: "  ok  ", FAIL: " FAIL ", SKIP: " skip "}[res.status]
-        print(f"[{mark}] {name:<20s} {ms:6.0f}ms  {res.detail.splitlines()[0] if res.detail else ''}")
+        if not quiet:
+            print(f"[{mark}] {name:<20s} {ms:6.0f}ms  "
+                  f"{res.detail.splitlines()[0] if res.detail else ''}")
         if res.status == FAIL:
             failed += 1
-            for line in res.detail.splitlines()[1:]:
-                print(f"           {line}")
+            if not quiet:
+                for line in res.detail.splitlines()[1:]:
+                    print(f"           {line}")
         elif res.status == SKIP:
             skipped += 1
+        records.append({"name": name, "status": res.status, "ms": round(ms, 1),
+                        "detail": res.detail, "skipped_reason": res.skipped_reason})
 
     total = (time.time() - t0) * 1000
-    print(f"\n{len(CHECKS) - failed - skipped} passed · {failed} failed · "
-          f"{skipped} skipped · {total:.0f}ms")
-    # The two reasons a check can skip are not the same claim and must not share a line: a
-    # missing subsystem is a fact about the project, --no-window is a choice about this run.
-    if skipped > by_flag:
-        print("skipped checks are not passes — the subsystem does not exist yet")
-    if by_flag:
-        print(f"--no-window skipped {by_flag} rendered check(s): they did NOT run and are "
-              f"NOT passes. Run the full gate before committing anything that touches the "
-              f"interface, the board or a sprite.")
+    summary_line = (f"{len(CHECKS) - failed - skipped} passed · {failed} failed · "
+                    f"{skipped} skipped · {total:.0f}ms")
+    if not quiet:
+        print(f"\n{summary_line}")
+        # The two reasons a check can skip are not the same claim and must not share a
+        # line: a missing subsystem is a fact about the project, --no-window is a choice
+        # about this run.
+        if skipped > by_flag:
+            print("skipped checks are not passes — the subsystem does not exist yet")
+        if by_flag:
+            print(f"--no-window skipped {by_flag} rendered check(s): they did NOT run and "
+                  f"are NOT passes. Run the full gate before committing anything that "
+                  f"touches the interface, the board or a sprite.")
+
+    if emit_json:
+        doc = {
+            "schema": "latticefall-gate",
+            "version": 1,
+            "started_at": started_at,
+            "duration_ms": round(total, 1),
+            "root_commit": _git_line("rev-parse", "HEAD") or None,
+            # A fresh CI checkout can report clean even when the workflow patched files in
+            # first — see module docstring's caller, tools/gate_report.py: do not treat
+            # False here as proof of anything.
+            "dirty": bool(_git_line("status", "--porcelain")),
+            "tier": None,          # reserved for {{PRC-04}}'s tier budgets; none exist yet
+            "checks": records,
+            "summary": {
+                "passed": len(CHECKS) - failed - skipped, "failed": failed,
+                "skipped": skipped, "skipped_by_flag": by_flag, "total": len(CHECKS),
+                "duration_ms": round(total, 1), "text": summary_line,
+            },
+        }
+        text = json.dumps(doc, indent=2)
+        if json_path is not None:
+            json_path.write_text(text + "\n")
+        if json_to_stdout:
+            print(text)
+
     return 1 if failed else 0
 
 

@@ -10,6 +10,18 @@
           }
         ]
       }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd \"$CLAUDE_PROJECT_DIR\" && .venv/bin/python -c \"import json,sys,subprocess; d=json.load(sys.stdin); p=d.get('tool_input',{}).get('file_path',''); (p.endswith('.gd') and subprocess.run(['.venv/bin/python','tools/validate/gdscript.py',p]))\"",
+            "timeout": 30
+          }
+        ]
+      }
     ]
   }
 }
