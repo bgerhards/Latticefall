@@ -68,11 +68,36 @@ var _build_ids: Array[String] = []
 var _speed_cli: float = 0.0
 ## `-- --ability <id>` (repeatable) skips its charge/cooldown and fires it immediately —
 ## overcharge active, shutter down, a surge with something in front of it to hit are all
-## otherwise unreachable at --fixed-fps.
+## otherwise unreachable at --fixed-fps. Fires at boot, frame 0, before anything has spawned
+## — see `--ability-at` below for firing into a wave that is actually on the board.
 var _ability_ids: Array = []
+## `-- --ability-at <frame> <id>` (repeatable) fires an ability at a chosen main.gd process
+## frame instead of at boot, so it can land on a wave that is actually live — the frame count
+## is the same counter `--shot <path> <frame>` captures against, so the fired frame is
+## reproducible from the number alone (LF-028). Diagnostics print before/after state so a
+## screenshot is never the only evidence: see `_fire_ability_at()`.
+var _ability_at: Array = []      ## [{frame:int, id:String, fired:bool}]
+## `-- --press-at <frame> <action>` (repeatable) dispatches one `lf_*` action press at a
+## chosen frame — the general form of `--cursor`'s boot-only `lf_right` presses, for actions
+## that need to land mid-run: `lf_target` to cycle targeting priority on the `--select`ed
+## emplacement, `lf_call_wave` to skip prep once a wave is actually in prep. Repeat it at the
+## same frame to press the same action more than once (e.g. three `lf_target` presses to
+## reach "weakest" from the "first" default).
+var _press_at: Array = []        ## [{frame:int, action:String, fired:bool}]
 ## `-- --chain N` sets the kill-chain streak directly — a real N-kill streak needs N kills
 ## inside chain_window_s of each other, which nothing at --fixed-fps can produce on its own.
 var _chain_cli: int = 0
+
+## Verification-only bookkeeping for `--ability-at`: how long after a fire to keep printing
+## `ABILITY-LIVE` samples (bus load, shots/sec, shutter queue) — long enough to cover
+## overcharge's 7s duration and shutter's 5s at real time, with margin.
+const ABILITY_LIVE_WINDOW_FRAMES: int = 600
+var _last_ability_fire_frame: int = -ABILITY_LIVE_WINDOW_FRAMES - 1
+## Rolling window for the shots/sec sample in ABILITY-LIVE, populated only when
+## `--ability-at` is in play (see _ready()) — this is the only thing that reads sim.shot_fired
+## in this file, and it is a pure counter, never a rule.
+const RATE_WINDOW_S: float = 1.0
+var _shot_times: Array[float] = []
 
 const MENU_SCENE := "res://scenes/menu.tscn"
 
@@ -90,6 +115,17 @@ func _ready() -> void:
     view.boot(anchor_id, difficulty)
     hud.bind(view)
     dialog.bind(view)
+    # Verification-only: dialog_view.gd already connects this to show the line on screen, but
+    # nothing prints that a trigger actually fired — several of them (first-leak, low-lives,
+    # wards-half/full, wave-called, chain-high) had never been observed to fire at all. A
+    # second listener on the same signal is exactly as safe as dialog_view.gd's own — the
+    # signal is public and multi-listener by design — and costs one line per trigger, ever
+    # (each fires once; see AnchorView._fire()).
+    view.dialog_trigger.connect(_on_dialog_trigger)
+    # Only when `--ability-at` is in play: feeds ABILITY-LIVE's shots-per-second sample.
+    # Guarded so an ordinary run (the CLI array empty) never even connects the listener.
+    if not _ability_at.is_empty() and view.sim != null:
+        view.sim.shot_fired.connect(_on_shot_fired_debug)
 
     Audio.music(_bed_for(anchor_id))
     if _autoplay:
@@ -194,6 +230,12 @@ func _setup_cli() -> void:
             "--ability":
                 if i + 1 < argv.size():
                     _ability_ids.append(argv[i + 1])
+            "--ability-at":
+                if i + 2 < argv.size() and argv[i + 1].is_valid_int():
+                    _ability_at.append({"frame": int(argv[i + 1]), "id": argv[i + 2], "fired": false})
+            "--press-at":
+                if i + 2 < argv.size() and argv[i + 1].is_valid_int():
+                    _press_at.append({"frame": int(argv[i + 1]), "action": argv[i + 2], "fired": false})
             "--chain":
                 if i + 1 < argv.size() and argv[i + 1].is_valid_int():
                     _chain_cli = int(argv[i + 1])
@@ -254,9 +296,21 @@ const SHOT_WARMUP_FRAMES: int = 3
 
 
 func _process(_delta: float) -> void:
-    if _shot_path == "" or _shot_taken:
+    if _shot_taken:
         return
     _frame += 1
+    # Scheduled verification hooks run every frame regardless of whether a shot was
+    # requested — both are no-ops (empty arrays) unless `--ability-at` or `--press-at` was
+    # passed on the command line, so this changes nothing about a normal run or an ordinary
+    # `--shot`.
+    _process_ability_schedule()
+    _process_press_schedule()
+    if _frame - _last_ability_fire_frame >= 0 \
+            and _frame - _last_ability_fire_frame <= ABILITY_LIVE_WINDOW_FRAMES \
+            and _frame % 15 == 0:
+        _dump_ability_live()
+    if _shot_path == "":
+        return
     # Draw only the frames that end up in the PNG.
     #
     # A capture at frame 1800 used to *render* 1800 frames to keep the 1800th. Nothing reads
@@ -291,9 +345,14 @@ func _process(_delta: float) -> void:
         print("FRAME coverage=%.4f distinct=%d" % [stats["coverage"], stats["distinct"]])
         # What the sim actually reached by this frame. A screenshot is only evidence
         # if the state it captured is known and repeatable — see LF-028.
-        print("STATE frame=%d sim_t=%.3f wave=%d phase=%s lives=%d leaks=%d"
+        print("STATE frame=%d sim_t=%.3f wave=%d phase=%s lives=%d leaks=%d funds=%d"
             % [_frame, view.sim_time(), view.wave_number(), view.phase(),
-               view.sim.lives, view.sim.leaks])
+               view.sim.lives, view.sim.leaks, view.sim.funds])
+        print("BUS load=%.1f cap=%.1f draw=%.1f penalty=%.3f overcharge=%s shutter=%s shutter_queue=%d"
+            % [view.sim.bus_load(), view.sim.capacity(), view.sim.online_draw(),
+               view.sim.penalty_now(), view.sim.overcharge_active, view.sim.shutter_active,
+               view.shutter_queue_size()])
+        _dump_veterancy()
         print("AUDIO %s" % Audio.report())
         if _dump_facings:
             for d in view.drawables():
@@ -336,6 +395,191 @@ func _on_state_changed() -> void:
     _recorded = true
     Progress.mark_cleared(anchor_id, difficulty, view.sim.lives)
     print("CLEARED %s %s lives=%d" % [anchor_id, difficulty, view.sim.lives])
+
+
+func _on_dialog_trigger(trigger: String) -> void:
+    ## Verification-only print, see the connection in _ready(). Every trigger the game fires
+    ## goes through AnchorView._fire(), so this one line covers first-leak, low-lives,
+    ## wards-half, wards-full, wave-called, chain-high, brownout, surge-ready and every
+    ## *-first cue without a bespoke hook per trigger.
+    print("DIALOG-TRIGGER %s frame=%d sim_t=%.3f" % [trigger, _frame, view.sim_time()])
+
+
+func _process_ability_schedule() -> void:
+    if _ability_at.is_empty() or view == null or view.sim == null:
+        return
+    for entry in _ability_at:
+        if bool(entry.get("fired", false)) or int(entry["frame"]) != _frame:
+            continue
+        entry["fired"] = true
+        _fire_ability_at(String(entry["id"]))
+
+
+func _fire_ability_at(id: String) -> void:
+    ## `--ability-at <frame> <id>`: force the ability ready (same skip `--ability` already
+    ## uses — abilities.gd's force_ready(), the sanctioned way to reach a state that needs
+    ## real charge/cooldown time nothing at --fixed-fps can produce) and fire it at a chosen,
+    ## reproducible frame instead of at boot. Prints enough state before and after that the
+    ## claims in data/tuning.json's own notes are checkable from the log alone: surge's
+    ## falloff (full at the ring, falloff_min at the mouth) and its pushback, and the bus
+    ## numbers overcharge/shutter actually move.
+    if view.abilities == null:
+        push_warning("main: --ability-at %s has no AbilityState to fire" % id)
+        return
+    var pre_load: float = view.sim.bus_load()
+    var pre_cap: float = view.sim.capacity()
+    var pre_draw: float = view.sim.online_draw()
+    var pre_penalty: float = view.sim.penalty_now()
+    print("ABILITY-AT id=%s frame=%d sim_t=%.3f load=%.1f cap=%.1f draw=%.1f penalty=%.3f"
+        % [id, _frame, view.sim_time(), pre_load, pre_cap, pre_draw, pre_penalty])
+
+    var before: Array = []
+    if id == "surge":
+        for i in range(view.sim.units.size()):
+            var u: Dictionary = view.sim.units[i]
+            if bool(u["alive"]):
+                before.append({
+                    "i": i, "kind": String(u["kind"]["id"]),
+                    "dist": float(u["dist"]), "hp": float(u["hp"]),
+                    "shielded": bool(u["kind"].get("shielded", false)),
+                    "armour": float(u["kind"].get("armour", 0.0)),
+                })
+                var b: Dictionary = before[before.size() - 1]
+                print("SURGE-BEFORE i=%d kind=%s dist=%.2f hp=%.1f shielded=%s armour=%.1f"
+                    % [b["i"], b["kind"], b["dist"], b["hp"], b["shielded"], b["armour"]])
+
+    view.abilities.force_ready(id)
+    var result: Dictionary = view.activate_ability(id)
+    print("ABILITY-FIRED id=%s result=%s" % [id, result])
+
+    var post_load: float = view.sim.bus_load()
+    var post_cap: float = view.sim.capacity()
+    var post_draw: float = view.sim.online_draw()
+    var post_penalty: float = view.sim.penalty_now()
+    print(("ABILITY-POST id=%s load=%.1f cap=%.1f draw=%.1f penalty=%.3f " +
+           "overcharge=%s shutter=%s shutter_queue=%d")
+        % [id, post_load, post_cap, post_draw, post_penalty,
+           view.sim.overcharge_active, view.sim.shutter_active, view.shutter_queue_size()])
+
+    if id == "surge" and view.sim.path_length > 0.0:
+        var pl: float = view.sim.path_length
+        for b in before:
+            var i: int = int(b["i"])
+            if i >= view.sim.units.size():
+                continue
+            var u: Dictionary = view.sim.units[i]
+            var frac: float = clampf(float(b["dist"]) / pl, 0.0, 1.0)
+            print(("SURGE-AFTER i=%d kind=%s dist_before=%.2f dist_after=%.2f " +
+                   "hp_before=%.1f hp_after=%.1f alive=%s frac_along=%.3f shielded=%s")
+                % [i, b["kind"], b["dist"], float(u["dist"]), b["hp"], float(u["hp"]),
+                   bool(u["alive"]), frac, b["shielded"]])
+    _last_ability_fire_frame = _frame
+
+
+func _on_shot_fired_debug(_placed: Dictionary, _from_tile: Vector2, _to_tile: Vector2, _target_kind: Dictionary) -> void:
+    _shot_times.append(view.sim_time())
+
+
+func _prune_shot_log() -> void:
+    var cutoff: float = view.sim_time() - RATE_WINDOW_S
+    while _shot_times.size() > 0 and float(_shot_times[0]) < cutoff:
+        _shot_times.pop_front()
+
+
+func _dump_ability_live() -> void:
+    ## Verification-only: printed every 15 frames for ABILITY_LIVE_WINDOW_FRAMES after an
+    ## `--ability-at` fire, so overcharge's fire-rate effect and shutter's hold both show up as
+    ## a *change over time* in the log — a single before/after pair proves a toggle flipped,
+    ## not that it did anything continuous. shots_last_1s is a real count of AnchorSim's own
+    ## shot_fired signal, not a computed estimate.
+    if view == null or view.sim == null:
+        return
+    _prune_shot_log()
+    var nearest := -1.0
+    for u in view.sim.units:
+        if bool(u["alive"]) and (nearest < 0.0 or float(u["dist"]) < nearest):
+            nearest = float(u["dist"])
+    print(("ABILITY-LIVE frame=%d sim_t=%.3f shots_last_%.0fs=%d load=%.1f cap=%.1f " +
+           "penalty=%.3f overcharge=%s shutter=%s shutter_queue=%d nearest_alive_dist=%.2f")
+        % [_frame, view.sim_time(), RATE_WINDOW_S, _shot_times.size(), view.sim.bus_load(),
+           view.sim.capacity(), view.sim.penalty_now(), view.sim.overcharge_active,
+           view.sim.shutter_active, view.shutter_queue_size(), nearest])
+
+
+func _process_press_schedule() -> void:
+    if _press_at.is_empty() or view == null or view.sim == null:
+        return
+    for entry in _press_at:
+        if bool(entry.get("fired", false)) or int(entry["frame"]) != _frame:
+            continue
+        entry["fired"] = true
+        var action := String(entry["action"])
+        if action == "lf_target":
+            var idx: int = view.placed_index_at(view.selected_slot)
+            if idx >= 0:
+                _dump_target_state("TARGET-BEFORE", idx)
+        elif action == "lf_call_wave":
+            print("CALL-WAVE-BEFORE frame=%d funds=%d lead_left=%.2f phase=%s"
+                % [_frame, view.sim.funds, view.lead_left(), view.phase()])
+        var press := InputEventAction.new()
+        press.action = action
+        press.pressed = true
+        view._action_input(press)
+        print("PRESS-AT frame=%d action=%s" % [_frame, action])
+        if action == "lf_target":
+            var idx2: int = view.placed_index_at(view.selected_slot)
+            if idx2 >= 0:
+                _dump_target_state("TARGET-AFTER", idx2)
+        elif action == "lf_call_wave":
+            print("CALL-WAVE-AFTER frame=%d funds=%d lead_left=%.2f phase=%s"
+                % [_frame, view.sim.funds, view.lead_left(), view.phase()])
+
+
+func _dump_target_state(tag: String, idx: int) -> void:
+    ## Verification-only: what the selected emplacement's targeting priority (data/tuning.json
+    ## `targeting`) actually resolves to right now — its mode, what it is aiming at, and every
+    ## alive unit within its range, so the aim can be checked against the mode's own rule
+    ## (furthest along for "first", nearest hp for "weakest", ...) rather than trusted.
+    var p: Dictionary = view.sim.placed[idx]
+    var tw: Dictionary = p["tower"]
+    var sx: float = float(p["slot"].x)
+    var sy: float = float(p["slot"].y)
+    var rng: float = float(tw["range"])
+    var aim: Variant = p.get("aim", null)
+    var mode: String = String(p.get("target_mode", Tuning.targeting_default()))
+    print("%s frame=%d slot=(%d,%d) mode=%s aim=%s" % [tag, _frame, int(sx), int(sy), mode, str(aim)])
+    for u in view.sim.units:
+        if not bool(u["alive"]):
+            continue
+        var at: Vector2 = view.sim.point_at(float(u["dist"]))
+        var dx: float = sx - at.x
+        var dy: float = sy - at.y
+        if dx * dx + dy * dy <= rng * rng:
+            print("  %s-CANDIDATE kind=%s dist=%.2f hp=%.1f" % [tag, String(u["kind"]["id"]), float(u["dist"]), float(u["hp"])])
+
+
+func _dump_veterancy() -> void:
+    ## Verification-only, printed alongside the STATE line at the captured shot frame: every
+    ## placed emplacement's kill count, the rank it resolves to under data/tuning.json
+    ## `veterancy`'s thresholds, and the multipliers that rank actually carries — so the amber
+    ## pip on a turret's base (visible in the screenshot) has printed state behind it rather
+    ## than being taken on faith.
+    if view.sim == null:
+        return
+    var ranks: Array = view.sim.veterancy_ranks()
+    if ranks.is_empty():
+        return
+    for p in view.sim.placed:
+        var kills: int = int(p.get("kills", 0))
+        var best: Dictionary = {}
+        for r in ranks:
+            if kills >= int(r.get("kills", 0)):
+                best = r
+        var slot: Vector2i = p["slot"]
+        var base_range: float = float(p["tower"]["range"])
+        print("VET slot=(%d,%d) tower=%s kills=%d rank=%s damage_mult=%.2f range_mult=%.2f base_range=%.2f"
+            % [slot.x, slot.y, String(p["tower"]["id"]), kills, String(best.get("name", "")),
+               float(best.get("damage_mult", 1.0)), float(best.get("range_mult", 1.0)), base_range])
 
 
 func _unhandled_input(event: InputEvent) -> void:

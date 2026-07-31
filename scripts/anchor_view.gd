@@ -168,6 +168,12 @@ func boot(aid: String, diff: String) -> void:
 			"kills": roundi(float(r.get("kills", 0)) * vet_mult),
 			"damage_mult": float(r.get("damage_mult", 1.0)),
 			"range_mult": float(r.get("range_mult", 1.0)),
+			# "name" was missing here: _draw_rank_pip() and hud.gd's _rank_name() both read
+			# r.get("name", "") off this same array, so without it every rank resolved to
+			# damage_mult/range_mult correctly but the pip and the inspector's rank line
+			# stayed blank forever — found by --ability-at verification printing VET lines
+			# that showed a II-strength multiplier next to an empty rank name.
+			"name": String(r.get("name", "")),
 		})
 	sim.set_veterancy_ranks(ranks)
 
@@ -420,6 +426,10 @@ func _advance() -> void:
 					sim.funds += bonus
 					sim.funds_changed.emit(sim.funds)
 					Audio.sfx("clean_sweep")
+					# Verification-only: this branch had never fired before this session's
+					# tooling exercised it (needs a wave with zero leaks). Printed rather than
+					# silent so a run's own log is evidence the bonus actually paid out.
+					print("CLEAN-SWEEP wave=%d bonus=%d funds=%d" % [_wave_index + 1, bonus, sim.funds])
 			if _wave_index + 1 >= sim.anchor["waves"].size():
 				_phase = "done"
 				Audio.stinger("SYS-WIN")
@@ -647,14 +657,22 @@ func cycle_targeting() -> void:
 	state_changed.emit()
 
 
-func activate_ability(id: String) -> void:
+func activate_ability(id: String) -> Dictionary:
+	## Returns {} when the ability did not fire (unknown id, or not ready). Otherwise a
+	## Dictionary describing the outcome — for "surge" this is fire_surge()'s own
+	## {"kills": int, "damage": float}, always tagged with "id" so a caller that fires several
+	## abilities can tell results apart without re-deriving which one they came from. main.gd's
+	## `--ability-at` verification hook is the only caller that reads this; every other call
+	## site (the lf_ability_1/2/3 handlers in _action_input()) discards it exactly as it
+	## discarded the previous void return.
 	if sim == null or abilities == null or not abilities.ready(id):
 		Audio.sfx("ui_deny")
-		return
+		return {}
 	var cfg := Tuning.ability(id)
+	var result: Dictionary = {}
 	match id:
 		"surge":
-			sim.fire_surge(cfg)
+			result = sim.fire_surge(cfg)
 			Audio.sfx("surge_fire")
 		"overcharge":
 			sim.set_overcharge(true, float(cfg.get("fire_rate_bonus", 0.0)),
@@ -665,12 +683,21 @@ func activate_ability(id: String) -> void:
 				float(cfg.get("draw_mw", 0.0)))
 			Audio.sfx("shutter_down")
 		_:
-			return
+			return {}
+	result["id"] = id
 	add_trauma(float(cfg.get("trauma", 0.0)))
 	abilities.began(id)
 	if abilities.first_fire(id):
 		_fire("%s-first" % id)
 	state_changed.emit()
+	return result
+
+
+func shutter_queue_size() -> int:
+	## Verification accessor: how many arrivals Shutter is currently holding back from
+	## spawning at all (data/tuning.json's own note — "the wave does not go away, it arrives
+	## all at once"). main.gd's `--ability-at` diagnostics read this; nothing else does.
+	return _shutter_held.size()
 
 
 func _on_brownout(active: bool) -> void:
