@@ -24,8 +24,9 @@ have every subsystem present it is a broken environment, and the plain exit code
 `tools/check.py` alone cannot tell the two apart — a subsystem skip is not a `FAIL` and does
 not turn the gate red on its own. This flag makes it one, without changing what the table
 renders, so the PR comment and the exit code agree on what "broken environment" looks like.
-`skipped_reason: "tier"` and `"flag"` are unaffected — those are the *caller's own* choice
-about that run, not a fact about the environment.
+`skipped_reason: "tier"`, `"flag"` and (PRC-05) `"cached"` are unaffected — those are the
+*caller's own* choice about that run (or, for `"cached"`, `rules parity`'s own content-hash
+digest reporting nothing that can affect it has moved), not a fact about the environment.
 """
 
 from __future__ import annotations

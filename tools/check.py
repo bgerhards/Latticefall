@@ -45,8 +45,13 @@ which and why).
 - **tier 3 (~66 s, PR), 23 checks:** tier 2 + `game renders` (6.5 s), `menu renders` (4.8 s),
   `accessibility` (41.2 s).
 - **tier 4 (~9 min, nightly/release), 24 checks — the default:** tier 3 + `rules parity`
-  (542 s). The one thing making a balance claim in this project falsifiable; never move it
-  below tier 4 because it is "usually fine".
+  (measured ~594 s at 1152 runs, growing with every policy/anchor). The one thing making a
+  balance claim in this project falsifiable; never move it below tier 4 because it is
+  "usually fine". PRC-05: that cost is now gated behind a content-hash digest over exactly
+  what can move a parity outcome (`tools/test_parity.py`'s `parity_inputs_digest()`) — an
+  unchanged tree reports `skip, skipped_reason: "cached"` in under a second instead of
+  re-running, and `--force`/`--no-cache` bypass it. A cached skip is still not a pass; see
+  the loud-skip note a few paragraphs down.
 
 `--budget` asserts the tier-1 and tier-2 contracts: with it set, exceeding 10 s at `--tier 1`
 or 25 s at `--tier 2` fails the run even if every check passed, because a tier whose budget
@@ -62,23 +67,31 @@ silently doubles is a tier nobody will keep running.
       "tier": <int>,                       # the --tier this run was asked for (1-4)
       "checks": [
         {"name": str, "status": "ok"|"FAIL"|"skip", "ms": float, "detail": str, "tier": int,
-         "skipped_reason": null|"subsystem"|"flag"|"tier"}, ...
+         "skipped_reason": null|"subsystem"|"flag"|"tier"|"cached"}, ...
       ],
       "summary": {"passed": int, "failed": int, "skipped": int, "skipped_by_flag": int,
-                  "skipped_by_tier": int, "total": int, "duration_ms": float,
-                  "text": "<the printed tally line>"}
+                  "skipped_by_tier": int, "skipped_by_cache": int, "total": int,
+                  "duration_ms": float, "text": "<the printed tally line>"}
     }
 
 `checks` always lists all 24 — a check a lower tier excluded is present with
 `status: "skip"` rather than dropped from the array, for the same reason `--no-window`'s
 skips are present: an absent entry reads as a pass to anything consuming the file. `detail`
 carries the check's *full* multi-line detail, not just the first line the human table prints
-— a PR comment needs all of it. `skipped_reason` distinguishes three unrelated claims the
+— a PR comment needs all of it. `skipped_reason` distinguishes four unrelated claims the
 plain exit code cannot tell apart: a subsystem that does not exist yet, `--no-window`'s
-choice not to open a window, and `--tier`'s choice not to run a check this tier excludes.
+choice not to open a window, `--tier`'s choice not to run a check this tier excludes, and
+(PRC-05) `rules parity`'s own content-hash cache reporting that none of its inputs moved
+since the last clean run. That last one is a skip like every other — `tools/test_parity.py`
+did not compare anything this run, so it is never treated as a pass — but it is also, like
+`"flag"` and `"tier"`, a fact about a *choice* this run made rather than about a broken
+environment, so `tools/gate_report.py --fail-on-subsystem-skip` (CI's escalation for a
+missing subsystem) leaves it alone.
 `--json` with no path still runs everything the selected tier includes (only `--no-window`
 and `--tier` skip checks) — a JSON run that quietly skipped work its own flags didn't ask
-for would be exactly the failure mode this whole file exists to prevent.
+for would be exactly the failure mode this whole file exists to prevent. `--force`/
+`--no-cache` are the escape hatch for `rules parity`'s own cache specifically (see below);
+neither flag changes what any other check does.
 """
 
 from __future__ import annotations
@@ -1100,23 +1113,42 @@ def check_terrain_parity() -> Result:
     return Result(OK, r.stdout.strip())
 
 
-def check_rules_parity() -> Result:
+def check_rules_parity(force: bool = False, no_cache: bool = False) -> Result:
     """The rules exist twice, in Python and GDScript. Prove they agree.
 
     Without this the game could silently stop playing the level that was balanced,
     and nothing would announce it.
+
+    PRC-05: `tools/test_parity.py` gates its own 1152-run comparison behind a content-
+    hash digest over exactly the files that can move a parity outcome (see that module's
+    `parity_inputs_digest()`) — on an unchanged tree it prints a `parity cached — ...`
+    line and exits in well under a second instead of re-running anything. That line is
+    recognised here and reported as `skip, skipped_reason: "cached"`, never as `ok`: a
+    cached skip proves the inputs did not move, not that anything was re-verified this
+    run, and this project's own gate contract (a tier-excluded check, a `--no-window`
+    skip) already treats "did not run" as a claim that must be visible, not silent.
+    `force`/`no_cache` are threaded straight through to `test_parity.py`'s own flags —
+    see its `--force`/`--no-cache` help text for what each means.
     """
     script = ROOT / "tools" / "test_parity.py"
     if not script.exists():
         return Result(SKIP, "parity harness missing")
     if toolpaths.godot() is None:
         return Result(SKIP, "godot not installed")
-    r = run(PY, str(script), timeout=PARITY_TIMEOUT)
+    cmd = [PY, str(script)]
+    if no_cache:
+        cmd.append("--no-cache")
+    elif force:
+        cmd.append("--force")
+    r = run(*cmd, timeout=PARITY_TIMEOUT)
     if r.returncode == TIMED_OUT:
         return Result(FAIL, r.stderr)
     if r.returncode != 0:
         return Result(FAIL, (r.stderr + r.stdout).strip()[-1200:])
-    return Result(OK, r.stdout.strip().replace("parity ok — ", ""))
+    out = r.stdout.strip()
+    if out.startswith("parity cached"):
+        return Result(SKIP, out, skipped_reason="cached")
+    return Result(OK, out.replace("parity ok — ", ""))
 
 
 def check_sprite_atlas() -> Result:
@@ -1280,6 +1312,16 @@ def main() -> int:
                          "suppressed. With PATH, JSON is written there AND the human table "
                          "still prints to stdout — CI wants the file, a human running this "
                          "by hand still wants the table. Never implies --no-window.")
+    ap.add_argument("--force", action="store_true",
+                    help="PRC-05: ignore rules parity's content-hash cache and run the full "
+                         "1152-run comparison even if nothing that can affect it has moved. "
+                         "Forwarded to tools/test_parity.py's own --force. Does not affect "
+                         "any other check.")
+    ap.add_argument("--no-cache", action="store_true",
+                    help="PRC-05: like --force, but rules parity also does not RECORD this "
+                         "run's digest afterward — for a one-off/experimental gate run whose "
+                         "result the next run should not trust. Forwarded to "
+                         "tools/test_parity.py's own --no-cache.")
     args = ap.parse_args()
 
     if args.list:
@@ -1296,7 +1338,7 @@ def main() -> int:
     quiet = json_to_stdout
 
     started_at = datetime.now(timezone.utc).isoformat()
-    failed = skipped = by_flag = by_tier = 0
+    failed = skipped = by_flag = by_tier = by_cache = 0
     t0 = time.time()
     records: list[dict] = []
     for check in CHECKS:
@@ -1310,6 +1352,17 @@ def main() -> int:
                 res = Result(SKIP, "skipped by --no-window (speed option; capture is "
                                    "invisible either way)", skipped_reason="flag")
                 by_flag += 1
+            elif check.name == "rules parity":
+                # The one check with its own cache (PRC-05) — --force/--no-cache only
+                # ever mean anything to this check; every other check.fn() takes no args.
+                res = check_rules_parity(force=args.force, no_cache=args.no_cache)
+                # Every other SKIP in this file is a fact about the project (a subsystem
+                # that does not exist yet) unless the check itself already named a more
+                # specific reason (here, "cached" — set inside check_rules_parity itself).
+                if res.status == SKIP and res.skipped_reason is None:
+                    res.skipped_reason = "subsystem"
+                if res.skipped_reason == "cached":
+                    by_cache += 1
             else:
                 res = check.fn()
                 # Every other SKIP in this file is a fact about the project (a subsystem
@@ -1342,10 +1395,12 @@ def main() -> int:
     budget_blown = bool(args.budget and budget is not None and total > budget)
     if not quiet:
         print(f"\n{summary_line}")
-        # Three reasons a check can skip, and they are not the same claim: a missing
+        # Four reasons a check can skip, and they are not the same claim: a missing
         # subsystem is a fact about the project, --no-window is a choice about this run,
-        # --tier is a different choice about this run. None share a line.
-        if skipped > by_flag + by_tier:
+        # --tier is a different choice about this run, and (PRC-05) a content-hash cache
+        # hit is a claim that NOTHING was re-verified this run, not that it passed. None
+        # share a line.
+        if skipped > by_flag + by_tier + by_cache:
             print("skipped checks are not passes — the subsystem does not exist yet")
         if by_flag:
             print(f"--no-window skipped {by_flag} rendered check(s): they did NOT run and "
@@ -1356,6 +1411,10 @@ def main() -> int:
             print(f"--tier {args.tier} excluded {by_tier} check(s) that did NOT run and are "
                   f"NOT passes: {', '.join(excluded)}. Run a higher --tier before trusting "
                   f"this as more than a fast, partial signal.")
+        if by_cache:
+            print(f"rules parity did NOT run and is NOT a pass — its content-hash cache "
+                  f"found nothing that can affect the outcome has changed since the last "
+                  f"clean run (PRC-05). Pass --force to re-verify anyway.")
         if budget is not None:
             verdict = "BLOWN" if budget_blown else "ok"
             print(f"tier {args.tier} budget: {total:.0f}ms of {budget:.0f}ms ({verdict})"
@@ -1377,6 +1436,7 @@ def main() -> int:
             "summary": {
                 "passed": len(CHECKS) - failed - skipped, "failed": failed,
                 "skipped": skipped, "skipped_by_flag": by_flag, "skipped_by_tier": by_tier,
+                "skipped_by_cache": by_cache,
                 "total": len(CHECKS), "duration_ms": round(total, 1), "text": summary_line,
             },
         }
