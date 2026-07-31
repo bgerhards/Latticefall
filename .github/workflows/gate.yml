@@ -8,13 +8,41 @@ name: Gate (tier 1)
 #
 # Tier 1 is schema/data/script-syntax/nomenclature checks plus `gdscript parses` (a headless
 # `--check-only` parse, no window, no rendering — see tools/validate/gdscript.py). None of
-# that reads a sprite's pixels or plays a frame, so this checkout out is `lfs: false` — the
-# 224 committed sprite renders are LFS pointer files here, never pulled. **That stops being
-# true the moment this workflow (or a future one) runs tier 2**: `sprite atlas` hashes real
-# render bytes (`tools/check.py`'s `check_sprite_atlas`, via `pack_atlas.source_digest`) and
-# `sfx determinism` re-synthesizes and byte-compares a real `.wav` — both would either report
-# a stale/missing-file FAIL against pointer files or silently pass against garbage. Flip
+# that reads a sprite's pixel *values*, so this checkout is `lfs: false` — the 224 committed
+# sprite renders are LFS pointer files here, never pulled. **That stops being true the moment
+# this workflow (or a future one) runs tier 2**: `sprite atlas` hashes real render bytes
+# (`tools/check.py`'s `check_sprite_atlas`, via `pack_atlas.source_digest`) and `sfx
+# determinism` re-synthesizes and byte-compares a real `.wav` — both would either report a
+# stale/missing-file FAIL against pointer files or silently pass against garbage. Flip
 # `lfs: true` below before ever raising `--tier` past 1 here.
+#
+# `gdscript parses` needs one more thing a fresh checkout does not have: the **`Import
+# project` step below**, fixing two independent problems at once, not one.
+#
+# (1) A `class_name` global (`Loadout`, `A11yProbe`, `OptionsMenu` — three, measured) is
+# invisible to `--check-only --script <f>` in isolation until Godot's editor has imported the
+# project once: the global class registry lives in `.godot/global_script_class_cache.cfg`
+# (CLAUDE.md, "a new `class_name` is invisible until the editor imports"), which is gitignored
+# and therefore does not exist on a fresh checkout. `tools/validate/gdscript.py` already
+# filters the identically-shaped "Identifier not found" noise **autoloads** produce in
+# isolation (it reads `project.godot`'s `[autoload]` block) — but a `class_name` is a
+# different mechanism with the same symptom, and it has no equivalent filter, by design: an
+# import makes the check true rather than making it stop looking.
+#
+# (2) `scripts/ui_theme.gd` (the `Ui` autoload) `preload()`s four `.ttf` fonts directly, so
+# under `lfs: false` those `preload()`s hit real LFS-pointer text, not a font — a genuine
+# resource-load failure, unrelated to (1), and it cascades into every script that reads an
+# external const off `Ui` (`hud.gd` measured). The import step happens to fix this too:
+# importing a pointer-file `.ttf` still registers *some* `FontFile` resource (broken content,
+# `FreeType: Error loading font` at runtime — irrelevant, nothing at tier 1 renders a glyph),
+# which is enough for `preload()` to resolve and the parse to succeed.
+#
+# Both were confirmed by reproducing a `GIT_LFS_SKIP_SMUDGE=1` checkout of this workflow's own
+# commit in a disposable `git worktree`: without the import step, `gdscript parses` fails on 7
+# files (the 3 `class_name`s from (1), plus `ui_theme.gd`/`hud.gd`/`menu.gd`/`pause_menu.gd`/
+# `main.gd`/`draft.gd` off the cascade in (2)) — matching this workflow's actual CI failure
+# byte-for-byte. With the import step, all 35 tracked scripts parse clean. **Removing the
+# import step re-breaks both**, not just whichever one prompted adding it.
 #
 # What this workflow cannot prove at all, on any tier: `game renders`, `menu renders` and
 # `accessibility` (tier 3) need a real GPU-backed Godot frame — GL Compatibility reads back
@@ -99,6 +127,31 @@ jobs:
           chmod +x "$BIN"
           "$BIN" --headless --version
           echo "LF_GODOT=$PWD/$BIN" >>"$GITHUB_ENV"
+
+      - name: Import project (populates the class_name cache — see header comment)
+        run: |
+          set -eu
+          # `--headless --path . --import` runs the editor's importer once, non-interactively.
+          # This is a throwaway checkout on an ephemeral runner, not the shared tree LF-075
+          # warns about (the owner plays out of a real working copy of this repo elsewhere) —
+          # so "never rebuild the import cache without saying so first" does not apply here;
+          # this step *is* the saying-so, for this tree only.
+          #
+          # Expect a wall of "Continuing"/"ERROR" lines for every LFS-pointer asset (png/wav/
+          # ttf — `lfs: false`, see header comment): Godot logs a recoverable error per pointer
+          # file it cannot decode as real image/audio/font content, but the import as a whole
+          # still exits 0 and still registers a (broken) resource for each, which is all
+          # `gdscript parses` needs. A non-zero exit here is a real problem — e.g. the release
+          # archive's directory layout changing again — not more of the same noise.
+          if ! "$LF_GODOT" --headless --path . --import >import.log 2>&1; then
+            echo "::error::project import failed — full log follows"
+            cat import.log
+            exit 1
+          fi
+          n_lines="$(wc -l <import.log)"
+          n_errors="$(grep -c '^ERROR' import.log || true)"
+          echo "import ok: $n_lines log lines, $n_errors recoverable LFS-pointer resource errors (expected, see step comment)"
+          tail -n 20 import.log
 
       - name: Run tier-1 gate
         id: gate
