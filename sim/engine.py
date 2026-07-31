@@ -427,6 +427,22 @@ class Sim:
             return "air" in tower.targets and revealed
         return "ground" in tower.targets
 
+    def _progress(self, u: Unit) -> float:
+        """Fraction of `u`'s own lane it has covered, in [0, 1+]. LF-145: the fire
+        loop's targeting priority has to compare progress on a common 0..1 scale, not
+        raw `dist` — raw distance is only directly comparable when every reachable
+        unit shares one lane's length, and a multi-lane anchor with lanes of
+        different length breaks that (anchor-09's 37-tile main lane against its
+        14-tile flank meant a slot in range of both fired on main almost
+        exclusively, since any main unit past dist 14 outscored every possible
+        flank unit by raw dist alone). Mirrors scripts/anchor_sim.gd's _progress() —
+        must stay identical. On a single-lane board every compared unit divides by
+        the same constant (that lane's one path_length), an order-preserving
+        positive scale, so this is a no-op there: it picks the identical unit raw
+        `dist` did."""
+        length = self.a.path_length(u.lane)
+        return u.dist / length if length > 0.0 else 0.0
+
     @staticmethod
     def _shield_scale(tower: Tower, u: Unit) -> float:
         """Multiplier for shielding. 1.0 unless the unit is shielded and the weapon is
@@ -457,7 +473,11 @@ class Sim:
                 # counts bodies — it is a different question from what they cost.
                 self.lives -= u.kind.leak_cost
 
-        # fire — furthest-along reachable target, a total order, so no RNG needed
+        # fire — furthest-along reachable target, a total order, so no RNG needed.
+        # "Furthest along" means furthest along ITS OWN lane, as a fraction of that
+        # lane's length (_progress(), LF-145) — not raw dist, which only ties across
+        # lanes of equal length and otherwise structurally favours whichever lane is
+        # longest. See _progress()'s docstring for the anchor-09 case that surfaced it.
         for p in self.placed:
             if not p.online or not p.tower.is_weapon:
                 continue
@@ -475,6 +495,7 @@ class Sim:
             # hash is the actual answer, since it makes an idle scan cost the cells in
             # range rather than every unit on the board.
             target = None
+            target_progress = 0.0
             for u in self.units:
                 if not u.alive:
                     continue
@@ -485,8 +506,10 @@ class Sim:
                 revealed = u.kind.kind != "air" or self._covered_by("reveal", x, y) > 0
                 if not self._can_target(p.tower, u, revealed):
                     continue
-                if target is None or u.dist > target.dist:
+                progress = self._progress(u)
+                if target is None or progress > target_progress:
                     target = u
+                    target_progress = progress
             if target is None:
                 # Retry next tick rather than scanning every tick forever (LF-098) — see
                 # the gate above. Rejected a longer retry interval: it would cut more

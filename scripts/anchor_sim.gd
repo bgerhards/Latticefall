@@ -224,6 +224,22 @@ func point_at(lane: int, dist: float) -> Vector2:
 	return Vector2(p[0], p[1])
 
 
+func _progress(dist: float, lane: int) -> float:
+	## Fraction of `lane` covered by a unit at `dist` along it, in [0, 1+]. LF-145:
+	## the fire loop's targeting priority must compare progress on a common 0..1
+	## scale, not raw `dist` -- raw distance is only directly comparable when every
+	## reachable unit shares one lane's length, and a multi-lane anchor with lanes of
+	## different length breaks that (anchor-09's 37-tile main lane against its 14-tile
+	## flank meant a slot in range of both fired on main almost exclusively, since any
+	## main unit past dist 14 outscored every possible flank unit by raw dist alone).
+	## Mirrors sim/engine.py's Sim._progress() -- must stay identical.
+	## On a single-lane board every compared unit divides by the same constant
+	## (that lane's one path_length), an order-preserving positive scale, so this is a
+	## no-op there: it picks the identical unit raw `dist` did.
+	var plen: float = path_length[lane]
+	return dist / plen if plen > 0.0 else 0.0
+
+
 # ───────────────────────────────────────────────────────────────── power ──
 
 func online_draw() -> float:
@@ -594,12 +610,13 @@ func _step(penalty: float) -> void:
 		# live only because same-kind units spawn on different ticks. LF-055.
 		var target_i := -1
 		# Per-emplacement targeting priority (data/tuning.json's `targeting`), cycled by the
-		# player on the selected emplacement. "first" reproduces this loop's original
-		# behaviour exactly — furthest along the path wins ties — and stays the default, so a
-		# placed record nobody has touched (every one built by build_at(), including every
-		# grading policy's) has no "target_mode" key at all and this `match` falls through to
-		# the same branch the old unconditional comparison used. Decision-033-shaped: the
-		# other three modes are GDScript-only and sim/engine.py has no equivalent.
+		# player on the selected emplacement. "first" is the default, so a placed record
+		# nobody has touched (every one built by build_at(), including every grading
+		# policy's) has no "target_mode" key at all and this `match` falls through to the
+		# `_` branch below. Decision-033-shaped: the other three modes are GDScript-only
+		# and sim/engine.py has no equivalent -- only `_` (mirroring sim/engine.py's one
+		# and only rule) is parity-critical. LF-145: `_` now compares progress fraction,
+		# not raw dist -- see _progress()'s doc.
 		var mode := String(p.get("target_mode", "first"))
 		for i in range(units.size()):
 			var u: Dictionary = units[i]
@@ -623,7 +640,11 @@ func _step(penalty: float) -> void:
 				"weakest":
 					keep = target.is_empty() or float(u["hp"]) < float(target["hp"])
 				_:
-					keep = target.is_empty() or float(u["dist"]) > float(target["dist"])
+					# LF-145: progress as a fraction of each unit's OWN lane length, not raw
+					# dist -- see _progress()'s doc for why raw dist across lanes of
+					# different length was structurally biased toward the longer one.
+					keep = target.is_empty() or _progress(float(u["dist"]), int(u["lane"])) \
+						> _progress(float(target["dist"]), int(target["lane"]))
 			if keep:
 				target = u
 				target_i = i

@@ -1735,11 +1735,11 @@
       "kind": "risk",
       "area": "engine",
       "pri": "med",
-      "status": "open",
+      "status": "done",
       "why": "",
       "opened": "2026-07-31",
-      "closed": null,
-      "note": ""
+      "closed": "2026-07-31",
+      "note": "closed at a15c269"
     },
     {
       "id": "LF-146",

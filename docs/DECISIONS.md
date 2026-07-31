@@ -2321,3 +2321,44 @@ freezes permanently (decision 060).
 **All three were proved red before being trusted**, each by breaking the real file in place and
 restoring it byte-exact. A check nobody has seen fail is a check nobody should believe. Total
 cost: 30 ms of a 5.7 s tier 1.
+
+---
+
+## 062 — "Furthest along" is a fraction of the lane, not a distance
+
+**Date.** 2026-07-31.
+
+**Context.** `LF-145`, found while balancing the first multi-lane anchor. The fire loop picked
+the furthest-along reachable target by `u.dist` — raw distance travelled along that unit's own
+lane — compared **directly across lanes and never normalised**. anchor-09's main path is 37
+tiles and its flank is 14, so any emplacement in range of both targeted main almost exclusively
+from the moment a main unit passed distance 14, about eight seconds into every wave. The
+original near-flank slots were never defending the flank; they only looked like they could on a
+distance chart. It was worked around geometrically there, by placing slots where they
+physically cannot see the main lane, and that workaround does not generalise.
+
+**Decision.** Compare `dist / path_length(lane)` — progress as a fraction of each unit's own
+lane — in the shared, parity-critical branch of the fire loop. The player-only targeting modes
+(`last`, `strongest`, `weakest`) are untouched.
+
+**Rejected: remaining distance to the exit** (`path_length - dist`), which reads like the more
+intuitive "closest to getting through". It **inverts the bug rather than fixing it**. The
+flank's remaining distance is capped at 14, so any live flank unit outranks a main unit
+anywhere in its first 23 tiles — 62% of that lane — no matter how far along the main unit
+actually is. Checked against the concrete case before choosing: main at dist 30 of 37 against
+flank at dist 10 of 14.
+
+**Single-lane boards are unaffected, and that is proved rather than argued.** A fraction is
+`dist / constant` when every compared unit is on one lane, which is an order-preserving scale,
+so it is structurally a no-op there. Measured: all 23 single-lane anchors are **byte-identical**
+across the full 24-anchor detailed grade, every field of every one of 48 runs each.
+
+**What moved.** Only anchor-09, and no cell flipped: `hard/suppression` still wins but at 3
+lives instead of 4 with one more leak — attention genuinely split between lanes instead of
+ignoring the flank — `brutal/anti-armour` still loses but survives a wave longer, and three
+runs moved peak load by about 1 MW on kill-order noise. No anchor changed `ok`, win count or
+winning policies. `parity ok — 1152 runs identical`.
+
+**Consequence.** This is a rules change that only a multi-lane board can observe, which is
+exactly why it was invisible until `WAR-01` landed and immediately expensive afterwards. Every
+multi-lane anchor built from here would otherwise have needed anchor-09's geometric workaround.
