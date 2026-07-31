@@ -2464,3 +2464,69 @@ runner and the dispatcher, so the next author does not rediscover it.
 **Consequence.** The gate gains `scenarios pass` at tier 3, not tier 2. Measured at about 30 s
 against tier 2's whole 25 s budget — putting it there would have doubled that tier silently,
 which is exactly what the budget exists to catch.
+
+---
+
+## 065 — A grading policy may carry a deterministic schedule; reactive agents stay rejected
+
+**Date.** 2026-07-31. `BAL-01`, closing `LF-094`, the largest hole `docs/STATE.md` named:
+`sim/engine.py` never used speed, call-wave, an ability, targeting priority or veterancy, so
+every one of the 24 anchor grades described a player who pressed nothing.
+
+**Decision.** `Policy` gains an optional `schedule` of `(time, verb, args)`, sorted once at
+construction on the **total** order `(time, original index)` — never on time alone and never
+relying on a sort being stable, because Godot's `sort_custom()` is not documented as stable
+while Python's is, and two engines agreeing by luck on tie order is exactly what decision 061
+exists to convert into a designed guarantee. `_tick_once()` drains it after `t` advances and
+before `_step()`, mirrored in `parity.gd` through a new `begin_tick()`/`end_tick()` split.
+
+Times are **absolute seconds of `Sim.t`**, never wave-relative. Wave-relative reads better in
+a policy's source and is a second source of truth about when a wave starts — which is only
+knowable by running the sim, because it depends on how long every prior wave's combat took. A
+schedule authorable only after seeing the outcome it is meant to produce is not a schedule,
+it is a rewind.
+
+**Reactive grading agents remain out of scope** (PRD §8). A schedule is not an exception to
+that but its opposite: a fixed list committed before the sim runs a tick, as re-runnable as
+everything else here. A policy that read `Sim` state mid-run and branched on it would not be.
+
+**What moved, proved by diff rather than inspection.** With no schedule, the grade is
+byte-identical to the pre-`BAL-01` tree across all 24 anchors, 3 difficulties and the
+original 16 policies. That proof surfaced a real bug: `_online_draw()` promoted `towers.json`'s
+integer `draw_mw` through a `* 1.0` — numerically exact, but it moved `peak_load_mw` from `60`
+to `60.0` in the JSON grade even with Overcharge never active.
+
+`parity ok — 1440 runs identical`, twice.
+
+**The finding this issue existed to produce.** Threshold Surge, scheduled every 40 s with no
+charge, no cooldown and no cost, independently turns a losing board into a winning one on
+**9 of 72** anchor-by-difficulty cells — sweeping all three difficulties on both anchor-12 and
+anchor-13 — and is **0 worse** across all 72 even at full 20-cast spam. Overcharge, modelled
+honestly with its real draw cost, is the exact mirror: **0 better, 12 worse**, confirming its
+design note that overcharging a saturated bus must be a loss. `call_wave` is 1 better and 7
+worse, so it is a real decision rather than free value. Veterancy flips nothing.
+
+**And the judgement, which is the part worth keeping.** This reads as a *grading-model gap*
+rather than proof the ability's numbers are mispriced — but marginally. Surge having no
+modelled downside at all is itself the tell: charge accrual is not implemented, so the one
+constraint it really has is absent. Against that, truncating the schedule shows the wins need
+**5 to 14 casts, not one** — and a board killing most of every wave before collapsing at wave
+6–8 of 8–14 plausibly earns several real charges. So: not "nerf Surge", but "no grade that
+assumes Surge is available on demand should be trusted until charge is modelled." `LF-163`,
+and `BAL-04`'s regrade must not start without it.
+
+**Left out and named rather than guessed.** Kill-chain bounty is `anchor_view.gd`-only and
+untested by parity; porting it unconditionally would move every grade, and there is no button
+in the design to gate it behind. Veterancy is a policy-level opt-in rather than a schedule
+entry, because nobody presses a button to level up — it drives the *existing*
+`set_veterancy_ranks()` and adds no new GDScript.
+
+**Same-timestamp order is proved, not assumed.** One policy deliberately authors
+`(5.0, ability, off)` immediately before `(5.0, ability, on)`; authored order nets it on,
+reversal would net it off, and both engines agree across 1440 runs.
+
+**`LF-152` closes here too** — `max_emplacements` enforcement in all four places decision 063
+handed off, including the trap: `parity.gd`'s `_try_build()` now checks `build_at()`'s return
+value instead of assuming success, which is what would have turned a build cap into a hang
+rather than a failure. Proved with a synthetic two-emplacement anchor in both engines, and
+reproved a no-op for all 24 real anchors.
