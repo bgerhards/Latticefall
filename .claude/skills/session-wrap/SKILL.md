@@ -17,6 +17,13 @@ down now, in files, not left in the conversation.
    **re-invokes the model when it finally exits — billing tokens against a session everyone
    believed was over.** This has already cost the owner real money. Do it first, so it
    happens even if a later step goes sideways, and again at the very end.
+
+   **Only the coordinator runs `--kill`, and only once every subagent has reported.** The
+   reaper is lease-scoped now and plain `--kill` spares a lease it classifies as a sibling
+   — but `CLAUDE_CODE_SESSION_ID` is per top-level CLI session, not per subagent, so a
+   fanned-out sibling shares yours and gets classified `own-session`. Killing mid-fan-out
+   therefore still ends live work silently. `LF-133`. If agents are running, run `reap.py`
+   report-only, wait, and kill at the end.
 2. **Run the gate.** `.venv/bin/python tools/check.py`. Do not proceed if it fails —
    leaving the tree broken taxes the next session heavily.
 3. **Backlog.** Close what got done (`backlog.py done LF-NNN --note "..."`), open anything
