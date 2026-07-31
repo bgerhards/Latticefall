@@ -1,5 +1,5 @@
 {
-  "next_id": 122,
+  "next_id": 124,
   "items": [
     {
       "id": "LF-001",
@@ -619,11 +619,11 @@
       "kind": "feature",
       "area": "engine",
       "pri": "med",
-      "status": "open",
+      "status": "done",
       "why": "",
       "opened": "2026-07-28",
-      "closed": null,
-      "note": ""
+      "closed": "2026-07-30",
+      "note": "Landed: CAM-01 (pan/zoom/edge-scroll/cursor-follow) and CAM-03 (--camera verification hook). scripts/anchor_view.gd, scripts/main.gd, scripts/backdrop.gd, tools/godot/setup_input.gd, tools/shot.py, tools/validate/a11y.py."
     },
     {
       "id": "LF-053",
@@ -907,11 +907,11 @@
       "kind": "feature",
       "area": "engine",
       "pri": "high",
-      "status": "open",
+      "status": "done",
       "why": "Nothing larger than one screen is playable without it",
       "opened": "2026-07-30",
-      "closed": null,
-      "note": ""
+      "closed": "2026-07-30",
+      "note": "Landed: CAM-01. ZOOM_MIN is derived per-board from tile extent vs. the strip (decision 056), floored at 0.05 so the projection cannot degenerate. Verified on anchor-24 (2112px board) at 100% and 200% interface scale."
     },
     {
       "id": "LF-077",
@@ -1183,11 +1183,11 @@
       "kind": "bug",
       "area": "engine",
       "pri": "high",
-      "status": "open",
+      "status": "done",
       "why": "Pure waste in the hottest loop, paid even when the effect is unused",
       "opened": "2026-07-30",
-      "closed": null,
-      "note": ""
+      "closed": "2026-07-30",
+      "note": "closed at de327a8"
     },
     {
       "id": "LF-100",
@@ -1449,6 +1449,30 @@
       "pri": "med",
       "status": "open",
       "why": "PRC-08's hooks were written and verified against a scratch repo but deliberately left uninstalled: seven agents were committing through this working tree concurrently and a pre-commit hook could have blocked another workstream's in-flight file",
+      "opened": "2026-07-30",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-122",
+      "title": "tools/check.py's three rendered checks (game renders, menu renders, accessibility) should pass an explicit --camera now that CAM-01/CAM-03 landed, so their coverage/contrast numbers stay comparable run to run instead of depending on default camera framing, which CAM-01 changed. Re-baseline after pinning. tools/check.py is owned by another workstream so this was not done as part of CAM-01/CAM-03.",
+      "kind": "chore",
+      "area": "engine",
+      "pri": "med",
+      "status": "open",
+      "why": "",
+      "opened": "2026-07-30",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-123",
+      "title": "scripts/test/parity.gd's _shed() reaches into AnchorSim.placed and free_slots directly rather than going through the class's own methods. One instance of this was a real bug, found by the first WAR-05 parity run: _shed() wrote s.placed[worst]['online'] = false instead of calling s.set_online(), which bypassed the per-effect list rebuild and left capacity() reading a stale restorer set -- 7 differences across anchor-23/burst at all three difficulties. Fixed for .online; the rest of the function still indexes s.placed and s.free_slots directly, so the next field that needs a hook on write reintroduces the same class of bug silently. Worth a convention note, or making the mutation points the only public way in.",
+      "kind": "chore",
+      "area": "design",
+      "pri": "med",
+      "status": "open",
+      "why": "",
       "opened": "2026-07-30",
       "closed": null,
       "note": ""

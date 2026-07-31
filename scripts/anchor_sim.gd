@@ -78,6 +78,20 @@ var peak_load: float = 0.0
 var _load_integral: float = 0.0
 var _brownout_time: float = 0.0
 
+## Per-effect placed lists (LF-099). _covered_by() walks one of these instead of every
+## placed emplacement, so a board with nothing carrying `effect` never pays for the
+## walk. Kept fresh two ways: unconditionally at the top of tick(), before bus_load() —
+## the primary point, mirroring sim/engine.py's _tick_once() — and eagerly, right after
+## every write to `placed`/`.online`: build_at(), sell(), upgrade(), set_online(). A
+## tick-only rebuild would leave capacity() blind to a restorer built or sold moments
+## ago by the exact same caller that then asks for a fresh number (parity.gd's
+## _try_build() calls build_at() and capacity() alternately, just as
+## sim/engine.py's _try_build() does) — a real behaviour change, not a rounding error.
+var _eff_slow: Array[Dictionary] = []
+var _eff_damp: Array[Dictionary] = []
+var _eff_reveal: Array[Dictionary] = []
+var _eff_restore: Array[Dictionary] = []
+
 # ─────────────────────────────────────────────────────── GDScript-only state ──
 #
 # Overcharge, Shutter and veterancy (see data/tuning.json's `abilities` and `veterancy`
@@ -271,12 +285,9 @@ func capacity() -> float:
 	var base := rated
 	if decay > 0.0:
 		base = maxf(rated * CAPACITY_FLOOR, rated - decay * float(wave_index))
-	for p in placed:
-		if not p["online"]:
-			continue
+	for p in _eff_restore:
 		var eff: Dictionary = p["tower"].get("effect", {})
-		if String(eff.get("type", "")) == "restore":
-			base += float(eff.get("value", 0.0))
+		base += float(eff.get("value", 0.0))
 	return base
 
 
@@ -298,6 +309,9 @@ func build_at(tower_id: String, slot: Vector2i) -> bool:
 	if int(tw["cost"]) > funds:
 		return false
 	placed.append({"tower": tw, "slot": slot, "online": true, "cooldown": 0.0})
+	# Eager, not tick-gated (LF-099): capacity()/_covered_by(), possibly called again
+	# before the next tick() by whatever placed this, must see it. See _eff_slow.
+	_rebuild_effect_lists()
 	free_slots.erase(slot)
 	funds -= int(tw["cost"])
 	spend += int(tw["cost"])
@@ -309,6 +323,7 @@ func build_at(tower_id: String, slot: Vector2i) -> bool:
 func set_online(index: int, on: bool) -> void:
 	if index >= 0 and index < placed.size():
 		placed[index]["online"] = on
+		_rebuild_effect_lists()   # eager, not tick-gated (LF-099) — see _eff_slow
 
 
 func sell(index: int) -> int:
@@ -326,6 +341,7 @@ func sell(index: int) -> int:
 	var refund := int(floor(float(paid) * SELL_REFUND))
 	free_slots.append(p["slot"])
 	placed.remove_at(index)
+	_rebuild_effect_lists()   # eager, not tick-gated (LF-099) — see _eff_slow
 	funds += refund
 	funds_changed.emit(funds)
 	return refund
@@ -362,6 +378,8 @@ func upgrade(index: int) -> bool:
 	p["tower"] = merged
 	p["upgraded"] = true
 	p["upgrade_paid"] = cost
+	_rebuild_effect_lists()   # eager, not tick-gated (LF-099) — see _eff_slow: an
+	# upgrade can change a support tower's effect value (or, in principle, its type)
 	funds -= cost
 	spend += cost
 	funds_changed.emit(funds)
@@ -373,19 +391,51 @@ func upgrade(index: int) -> bool:
 func _covered_by(effect: String, x: float, y: float) -> float:
 	## Squared-distance comparison, as in sim/engine.py — no square root is taken on
 	## either side, so both runtimes do the same double arithmetic. Decision 030.
+	##
+	## Walks the pre-filtered list for `effect` (built by _rebuild_effect_lists(),
+	## LF-099) instead of every placed emplacement, and returns 0.0 immediately when
+	## that list is empty — a board with nothing carrying `effect` never pays for the
+	## walk at all, even once, per unit, per tick.
+	var eff_list: Array[Dictionary]
+	match effect:
+		"slow": eff_list = _eff_slow
+		"damp": eff_list = _eff_damp
+		"reveal": eff_list = _eff_reveal
+		"restore": eff_list = _eff_restore
+		_: eff_list = []
+	if eff_list.is_empty():
+		return 0.0
 	var best := 0.0
-	for p in placed:
-		if not p["online"]:
-			continue
-		var eff: Dictionary = p["tower"].get("effect", {})
-		if eff.get("type", "") != effect:
-			continue
+	for p in eff_list:
 		var dx: float = float(p["slot"].x) - x
 		var dy: float = float(p["slot"].y) - y
 		var r: float = float(p["tower"]["range"])
 		if dx * dx + dy * dy <= r * r:
+			var eff: Dictionary = p["tower"].get("effect", {})
 			best = maxf(best, float(eff.get("value", 1.0)))
 	return best
+
+
+func _rebuild_effect_lists() -> void:
+	## Rebuilds the four per-effect placed lists from `placed`, preserving order.
+	## Mirrors sim/engine.py's Sim._rebuild_effect_lists() — see its docstring for the
+	## full rationale (LF-099) and the list of call sites in each file. `maxf()` over
+	## the values in play does not care what order this list is in, but the walk order
+	## is kept identical to `placed`'s anyway, so a future change to "first wins" cannot
+	## silently diverge between the two engines.
+	_eff_slow = []
+	_eff_damp = []
+	_eff_reveal = []
+	_eff_restore = []
+	for p in placed:
+		if not p["online"]:
+			continue
+		var eff: Dictionary = p["tower"].get("effect", {})
+		match String(eff.get("type", "")):
+			"slow": _eff_slow.append(p)
+			"damp": _eff_damp.append(p)
+			"reveal": _eff_reveal.append(p)
+			"restore": _eff_restore.append(p)
 
 
 func _can_target(tw: Dictionary, u: Dictionary, revealed: bool) -> bool:
@@ -418,6 +468,11 @@ func penalty_now() -> float:
 
 
 func tick() -> void:
+	# Primary rebuild point (LF-099) — see the comment on _eff_slow above. Unconditional
+	# every tick, not gated by a dirty flag; before bus_load(), its first consumer this
+	# tick. Named here because sim/engine.py's _tick_once() rebuilds at the equivalent
+	# point, for the same reason.
+	_rebuild_effect_lists()
 	var load := bus_load()
 	var penalty := brownout_penalty(load, capacity())
 	var over := penalty > 0.0

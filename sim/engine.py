@@ -185,6 +185,20 @@ class Sim:
         # so the loss lands on a beat the player can see coming and build against.
         self.wave_index = 0
 
+        # Per-effect placed lists (LF-099). `_covered_by` walks one of these instead of
+        # every placed emplacement, so a board with nothing carrying `effect` never pays
+        # for the walk. Kept fresh two ways: unconditionally at the top of `_tick_once()`
+        # (the primary point — see the comment there, named here so a reader of either
+        # file finds the other), and eagerly, right after every write to `placed`/
+        # `.online` outside of a tick (`_try_build()`, `_shed_load()`) — a tick-only
+        # rebuild would leave `capacity_now()` blind to a restorer placed earlier in the
+        # same prep-phase build loop, which is a real behaviour change, not a rounding
+        # error (see the risk note on `capacity_now()`/`brownout_penalty()` below).
+        self._eff_slow: list[Placed] = []
+        self._eff_damp: list[Placed] = []
+        self._eff_reveal: list[Placed] = []
+        self._eff_restore: list[Placed] = []
+
     def capacity_now(self) -> float:
         """Capacity this wave. Fixed in Acts I and II; falls per wave in Act III.
 
@@ -197,10 +211,46 @@ class Sim:
             base = max(self.a.capacity_mw * CAPACITY_FLOOR, self.a.capacity_mw - lost)
         # Restorers add capacity back. They are the only thing in the game that does,
         # and they pay for it with a slot and a draw of their own — decision 031.
-        for p in self.placed:
-            if p.online and p.tower.effect_type == "restore":
-                base += p.tower.effect_value
+        # Reuses `_eff_restore` (LF-099) rather than re-scanning `placed` here; kept
+        # fresh by the same two rebuild points documented on `_eff_slow` above.
+        for p in self._eff_restore:
+            base += p.tower.effect_value
         return base
+
+    def _rebuild_effect_lists(self) -> None:
+        """Rebuild the four per-effect placed lists from `placed`, preserving order.
+
+        The primary call site is the top of `_tick_once()`, before `bus_load()` — its
+        first consumer this tick — and that call is unconditional rather than gated by
+        a dirty flag: it is O(towers) once, against the O(towers x units) that
+        `_covered_by` used to cost by re-testing every emplacement's effect type for
+        every unit, every tick (LF-099). `_try_build()` and `_shed_load()` additionally
+        call this right after every write to `placed`/`.online`, because both run
+        outside any tick and `capacity_now()` needs the *current* prep-phase board, not
+        last tick's — see the comment on `_eff_slow`. Mirrors
+        scripts/anchor_sim.gd's `_rebuild_effect_lists()`, called from the same set of
+        points there.
+
+        `max`/`maxf` over the values in play does not care what order this list is in,
+        but the walk order is kept identical to `placed`'s anyway — a future change to
+        "first wins" must not be able to silently diverge between the two engines.
+        """
+        self._eff_slow = []
+        self._eff_damp = []
+        self._eff_reveal = []
+        self._eff_restore = []
+        for p in self.placed:
+            if not p.online:
+                continue
+            et = p.tower.effect_type
+            if et == "slow":
+                self._eff_slow.append(p)
+            elif et == "damp":
+                self._eff_damp.append(p)
+            elif et == "reveal":
+                self._eff_reveal.append(p)
+            elif et == "restore":
+                self._eff_restore.append(p)
 
     # ───────────────────────────────────────────────────────────── power ──
 
@@ -256,6 +306,10 @@ class Sim:
                     continue
                 slot = slot_order[0]
                 self.placed.append(Placed(tower=tower, slot=slot))
+                # Eager, not tick-gated (LF-099): capacity_now(), called again below on
+                # the very next candidate, must see a restorer placed this iteration —
+                # see the comment on _eff_slow/_rebuild_effect_lists().
+                self._rebuild_effect_lists()
                 self.free_slots.remove(slot)
                 self.funds -= tower.cost
                 self.spend += tower.cost
@@ -273,15 +327,33 @@ class Sim:
                 return
             worst = max(live, key=lambda p: (self.policy.rank(p.tower.id), p.tower.draw_mw))
             worst.online = False
+            # Eager, not tick-gated (LF-099): the next loop condition re-reads
+            # capacity_now(), which must not still count a restorer just shed.
+            self._rebuild_effect_lists()
 
     # ──────────────────────────────────────────────────────── coverage ──
 
     def _covered_by(self, effect: str, x: float, y: float) -> float:
-        """Best effect value covering a point. 0.0 if uncovered."""
+        """Best effect value covering a point. 0.0 if uncovered.
+
+        Walks the pre-filtered list for `effect` (built by `_rebuild_effect_lists()`,
+        LF-099) instead of every placed emplacement, and returns 0.0 immediately when
+        that list is empty — the point being that a board with nothing carrying
+        `effect` never pays for the walk at all, even once, per unit, per tick."""
+        if effect == "slow":
+            towers = self._eff_slow
+        elif effect == "damp":
+            towers = self._eff_damp
+        elif effect == "reveal":
+            towers = self._eff_reveal
+        elif effect == "restore":
+            towers = self._eff_restore
+        else:
+            towers = []
+        if not towers:
+            return 0.0
         best = 0.0
-        for p in self.placed:
-            if not p.online or p.tower.effect_type != effect:
-                continue
+        for p in towers:
             dx, dy = p.slot[0] - x, p.slot[1] - y
             if dx * dx + dy * dy <= p.tower.range * p.tower.range:
                 best = max(best, p.tower.effect_value or 1.0)
@@ -329,6 +401,16 @@ class Sim:
             p.cooldown -= DT * rate
             if p.cooldown > 0:
                 continue
+            # An emplacement with nothing in range rescans every unit, every tick,
+            # forever — the empty-target path below never resets the cooldown, which has
+            # already gone negative. That is LF-098, and it is real: measured 14.3x at
+            # 60 towers / 400 units and 17.1x at 100/800 against the same board with
+            # targets in range. It is NOT fixed here, and there is no cheap fix, because
+            # the only retry interval that preserves "acquires the frame a unit enters
+            # range" is one tick — which is the same tick it already scans on. Decision
+            # 058 has the measurements and the two rejected repairs; WAR-03's spatial
+            # hash is the actual answer, since it makes an idle scan cost the cells in
+            # range rather than every unit on the board.
             target = None
             for u in self.units:
                 if not u.alive:
@@ -343,6 +425,11 @@ class Sim:
                 if target is None or u.dist > target.dist:
                     target = u
             if target is None:
+                # Retry next tick rather than scanning every tick forever (LF-098) — see
+                # the gate above. Rejected a longer retry interval: it would cut more
+                # cost, but delays "acquires the frame a unit enters range" by that same
+                # interval, changing which tick an idle gun re-acquires on — a rules
+                # change, not a performance one.
                 continue
             self._damage(target, p.tower)
             if p.tower.splash > 0:
@@ -424,6 +511,13 @@ class Sim:
         )
 
     def _tick_once(self) -> None:
+        # Primary rebuild point (LF-099) — see the comment on _eff_slow in __init__.
+        # Unconditional every tick, not gated by a dirty flag: O(towers) once here is
+        # cheap next to what it replaces, O(towers) inside _covered_by for every one of
+        # `bus_load()`'s and `_step()`'s per-unit calls. Named here because
+        # scripts/anchor_sim.gd's tick() rebuilds at the equivalent point, before its
+        # own bus_load() call, for the same reason.
+        self._rebuild_effect_lists()
         load = self.bus_load()
         penalty = brownout_penalty(load, self.capacity_now())
         self.peak_load = max(self.peak_load, load)

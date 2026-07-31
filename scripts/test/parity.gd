@@ -237,7 +237,14 @@ func _shed(s, policy: Dictionary) -> void:
 				worst_key = k
 		if worst < 0:
 			return
-		s.placed[worst]["online"] = false
+		# set_online(), not a direct write to s.placed[worst]["online"] -- LF-099
+		# gave AnchorSim.capacity() a pre-filtered restore list that is only kept
+		# fresh by set_online()/build_at()/sell()/upgrade() rebuilding it eagerly;
+		# writing the Dictionary key directly from outside the class bypasses that
+		# and capacity() then reads a stale list. Mirrors Sim._shed_load() in
+		# sim/engine.py, which is the one caller of the equivalent Python path and
+		# is itself a method of Sim, so it cannot make this mistake.
+		s.set_online(worst, false)
 
 
 # ───────────────────────────────────────────────────────────────── util ──

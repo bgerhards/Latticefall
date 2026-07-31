@@ -2114,3 +2114,59 @@ separately, so the cheap slice this issue graded stays parity-free. One pilot an
 terrain and the other 23 are untouched; anchor-01's grade is identical before and after, and
 all 24 still match the recorded table, which is true by construction rather than by luck
 because nothing in the rules reads `terrain` yet.
+
+---
+
+## 058 — An idle emplacement's rescan cannot be fixed cheaply, and the stopgap was a no-op
+
+**Date.** 2026-07-30.
+
+**Context.** `LF-098` / `WAR-04`. An emplacement with nothing in range rescans every unit on
+the board every tick, forever: the empty-target path never resets the cooldown, which has
+already gone negative. This is exactly the shape a large multi-lane board produces, because
+most guns are idle most of the time, and it was measured at **2.19x** the cost of the same
+board with targets in range at 8 towers / 32 units, rising to **2.87x** at 100/800.
+
+The proposed fix was to retry on the next tick rather than the same one.
+
+**Decision.** Do not ship it. It was implemented in both engines, it passed 864-run parity,
+and it changes nothing at all — measured, not argued: stripping the gate leaves
+`sim.run --json --detail` **byte-identical** across all 24 anchors and three difficulties,
+27,138 lines each.
+
+The reason is arithmetic. `next_scan_t = t + DT` set on tick *T* is the same value `t` holds
+on tick *T+1*, computed by the same accumulation, so the gate never excludes a tick. A
+one-tick retry *is* the current behaviour. The only interval that would actually skip work is
+a longer one, and that delays "acquires the frame a unit enters range" by exactly that
+interval — a rules change, in two implementations, gated at 864 runs, for a constant somebody
+would have to justify.
+
+So the loop keeps a comment naming the cost and pointing at the real fix, and carries no code
+that pretends to address it.
+
+**Rejected.**
+- *`p.cooldown = DT * rate`*, the issue's preferred form. Worse than a no-op: it **broke
+  parity**, flipping anchor-17 / hard / greedy-overdraw from lost to won. `cooldown`
+  decrements by `DT * rate` while `t` advances by `DT`, so when `rate` falls between the tick
+  that schedules the retry and the tick that checks it — a brownout that is *worsening*, not
+  merely present — the residual is positive and the retry silently takes two ticks. A
+  fluctuating brownout is not an edge case; it is Act II's entire mechanic.
+- *A longer retry interval, say four ticks.* Cuts real cost, and is a rules change wearing a
+  performance change's clothes.
+- *Keeping the no-op because it is harmless and documents intent.* It is three lines in the
+  hottest loop of the rules, which exist twice and must be mirrored forever. Dead weight in
+  the parity-critical path is not free, and a reader would reasonably assume it does
+  something.
+
+**Consequence.** `LF-098` stays open and is reassigned to `WAR-03`, the spatial hash, which
+is the honest fix: it makes an idle scan cost the cells within range instead of every unit on
+the board. The number to beat is now **14.3x at 60/400 and 17.1x at 100/800** — higher than
+the figure `LF-098` was filed with, because `WAR-05` removed the per-tower work that had been
+diluting the ratio. That is the true frequency disparity showing through: an idle gun scans
+30 times a second, a firing pulse turret about 1.3.
+
+**The wider lesson, which is why this is an entry and not a comment.** A performance fix that
+passes parity has proved only that it changed nothing observable — which is exactly what a
+no-op proves too. `tools/bench_tick.py` exists so the *other* half of the claim is
+falsifiable, and it is the reason this was caught before it became a line in a commit message
+nobody re-checked.
