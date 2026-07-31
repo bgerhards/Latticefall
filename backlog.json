@@ -1,5 +1,5 @@
 {
-  "next_id": 149,
+  "next_id": 150,
   "items": [
     {
       "id": "LF-001",
@@ -1231,11 +1231,11 @@
       "kind": "bug",
       "area": "tooling",
       "pri": "low",
-      "status": "open",
+      "status": "done",
       "why": "The guard that protects the power decision does not see upgraded draw",
       "opened": "2026-07-30",
-      "closed": null,
-      "note": ""
+      "closed": "2026-07-31",
+      "note": "closed at 4abd309"
     },
     {
       "id": "LF-104",
@@ -1639,11 +1639,11 @@
       "kind": "chore",
       "area": "tooling",
       "pri": "med",
-      "status": "open",
+      "status": "done",
       "why": "",
       "opened": "2026-07-31",
-      "closed": null,
-      "note": ""
+      "closed": "2026-07-31",
+      "note": "closed at 4abd309"
     },
     {
       "id": "LF-138",
@@ -1776,6 +1776,18 @@
       "opened": "2026-07-31",
       "closed": "2026-07-31",
       "note": "closed at b418461"
+    },
+    {
+      "id": "LF-149",
+      "title": "assets/renders/sprites.json as committed predates PRC-13 and has no 'hashes' or 'yaw_count' key, so tools/blender/build.py's first real run against this repo is not the promised no-op -- it re-renders all 26 assets, about two minutes, to backfill them. Verified in an isolated worktree: the SECOND run then behaves exactly as designed (0 to render, 26 skipped, atlas and import both skipped, 5.16s, manifest byte-identical). So the incremental guarantee is real and simply has not been exercised against the committed baseline yet. Someone owes the repo one full rebuild whose only content change is the manifest gaining hashes -- and it must be done when no one is playing, since it ends with an in-place import (LF-075).",
+      "kind": "chore",
+      "area": "art",
+      "pri": "med",
+      "status": "open",
+      "why": "",
+      "opened": "2026-07-31",
+      "closed": null,
+      "note": ""
     }
   ]
 }

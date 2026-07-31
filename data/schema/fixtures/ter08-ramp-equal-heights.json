@@ -1,0 +1,183 @@
+{
+  "schema": "anchor",
+  "id": "anchor-01",
+  "act": 1,
+  "title": "Carrier Signal",
+  "capacity_mw": 60,
+  "starting_funds": 300,
+  "lives": 10,
+  "grid": {
+    "w": 14,
+    "h": 10
+  },
+  "paths": [
+    {
+      "id": "main",
+      "waypoints": [
+        [
+          0,
+          5
+        ],
+        [
+          3,
+          5
+        ],
+        [
+          3,
+          2
+        ],
+        [
+          7,
+          2
+        ],
+        [
+          7,
+          7
+        ],
+        [
+          11,
+          7
+        ],
+        [
+          11,
+          4
+        ],
+        [
+          13,
+          4
+        ]
+      ]
+    }
+  ],
+  "slots": [
+    [
+      2,
+      3
+    ],
+    [
+      4,
+      4
+    ],
+    [
+      5,
+      1
+    ],
+    [
+      6,
+      4
+    ],
+    [
+      8,
+      5
+    ],
+    [
+      9,
+      3
+    ],
+    [
+      10,
+      6
+    ],
+    [
+      12,
+      6
+    ]
+  ],
+  "terrain": {
+    "levels": 2,
+    "regions": [
+      {
+        "rect": [
+          9,
+          0,
+          4,
+          3
+        ],
+        "z": 1
+      },
+      {
+        "rect": [
+          10,
+          0,
+          2,
+          1
+        ],
+        "z": 2
+      }
+    ],
+    "ramps": [
+      {
+        "tile": [
+          8,
+          1
+        ],
+        "from": 0,
+        "to": 0,
+        "dir": "+x"
+      }
+    ]
+  },
+  "waves": [
+    {
+      "lead_in": 25,
+      "spawns": [
+        {
+          "enemy": "warden-drone",
+          "count": 6,
+          "interval": 1.7
+        }
+      ]
+    },
+    {
+      "lead_in": 18,
+      "spawns": [
+        {
+          "enemy": "warden-drone",
+          "count": 10,
+          "interval": 1.4
+        }
+      ]
+    },
+    {
+      "lead_in": 18,
+      "spawns": [
+        {
+          "enemy": "warden-drone",
+          "count": 14,
+          "interval": 1.2
+        }
+      ]
+    },
+    {
+      "lead_in": 16,
+      "spawns": [
+        {
+          "enemy": "warden-drone",
+          "count": 18,
+          "interval": 1.0
+        }
+      ]
+    },
+    {
+      "lead_in": 16,
+      "spawns": [
+        {
+          "enemy": "warden-drone",
+          "count": 22,
+          "interval": 0.9
+        }
+      ]
+    },
+    {
+      "lead_in": 14,
+      "spawns": [
+        {
+          "enemy": "warden-drone",
+          "count": 28,
+          "interval": 0.8
+        }
+      ]
+    }
+  ],
+  "tutorial": true
+}

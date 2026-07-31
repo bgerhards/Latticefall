@@ -50,9 +50,20 @@ ROOT = Path(__file__).resolve().parents[2]
 DATA = ROOT / "data"
 SCHEMA = DATA / "schema"
 
+# TER-08: terrain cross-reference checks (below) must resolve a `terrain` block the SAME
+# way sim/content.py and scripts/content.gd do, or this becomes a third parser — exactly
+# the disagreement TER-02 exists to prevent. Import the shared resolver rather than
+# reimplementing paint order here.
+sys.path.insert(0, str(ROOT))
+from sim.content import resolve_terrain  # noqa: E402
+
 ## Capacity as a fraction of "every slot running the hungriest emplacement". Above this the
 ## power decision is thin; at 1.0 it does not exist. Act I sits at 29-38%.
 SATURATION_WARN = 0.80
+
+# TER-08: `dir` names the direction of *ascent* (schema description on `terrain.ramps`);
+# the tile one step in -dir must be at `from` and one step in +dir must be at `to`.
+RAMP_DIRS = {"+x": (1, 0), "-x": (-1, 0), "+y": (0, 1), "-y": (0, -1)}
 
 
 def _static_triggers_from_schema() -> set[str]:
@@ -154,7 +165,167 @@ def validate_schema(doc: dict, schema_name: str, where: str, rep: Report) -> boo
     return ok
 
 
+def check_terrain(doc: dict, rep: Report) -> None:
+    """TER-08: invariants the schema cannot express about an anchor's optional `terrain`
+    block. A schema can say "this is an integer"; only a resolver-aware check can say
+    "this ramp does not connect the two heights it claims to".
+
+    A no-op, by construction, on every anchor that carries no `terrain` — which today is
+    23 of 24 (TER-02's pilot is the exception), so this must not move any of their warning
+    counts. Called from the very top of check_anchor(), before its "no emplacement
+    unlocked" early return — moving it after that return would make it silently never run
+    on such an anchor (named as a risk in TER-08 itself).
+
+    Uses sim/content.py's resolve_terrain() — the SAME resolver both engines are proved
+    identical against by tools/terrain_parity.py — rather than a third implementation.
+
+    Every check below is an ERROR, not a warning: each one is "geometry the engines would
+    resolve differently" (a ramp whose claimed heights disagree with the resolved grid, a
+    lane step no unit could climb) rather than "legal but suboptimal". There is currently
+    no unreachable-but-legal terrain case to warn on — the pilot anchor's one ramp sits a
+    tile away from its only lane by design, which is exactly the "declared for a future
+    line-of-sight/movement consumer" case TER-02 calls out, not dead content, so this does
+    not invent a warning for it.
+
+    Bridges (deck support/clearance) and the LOS-aware dead-slot extension are deliberately
+    NOT implemented here: TER-08's own task list says the bridge checks "ship with"
+    TER-10, which defines the deck data, and the LOS extension is guarded on TER-12
+    shipping — neither exists yet, so there is nothing to resolve against.
+    """
+    where = doc.get("id", "anchor?")
+    terrain = doc.get("terrain")
+    if not terrain:
+        return
+    levels = terrain["levels"]
+    w, h = doc["grid"]["w"], doc["grid"]["h"]
+
+    # ---- region bounds and level range ----------------------------------------
+    # A rect that merely overhangs the edge is clipped, not an error (decision 057 / TER-02
+    # acceptance: "a generator emitting a region against the edge is the normal case, not a
+    # bug"). A rect with NO overlap at all paints nothing and is unambiguously dead data —
+    # that is what is flagged here, distinct from a partial clip.
+    for region in terrain.get("regions", []):
+        rx, ry, rw, rh = region["rect"]
+        z = region["z"]
+        if not (0 <= z <= levels):
+            rep.err(where, f"region rect {region['rect']} has z={z}, outside "
+                           f"0..{levels} (terrain.levels)")
+        ox0, ox1 = max(0, rx), min(w, rx + rw)
+        oy0, oy1 = max(0, ry), min(h, ry + rh)
+        if ox1 <= ox0 or oy1 <= oy0:
+            rep.err(where, f"region rect {region['rect']} does not overlap the "
+                           f"{w}x{h} grid at all")
+
+    # ---- heightmap dimensions and level range ----------------------------------
+    heightmap_ok = True
+    hm = terrain.get("heightmap")
+    if hm is not None:
+        if len(hm) != h:
+            rep.err(where, f"heightmap has {len(hm)} row(s), grid.h is {h} — row-major "
+                           f"(heightmap[y][x]); a transposed heightmap is otherwise "
+                           f"undetectable")
+            heightmap_ok = False
+        for y, row in enumerate(hm):
+            if len(row) != w:
+                rep.err(where, f"heightmap row {y} has {len(row)} column(s), "
+                               f"grid.w is {w}")
+                heightmap_ok = False
+        if heightmap_ok:
+            for y, row in enumerate(hm):
+                for x, v in enumerate(row):
+                    if not (0 <= v <= levels):
+                        rep.err(where, f"heightmap tile ({x},{y})={v}, outside "
+                                       f"0..{levels} (terrain.levels)")
+        if not heightmap_ok:
+            return  # cannot safely index a grid whose declared shape is wrong
+
+    grid = resolve_terrain(doc)
+
+    def height_at(tx: int, ty: int) -> int | None:
+        if 0 <= ty < len(grid) and 0 <= tx < len(grid[ty]):
+            return grid[ty][tx]
+        return None
+
+    # ---- ramp connectivity ------------------------------------------------------
+    ramps = terrain.get("ramps", [])
+    ramp_tiles: set[tuple[int, int]] = {
+        tuple(r["tile"]) for r in ramps
+        if 0 <= r["tile"][0] < w and 0 <= r["tile"][1] < h
+    }
+    for ramp in ramps:
+        tx, ty = ramp["tile"]
+        frm, to, d = ramp["from"], ramp["to"], ramp["dir"]
+        tag = f"ramp ({tx},{ty})"
+        if not (0 <= tx < w and 0 <= ty < h):
+            rep.err(where, f"{tag} is outside the grid {w}x{h}")
+            continue
+        if abs(to - frm) != 1:
+            rep.err(where, f"{tag} claims to connect level {frm} to {to}, which differ "
+                           f"by {abs(to - frm)}, not 1")
+        dx, dy = RAMP_DIRS[d]
+        from_h, to_h = height_at(tx - dx, ty - dy), height_at(tx + dx, ty + dy)
+        if from_h is None or to_h is None:
+            rep.err(where, f"{tag} dir {d} has no tile on one side inside the grid — "
+                           f"a ramp declared next to a wall")
+        else:
+            if from_h != frm:
+                rep.err(where, f"{tag} claims level {frm} at ({tx - dx},{ty - dy}) "
+                               f"(behind, opposite {d}) but the resolved grid has {from_h}")
+            if to_h != to:
+                rep.err(where, f"{tag} claims level {to} at ({tx + dx},{ty + dy}) "
+                               f"(ahead, dir {d}) but the resolved grid has {to_h}")
+
+    # ---- the lane never steps more than one level per tile ----------------------
+    for li, lane in enumerate(doc["paths"]):
+        pts = [tuple(p[:2]) for p in lane["waypoints"]]
+        tiles: list[tuple[int, int]] = []
+        for (ax, ay), (bx, by) in zip(pts, pts[1:]):
+            if ax == bx:
+                step = 1 if by >= ay else -1
+                for y in range(ay, by + step, step):
+                    tiles.append((ax, y))
+            elif ay == by:
+                step = 1 if bx >= ax else -1
+                for x in range(ax, bx + step, step):
+                    tiles.append((x, ay))
+            # a diagonal segment is already an error from check_anchor's own lane
+            # check; not walked here rather than double-reported.
+        walk = [t for i, t in enumerate(tiles) if i == 0 or t != tiles[i - 1]]
+        tag = f"lane {li} ('{lane['id']}')"
+        for (tx0, ty0), (tx1, ty1) in zip(walk, walk[1:]):
+            h0, h1 = height_at(tx0, ty0), height_at(tx1, ty1)
+            if h0 is None or h1 is None:
+                continue  # out-of-grid point already reported by check_anchor
+            delta = h1 - h0
+            if abs(delta) > 1:
+                rep.err(where, f"{tag} steps {delta:+d} level(s) between ({tx0},{ty0})="
+                               f"{h0} and ({tx1},{ty1})={h1} — units cannot climb more "
+                               f"than one level per tile")
+            elif delta != 0 and (tx0, ty0) not in ramp_tiles and (tx1, ty1) not in ramp_tiles:
+                rep.err(where, f"{tag} steps from ({tx0},{ty0})={h0} to ({tx1},{ty1})="
+                               f"{h1} with no ramp declared on either tile")
+
+    # ---- no emplacement on a ramp or a cliff face --------------------------------
+    for s in doc["slots"]:
+        sx, sy = s[0], s[1]
+        own = height_at(sx, sy)
+        if own is None:
+            continue  # out-of-grid slot already reported by check_anchor
+        if (sx, sy) in ramp_tiles:
+            rep.err(where, f"slot ({sx},{sy}) sits on a ramp")
+            continue
+        for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+            nh = height_at(sx + dx, sy + dy)
+            if nh is not None and abs(nh - own) > 1:
+                rep.err(where, f"slot ({sx},{sy})={own} sits on a cliff face — "
+                               f"neighbour ({sx + dx},{sy + dy})={nh}")
+                break
+
+
 def check_anchor(doc: dict, towers: dict, enemies: dict, rep: Report) -> None:
+    # TER-08: must run before the "no emplacement unlocked" early return below, or
+    # terrain checks silently never run on such an anchor.
+    check_terrain(doc, rep)
     where = doc.get("id", "anchor?")
     w, h = doc["grid"]["w"], doc["grid"]["h"]
     paths: list[dict] = doc["paths"]
@@ -240,11 +411,24 @@ def check_anchor(doc: dict, towers: dict, enemies: dict, rep: Report) -> None:
     # player never has to choose and the hook is inert. Compare against slots x max
     # draw, not the sum of distinct types — a board is filled with instances, and with
     # one type unlocked the type-sum is meaninglessly small.
-    max_draw = max(t["draw_mw"] for t in avail)
+    #
+    # LF-103: "max draw" must include `upgrade.draw_mw`, not just the base `draw_mw`.
+    # An upgrade replaces the base stat it names (schema description on `towers[].upgrade`)
+    # rather than adding to it, so a tower's true worst-case draw is max(base, upgrade) —
+    # almost always the upgrade, since every upgrade in data/towers.json today draws more
+    # than its base. Reading base alone made an upgraded slot's real draw invisible to
+    # exactly the guard that caught anchor-24 reaching 103% of saturation once (decision
+    # 048) — a steep-upgrade-draw weapon (WAR-13's Siege Battery) would have made this
+    # guard pass while the anchor it graded quietly had no power decision left in it.
+    def _tower_max_draw(t: dict) -> float:
+        up_draw = t.get("upgrade", {}).get("draw_mw")
+        return max(t["draw_mw"], up_draw) if up_draw is not None else t["draw_mw"]
+
+    max_draw = max(_tower_max_draw(t) for t in avail)
     saturated = len(doc["slots"]) * max_draw
     if cap >= saturated:
-        rep.err(where, f"capacity {cap} MW covers every slot at max draw "
-                       f"({len(doc['slots'])} x {max_draw} = {saturated} MW) "
+        rep.err(where, f"capacity {cap} MW covers every slot at max draw including "
+                       f"upgrades ({len(doc['slots'])} x {max_draw} = {saturated} MW) "
                        f"— no power decision exists on this anchor")
     # Warned well before that, because the hook does not switch off at the boundary, it
     # fades towards it — and the drift is invisible until it crosses. Act I runs at 29-38%
@@ -328,6 +512,12 @@ def check_dialog(doc: dict, anchors: dict, rep: Report) -> None:
 def main() -> int:
     ap = argparse.ArgumentParser(description="Validate Latticefall game data.")
     ap.add_argument("--quiet", action="store_true", help="only print problems")
+    ap.add_argument("--fixture", type=Path, default=None,
+                     help="validate one anchor document in isolation (e.g. a TER-08 "
+                          "fixture under data/schema/fixtures/) against the real, "
+                          "tracked towers.json/enemies.json, instead of the whole of "
+                          "data/ — how a fixture built to trip exactly one rule is "
+                          "proven to fail red")
     args = ap.parse_args()
     rep = Report()
 
@@ -369,6 +559,39 @@ def main() -> int:
         # "tuning" (and any future data-only schema) needs no further handling: shape
         # validation above is the entire check — see the module docstring on why its
         # values are inert to the Python sim by design.
+
+    if args.fixture:
+        # TER-08: prove a validator rule fails red on a fixture built to trip exactly it,
+        # in isolation — the real towers/enemies just loaded from tracked data are the
+        # catalogue it is checked against; only the anchor is swapped for the fixture.
+        fpath = args.fixture
+        try:
+            fwhere = str(fpath.resolve().relative_to(ROOT))
+        except ValueError:
+            fwhere = str(fpath)
+        frep = Report()
+        fdoc = load(fpath)
+        try:
+            fname = schema_for(fdoc, fpath)
+        except SchemaDispatchError as e:
+            frep.err(fwhere, str(e))
+            fname = None
+        if fname is not None and validate_schema(fdoc, fname, fwhere, frep):
+            if fname == "anchor":
+                check_anchor(fdoc, towers, enemies, frep)
+            else:
+                frep.err(fwhere, f"--fixture only supports anchor documents "
+                                 f"(got schema '{fname}')")
+        for w in frep.warnings:
+            print(f"  warn  {w}")
+        for e in frep.errors:
+            print(f"  ERROR {e}", file=sys.stderr)
+        if frep.errors:
+            print(f"\n{len(frep.errors)} error(s)", file=sys.stderr)
+            return 1
+        if not args.quiet:
+            print(f"ok — {len(frep.warnings)} warning(s)")
+        return 0
 
     for coll, label in ((towers, "tower"), (enemies, "enemy")):
         if len(coll) != len({k for k in coll}):

@@ -5,7 +5,8 @@ path — so nothing ever entered its radius, it never came online, and the resul
 identical to having no wall at all. Here the wall takes the slot nearest the path.
 """
 import math, sys
-sys.path.insert(0, "/Users/briangerhards/dev/defend-claude")
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from sim.content import load_anchor, load_enemies, load_towers
 from sim.engine import DIFFICULTIES, Placed, Policy, Sim
 
