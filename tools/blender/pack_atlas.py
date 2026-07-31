@@ -27,6 +27,21 @@ What it writes
 `render.py` can rewrite it without knowing this step exists and `sprites.gd` can still
 fall back to loading individual files when no atlas has been packed.
 
+LF-124: a pass that would overflow `GL_MAX_TEXTURE_SIZE_FLOOR` now splits into more than
+one page instead of refusing to pack at all. The first page of a pass keeps the old
+single-page name (`albedo.png`, `glow.png`) so a library that still fits in one page —
+which is every library committed today — packs to byte-identical output; page 2+ are
+`albedo_1.png`, `albedo_2.png`, ... `atlas["index"][pass][key]` grew a third element,
+the page number, from `[col, row]` to `[page, col, row]` — `tools/check.py`'s
+`sprite atlas` check only ever takes `len()` of that dict, never indexes into a cell, so
+this is invisible to it. `atlas["pages"]` stays a flat `{name: relpath}` dict for exactly
+the same reason: `check.py` and `build.py`'s `atlas_is_stale()` both only check *that*
+each value exists, never how many pages one pass has, so a flat dict with one entry per
+physical file (`"albedo"`, `"albedo_1"`, `"albedo_2"`, ...) keeps both readable without
+touching either file. `atlas["page_files"][pass]` is the one new key, an ordered array of
+relpaths per pass — that is what `scripts/sprites.gd` actually indexes by page number to
+resolve a cell.
+
 Order matters: **render -> mask_glow -> pack_atlas -> --import**. Packing before masking
 would bake the unmasked opaque-alpha glow into the page, and skipping the import leaves
 Godot serving the previous `.ctex` from its cache.
@@ -88,6 +103,13 @@ PASSES = ("albedo", "glow")
 # just on the one machine this was measured on. Still needs re-measuring on whatever GPU
 # renders this in production, per the 16384-measured-here comment above — this floor is a
 # choice bounded by that number, not a replacement for it.
+#
+# LF-124: this is no longer the wall it used to be. A pass whose cells would overflow one
+# page of this size now spills into additional pages (see `page_capacity()` / `pack()`)
+# instead of `pack()` raising `SystemExit`. It stays exactly as conservative as before —
+# still 8192, not the 16384 this machine actually reports — because it is still a per-page
+# ceiling a real device might enforce; what changed is what happens when the library needs
+# more of them.
 GL_MAX_TEXTURE_SIZE_FLOOR = 8192
 
 
@@ -126,50 +148,108 @@ def collect(doc: dict) -> dict[str, list[tuple[str, str, Path]]]:
     return out
 
 
-def pack(entries: list[tuple[str, str, Path]], dest: Path, cell: int,
-         write: bool) -> tuple[dict[str, list[int]], tuple[int, int]]:
-    rows = (len(entries) + COLS - 1) // COLS
-    size = (COLS * cell, max(rows, 1) * cell)
+def page_capacity(cell: int) -> int:
+    """How many `cell`x`cell` grid cells fit on one page before it would cross
+    `GL_MAX_TEXTURE_SIZE_FLOOR` (LF-124).
 
-    # LF-114: assert before ever allocating. A page over this either fails to upload in
-    # GL Compatibility or, on the Pillow side, blows up as an unexplained MemoryError for
-    # an absurd size — this names the actual problem and the page count that would fix it.
-    if size[0] > GL_MAX_TEXTURE_SIZE_FLOOR or size[1] > GL_MAX_TEXTURE_SIZE_FLOOR:
-        pages_needed = max(
-            -(-size[0] // GL_MAX_TEXTURE_SIZE_FLOOR),
-            -(-size[1] // GL_MAX_TEXTURE_SIZE_FLOOR),
-        )
+    Raises before ever allocating anything, same reasoning as the old single-page
+    assertion this replaces: a page over the floor either fails to upload in GL
+    Compatibility or blows up Pillow as an unexplained MemoryError for an absurd size.
+    Two failures stay hard failures rather than being "solved" by splitting, because
+    splitting cannot fix either: a single cell already too big to fit on any page, or a
+    single row (`COLS` cells wide) already too wide for any page — `COLS` is fixed so
+    every sprite sits in an identically-shaped grid (see the module docstring on why
+    trimming, and by extension a variable-width grid, is not an option).
+    """
+    if cell > GL_MAX_TEXTURE_SIZE_FLOOR:
         raise SystemExit(
-            f"atlas page would be {size[0]}x{size[1]}px, over the "
-            f"{GL_MAX_TEXTURE_SIZE_FLOOR}px GL_MAX_TEXTURE_SIZE floor (LF-114) — "
-            f"{len(entries)} cells at {cell}px need at least {pages_needed} page(s) of "
-            f"<= {GL_MAX_TEXTURE_SIZE_FLOOR}px each; multi-page packing is not "
-            "implemented yet (backlog candidate, PRC-13 follow-up)")
+            f"a single {cell}px cell already exceeds the {GL_MAX_TEXTURE_SIZE_FLOOR}px "
+            "GL_MAX_TEXTURE_SIZE floor (LF-114) — no page size, however small, can hold "
+            "even one cell; multi-page packing cannot fix a cell that is itself too big")
+    if COLS * cell > GL_MAX_TEXTURE_SIZE_FLOOR:
+        raise SystemExit(
+            f"{COLS} columns at {cell}px is {COLS * cell}px, already over the "
+            f"{GL_MAX_TEXTURE_SIZE_FLOOR}px GL_MAX_TEXTURE_SIZE floor (LF-114) — a single "
+            "row is already too wide for any page; multi-page packing only splits rows "
+            "across pages, it cannot narrow one, so COLS itself would need to shrink")
+    return COLS * max(1, GL_MAX_TEXTURE_SIZE_FLOOR // cell)
 
-    page = Image.new("RGBA", size, (0, 0, 0, 0)) if write else None
+
+def page_path(pass_name: str, page_num: int) -> Path:
+    """Page 0 of a pass keeps the pre-LF-124 filename (`albedo.png`) so a library that
+    still fits on one page — every library committed today — packs to byte-identical
+    output. Page 1+ are `albedo_1.png`, `albedo_2.png`, ..."""
+    name = f"{pass_name}.png" if page_num == 0 else f"{pass_name}_{page_num}.png"
+    return ATLAS_DIR / name
+
+
+def pack(entries: list[tuple[str, str, Path]], pass_name: str, cell: int,
+         write: bool) -> tuple[dict[str, list[int]], list[Path], list[tuple[int, int]]]:
+    """Pack one pass's entries onto as many pages as `page_capacity()` requires.
+
+    Returns (index, page_paths, page_sizes). `index[key]` is `[page, col, row]` — page
+    number first, so `sprites.gd` knows which of `page_paths` to sample. Ordering is
+    unchanged from the single-page version (sorted by name then yaw, upstream in
+    `collect()`), so which page a given sprite lands on is deterministic and stable
+    across an unrelated re-render, same as cell position always was.
+    """
+    capacity = page_capacity(cell)
+    chunks = [entries[i:i + capacity] for i in range(0, len(entries), capacity)]
+
     index: dict[str, list[int]] = {}
+    page_paths: list[Path] = []
+    page_sizes: list[tuple[int, int]] = []
 
-    # LF-113: opens and checks every image whether or not this call is going to write
-    # anything. It used to be `if not write: continue` right after the index line, which
-    # meant `--check` short-circuited past Image.open() and this assertion never ran in
-    # check mode — the one thing standing between a manifest that claims one cell size
-    # and renders on disk that are actually another never fired where it mattered.
-    for i, (name, slot, path) in enumerate(entries):
-        col, row = i % COLS, i // COLS
-        index[f"{name}|{slot}"] = [col, row]
-        with Image.open(path) as im:
-            im = im.convert("RGBA")
-            if im.size != (cell, cell):
-                raise SystemExit(f"{path.name} is {im.size}, expected {cell}x{cell} — "
-                                 "the grid pack assumes a uniform cell and the pivot "
-                                 "depends on it")
-            if write:
-                page.paste(im, (col * cell, row * cell))
+    for page_num, chunk in enumerate(chunks):
+        rows = (len(chunk) + COLS - 1) // COLS
+        size = (COLS * cell, max(rows, 1) * cell)
+        dest = page_path(pass_name, page_num)
+        page = Image.new("RGBA", size, (0, 0, 0, 0)) if write else None
 
-    if write:
-        dest.parent.mkdir(parents=True, exist_ok=True)
-        page.save(dest, optimize=True)
-    return index, size
+        # LF-113: opens and checks every image whether or not this call is going to write
+        # anything. It used to be `if not write: continue` right after the index line,
+        # which meant `--check` short-circuited past Image.open() and this assertion
+        # never ran in check mode — the one thing standing between a manifest that claims
+        # one cell size and renders on disk that are actually another never fired where
+        # it mattered.
+        for i, (name, slot, path) in enumerate(chunk):
+            col, row = i % COLS, i // COLS
+            index[f"{name}|{slot}"] = [page_num, col, row]
+            with Image.open(path) as im:
+                im = im.convert("RGBA")
+                if im.size != (cell, cell):
+                    raise SystemExit(f"{path.name} is {im.size}, expected {cell}x{cell} "
+                                     "— the grid pack assumes a uniform cell and the "
+                                     "pivot depends on it")
+                if write:
+                    page.paste(im, (col * cell, row * cell))
+
+        if write:
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            page.save(dest, optimize=True)
+        page_paths.append(dest)
+        page_sizes.append(size)
+
+    return index, page_paths, page_sizes
+
+
+def _prune_stale_pages(needed: set[Path]) -> list[Path]:
+    """Delete `{pass}.png` / `{pass}_N.png` files this run did not (re)write.
+
+    Without this, shrinking back from N pages to 1 (as the forced-split rehearsal for
+    LF-124 does, and as any future asset removal could) leaves the old `albedo_2.png`
+    etc. sitting in `assets/renders/atlas/` — untracked once git notices, and a silent
+    trap for anyone who globs the directory instead of reading the manifest.
+    """
+    if not ATLAS_DIR.exists():
+        return []
+    removed = []
+    for pass_name in PASSES:
+        for p in list(ATLAS_DIR.glob(f"{pass_name}*.png")):
+            if p not in needed:
+                p.unlink()
+                removed.append(p)
+    return removed
 
 
 def run(check: bool) -> int:
@@ -200,28 +280,41 @@ def run(check: bool) -> int:
         return 1
     cell = int(doc["cell"])
 
-    atlas = {"cell": cell, "cols": COLS, "pages": {}, "index": {},
+    atlas = {"cell": cell, "cols": COLS, "pages": {}, "page_files": {}, "index": {},
              "source_digest": source_digest(groups)}
+    all_page_paths: set[Path] = set()
+    total_pages = 0
     for pass_name in PASSES:
         entries = groups[pass_name]
         if not entries:
             continue
-        dest = ATLAS_DIR / f"{pass_name}.png"
-        index, size = pack(entries, dest, cell, write=not check)
-        atlas["pages"][pass_name] = str(dest.relative_to(ROOT))
+        index, page_paths, page_sizes = pack(entries, pass_name, cell, write=not check)
         atlas["index"][pass_name] = index
-        kb = dest.stat().st_size / 1024 if dest.exists() and not check else 0
-        print(f"{pass_name:7s} {len(entries):3d} cells -> {size[0]}x{size[1]}"
-              + (f"  {kb:.0f} KB" if kb else ""))
+        atlas["page_files"][pass_name] = [str(p.relative_to(ROOT)) for p in page_paths]
+        for page_num, p in enumerate(page_paths):
+            key = pass_name if page_num == 0 else f"{pass_name}_{page_num}"
+            atlas["pages"][key] = str(p.relative_to(ROOT))
+        all_page_paths.update(page_paths)
+        total_pages += len(page_paths)
+        kb = sum(p.stat().st_size for p in page_paths if p.exists()) / 1024 \
+            if not check else 0
+        sizes_str = " + ".join(f"{w}x{h}" for w, h in page_sizes)
+        print(f"{pass_name:7s} {len(entries):3d} cells -> {len(page_paths)} page(s) "
+              f"({sizes_str})" + (f"  {kb:.0f} KB total" if kb else ""))
 
     if check:
         print("\n--check: nothing written")
         return 0
 
+    removed = _prune_stale_pages(all_page_paths)
+    for p in removed:
+        print(f"removed stale page: {p.relative_to(ROOT)}")
+
     doc["atlas"] = atlas
     MANIFEST.write_text(json.dumps(doc, indent=2, sort_keys=True) + "\n")
     loose = sum(len(g) for g in groups.values())
-    print(f"\n{loose} loose textures -> {len(atlas['pages'])} atlas pages")
+    print(f"\n{loose} loose textures -> {total_pages} atlas page(s) across "
+          f"{len(atlas['page_files'])} pass(es)")
     print(f"manifest updated: {MANIFEST.relative_to(ROOT)}")
     print("\nRe-import or the game keeps serving the cached .ctex:")
     print("  /Applications/Godot.app/Contents/MacOS/Godot --headless --path . --import")

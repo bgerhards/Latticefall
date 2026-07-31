@@ -1483,11 +1483,11 @@
       "kind": "chore",
       "area": "art",
       "pri": "med",
-      "status": "open",
+      "status": "done",
       "why": "",
       "opened": "2026-07-30",
-      "closed": null,
-      "note": ""
+      "closed": "2026-07-31",
+      "note": "closed at 8abd36c"
     },
     {
       "id": "LF-125",

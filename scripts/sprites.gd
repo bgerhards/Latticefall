@@ -20,13 +20,20 @@ var ok: bool = false
 var _cache: Dictionary = {}      # "name|yaw|pass" -> Texture2D
 var _entries: Dictionary = {}
 
-## The library is packed into one atlas page per pass by tools/blender/pack_atlas.py.
+## The library is packed into atlas pages per pass by tools/blender/pack_atlas.py.
 ## 192 loose 256x256 textures were 192 separate resources for the board to bind; they are
-## now two. The pack is a fixed grid and nothing is trimmed, which is what lets a single
-## measured pivot keep serving every sprite — see that script for why trimming would
-## reintroduce LF-027.
-var _pages: Dictionary = {}      # pass -> Texture2D
-var _index: Dictionary = {}      # pass -> {"name|yNNN": [col, row]}
+## now a small, fixed number of pages. The pack is a fixed grid and nothing is trimmed,
+## which is what lets a single measured pivot keep serving every sprite — see that script
+## for why trimming would reintroduce LF-027.
+##
+## LF-124: a pass that outgrows one page (ART-01's per-yaw head/base split, ART-04's
+## 512px cells, or both at once) spills into more of them rather than one page growing
+## past what GL_MAX_TEXTURE_SIZE can hold. `_pages[pass]` is therefore an Array of
+## Texture2D indexed by page number, not a single texture, and `_index[pass][key]` is
+## `[page, col, row]` rather than `[col, row]` — see pack_atlas.py's own doc for why that
+## third element is invisible to tools/check.py's `sprite atlas` check.
+var _pages: Dictionary = {}      # pass -> Array[Texture2D], indexed by page number
+var _index: Dictionary = {}      # pass -> {"name|yNNN": [page, col, row]}
 var _cell: int = 256
 var atlas_ok: bool = false
 
@@ -87,12 +94,23 @@ func _load_atlas(atlas: Dictionary) -> void:
 	if atlas.is_empty():
 		return
 	_cell = int(atlas.get("cell", 256))
-	for pass_name in atlas.get("pages", {}):
-		var path := "res://" + String(atlas["pages"][pass_name])
-		if ResourceLoader.exists(path):
-			_pages[pass_name] = load(path)
-		else:
-			push_warning("sprites: atlas page missing, falling back to loose files: %s" % path)
+	## LF-124: "page_files" is the ordered-by-page-number list `_from_atlas()` indexes
+	## into. ("pages", the flat {name: relpath} dict tools/check.py reads for existence
+	## checking, is not read here — it carries the same paths but no page ordering.)
+	var page_files: Dictionary = atlas.get("page_files", {})
+	for pass_name in page_files:
+		var rel_paths: Array = page_files[pass_name]
+		var textures: Array = []
+		var all_present := true
+		for rel in rel_paths:
+			var path := "res://" + String(rel)
+			if not ResourceLoader.exists(path):
+				push_warning("sprites: atlas page missing, falling back to loose files: %s" % path)
+				all_present = false
+				break
+			textures.append(load(path))
+		if all_present and not textures.is_empty():
+			_pages[pass_name] = textures
 	_index = atlas.get("index", {})
 	atlas_ok = _pages.size() > 0
 
@@ -149,10 +167,19 @@ func _from_atlas(name: String, yaw: int, pass_name: String) -> Texture2D:
 	if not idx.has(key):
 		return null
 	var cell: Array = idx[key]
+	# [page, col, row] (LF-124) — page first, so a sprite that landed past the first
+	# page's capacity still resolves to the right physical texture.
+	var page_num := int(cell[0])
+	var col := int(cell[1])
+	var row := int(cell[2])
+	var pages: Array = _pages[pass_name]
+	if page_num < 0 or page_num >= pages.size():
+		push_error(("sprites: %s references atlas page %d but pass %s only has %d — " +
+			"manifest and packed pages disagree") % [key, page_num, pass_name, pages.size()])
+		return null
 	var at := AtlasTexture.new()
-	at.atlas = _pages[pass_name]
-	at.region = Rect2(float(int(cell[0]) * _cell), float(int(cell[1]) * _cell),
-			float(_cell), float(_cell))
+	at.atlas = pages[page_num]
+	at.region = Rect2(float(col * _cell), float(row * _cell), float(_cell), float(_cell))
 	# Cells sit edge to edge, so a filtered sample at a boundary would pull in the
 	# neighbouring sprite. Clipping is what makes a grid atlas safe to filter.
 	at.filter_clip = true
@@ -160,6 +187,9 @@ func _from_atlas(name: String, yaw: int, pass_name: String) -> Texture2D:
 
 
 func report() -> String:
+	var n_pages := 0
+	for pass_name in _pages:
+		n_pages += (_pages[pass_name] as Array).size()
 	return "sprites %s (%d assets, %s)" % [
 		"ok" if ok else "MISSING", _entries.size(),
-		"atlas %d pages" % _pages.size() if atlas_ok else "loose files"]
+		("atlas %d pages" % n_pages) if atlas_ok else "loose files"]
