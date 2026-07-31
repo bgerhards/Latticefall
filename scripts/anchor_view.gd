@@ -592,6 +592,36 @@ func camera_state() -> Dictionary:
 	return {"x": t.x, "y": t.y, "zoom": _cam_zoom}
 
 
+func camera_view_rect() -> Rect2:
+	## CAM-04: the board-projected rectangle (`Iso.tile_to_screen`'s own units — the space
+	## `_cam_target` itself always lives in) currently visible in the strip between the two
+	## instrument panels. This is what the minimap draws as the camera box, and the region
+	## size its keyboard/gamepad stepping (`pan_by()` below) moves by.
+	##
+	## Solved from the same equation `_apply_camera()` derives `_origin` from — screen =
+	## (projected + origin) * zoom — inverted for `projected` at the strip's own corners.
+	## Ignores shake's `position`: that is a presentation wobble under 16px
+	## (`TRAUMA_MAX_OFFSET`) that would only ever jitter the box, never mean anything.
+	if Engine.is_editor_hint() or sim == null:
+		return Rect2()
+	var vp := get_viewport_rect().size
+	var strip := _strip_geometry(vp)
+	var half := Vector2(strip["w"], strip["h"]) * 0.5
+	var top_left: Vector2 = strip["centre"] - half
+	return Rect2(top_left / _cam_zoom - _origin, Vector2(strip["w"], strip["h"]) / _cam_zoom)
+
+
+func pan_by(delta_projected: Vector2) -> void:
+	## CAM-04: nudge `_cam_target` by a screen-axis-aligned amount already expressed in the
+	## camera's own projected units (`camera_view_rect()`'s own space) — the minimap's
+	## focused keyboard/gamepad region-stepping is the only caller. Goes through the same
+	## clamp/apply path every other camera input uses (`_apply_camera()`'s own doc), so a
+	## step here can never walk the camera off the board, exactly like a drag or an
+	## edge-scroll.
+	_cam_target += delta_projected
+	_apply_camera()
+
+
 # ─────────────────────────────────────────────────────────────── clock ──
 
 func _process(delta: float) -> void:

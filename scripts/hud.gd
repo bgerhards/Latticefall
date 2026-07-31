@@ -80,16 +80,37 @@ const POWER_H := 34.0
 const VERBS_GAP := 6.0
 const VERBS_H := 10.0 + VERB_H + VERBS_GAP + POWER_H + PAD
 
+## CAM-04: the minimap, pinned below the threat panel's scroll region rather than inside it —
+## the issue's own risk note says a minimap that scrolls out of view mid-wave is worse than
+## no minimap at all, and decision 050 already solved exactly this for SELL/UPGRADE/POWER by
+## pinning them outside the *column's* scroll region. Same fix, mirrored on the other panel.
+## `MINIMAP_MAP_H` is exactly half `MINIMAP_MAP_W`: the Iso projection's tile-space bounding
+## box is *always* 2:1, any grid (`minimap.gd`'s own note), so this fits any board with no
+## letterbox bars.
+const MinimapScript := preload("res://scripts/minimap.gd")
+const MINIMAP_MAP_W := 220.0
+const MINIMAP_MAP_H := 110.0
+
 var _buttons: Array[Button] = []
 var _root: Control
 var _col_scroll: ScrollContainer
 var _threat_scroll: ScrollContainer
 var _verbs_panel: Control
 var _hint_panel: Control
+var _minimap_panel: Control
+## Untyped deliberately: `minimap.gd` is preloaded, never referenced by `class_name` (see
+## CLAUDE.md's note on why a new `class_name` is invisible until the editor has imported —
+## the same reasoning `sim`'s own declaration in `anchor_view.gd` rests on), so a `Control`
+## annotation here would parse-fail every call to `bind()`/`set_focused()`/`step()` below —
+## none of those exist on the base `Control` class the static type checker would see.
+var _minimap
 var _relayout_queued := false
 ## LF-057. Survives `_build_ui()` rebuilds (resize, interface-scale change) because it is
 ## read by `_apply_hud_visibility()` at the end of every rebuild rather than reset there.
 var _hud_hidden := false
+## CAM-04. Survives `_build_ui()` rebuilds for the same reason `_hud_hidden` does — reapplied
+## to the fresh `_minimap` node in `_build_minimap()` rather than reset here.
+var _minimap_focused := false
 
 
 func _make_label(size: int, col: Color, mono: bool = false, bold: bool = false) -> Label:
@@ -118,6 +139,24 @@ func bind(v: Node2D) -> void:
 	# main.gd.
 	if OS.get_cmdline_user_args().has("--hud-hidden"):
 		toggle_hud()
+	# `-- --minimap-focus` boots straight into CAM-04's minimap-focused state, and repeated
+	# `-- --minimap-step <dx> <dy>` pairs call `Minimap.step()` directly, in argv order —
+	# the same reasoning `--hud-hidden` above already rests on: `--fixed-fps` has nobody to
+	# press M or an arrow key, and LF-139 already names the general gap this works around
+	# (`--press-at`/`--cursor` dispatch straight to `AnchorView._action_input()`, invisible
+	# to a HUD node's own `_unhandled_input()`, which is exactly where this file's real
+	# `lf_minimap_focus`/`lf_up`/.../`lf_right` handling lives). This calls the same public
+	# methods a real keypress reaches (`toggle_minimap_focus()`, `_minimap.step()`), so what
+	# is unverified is only whether Godot's own input dispatch really runs this file's
+	# `_unhandled_input()` before `AnchorView`'s for a shared action — an engine-ordering
+	# question, not a CAM-04-specific one.
+	var argv := OS.get_cmdline_user_args()
+	if argv.has("--minimap-focus"):
+		toggle_minimap_focus()
+	for i in range(argv.size()):
+		if argv[i] == "--minimap-step" and i + 2 < argv.size() \
+				and argv[i + 1].is_valid_float() and argv[i + 2].is_valid_float():
+			_minimap.step(Vector2(float(argv[i + 1]), float(argv[i + 2])))
 	refresh()
 
 
@@ -379,9 +418,9 @@ func _build_ui() -> void:
 
 
 func _apply_hud_visibility() -> void:
-	## LF-057. One flag, four nodes: the instrument column, the threat panel and the pinned
-	## verb row are what covers the board, so all three hide together; the hint is the
-	## inverse of all three, and is the only thing shown while they are gone.
+	## LF-057. One flag, five nodes: the instrument column, the threat panel, the pinned verb
+	## row and the minimap (CAM-04) are what covers the board, so all four hide together; the
+	## hint is the inverse of all four, and is the only thing shown while they are gone.
 	##
 	## The end-of-anchor banner and its action buttons are deliberately not part of this —
 	## they are not "the instrument panels", they are the one thing the game must still say
@@ -392,6 +431,8 @@ func _apply_hud_visibility() -> void:
 		_threat_scroll.visible = not _hud_hidden
 	if _verbs_panel != null:
 		_verbs_panel.visible = not _hud_hidden
+	if _minimap_panel != null:
+		_minimap_panel.visible = not _hud_hidden
 	if _hint_panel != null:
 		_hint_panel.visible = _hud_hidden
 
@@ -665,12 +706,68 @@ func _build_threat(root: Control, vp: Vector2, g: float) -> void:
 	# Bounded by the dialog band rather than by the viewport: the dialog draws over this
 	# panel, so the panel stops above it and scrolls if the wave needs more room than that
 	# leaves. At 1920x1080 this never engages; at 960x540 it is 78 px of unit rows.
+	#
+	# CAM-04: also bounded by MINIMAP_H, the same way VERBS_H is subtracted from the column's
+	# own scroll budget — the minimap is pinned below this scroll region (see `_build_minimap`'s
+	# own doc for why), so whatever it needs comes out of this budget, not out of the viewport
+	# a second time.
 	threat.custom_minimum_size = Vector2(THREAT_W - Ui.SCROLL_GUTTER, y)
 	_threat_scroll = Ui.scroller()
 	_threat_scroll.position = Vector2(px, g)
-	_threat_scroll.size = Vector2(THREAT_W, minf(y, vp.y - g - dialog_reserve(vp)))
+	_threat_scroll.size = Vector2(THREAT_W, minf(y, vp.y - g - dialog_reserve(vp) - minimap_h()))
 	_threat_scroll.add_child(threat)
 	root.add_child(_threat_scroll)
+
+	_build_minimap(root, Vector2(px, g + _threat_scroll.size.y))
+
+
+func minimap_h() -> float:
+	## The minimap panel's total height, measured from the type it holds — not a `const`
+	## because `Ui.line_h()` is a function call, and GDScript constants must be constant
+	## expressions. Called from both `_build_threat()` (to reserve the budget) and
+	## `_build_minimap()` (to size the panel), so the two can never disagree the way two
+	## separate literals could.
+	return 10.0 + Ui.line_h(Ui.SIZE_CAPTION, false) + 4.0 + MINIMAP_MAP_H \
+		+ 4.0 + Ui.line_h(Ui.SIZE_CAPTION, false) + PAD
+
+
+func _build_minimap(root: Control, at: Vector2) -> void:
+	## CAM-04: threat and power overlay, and the only surface a board past screen size is
+	## legible on at all (decision 056 accepted detail loss at full zoom-out; this is what
+	## that trade was for). Pinned outside the threat panel's scroll region — see the call
+	## site's own note — so it is never one PageDown away from not being there.
+	_minimap_panel = Control.new()
+	_minimap_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(_minimap_panel)
+
+	var panel := ColorRect.new()
+	panel.color = C_PANEL
+	panel.position = at
+	panel.size = Vector2(THREAT_W, minimap_h())
+	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_minimap_panel.add_child(panel)
+
+	var inner_x := at.x + PAD
+	var y := at.y + 10.0
+
+	var title := _make_label(Ui.SIZE_CAPTION, C_MUTED)
+	title.text = "TACTICAL MAP"
+	title.position = Vector2(inner_x, y)
+	_minimap_panel.add_child(title)
+	y += Ui.line_h(Ui.SIZE_CAPTION, false) + 4.0
+
+	_minimap = MinimapScript.new()
+	_minimap.position = Vector2(inner_x, y)
+	_minimap.size = Vector2(MINIMAP_MAP_W, MINIMAP_MAP_H)
+	_minimap_panel.add_child(_minimap)
+	_minimap.bind(view)
+	_minimap.set_focused(_minimap_focused)
+	y += MINIMAP_MAP_H + 4.0
+
+	var legend := _make_label(Ui.SIZE_CAPTION, C_MUTED)
+	legend.text = "■ ONLINE   □ OFFLINE   ·   M FOCUS · ARROWS PAN"
+	legend.position = Vector2(inner_x, y)
+	_minimap_panel.add_child(legend)
 
 
 func _rule(y: float, x: float = PAD, w: float = INNER_W) -> ColorRect:
@@ -702,6 +799,16 @@ func _unhandled_input(event: InputEvent) -> void:
 		scroll_panels(-1)
 	elif event.is_action_pressed("lf_hud_toggle"):
 		toggle_hud()
+	elif event.is_action_pressed("lf_minimap_focus"):
+		toggle_minimap_focus()
+	elif _minimap_focused and event.is_action_pressed("lf_up"):
+		_minimap.step(Vector2(0, -1))
+	elif _minimap_focused and event.is_action_pressed("lf_down"):
+		_minimap.step(Vector2(0, 1))
+	elif _minimap_focused and event.is_action_pressed("lf_left"):
+		_minimap.step(Vector2(-1, 0))
+	elif _minimap_focused and event.is_action_pressed("lf_right"):
+		_minimap.step(Vector2(1, 0))
 	else:
 		return
 	get_viewport().set_input_as_handled()
@@ -722,6 +829,22 @@ func toggle_hud() -> void:
 	## so none of them go away when the widgets do.
 	_hud_hidden = not _hud_hidden
 	_apply_hud_visibility()
+	Audio.sfx("ui_click")
+
+
+func toggle_minimap_focus() -> void:
+	## CAM-04: `lf_minimap_focus` (M / gamepad paddle 3). Public for the same reason every
+	## other state toggle in this file is: `-- --press-at N lf_minimap_focus` is how a
+	## verification run reaches it without a keypress.
+	##
+	## While active, `lf_up`/`lf_down`/`lf_left`/`lf_right` step the camera by a region
+	## instead of moving the emplacement cursor — claimed here, in this file's own
+	## `_unhandled_input()`, rather than by asking `anchor_view.gd` whether the minimap has
+	## focus: the minimap is HUD content, so only HUD code decides when it eats board input,
+	## the same reasoning `lf_hud_toggle` already rests on for the panels it hides.
+	_minimap_focused = not _minimap_focused
+	if _minimap != null:
+		_minimap.set_focused(_minimap_focused)
 	Audio.sfx("ui_click")
 
 

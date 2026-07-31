@@ -80,6 +80,15 @@ const ACTIONS := {
 	"lf_zoom_in":      {"keys": [KEY_EQUAL], "axis": [JOY_AXIS_RIGHT_X, 1.0]},
 	"lf_zoom_out":     {"keys": [KEY_MINUS], "axis": [JOY_AXIS_RIGHT_X, -1.0]},
 	"lf_camera_reset": {"keys": [KEY_HOME], "buttons": [JOY_BUTTON_PADDLE2]},
+
+	## CAM-04: focuses the minimap for keyboard/gamepad camera navigation. While active,
+	## hud.gd claims lf_up/lf_down/lf_left/lf_right for region-stepping the camera instead of
+	## letting them reach the board cursor — see hud.gd's toggle_minimap_focus() for why that
+	## routing lives there rather than here. PADDLE3 on the same trade lf_hud_toggle
+	## (PADDLE1) and lf_camera_reset (PADDLE2) already made: no face or shoulder button is
+	## free, this one is present only on Xbox Elite/DualSense Edge-class pads, and the
+	## keyboard binding is the one every pad still has.
+	"lf_minimap_focus": {"keys": [KEY_M], "buttons": [JOY_BUTTON_PADDLE3]},
 }
 
 
