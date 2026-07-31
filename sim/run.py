@@ -40,8 +40,18 @@ import lease  # noqa: E402  — scopes the --jobs pool for tools/reap.py (PRC-07
 ## The TTL is a crash backstop for the pool, not a performance budget.
 POOL_LEASE_TTL_S = 1800.0
 
-# An anchor whose peak load never gets near capacity is not using the game's hook.
-PRESSURE_FLOOR = 0.75
+## PRESSURE_FLOOR used to live here, asserting that an anchor's peak load gets near
+## capacity — "the player is pressed against the bus". It was measured DEAD twice: 0 of 72
+## anchor-by-difficulty cells ever failed it, including under the capped-core policies and
+## including restricted to winning builds only, which was its own proposed repair. Deleted
+## rather than raised, because a threshold picked to make today's data fail is fitted to
+## that data and has no argument behind it. Decision 067.
+##
+## The property is still worth testing and peak load ratio is simply the wrong instrument:
+## peak is >= 100% everywhere, which says a greedy policy exists, not that a good board is
+## squeezed. A real metric looks at time spent within a band of capacity across a WINNING
+## run, or at the margin by which the best build clears. That is design work with its own
+## evidence (LF-131), not a constant.
 
 
 def grade(anchor_id: str, difficulties: list[str]) -> dict:
@@ -111,10 +121,6 @@ def grade_anchor(anchor, difficulties: list[str], towers=None, enemies=None) -> 
                 and d["distinct_winning_builds"] == d["distinct_builds_tried"]
                 and diff != "standard"):
             problems.append(f"{diff}: every distinct build clears it — difficulty is not biting")
-        if d["peak_load_ratio"] < PRESSURE_FLOOR:
-            problems.append(
-                f"{diff}: peak load only {d['peak_load_ratio']:.0%} of capacity — "
-                f"no power decision is forced")
 
     # A level with one emplacement unlocked has exactly one build by construction.
     # That is correct for a tutorial, so the anchor declares it rather than the

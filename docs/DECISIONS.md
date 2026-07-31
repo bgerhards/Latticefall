@@ -2530,3 +2530,115 @@ handed off, including the trap: `parity.gd`'s `_try_build()` now checks `build_a
 value instead of assuming success, which is what would have turned a build cap into a hang
 rather than a failure. Proved with a synthetic two-emplacement anchor in both engines, and
 reproved a no-op for all 24 real anchors.
+
+---
+
+## 066 — The atlas stays at 256 px cells; sixteen yaws was the fidelity win worth paying for
+
+**Date.** 2026-07-31. **Decided on the owner's delegation**, not deferred to them.
+
+**Context.** `ART-04` / `LF-151` asked whether a 512 px atlas cell means a sprite twice as
+**big** on screen or the same size at twice the **resolution**. Everything in the pipeline
+works at 512 — `calibrate()` converges, the page is 6144x4608, well inside this machine's
+measured `GL_MAX_TEXTURE_SIZE` of 16384, a full rebuild takes 2m30s. Only `iso.gd`'s
+hardcoded tile size blocks it, and the failure mode is every sprite rendering flat grey.
+
+**Decision. Neither — stay at 256, and close `ART-04`.** The question is real and the answer
+is that the change is not worth its cost either way.
+
+*Bigger sprites* is a whole-game layout change: every screen-space calculation, the
+**measured** pivot `calibrate()` writes to the manifest, `pack_atlas.py`'s cell, `render.py`'s
+ortho scale derived from 128, and the accessibility baselines, which are sampled out of the
+composited frame. Tile size and the 30° camera elevation are one decision (002 / 017), and
+changing either invalidates the sprite library.
+
+*Same size, higher resolution* is far cheaper in code — a draw-time scale — and is the one
+I would have picked on looks alone. **It is rejected on performance.** The library at
+sixteen yaws already measures **157.3 MB** of uncompressed atlas VRAM. Quadrupling the area
+per cell takes that to roughly **630 MB on GL Compatibility**, which is not a number to spend
+without a player complaint driving it, and this project has the opposite: decision 056 records
+the owner explicitly accepting detail loss at distance.
+
+**What was bought instead.** `ART-01`'s sixteen-yaw heads on four-yaw bases deliver the
+visible fidelity win — a turret that tracks rather than snapping through 90° — for 157 MB, a
+2.79x increase that stays 30% under the ceiling PRD risk 9 warns about, with pipeline
+wall-clock roughly flat. That is the good trade in this space and it has already landed.
+
+**Reopen only on evidence**: a specific, reported legibility complaint at zoom 1.0. Not on a
+feeling that sharper would be nicer.
+
+---
+
+## 067 — `PRESSURE_FLOOR` is deleted, not raised
+
+**Date.** 2026-07-31. **Decided on the owner's delegation.**
+
+**Context.** `LF-131`. `sim/run.py`'s `PRESSURE_FLOOR` asserts that the player is pressed
+against reactor capacity. It has been measured dead **twice**: 0 of 72 anchor-by-difficulty
+cells fail it, including under the four new capped-core policies, and including restricted to
+*winning builds only* — which was `LF-054`'s own proposed repair.
+
+**Decision. Delete it.** A check that cannot fail is worse than no check, because it implies
+coverage that does not exist, and this project has now spent measurement time twice
+confirming the same emptiness. Raising the floor until it discriminates was the alternative
+and is rejected: any threshold chosen to make the current data fail is fitted to that data,
+and would be a number with no argument behind it.
+
+**What replaces it is a question, not a constant.** "The player is pressed against capacity"
+is a real design property worth testing — it is the one genuinely good idea the whole game
+rests on. But peak load ratio does not measure it: peak is >= 100% everywhere, which says
+only that a greedy policy exists, not that a *good* board is squeezed. A real metric would
+look at time spent within some band of capacity across a winning run, or at the margin by
+which the best build clears. That is design work with its own evidence, filed rather than
+guessed at, and it should not sit behind a dead assert in the meantime.
+
+---
+
+## 068 — Indentation is tabs, and `main.gd` is reindented to match
+
+**Date.** 2026-07-31. **Decided on the owner's delegation**, completing the half of `PRC-11`
+that was reserved for them.
+
+**Decision. Tabs.** 19 of 20 `.gd` files already are, `.editorconfig` already pins it, and the
+editor was otherwise settling the question by attrition — an import once rewrote `menu.gd`
+from tabs to spaces on its own, a 442-line no-op diff that had to be reverted by hand
+(`LF-056`). `scripts/main.gd` is the one file that disagrees (`LF-059`) and gets reindented as
+a **standalone whitespace-only commit**, listed in `.git-blame-ignore-revs` so it does not
+poison `git blame`.
+
+**`worktree-agent-a1cb438a721b228c6` is deleted, not merged.** It carries the opposite
+choice — all 19 files reindented to four spaces, 6,000 lines of whitespace nobody asked for.
+Keeping a branch alive to represent a rejected option is how this stayed open for several
+sessions.
+
+**Rejected: four spaces.** It is the more common convention outside Godot and it is what the
+editor kept drifting toward, which is an argument from momentum rather than from anything. It
+costs 19 files rewritten, every open diff rebased, and every in-flight worktree invalidated,
+to change the minority into the majority.
+
+---
+
+## 069 — Line of sight and the regional power grid are out of Theatre Scale
+
+**Date.** 2026-07-31. **Decided on the owner's delegation.**
+
+**Context.** PRD §6 reserved `TER-12` (line of sight) and `WAR-11` (a per-node power grid) for
+the owner. Both were already recommended against in the PRD's own text.
+
+**Decision. Both out of this programme**, and their issues closed as such rather than left
+open to imply they are merely unscheduled.
+
+*Line of sight* is the largest single work item in the programme, it exists in two
+implementations gated at 1440 parity runs, and it **invalidates all 24 anchor grades** — which
+matters more now than when the PRD was written, because `BAL-01` has just shown the grades are
+still moving under the abilities. Adding a rule that changes what every emplacement can reach,
+on top of a grading model that does not yet track ability charge (`LF-163`), stacks two
+unsettled things.
+
+*The regional power grid* replaces one global `capacity_mw` with regional supply. `WAR-08`'s
+relay nodes already deliver the interesting half of that idea — supply as ground you take and
+defend — for a fraction of the cost, and without making brownout a per-region calculation in
+both engines.
+
+**Reopen when**: the campaign is re-graded and stable (`BAL-04`, itself gated on `LF-163`), and
+a specific play problem exists that only these solve. Not before.
