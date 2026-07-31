@@ -72,10 +72,12 @@
       "unlocked_at": "anchor-06",
       "note": "Only reliable answer to shielded units. Cannot be left running casually.",
       "fx": {
-        "class": "beam",
+        "class": "sustained",
         "colour": "#5ec8ff",
         "core": "#eaf7ff",
-        "width": 7.0
+        "width": 7.0,
+        "ramp_tint": "#ffffff",
+        "flicker": 0.06
       },
       "upgrade": {
         "cost": 280,

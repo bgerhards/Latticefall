@@ -108,7 +108,7 @@
               "colour"
             ],
             "additionalProperties": false,
-            "description": "Presentation-only projectile/effect language for the combat FX layer (scripts/combat_fx.gd, scripts/fx_additive.gd). Never read by sim/engine.py or anchor_sim.gd — changing it cannot change a rule. Optional: a tower with no fx block draws with the FX layer's default. 'bolt' travels with real speed and leads its target; 'arc' is an instant chained lightning polyline; 'beam' charges up then snaps out full length; 'flak' is a travelling shell that airbursts at the tower's own splash radius; 'mortar' lobs a shell on a parabola to a ground burst; 'field' fires nothing and instead draws a slow pulse ring at the tower's range, for zero-damage support emplacements.",
+            "description": "Presentation-only projectile/effect language for the combat FX layer (scripts/combat_fx.gd, scripts/fx_additive.gd). Never read by sim/engine.py or anchor_sim.gd — changing it cannot change a rule. Optional: a tower with no fx block draws with the FX layer's default. 'bolt' travels with real speed and leads its target; 'arc' is an instant chained lightning polyline; 'beam' charges up then snaps out full length; 'flak' is a travelling shell that airbursts at the tower's own splash radius; 'mortar' lobs a shell on a parabola to a ground burst; 'field' fires nothing and instead draws a slow pulse ring at the tower's range, for zero-damage support emplacements; 'sustained' is a continuous held beam that stays anchored to the target for as long as the emplacement keeps firing at it (re-anchored every frame, no per-shot flicker) and drops on a timeout once it stops — for a weapon that is held, not snapped.",
             "properties": {
               "class": {
                 "enum": [
@@ -117,7 +117,8 @@
                   "beam",
                   "flak",
                   "mortar",
-                  "field"
+                  "field",
+                  "sustained"
                 ]
               },
               "colour": {
@@ -144,6 +145,17 @@
                 "type": "number",
                 "minimum": 0,
                 "description": "seconds of fading after-image behind a travelling projectile"
+              },
+              "ramp_tint": {
+                "type": "string",
+                "pattern": "^#[0-9a-fA-F]{6}$",
+                "description": "sustained only: colour the beam lerps toward as its ramp (the rules' ramp_mult once a tower has a `ramp` block, elapsed hold time otherwise) approaches full. Defaults to core if absent."
+              },
+              "flicker": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1,
+                "description": "sustained only: amplitude of a smooth, deterministic per-frame width/alpha hum (0 = perfectly steady). Not tied to shot cadence — a sustained beam must show no per-shot flicker. Defaults to a small constant if absent."
               }
             }
           },

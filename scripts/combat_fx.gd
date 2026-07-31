@@ -36,6 +36,10 @@ const _HIT_BUCKET_OFFSETS: Array[Vector2i] = [
 ]
 const BEAM_CHARGE_TIME := 0.25       # seconds before fire_interval elapses that the lance glows
 const FIELD_PULSE_PERIOD := 2.3
+## ART-05 fallback ramp: seconds of continuous hold to visually reach full tint/width on a
+## "sustained" beam, used only when the placed record carries no rules `ramp_mult` yet (i.e.
+## before {{WAR-14}} lands). Purely cosmetic — see _compute_ramp_frac().
+const SUSTAINED_RAMP_TIME := 2.5
 
 ## Board FX colours the data does not supply. Named here, not inline, so a colour choice
 ## reads as a decision rather than a magic literal.
@@ -91,6 +95,20 @@ var _last_shot: Dictionary = {}
 ## Reference into _fx for the shell this tower's shot just spawned, so a splash_landed
 ## arriving a line later can size that shell's eventual burst without a second signal.
 var _last_shell: Dictionary = {}
+## ART-05: state for every live "sustained" (held) beam, keyed on the firing placed record's
+## `slot` (Vector2i — safe, per anchor_view.gd:983-991's precedent: placed records are only
+## ever compared on `slot`, never by identity). One entry per {hold_start, end_time, offset,
+## from, to, colour, core, width, ramp_tint, flicker, ramp}.
+##
+## Deliberately never pushed into `_fx`: a sustained beam lives for seconds, and MAX_FX's
+## oldest-evicted pool would evict it mid-life under any real board load — exactly the failure
+## this class exists to avoid (see the acceptance criteria in docs/issues/ART-05-persistent-
+## beam.md). This dict is bounded by the number of live "sustained" emplacements, not by unit
+## or shot count, so it needs no eviction policy of its own — the same reasoning that already
+## keeps a beam tower's charge-up glow and a field tower's pulse ring (fx_additive.gd) outside
+## the pool. Coordinates with {{WAR-06}}'s future per-category budget for `_fx` by simply never
+## competing with it.
+var _beams: Dictionary = {}
 
 
 func _ready() -> void:
@@ -100,6 +118,12 @@ func _ready() -> void:
 func bind(anchor_sim) -> void:
 	## Wires the presentation signals. Called from AnchorView.boot() once the sim exists —
 	## _ready() runs before boot(), so there is nothing to listen to at that point.
+	##
+	## Cleared here, not just left to drop naturally: if the sim is ever rebound onto a live
+	## CombatFx instance, a slot key from the old sim could otherwise survive and be misread
+	## against the new one's `placed` — fail closed per decision 055 rather than rely on this
+	## never happening.
+	_beams.clear()
 	anchor_sim.shot_fired.connect(_on_shot_fired)
 	anchor_sim.unit_damaged.connect(_on_unit_damaged)
 	anchor_sim.splash_landed.connect(_on_splash_landed)
@@ -109,6 +133,12 @@ func bind(anchor_sim) -> void:
 
 func pool() -> Array[Dictionary]:
 	return _fx
+
+
+func beams() -> Dictionary:
+	## Live "sustained" beams, slot -> state. Read-only for callers — fx_additive.gd draws
+	## from this every frame; see _beams' doc for why it lives outside `pool()`.
+	return _beams
 
 
 func hit_flash_at(tile: Vector2) -> Dictionary:
@@ -208,6 +238,8 @@ func _on_shot_fired(placed: Dictionary, from_tile: Vector2, to_tile: Vector2,
 		"beam":
 			_push({"kind": "beam", "from": from, "to": to, "colour": colour, "core": core,
 				"width": width, "age": 0.0, "life": 0.18})
+		"sustained":
+			_touch_beam(placed, from, to, colour, core, width, fxd)
 		"flak":
 			delay = dist_tiles / speed
 			var shell := {"kind": "flak_shell", "from": from, "to": to, "colour": colour,
@@ -285,6 +317,91 @@ func _jagged(a: Vector2, b: Vector2, segments: int, jitter: float) -> PackedVect
 	return pts
 
 
+func _touch_beam(placed: Dictionary, from: Vector2, to: Vector2, colour: Color, core: Color,
+		width: float, fxd: Dictionary) -> void:
+	## fx.class == "sustained": extend (or start) the held beam keyed on this placed record's
+	## slot. Position tracking happens every frame in _step_beams(), off placed["aim"] — this
+	## only marks the engagement alive on each shot_fired, per ART-05's contract against
+	## decision 053: no new signal, just inferring "still firing" from the cadence of the one
+	## that already exists.
+	var slot: Vector2i = placed["slot"]
+	var now: float = view.sim_time()
+	if not _beams.has(slot):
+		_beams[slot] = {"hold_start": now,
+			"offset": float(absi(hash(slot)) % 1000) / 1000.0 * TAU}
+	var b: Dictionary = _beams[slot]
+	var tw: Dictionary = placed["tower"]
+	var interval: float = float(tw.get("fire_interval", 1.0))
+	# 1.6x the tower's own cadence, not a fixed constant tied to one tower's stats: comfortably
+	# survives the gap between two consecutive shots at whatever fire_interval a "sustained"
+	# tower ships with, while still dropping the beam soon after it truly stops firing.
+	b["end_time"] = now + maxf(0.15, interval * 1.6)
+	b["from"] = from
+	b["to"] = to
+	b["colour"] = colour
+	b["core"] = core
+	b["width"] = width
+	b["ramp_tint"] = Color.html(
+		String(fxd.get("ramp_tint", fxd.get("core", fxd.get("colour", "#ffffff")))))
+	b["flicker"] = clampf(float(fxd.get("flicker", 0.06)), 0.0, 1.0)
+	_beams[slot] = b
+
+
+func _step_beams(_delta: float) -> void:
+	if _beams.is_empty():
+		return
+	var now: float = view.sim_time()
+	var drop: Array[Vector2i] = []
+	for key in _beams.keys():
+		var slot: Vector2i = key
+		var b: Dictionary = _beams[slot]
+		var p: Dictionary = _find_placed(slot)
+		if p.is_empty() or not bool(p.get("online", true)) or not p.has("aim"):
+			# Fail closed (decision 055): sold, breaker cut, or the rules dropped the target
+			# (p.erase("aim") in anchor_sim.gd) — the beam ends, nothing errors.
+			drop.append(slot)
+			continue
+		var tw: Dictionary = p["tower"]
+		var fxd: Dictionary = tw.get("fx", DEFAULT_FX)
+		if String(fxd.get("class", "")) != "sustained":
+			drop.append(slot)     # e.g. resold into a different tower on the same slot
+			continue
+		if now > float(b["end_time"]):
+			drop.append(slot)
+			continue
+		var aim: Vector2 = p["aim"]
+		var slot_v: Vector2 = Vector2(float(p["slot"].x), float(p["slot"].y))
+		b["from"] = view.to_screen(slot_v)
+		b["to"] = view.to_screen(aim)
+		b["ramp"] = _compute_ramp_frac(p, b, now)
+		_beams[slot] = b
+	for dead_slot in drop:
+		_beams.erase(dead_slot)
+
+
+func _find_placed(slot: Vector2i) -> Dictionary:
+	for entry in view.sim.placed:
+		var p: Dictionary = entry
+		if p["slot"] == slot:
+			return p
+	return {}
+
+
+func _compute_ramp_frac(p: Dictionary, b: Dictionary, now: float) -> float:
+	## Prefers the rules' own ramp once {{WAR-14}} lands (placed["ramp_mult"] against the
+	## tower's `ramp.max_mult`); until then there is no rules ramp to read, so this class is
+	## shippable on its own, driven instead by how long the beam has been held continuously —
+	## purely cosmetic, and replaced wholesale the moment the rules field exists.
+	var tw: Dictionary = p["tower"]
+	if p.has("ramp_mult") and tw.has("ramp"):
+		var ramp_data: Dictionary = tw["ramp"]
+		var max_mult: float = float(ramp_data.get("max_mult", 1.0))
+		if max_mult > 1.0:
+			return clampf((float(p["ramp_mult"]) - 1.0) / (max_mult - 1.0), 0.0, 1.0)
+	var hold: float = maxf(0.0, now - float(b["hold_start"]))
+	return clampf(hold / SUSTAINED_RAMP_TIME, 0.0, 1.0)
+
+
 func _on_unit_damaged(unit_kind: Dictionary, at_tile: Vector2, amount: float, killed: bool,
 		shielded_resist: bool) -> void:
 	_pending.append({"delay": float(_last_shot.get("delay", 0.0)), "tile": at_tile,
@@ -352,6 +469,7 @@ func _process(delta: float) -> void:
 	_step_pending(delta)
 	_step_pool(delta)
 	_step_hits(delta)
+	_step_beams(delta)
 
 
 func _step_pending(delta: float) -> void:

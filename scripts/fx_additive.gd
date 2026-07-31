@@ -47,6 +47,7 @@ func _draw() -> void:
 	_draw_hit_flashes(glow)
 	_draw_beam_charges(glow)
 	_draw_field_pulses(glow)
+	_draw_sustained_beams(glow)
 
 
 func _draw_entry(e: Dictionary, glow: float) -> void:
@@ -287,3 +288,51 @@ func _draw_field_pulses(glow: float) -> void:
 			draw_polyline(pts, ring_col, 1.5)
 		var shimmer: float = (0.5 + 0.5 * sin(t * 1.1 + offset)) * 0.08
 		draw_circle(pos + Vector2(0, -18), 7.0, Color(col.r, col.g, col.b, shimmer * glow))
+
+
+func _draw_sustained_beams(glow: float) -> void:
+	## ART-05: a held beam per firing "sustained"-class emplacement, drawn every frame
+	## straight off CombatFx's own _beams state — never through the MAX_FX pool (see that
+	## var's doc for why). No age/life fade like the pooled "beam" kind: the whole point is
+	## that it does not snap, so per entry it is either fully on or absent.
+	var beams: Dictionary = fx.beams()
+	if beams.is_empty():
+		return
+	var view: Node2D = fx.view
+	var now: float = view.sim_time()
+	# Decision 007 / CLAUDE.md: every emissive element dims under brownout. Mirrors
+	# glow_layer.gd's own factor for sprite glow rather than inventing a second number.
+	var bus_energy: float = 0.35 if bool(view.sim.brownout) else 1.0
+	for key in beams.keys():
+		var b: Dictionary = beams[key]
+		_draw_one_beam(b, now, glow * bus_energy)
+
+
+func _draw_one_beam(b: Dictionary, now: float, energy: float) -> void:
+	## `energy` already folds in the accessibility ceiling (Display.glow) and the brownout
+	## factor — this function just draws. `hum` is a smooth, deterministic, per-slot-offset
+	## oscillation (no randf()): a sustained beam must show no per-shot flicker, and an
+	## unseeded per-frame jitter here would both read as strobing (an accessibility concern
+	## Display.glow's own ceiling exists for) and reintroduce LF-111's non-reproducible pixel
+	## diffs into a screenshot that is otherwise easy to keep stable across runs.
+	var from: Vector2 = b["from"]
+	var to: Vector2 = b["to"]
+	var ramp: float = float(b.get("ramp", 0.0))
+	var flicker_amt: float = float(b.get("flicker", 0.0))
+	var hum: float = 1.0 + flicker_amt * sin(now * 9.0 + float(b.get("offset", 0.0)))
+	var width: float = float(b["width"]) * (1.0 + ramp * 0.45) * hum
+	var base_colour: Color = b["colour"]
+	var tint_colour: Color = b["ramp_tint"]
+	var colour: Color = base_colour.lerp(tint_colour, ramp)
+	var core: Color = b["core"]
+	var outer: Color = colour
+	outer.a = 0.5 * energy * hum
+	draw_line(from, to, outer, width * 2.6)
+	var main: Color = colour
+	main.a = energy
+	draw_line(from, to, main, width)
+	var core_col: Color = core
+	core_col.a = energy
+	draw_line(from, to, core_col, width * 0.4)
+	draw_circle(to, width * 1.8, Color(core_col.r, core_col.g, core_col.b, energy))
+	draw_circle(from, width * 0.9, Color(core_col.r, core_col.g, core_col.b, energy * 0.8))
