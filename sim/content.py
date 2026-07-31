@@ -215,12 +215,16 @@ def load_towers(path: Path | None = None) -> dict[str, Tower]:
 
 @dataclass(frozen=True)
 class Ability:
-    """BAL-01. One entry of data/tuning.json's `abilities` array, typed. Only the
-    magnitude fields the scheduled `ability` verb (sim/engine.py's `Sim._dispatch_one()`)
-    actually reads — charge/cooldown/duration/trauma are HUD-timer concerns owned by
-    scripts/anchor_view.gd (a grading policy schedules its own on/off timestamps
-    explicitly rather than the sim tracking a charge or a cooldown of its own; see
-    standard_policies()'s scheduled-policy comments for why)."""
+    """BAL-01/LF-163. One entry of data/tuning.json's `abilities` array, typed.
+    `charge_max`/`charge_per_leak_cost` were added by LF-163: a scheduled `ability`
+    verb of kind "surge" is charge-gated exactly like scripts/abilities.gd's
+    `AbilityState.ready()`/`add_charge()` — a schedule entry whose time arrives before
+    a full charge has accrued from kills is dispatched but has no effect, mirroring
+    scripts/anchor_view.gd's `activate_ability()` returning `{}` when `not ready`.
+    cooldown_s/duration_s/trauma remain HUD-timer concerns this file does not need:
+    overcharge/shutter are still driven by a policy's own explicit on/off timestamps
+    (standard_policies()'s scheduled-policy comments), and charge_max is 0 for both,
+    so is_charge_gated()-equivalent logic below only ever engages for "surge"."""
     id: str
     damage: float = 0.0
     falloff_min: float = 1.0
@@ -229,6 +233,8 @@ class Ability:
     draw_mult: float = 1.0
     hold_tiles: float = 0.0
     draw_mw: float = 0.0
+    charge_max: float = 0.0
+    charge_per_leak_cost: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -272,6 +278,8 @@ def load_tuning(path: Path | None = None) -> Tuning:
             pushback_tiles=a.get("pushback_tiles", 0.0),
             fire_rate_bonus=a.get("fire_rate_bonus", 0.0), draw_mult=a.get("draw_mult", 1.0),
             hold_tiles=a.get("hold_tiles", 0.0), draw_mw=a.get("draw_mw", 0.0),
+            charge_max=a.get("charge_max", 0.0),
+            charge_per_leak_cost=a.get("charge_per_leak_cost", 0.0),
         )
         for a in doc["abilities"]
     }

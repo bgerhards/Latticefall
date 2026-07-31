@@ -230,28 +230,32 @@ func _rank(policy: Dictionary, tower_id: String) -> int:
 
 # ─────────────────────────────────────────────────── BAL-01: schedule dispatch ──
 
-func _dispatch_schedule(s, sched: Array, sched_i: int) -> Array:
+func _dispatch_schedule(s, sched: Array, sched_i: int, charge_state: Dictionary) -> Array:
 	## Mirrors sim/engine.py's Sim._dispatch_schedule(). Returns [new_sched_i,
 	## call_wave_requested] rather than mutating anything by reference — GDScript has
 	## no out-param for a plain int, and AnchorSim itself has no schedule state of its
 	## own for this to live on (see _run()'s own comment on why the driver holds it).
 	## `sched` is already sorted on a total (time, index) order by _policies()'
 	## mk_scheduled(), so draining it in list order from `sched_i` onward IS draining
-	## it in that total order.
+	## it in that total order. `charge_state` (LF-163) is passed through unchanged to
+	## _dispatch_one() — see that function's own doc.
 	var call_wave_requested := false
 	var i := sched_i
 	while i < sched.size() and float(sched[i][0]) <= s.t + 1e-9:
 		var item: Array = sched[i]
 		i += 1
-		if _dispatch_one(s, String(item[1]), item[2]):
+		if _dispatch_one(s, String(item[1]), item[2], charge_state):
 			call_wave_requested = true
 	return [i, call_wave_requested]
 
 
-func _dispatch_one(s, verb: String, args: Dictionary) -> bool:
+func _dispatch_one(s, verb: String, args: Dictionary, charge_state: Dictionary) -> bool:
 	## Mirrors sim/engine.py's Sim._dispatch_one(). Returns true only for "call_wave" —
 	## the one verb whose effect the CALLER (_run()'s lead-in loop) has to finish, the
 	## same way Sim._dispatch_one() only sets a flag for _advance() to act on.
+	## `charge_state` (LF-163) is a Dictionary the caller owns — GDScript has no float
+	## out-param — kept fed by the `unit_killed` signal connected in _run() below,
+	## mirroring scripts/abilities.gd's AbilityState.charge.
 	match verb:
 		"speed":
 			# No-op on outcomes, deliberately — see sim/engine.py's own docstring on
@@ -262,7 +266,18 @@ func _dispatch_one(s, verb: String, args: Dictionary) -> bool:
 		"ability":
 			match String(args.get("kind", "")):
 				"surge":
-					s.fire_surge(_tuning_abilities.get("surge", {}))
+					# LF-163: charge-gated, mirroring scripts/abilities.gd's
+					# AbilityState.ready()/began() — a scheduled cast whose time has
+					# come but which has not earned a full charge from kills yet is
+					# consumed (drained from the schedule) but does nothing, same as
+					# scripts/anchor_view.gd's activate_ability() returning {} and
+					# playing a deny cue on a not-ready press. Charge resets to 0 on
+					# an actual cast.
+					var cfg: Dictionary = _tuning_abilities.get("surge", {})
+					var cmax: float = float(cfg.get("charge_max", 0.0))
+					if cmax <= 0.0 or float(charge_state.get("surge", 0.0)) >= cmax:
+						s.fire_surge(cfg)
+						charge_state["surge"] = 0.0
 				"overcharge":
 					var active: bool = bool(args.get("active", true))
 					var cfg: Dictionary = _tuning_abilities.get("overcharge", {})
@@ -326,6 +341,23 @@ func _run(anchor: Dictionary, towers: Dictionary, enemies: Dictionary,
 	var sched: Array = policy.get("schedule", [])
 	var sched_i := 0
 
+	# LF-163: Threshold Surge's charge, kept in a Dictionary (GDScript has no float
+	# out-param) so _dispatch_one() can both read and reset it. Fed by the SAME
+	# `unit_killed` signal real play's AbilityState listens to via
+	# scripts/anchor_view.gd's `_charge_surge()` — AnchorSim emits it from both
+	# `_damage()` and `fire_surge()` itself, so a scheduled cast earns back charge from
+	# its own kills exactly as a live one does. Connected unconditionally; harmless
+	# when charge_max <= 0 since _dispatch_one() never reads charge_state in that case.
+	var charge_state := {"surge": 0.0}
+	var surge_cfg: Dictionary = _tuning_abilities.get("surge", {})
+	var surge_cmax: float = float(surge_cfg.get("charge_max", 0.0))
+	var surge_per_leak: float = float(surge_cfg.get("charge_per_leak_cost", 0.0))
+	if surge_cmax > 0.0 and surge_per_leak > 0.0:
+		s.unit_killed.connect(func(u: Dictionary) -> void:
+			var leak_cost := int(u["kind"].get("leak_cost", 1))
+			charge_state["surge"] = minf(surge_cmax,
+				float(charge_state.get("surge", 0.0)) + float(leak_cost) * surge_per_leak))
+
 	for wi in range(anchor["waves"].size()):
 		s.begin_wave(wi)
 		_try_build(s, policy, buildable)
@@ -339,7 +371,7 @@ func _run(anchor: Dictionary, towers: Dictionary, enemies: Dictionary,
 		# _call_wave_requested, for the identical reason.
 		for li in range(lead_ticks):
 			var pen := s.begin_tick()
-			var r: Array = _dispatch_schedule(s, sched, sched_i)
+			var r: Array = _dispatch_schedule(s, sched, sched_i, charge_state)
 			sched_i = int(r[0])
 			if bool(r[1]):
 				var remaining: float = float(lead_ticks - li - 1) * AnchorSimScript.DT
@@ -356,7 +388,7 @@ func _run(anchor: Dictionary, towers: Dictionary, enemies: Dictionary,
 				s.spawn(String(q[qi][2]), int(q[qi][1]))
 				qi += 1
 			var pen2 := s.begin_tick()
-			var r2 := _dispatch_schedule(s, sched, sched_i)
+			var r2 := _dispatch_schedule(s, sched, sched_i, charge_state)
 			sched_i = r2[0]
 			# call_wave firing mid-combat is never consumed here (only the lead-in loop
 			# above checks the flag) — mirrors sim/engine.py's _advance() being the only
