@@ -1,5 +1,5 @@
 {
-  "next_id": 128,
+  "next_id": 129,
   "items": [
     {
       "id": "LF-001",
@@ -1516,6 +1516,18 @@
     {
       "id": "LF-127",
       "title": "No CLI hook to force a specific pooled combat FX (bolt/arc/flak/mortar) to fire on a chosen frame \u2014 verifying LF-117's brownout dim required ~40 blind shot.py sweeps to catch a live projectile on screen, and flak/mortar were never caught firing at all despite the fix applying identically to all four classes. A --force-shot <slot> hook (or a shot_fired debug dump like ABILITY-LIVE's) would make this a two-command job.",
+      "kind": "chore",
+      "area": "tooling",
+      "pri": "med",
+      "status": "open",
+      "why": "",
+      "opened": "2026-07-31",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-128",
+      "title": "The Bash tool's default 120-second timeout silently pushes long runs into the background rather than failing them, and agents then stop and wait -- observed four times today across four different agents (a 300-frame capture, an anchor-24 200 percent capture, a nine-minute test_parity.py, and one more). The cost is billing: a backgrounded process the harness still tracks re-invokes the model when it exits, against a session everyone believed was over. Telling an agent 'never background' is not enough, because the agent is not choosing to; the fix is to tell it to pass an explicit timeout up to 600000ms on any command that could exceed two minutes, and to say WHICH commands those are. Candidates for a documented list in CLAUDE.md: test_parity.py (~9 min), check.py tier 3 and 4, sim/run.py and sweep.py without --jobs, any shot.py capture while the machine is loaded (LF-116), and a full Blender library render (~2m12s).",
       "kind": "chore",
       "area": "tooling",
       "pri": "med",

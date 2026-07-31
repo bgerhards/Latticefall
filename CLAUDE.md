@@ -352,6 +352,16 @@ expensive thing this project can do by accident. The **built-in** agents (`Explo
 The `FNR==1{n=0}` is load-bearing: awk's counter persists across files, so without it only
 the first agent is ever inspected and the check reports 1 no matter what the others say.
 
+**Pass an explicit timeout to anything that runs longer than two minutes.** The Bash tool's
+default is 120 s and it does not fail a slow command — it pushes it into the *background*,
+where the harness keeps tracking it and re-invokes the model when it eventually exits. Four
+agents in one session hit this and each stopped mid-task to wait on a run it had not meant to
+background. Telling an agent "never background" does not help, because the agent is not
+choosing to. Pass `timeout` (milliseconds, up to 600000) on: `tools/test_parity.py` (~9 min),
+`tools/check.py` at tier 3 or 4, `sim/run.py` and `tools/sweep.py` without `--jobs`, a full
+Blender library render (~2m12s), and **any `shot.py` capture while the machine is loaded** —
+see `LF-116`, where three concurrent captures turned a nine-second frame into minutes.
+
 **`git stash` is not a private operation, and neither is `git add`.** When several agents share
 one working tree — which is how this project fans out — the working tree and the index are
 *global*. An agent that stashed to get a clean baseline swept up **eleven files across five
