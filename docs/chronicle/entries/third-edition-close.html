@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The session closes: fifty-six commits, thirty agents, ten decisions — Latticefall build journal</title>
+<meta name="description" content="Four small tools replace four things that were being re-derived, imperfectly, every time a workstream started or landed. Then the gate ran clean at both parity legs before the state of the project was rewritten for a reader with no memory of any of this.">
+<link rel="stylesheet" href="../chronicle.css">
+</head>
+<body>
+
+<nav class="entry-nav top"><a class="back" href="../index.html">&larr; the journal</a></nav>
+<article>
+  <header class="entry-header">
+    <time datetime="2026-07-31">July 31, 2026 · 11:53</time>
+    <h1>The session closes: fifty-six commits, thirty agents, ten decisions</h1>
+    <div class="chips"><span class="chip chip-epic">PRC</span></div>
+    <p class="summary lede">Four small tools replace four things that were being re-derived, imperfectly, every time a workstream started or landed. Then the gate ran clean at both parity legs before the state of the project was rewritten for a reader with no memory of any of this.</p>
+    
+  </header>
+  <div class="entry-body">
+    <p>Four artefacts, each replacing something that was being re-derived every time and getting it slightly wrong. The <code>ship</code> skill: the land-a-workstream loop — gate, branch, commit with <code>--only</code>, journal, push, watch CI, squash-merge, close the issue with evidence. The journal is step 4 of 8 rather than an afterthought, because it is the step most likely to be skipped and the one the owner cares most about; CLAUDE.md now says every pull request updates it. The <code>dispatch</code> skill: the standard subagent brief, so thirty agents no longer each re-derive the same fifteen lines of ownership rules and traps imperfectly. Its constraints block is paste-verbatim and carries what was actually learned from something going wrong — the stash that swept eleven files across five workstreams, the 120-second timeout that backgrounds a command rather than failing it, captures multiplying rather than parallelising, and why only the coordinating agent ever runs the reaper. It also states plainly that a measured refusal is a successful outcome, naming this session's own two best results as an atlas that would have rendered every sprite grey and a performance fix that changed nothing — both found by agents who had been told a "no" was an acceptable answer. <code>tools/gc.py</code>: the reaper's counterpart for state rather than processes, dry-run by default, only removing a worktree git itself calls prunable and only deleting branches already merged to <code>main</code>. And <code>docs/RESTART-PROMPT.md</code>: deliberately short, leaning on CLAUDE.md and the skills to stay current, and naming plainly what is genuinely gated to the owner right now, so a session neither stalls on something it could have decided nor decides something that was never its call.</p><p>The wrap itself: full gate green before it was written — 29 checks, 0 failed, 0 skipped, including both parity legs, 1,440 runs against the Linux build and 1,440 against the Windows one. <code>STATE.md</code> was rewritten rather than patched, because how the project is worked changed as much as what it contains this time — work now lands through pull requests, every one of which updates this journal; every subagent is briefed through the <code>dispatch</code> skill; and the gate's slowest tier now exceeds the tool harness's own command timeout, so backgrounding it is expected rather than a surprise.</p><p>What the rewrite put at the top of its list is not a feature. It is issue <code>#83</code> — parity has never run in CI — ahead of anything new, and <code>LF-163</code> — ability charge accrual is unmodelled, and until it is, the Threshold Surge finding from the entry before this one cannot be told apart from a grading artefact rather than a real balance question.</p><p>Measured across the whole session rather than any one entry in it: roughly <strong>thirty agents</strong> ran in this one working tree, landing <strong>fifty-six commits</strong> and <strong>ten decisions</strong>, 056 through 065. A little over half of Theatre Scale's first phase is done — 78 specs, 36 closed, 42 open. Four things stayed reserved for the owner rather than decided here, each named with its own cost in the handoff: the atlas cell-size question, a constant now proved dead twice over, the remaining half of an indentation decision, and the two epics gated to the owner from the start.</p>
+  </div>
+  <section class="commits"><h4>Commits</h4><ul class="commit-list"><li><code>09fc78d</code> feat(process): make the workflow reusable instead of remembered (#88)</li><li><code>47e1e17</code> docs: session wrap — rewrite STATE for a reader with no memory of this session</li></ul></section>
+</article>
+<nav class="entry-nav bottom">
+  <span><a class="back" href="../index.html">&larr; the journal</a></span> <span><a class="prev" href="largest-hole-closes.html">&larr; The largest hole in the project closes: a grade that presses buttons</a></span>
+</nav>
+
+</body>
+</html>

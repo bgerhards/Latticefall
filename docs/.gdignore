@@ -1,0 +1,3 @@
+# Godot must not scan docs/. The build journal keeps screenshots under
+# docs/chronicle/assets/, and without this Godot imports them as game textures and litters
+# the directory with .import sidecars for images that are never drawn in the game.

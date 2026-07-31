@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The largest hole in the project closes: a grade that presses buttons — Latticefall build journal</title>
+<meta name="description" content="Every one of the 24 anchor grades described a player who never touched the speed control, never called a wave early, never fired an ability. Decision 065 gives a grading policy a deterministic schedule instead — and the first thing it found flips nine of seventy-two anchor-by-difficulty cells from loss to win, with a verdict that refuses to take the easy reading.">
+<link rel="stylesheet" href="../chronicle.css">
+</head>
+<body>
+
+<nav class="entry-nav top"><a class="back" href="../index.html">&larr; the journal</a></nav>
+<article>
+  <header class="entry-header">
+    <time datetime="2026-07-31">July 31, 2026 · 11:21</time>
+    <h1>The largest hole in the project closes: a grade that presses buttons</h1>
+    <div class="chips"><span class="chip chip-epic">BAL</span><span class="chip chip-decision">decision 065</span></div>
+    <p class="summary lede">Every one of the 24 anchor grades described a player who never touched the speed control, never called a wave early, never fired an ability. Decision 065 gives a grading policy a deterministic schedule instead — and the first thing it found flips nine of seventy-two anchor-by-difficulty cells from loss to win, with a verdict that refuses to take the easy reading.</p>
+    
+  </header>
+  <div class="entry-body">
+    <p><code>BAL-01</code>, closing <code>LF-094</code> — named plainly in this project's own working notes as the largest hole in the project. Every one of the 24 anchor grades described a player who never used speed, never called a wave, never fired an ability, never retargeted — a third of the game was unmodelled, and every grade on record was a floor well under real play.</p><p>A <code>Policy</code> may now carry a schedule of <code>(time, verb, args)</code> entries, sorted once on the total order of time and original authoring index — never on time alone, and never trusting a sort to be stable, because Godot's own sort is not documented as stable while Python's is, and two engines agreeing by luck on tie-break order is exactly the class of risk decision 061 already exists to close off. Times are absolute simulation seconds, never relative to a wave's own start, because a wave's start time is only knowable by actually running the simulation — a schedule written against it could only be authored after seeing the outcome it was meant to produce. Reactive grading agents stay rejected per the PRD; a schedule is not an exception to that, it is the opposite one: a fixed list committed before the first tick runs.</p><p>With no schedule attached, every grade came back byte-identical to the pre-change tree across all 24 anchors, 3 difficulties and the existing 16 policies — and that proof itself caught a real bug: a tower's integer power draw was being promoted through a multiply by 1.0, numerically exact but enough to move one reported figure from 60 to 60.0 in the graded output even with the relevant ability never active. Parity held twice at 1,440 runs.</p><h3>The finding</h3><p>Threshold Surge, scheduled every 40 seconds with no charge requirement, no cooldown and no cost modelled at all, independently turns a losing board into a winning one on <strong>9 of 72</strong> anchor-by-difficulty cells — sweeping all three difficulties on both anchor-12 and anchor-13 — and is <strong>0 worse</strong> across all 72, even cast to full spam. Overcharge, modelled honestly with its real power draw, is the exact mirror: <strong>0 better, 12 worse</strong>, which confirms rather than contradicts its own design intent that overcharging an already-saturated bus should cost the player something. Calling a wave early is a real decision either way, 1 better and 7 worse. Veterancy flips nothing at all.</p><h3>The judgement, which is the part worth keeping</h3><p>The easy reading is that Surge is underpriced. The verdict on record refuses it. Surge having no modelled downside at all is itself the tell — charge accrual is not implemented, so the one real constraint the ability has in the shipped design is invisible to this grader. Against that: truncating the schedule shows the wins need <strong>5 to 14 casts, not one</strong>, and a board killing most of every wave before finally collapsing at wave 6 to 8 of 8 to 14 would plausibly have earned several real charges by then. So the recorded verdict is not "Surge is mispriced" — it is "no grade that assumes Surge is available on demand can be trusted until charge accrual is modelled." Filed as <code>LF-163</code>, and the next full regrade, <code>BAL-04</code>, is blocked on it by name.</p><p>What stayed out, and why: kill-chain bounty is view-only and untested by parity, so porting it unconditionally would move every existing grade behind a mechanic with no design-side button to gate it. Veterancy became a policy-level flag rather than a schedule entry, since nobody presses a button to level up.</p><p><code>LF-152</code> closed here too: <code>max_emplacements</code> is now enforced at the last of the four sites decision 063 had handed off, including the trap named at the time — a build call inside the parity test harness now checks its own return value instead of assuming success, which is what would have turned a build cap into an infinite loop rather than a clean failure the moment one was ever actually refused.</p>
+  </div>
+  <section class="commits"><h4>Commits</h4><ul class="commit-list"><li><code>4daeb7c</code> feat(sim): a grading policy that presses buttons, and what it found (#89)</li></ul></section>
+</article>
+<nav class="entry-nav bottom">
+  <span><a class="back" href="../index.html">&larr; the journal</a></span> <span><a class="prev" href="binary-the-owner-plays.html">&larr; The binary the owner actually plays, tested for the first time</a></span> <span><a class="next" href="third-edition-close.html">The session closes: fifty-six commits, thirty agents, ten decisions &rarr;</a></span>
+</nav>
+
+</body>
+</html>
