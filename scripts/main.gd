@@ -48,6 +48,12 @@ var _dump_facings: bool = false
 ## the same idea as `--facings` (decision 049): a screenshot cannot settle which lane a unit
 ## is walking on a multi-lane anchor, so WAR-01 needs this to verify it rather than eyeball it.
 var _dump_lanes: bool = false
+## `-- --dump-placeholder`: LF-046 verification — prints, for every enemy kind Content
+## knows, its faction, the placeholder colour `_draw_unit()` would use, and the placeholder
+## radius, without needing an actually-missing sprite to reach that code path at all (the
+## `sprite coverage` gate means nothing in tracked data ever does). Fires once at boot,
+## independent of `--shot`.
+var _dump_placeholder: bool = false
 var _frame: int = 0
 var _shot_taken: bool = false
 var _autoplay: bool = false
@@ -91,6 +97,15 @@ var _press_at: Array = []        ## [{frame:int, action:String, fired:bool}]
 ## `-- --chain N` sets the kill-chain streak directly — a real N-kill streak needs N kills
 ## inside chain_window_s of each other, which nothing at --fixed-fps can produce on its own.
 var _chain_cli: int = 0
+## `-- --debrief-at <frame>`: LF-065 verification hook. Presses the HUD's DEBRIEF button —
+## `hud._on_next()` — at a chosen frame, exactly as a player click would, so the win ->
+## draft.tscn transition is provable from a `--shot`-style run rather than trusted from
+## reading `hud.gd` alone. Only meaningful once AnchorView reports `phase() == "done"` and a
+## next anchor exists (the same gate `hud.gd`'s own `_refresh()` uses to show the button at
+## all); firing earlier is a no-op the same way a click on a hidden button would be. -1 means
+## "not requested", matching every other unset frame-scheduled hook in this file.
+var _debrief_at: int = -1
+var _debrief_fired: bool = false
 
 ## `-- --profile <frames>` (CAM-06/CAM-07): print mean/p95 milliseconds per draw layer
 ## (AnchorView, GlowLayer, FxAdditive, CombatFx) over this many rendered frames, then exit.
@@ -159,6 +174,8 @@ func _ready() -> void:
 
     view.state_changed.connect(_on_state_changed)
     view.boot(anchor_id, difficulty)
+    if _dump_placeholder:
+        _dump_placeholder_colors()
     if _profile_frames > 0:
         # After boot(): view.glow_layer/combat_fx/fx_additive are set in each node's own
         # _ready(), which — per the existing note on child-vs-parent ready order elsewhere
@@ -254,6 +271,8 @@ func _setup_cli() -> void:
                 # its distance along that lane, and where that projected on screen — see
                 # `_dump_lanes`'s own doc. LF-116/WAR-01.
                 _dump_lanes = true
+            "--dump-placeholder":
+                _dump_placeholder = true
             "--anchor":
                 if i + 1 < argv.size():
                     anchor_id = argv[i + 1]
@@ -314,6 +333,9 @@ func _setup_cli() -> void:
             "--chain":
                 if i + 1 < argv.size() and argv[i + 1].is_valid_int():
                     _chain_cli = int(argv[i + 1])
+            "--debrief-at":
+                if i + 1 < argv.size() and argv[i + 1].is_valid_int():
+                    _debrief_at = int(argv[i + 1])
             "--camera":
                 # One shape, parsed with is_valid_float() exactly as --speed is above: three
                 # positional values or reject, no omitted-zoom / omitted-target shorthand.
@@ -411,6 +433,15 @@ func _process(_delta: float) -> void:
     # `--shot`.
     _process_ability_schedule()
     _process_press_schedule()
+    _process_debrief_schedule()
+    if _debrief_fired:
+        # This node's scene is being replaced (see _process_debrief_schedule()) — every line
+        # below this point belongs to the anchor being left, including the `render_loop_enabled`
+        # recompute a few lines down, which would otherwise immediately re-disable the reset
+        # that function just made *in this same frame* (its own write runs first, then this
+        # function's un-guarded fall-through used to run right over it). Returning here is
+        # what makes that reset actually stick for whatever scene loads next.
+        return
     if _frame - _last_ability_fire_frame >= 0 \
             and _frame - _last_ability_fire_frame <= ABILITY_LIVE_WINDOW_FRAMES \
             and _frame % 15 == 0:
@@ -667,6 +698,32 @@ func _process_press_schedule() -> void:
                 % [_frame, view.sim.funds, view.lead_left(), view.phase()])
 
 
+func _process_debrief_schedule() -> void:
+    ## LF-065 verification: `--debrief-at <frame>` presses `hud`'s DEBRIEF button at the
+    ## given frame, exactly as `_process_press_schedule()` presses an `lf_*` action — the
+    ## button itself is a `pressed` signal on a Control, not an input action, so it needs its
+    ## own hook rather than reusing `--press-at`. Prints the state that makes the transition
+    ## checkable (which anchor Progress still names, and that a next anchor exists) before
+    ## calling `hud._on_next()`, since the scene swap it triggers frees this node before
+    ## another print could run.
+    if _debrief_fired or _debrief_at < 0 or _frame != _debrief_at or view == null:
+        return
+    _debrief_fired = true
+    print(("DEBRIEF-PRESS frame=%d anchor=%s progress_selected=%s phase=%s")
+        % [_frame, anchor_id, Progress.selected_anchor, view.phase()])
+    # `RenderingServer.render_loop_enabled` is a global engine switch this same file turns
+    # off below (in the ordinary --shot path) to skip painting every frame before the one
+    # that gets captured — it is not scoped to this scene, so it survives a scene change.
+    # Left off, whatever scene loads next can `await RenderingServer.frame_post_draw`
+    # forever, because nothing ever draws a frame to post. Found live: a chained
+    # `--debrief-at`+`--shot` run hung the full --timeout waiting on exactly that await in
+    # draft.gd. Restoring it here is what a real player's transition already gets for free
+    # (render_loop_enabled is only ever turned off on a --shot run to begin with).
+    RenderingServer.render_loop_enabled = true
+    hud._on_next()
+    print("DEBRIEF-PRESSED frame=%d progress_selected_after=%s" % [_frame, Progress.selected_anchor])
+
+
 func _dump_target_state(tag: String, idx: int) -> void:
     ## Verification-only: what the selected emplacement's targeting priority (data/tuning.json
     ## `targeting`) actually resolves to right now — its mode, what it is aiming at, and every
@@ -712,6 +769,24 @@ func _dump_veterancy() -> void:
         print("VET slot=(%d,%d) tower=%s kills=%d rank=%s damage_mult=%.2f range_mult=%.2f base_range=%.2f"
             % [slot.x, slot.y, String(p["tower"]["id"]), kills, String(best.get("name", "")),
                float(best.get("damage_mult", 1.0)), float(best.get("range_mult", 1.0)), base_range])
+
+
+func _dump_placeholder_colors() -> void:
+    ## LF-046 verification: one line per enemy kind Content knows, plus one synthetic
+    ## unrecognised faction, proving `_draw_unit()`'s placeholder colour no longer collapses
+    ## Sable Reach and Hollow into the same amber, and its radius no longer saturates every
+    ## enemy at or above Warden Heavy's 220 hp to the same size.
+    for id in Content.enemies.keys():
+        var kind: Dictionary = Content.enemies[id]
+        var faction := String(kind.get("faction", ""))
+        var hp := float(kind.get("hp", 0.0))
+        var col: Color = view.placeholder_color(faction)
+        var r: float = view.placeholder_radius(hp)
+        print("PLACEHOLDER id=%s faction=%s hp=%.0f color=(%.2f,%.2f,%.2f) radius=%.2f"
+            % [id, faction, hp, col.r, col.g, col.b, r])
+    var unknown_col: Color = view.placeholder_color("some-fifth-faction")
+    print("PLACEHOLDER id=(synthetic) faction=some-fifth-faction color=(%.2f,%.2f,%.2f)"
+        % [unknown_col.r, unknown_col.g, unknown_col.b])
 
 
 func _print_profile_stats() -> void:

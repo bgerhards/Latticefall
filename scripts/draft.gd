@@ -4,10 +4,16 @@ extends Control
 ## finished, and the one place the campaign accumulates: three recovered Ordinal fragments,
 ## keep one for the rest of the run.
 ##
-## Not wired into the win path yet — main.gd and hud.gd are owned by another agent this
-## session, so the call site that changes scene to this one after a win does not exist. This
-## screen is reachable and screenshottable on its own via `-- --draft`, and stands on
-## Progress + Recoveries the same way the real call site eventually will.
+## Wired into the win path (LF-065): hud.gd's DEBRIEF button (`_on_next()`) changes scene
+## here instead of reloading straight into the next anchor, reading `Progress.selected_anchor`
+## which is still the anchor just cleared at that point. Also reachable and screenshottable
+## on its own via `-- --draft`, and stands on Progress + Recoveries either way.
+##
+## LF-070: the recovery-taken reaction (`_show_reaction()` below) is its own small,
+## non-anchor-scoped dialog concept — `data/dialog/recovery-taken.json` against
+## `data/schema/recovery-dialog.schema.json` — rather than an instance of `dialog_view.gd`,
+## which is built around `AnchorView.anchor_id` and `dialog_trigger` and has no notion of a
+## screen that is not any particular anchor's.
 ##
 ## Built the same way menu.gd builds the anchor grid: one scroll region carrying a column,
 ## because the alternative — three cards laid out at a fixed width — is exactly what
@@ -47,7 +53,20 @@ var _a11y_path: String = ""
 
 var _first_take: Button = null
 var _scroll: ScrollContainer
+var _col: VBoxContainer = null
+var _grid: GridContainer = null
 var _take_buttons: Array[Button] = []
+## LF-070: the recovery-taken reaction lines, loaded once from their own small schema (see
+## the file docstring). Populated in `_ready()`, read only by `_show_reaction()`.
+var _reaction_lines: Array = []
+var _reaction_box: VBoxContainer = null
+var _continue_button: Button = null
+## `-- --auto-take [N]` (1-based card index, default 1): verification hook — presses the
+## Nth card's TAKE button at boot, exactly as a click would. The reaction it triggers is
+## otherwise unreachable at `--fixed-fps` for the same reason every other click-driven state
+## in this codebase gets one (see `--focus-card`'s own note, and main.gd's `--select`/
+## `--pick`/`--cursor`).
+var _auto_take: bool = false
 ## `-- --focus-card N` (1-based) grabs keyboard/gamepad focus on the Nth card's TAKE button
 ## at boot instead of the first. The scroll region's `follow_focus` (see Ui.scroller()) then
 ## carries it into view exactly as it would for a real player tabbing down past the first
@@ -63,6 +82,13 @@ func _ready() -> void:
 	_parse_cli()
 	_grade = _compute_grade()
 	_offer_ids = Recoveries.offer(_seed)
+	_reaction_lines = _load_reaction_lines()
+	# Verification-only, unconditional (unlike DRAFTSHOT/DRAFT below, which only print under
+	# --shot): LF-065's scene-transition proof needs evidence that this screen actually booted
+	# even on a run that never asks it for a screenshot — hud.gd's win path reaching this
+	# scene at all is the thing in question, not what it looks like once here.
+	print("DRAFT-BOOT anchor=%s difficulty=%s verdict=%s offer=%s"
+		% [_anchor_id, _difficulty, String(_grade.get("verdict", "")), ",".join(_offer_ids)])
 	_build()
 	# Deferred, not immediate: grab_focus() the same frame a Control is added asks
 	# ScrollContainer.follow_focus to centre on geometry the layout pass has not run yet,
@@ -71,6 +97,11 @@ func _ready() -> void:
 	# card has its real position, which is what follow_focus needs to carry the focused
 	# card into view.
 	call_deferred("_apply_initial_focus")
+	if _auto_take and not _offer_ids.is_empty():
+		# Queued after _apply_initial_focus above — Godot's deferred-call queue is FIFO, so
+		# this always runs second and its own focus grab (_focus_continue, inside
+		# _show_reaction()) is the one that sticks.
+		call_deferred("_do_auto_take")
 
 
 func _apply_initial_focus() -> void:
@@ -78,6 +109,32 @@ func _apply_initial_focus() -> void:
 		_take_buttons[_focus_card - 1].grab_focus()
 	elif _first_take != null:
 		_first_take.grab_focus()
+
+
+func _do_auto_take() -> void:
+	var idx := clampi(_focus_card - 1, 0, _offer_ids.size() - 1) if _focus_card >= 1 else 0
+	var id := String(_offer_ids[idx])
+	print("AUTO-TAKE id=%s" % id)
+	_on_take(id)
+
+
+func _load_reaction_lines() -> Array:
+	## Reads data/dialog/recovery-taken.json directly against its own small schema
+	## (data/schema/recovery-dialog.schema.json) — not Content.dialog()/dialog_view.gd's
+	## anchor-cross-referenced path, since this reaction is not scoped to any one anchor (see
+	## the file docstring). Follows Content._read()'s own open/parse/verify shape, the same
+	## precedent recoveries.gd's _load() already set for data/tuning.json, rather than
+	## reaching into Content's private method a second, different way.
+	var f := FileAccess.open("res://data/dialog/recovery-taken.json", FileAccess.READ)
+	if f == null:
+		push_error("draft: cannot open data/dialog/recovery-taken.json (%d)"
+			% FileAccess.get_open_error())
+		return []
+	var doc: Variant = JSON.parse_string(f.get_as_text())
+	if typeof(doc) != TYPE_DICTIONARY:
+		push_error("draft: data/dialog/recovery-taken.json is not a JSON object")
+		return []
+	return doc.get("lines", [])
 
 
 func _parse_cli() -> void:
@@ -111,6 +168,8 @@ func _parse_cli() -> void:
 			"--focus-card":
 				if i + 1 < argv.size() and argv[i + 1].is_valid_int():
 					_focus_card = int(argv[i + 1])
+			"--auto-take":
+				_auto_take = true
 	if _seed == -1:
 		_seed = hash(_anchor_id)
 
@@ -155,6 +214,7 @@ func _build() -> void:
 	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	col.add_theme_constant_override("separation", 10)
 	_scroll.add_child(col)
+	_col = col
 
 	col.add_child(Ui.label("DEBRIEF", Ui.SIZE_CAPTION, C_MUTED))
 	_build_verdict(col)
@@ -188,6 +248,7 @@ func _build() -> void:
 	grid.add_theme_constant_override("h_separation", int(CARD_GAP))
 	grid.add_theme_constant_override("v_separation", int(CARD_GAP))
 	col.add_child(grid)
+	_grid = grid
 
 	for id in _offer_ids:
 		grid.add_child(_build_card(id))
@@ -282,7 +343,63 @@ func _build_card(id: String) -> PanelContainer:
 
 func _on_take(id: String) -> void:
 	Recoveries.grant(id)
-	get_tree().change_scene_to_file(MENU_SCENE)
+	_show_reaction(id)
+
+
+func _show_reaction(id: String) -> void:
+	## LF-070: recovery-taken finally has somewhere to fire — replaces the card grid with
+	## the reaction lines and its own CONTINUE, so a second TAKE press cannot grant a second
+	## fragment (the buttons that would do it are hidden with the rest of the grid) and the
+	## player has read the line before the scene changes, rather than it being cut off by an
+	## immediate transition.
+	if _grid != null:
+		_grid.visible = false
+	print("RECOVERY-TAKEN id=%s lines=%d" % [id, _reaction_lines.size()])
+	if _reaction_lines.is_empty():
+		# Defensive only — data/schema/recovery-dialog.schema.json requires at least one line.
+		get_tree().change_scene_to_file(MENU_SCENE)
+		return
+	if _reaction_box == null:
+		_reaction_box = _build_reaction_box()
+		_col.add_child(_reaction_box)
+	_reaction_box.visible = true
+	call_deferred("_focus_continue")
+
+
+func _build_reaction_box() -> VBoxContainer:
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 8)
+
+	var gap := Control.new()
+	gap.custom_minimum_size = Vector2(0, 4)
+	box.add_child(gap)
+
+	for line in _reaction_lines:
+		var speaker := String(line.get("speaker", ""))
+		var who := Ui.label(speaker.to_upper(), Ui.SIZE_CAPTION,
+			C_AMBER if speaker == "control" else C_VERD, false, true)
+		box.add_child(who)
+		var text := Ui.label(String(line.get("text", "")), Ui.SIZE_BODY, C_BONE)
+		text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		text.custom_minimum_size = Vector2(CARD_W * 2.0 + CARD_GAP - 32.0, 0)
+		box.add_child(text)
+
+	var gap2 := Control.new()
+	gap2.custom_minimum_size = Vector2(0, 10)
+	box.add_child(gap2)
+
+	_continue_button = Ui.button("CONTINUE", Ui.SIZE_STAT, true)
+	_continue_button.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	_continue_button.custom_minimum_size = Vector2(210, 42)
+	_continue_button.pressed.connect(func(): get_tree().change_scene_to_file(MENU_SCENE))
+	box.add_child(_continue_button)
+
+	return box
+
+
+func _focus_continue() -> void:
+	if _continue_button != null:
+		_continue_button.grab_focus()
 
 
 # ─────────────────────────────────────────────────────────────── verify ──

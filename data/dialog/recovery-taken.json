@@ -1,0 +1,9 @@
+{
+  "schema": "recovery-dialog",
+  "lines": [
+    { "speaker": "okonkwo",
+      "text": "Ordinal-made, still live after this long. I'd like to know how it survived and I'm not going to ask right now." },
+    { "speaker": "vasquez",
+      "text": "Take it and move. We've got twenty-three more of these." }
+  ]
+}

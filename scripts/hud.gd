@@ -57,6 +57,11 @@ var _outcome_actions: HBoxContainer
 var _next_button: Button
 
 const MENU_SCENE := "res://scenes/menu.tscn"
+## LF-065: a won anchor goes here, not straight into the next fight — the debrief and
+## recovery draft (scripts/draft.gd) is the one place the campaign accumulates, and it grades
+## `Progress.selected_anchor` (still the anchor just cleared, since `_on_next()` below never
+## overwrites it) before its own CONTINUE/TAKE flow hands off to `MENU_SCENE`.
+const DRAFT_SCENE := "res://scenes/draft.tscn"
 
 ## The instrument column. Widened from 330 to 420 to carry the 16 px type ladder: the old
 ## column was sized around an 11-13 px ladder that failed the size floor everywhere, and
@@ -926,7 +931,7 @@ func refresh() -> void:
 		var nxt := _next_anchor_id()
 		_next_button.visible = held and nxt != ""
 		if _next_button.visible:
-			_next_button.text = "NEXT: ANCHOR %s" % nxt.substr(7)
+			_next_button.text = "DEBRIEF"
 
 
 func _refresh_abilities() -> void:
@@ -1248,8 +1253,12 @@ func _next_anchor_id() -> String:
 
 
 func _on_next() -> void:
+	## LF-065: routes to the debrief/draft screen rather than straight into `nxt` — that
+	## screen is what reads `Progress.selected_anchor`, so it must still be the anchor just
+	## cleared when this fires, not the one about to be picked. `draft.gd`'s own CONTINUE/
+	## TAKE buttons carry the player on to `MENU_SCENE`, where the anchor grid (or its own
+	## CONTINUE, `_on_continue()`) is what actually selects `nxt`.
 	var nxt := _next_anchor_id()
 	if nxt == "":
 		return
-	Progress.selected_anchor = nxt
-	get_tree().reload_current_scene()
+	get_tree().change_scene_to_file(DRAFT_SCENE)

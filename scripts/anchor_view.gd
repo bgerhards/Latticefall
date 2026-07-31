@@ -1230,6 +1230,12 @@ var _tile_cache: Array[Dictionary] = []
 ## invalidate from by hand (the same reasoning `drawables()`'s frame-keyed cache below uses).
 var _tile_cache_anchor: String = ""
 
+## LF-046: cached once, the highest `hp` among every enemy kind `Content` knows — -1.0 means
+## unbuilt. `_draw_unit()`'s placeholder radius used to divide by 220 (Warden Heavy's own hp,
+## hardcoded), so anything heavier saturated at the same radius as Warden Heavy and any
+## future roster change silently stopped meaning what the comment beside it claimed.
+var _max_enemy_hp: float = -1.0
+
 ## Slack, in screen px at zoom 1.0, added around the camera-derived visible rect before a
 ## cached tile is culled. 256, not 128 (one tile's own diamond footprint): the atlas packs
 ## every sprite into a fixed 256px cell (CLAUDE.md — "never trims"), and a tall or wide tile
@@ -1276,6 +1282,22 @@ const C_AMBER := Color(0.91, 0.64, 0.24)
 const C_ALERT := Color(0.82, 0.33, 0.25)
 const C_SHADOW := Color(0.0, 0.0, 0.0, 0.34)
 const C_BONE := Color(0.86, 0.89, 0.88)
+
+## LF-046: faction id -> the sprite-missing placeholder's colour, mirroring combat_fx.gd's
+## FACTION_SHARD identity (amber/bronze, pale steel, desaturated violet) so a unit with no
+## rendered sprite yet still reads as the right side. This used to be a two-way branch —
+## "ordinal" got C_ALERT, everything else got C_AMBER — which silently drew Sable Reach and
+## Hollow in the same colour; a fourth faction would have joined them with no error at all,
+## since `sprite coverage` only guards the real render path, never this fallback one.
+const FACTION_PLACEHOLDER_COLOR := {
+	"ordinal": Color(0.80, 0.58, 0.22),
+	"sable-reach": Color(0.80, 0.82, 0.86),
+	"hollow": Color(0.62, 0.55, 0.72),
+}
+## An unlisted faction gets this rather than quietly matching one of the above — loud and
+## unmistakably not a real faction's colour, so a fifth faction with no palette entry yet is
+## visibly wrong instead of invisibly wrong.
+const C_FACTION_UNKNOWN := Color(0.85, 0.20, 0.85)
 
 
 # ────────────────────────────────────────────────────────────── facing ──
@@ -1732,12 +1754,41 @@ func _draw_health(u: Dictionary, c: Vector2) -> void:
 			C_VERD if frac > 0.35 else C_ALERT)
 
 
+func _enemy_hp_ceiling() -> float:
+	## The scale for `_draw_unit()`'s placeholder radius, computed from the real roster
+	## instead of one hardcoded unit's hp. Cached after the first call — `Content.enemies` is
+	## loaded once at boot and never changes underneath a running board.
+	if _max_enemy_hp < 0.0:
+		_max_enemy_hp = 1.0     # floor, so a division never sees 0 if enemies is somehow empty
+		for e in Content.enemies.values():
+			_max_enemy_hp = maxf(_max_enemy_hp, float(e.get("hp", 0.0)))
+	return _max_enemy_hp
+
+
+func placeholder_radius(hp: float) -> float:
+	## Verification-only accessor for LF-046: `_draw_unit()`'s own radius formula, exposed so
+	## `main.gd`'s `--dump-placeholder` can prove the scale is the real roster's max hp and
+	## not one hardcoded unit's, without needing an actually-missing sprite to reach
+	## `_draw_unit()` itself — the `sprite coverage` gate check means nothing in the tracked
+	## data ever misses one, by design.
+	return 7.0 + 5.0 * clampf(hp / _enemy_hp_ceiling(), 0.0, 1.0)
+
+
+func placeholder_color(faction: String) -> Color:
+	## Verification-only accessor for LF-046, mirroring `placeholder_radius()` above:
+	## `_draw_unit()`'s own colour lookup, so `--dump-placeholder` can prove every faction in
+	## `Content.enemies` resolves to a distinct colour (the bug was Sable Reach and Hollow
+	## both falling through to the same amber) without needing a missing sprite to reach it.
+	return FACTION_PLACEHOLDER_COLOR.get(faction, C_FACTION_UNKNOWN)
+
+
 func _draw_unit(u: Dictionary) -> void:
 	var at: Vector2 = sim.point_at(int(u["lane"]), u["dist"])
 	var c := IsoScript.tile_to_screen(at.x, at.y) + _origin
 	var kind: Dictionary = u["kind"]
-	var col := C_ALERT if String(kind.get("faction", "")) == "ordinal" else C_AMBER
-	var r: float = 7.0 + 5.0 * clampf(float(kind["hp"]) / 220.0, 0.0, 1.0)
+	var col: Color = FACTION_PLACEHOLDER_COLOR.get(
+		String(kind.get("faction", "")), C_FACTION_UNKNOWN)
+	var r: float = 7.0 + 5.0 * clampf(float(kind["hp"]) / _enemy_hp_ceiling(), 0.0, 1.0)
 	draw_circle(c + Vector2(0, -8), r, col)
 	var frac: float = clampf(float(u["hp"]) / (float(kind["hp"]) * sim.hp_mult), 0.0, 1.0)
 	draw_rect(Rect2(c + Vector2(-10, -24), Vector2(20, 3)), Color(0, 0, 0, 0.6))

@@ -65,7 +65,9 @@ MIN_COVERAGE = 0.02
 ## looked like a broken hook rather than a missing prefix. Add the prefix in the same change
 ## that adds the hook.
 RELAY_PREFIXES = ("SHOT ", "FRAME ", "STATE ", "AUDIO ", "FACE ", "LANE ", "MENUFRAME ",
-                  "CLEARED ", "CAMERA ", "DRAG ", "WHEEL ", "DIALOG-TRIGGER ")
+                  "CLEARED ", "CAMERA ", "DRAG ", "WHEEL ", "DIALOG-TRIGGER ",
+                  "DEBRIEF-PRESS ", "DEBRIEF-PRESSED ", "DRAFT-BOOT ", "AUTO-TAKE ",
+                  "RECOVERY-TAKEN ", "PLACEHOLDER ")
 
 
 def _out(line: str) -> None:

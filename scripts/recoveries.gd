@@ -249,10 +249,8 @@ func lives_add() -> int:
 func surge_charge_mult() -> float:
 	## Multiplicative, identity 1.0. Scales `charge_per_leak_cost` from the `surge` entry
 	## of `abilities` in data/tuning.json.
-	## Call site: prospective — Threshold Surge is not wired into scripts/anchor_sim.gd yet
-	## (it exists only as data in tuning.json's `abilities` block). Wherever a kill adds
-	## `leak_cost * charge_per_leak_cost` to the surge meter, that becomes
-	## `leak_cost * charge_per_leak_cost * Recoveries.surge_charge_mult()`.
+	## Call site: `scripts/anchor_view.gd` `_charge_surge()` — every kill adds
+	## `leak_cost * charge_per_leak_cost * Recoveries.surge_charge_mult()` to the surge meter.
 	return _mult("surge_charge_mult")
 
 
@@ -260,11 +258,10 @@ func veterancy_mult() -> float:
 	## Multiplicative, identity 1.0. Scales the `kills` threshold on each rank in
 	## `veterancy.ranks` — 0.7 means a rank arrives at 70% of the kills, i.e. the threshold
 	## is multiplied by this, not divided.
-	## Call site: prospective — veterancy is not wired into scripts/anchor_sim.gd yet (data
-	## only, in tuning.json's `veterancy` block; the note there says kills are meant to be
-	## counted "on the placed record"). Wherever a placed emplacement's kill count is
-	## compared against `rank["kills"]`, compare against
-	## `rank["kills"] * Recoveries.veterancy_mult()` instead.
+	## Call site: `scripts/anchor_view.gd`'s boot path scales each rank's `kills` threshold by
+	## this before handing the ranks to `AnchorSim.set_veterancy_ranks()`, so `anchor_sim.gd`
+	## itself (parity-tested against `sim/engine.py`) never has to know this multiplier
+	## exists — it only ever sees ranks already resolved to real numbers.
 	return _mult("veterancy_mult")
 
 

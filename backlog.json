@@ -1,5 +1,5 @@
 {
-  "next_id": 153,
+  "next_id": 157,
   "items": [
     {
       "id": "LF-001",
@@ -547,11 +547,11 @@
       "kind": "bug",
       "area": "art",
       "pri": "med",
-      "status": "open",
+      "status": "done",
       "why": "",
       "opened": "2026-07-28",
-      "closed": null,
-      "note": ""
+      "closed": "2026-07-31",
+      "note": "closed at 07184c1"
     },
     {
       "id": "LF-047",
@@ -775,11 +775,11 @@
       "kind": "feature",
       "area": "design",
       "pri": "med",
-      "status": "open",
+      "status": "done",
       "why": "",
       "opened": "2026-07-30",
-      "closed": null,
-      "note": ""
+      "closed": "2026-07-31",
+      "note": "closed at 07184c1"
     },
     {
       "id": "LF-066",
@@ -811,11 +811,11 @@
       "kind": "feature",
       "area": "story",
       "pri": "med",
-      "status": "open",
+      "status": "done",
       "why": "",
       "opened": "2026-07-30",
-      "closed": null,
-      "note": ""
+      "closed": "2026-07-31",
+      "note": "closed at 07184c1"
     },
     {
       "id": "LF-069",
@@ -835,11 +835,11 @@
       "kind": "feature",
       "area": "story",
       "pri": "med",
-      "status": "open",
+      "status": "done",
       "why": "",
       "opened": "2026-07-30",
-      "closed": null,
-      "note": ""
+      "closed": "2026-07-31",
+      "note": "closed at 07184c1"
     },
     {
       "id": "LF-071",
@@ -1818,6 +1818,54 @@
       "title": "PLC-05's rules half is written but not applied, and one part of it is a trap. The engine enforcement of max_emplacements needs four coordinated edits: Anchor.max_emplacements in sim/content.py, a cap check at the top of _try_build()'s loop and in build() in sim/engine.py, and the same in build_at() in scripts/anchor_sim.gd. The trap is the fourth: scripts/test/parity.gd's _try_build() calls s.build_at() and sets placed_one = true WITHOUT checking the return value, which is safe only while build_at() cannot fail. The moment a cap can refuse a build, that becomes an infinite loop -- free_slots never shrinks and placed_one never goes false, so the parity run hangs rather than failing. All four must land together. Exact diffs are in decision 063's hand-off and in the PLC-05 agent's report. Until they land, the cap is enforced by the validator and the sweep but not by either engine, so a build could exceed it at runtime.",
       "kind": "risk",
       "area": "engine",
+      "pri": "med",
+      "status": "open",
+      "why": "",
+      "opened": "2026-07-31",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-153",
+      "title": "tools/shot.py can only recognize a successful capture on main.tscn (looks for a literal 'SHOT ' line). draft.gd (and menu.gd, per LF-109) print their own distinctly-prefixed success lines (DRAFTSHOT/MENUFRAME) precisely so they never collide with main.gd's, so shot.py always reports 'Godot never reached the shot' for a --draft or --shot-menu run even when the capture and PNG write genuinely succeeded (confirmed while verifying LF-065/LF-070: DRAFTSHOT ... err=0 printed, PNG written and visually correct, shot.py still exit 1). Generalizes LF-109 to draft.tscn. Fix is a scene-aware success check in shot.py (accept DRAFTSHOT/MENUFRAME as success markers, not just SHOT), or documenting that a --draft/--shot-menu run's real success signal is in stderr's relayed lines, not the exit code.",
+      "kind": "bug",
+      "area": "tooling",
+      "pri": "med",
+      "status": "open",
+      "why": "",
+      "opened": "2026-07-31",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-154",
+      "title": "New schema+document pairs are invisible to tools/validate/validate_data.py's completeness check until git-tracked: discover_documents() sources from 'git ls-files data' (PRC-02) but SCHEMA.glob('*.schema.json') reads the real filesystem, so a freshly authored schema shows up in schema_names before any document exercising it is staged, and the gate fails 'schema is not exercised by any document' until both files are git add-ed. Hit directly this session (LF-070's data/schema/recovery-dialog.schema.json + data/dialog/recovery-taken.json) under a hard no-git-add constraint. Not a bug in the mechanism -- PRC-02's tracked-only reasoning is sound -- but worth a line in CLAUDE.md/STATE.md next to the other git-tracking traps, since it will surprise the next agent who adds a schema under the same constraint and sees a gate failure that looks like their schema is wrong.",
+      "kind": "chore",
+      "area": "tooling",
+      "pri": "med",
+      "status": "done",
+      "why": "",
+      "opened": "2026-07-31",
+      "closed": "2026-07-31",
+      "note": "closed at 07184c1"
+    },
+    {
+      "id": "LF-155",
+      "title": "LF-046 fixed (anchor_view.gd _draw_unit(): three distinct per-faction placeholder colours mirroring combat_fx.gd's FACTION_SHARD, a loud C_FACTION_UNKNOWN fallback for an unrecognised faction, and radius scaled against the real enemy roster's max hp via a cached _enemy_hp_ceiling() instead of a hardcoded 220). Still true as noted originally: this path is only reachable when a sprite is missing, which the sprite coverage gate prevents for tracked content today, so it stays exercised only via the new --dump-placeholder verification hook (main.gd) rather than by any real capture. Worth revisiting if/when free-form or procedurally-added enemy kinds make a genuinely missing sprite reachable again.",
+      "kind": "chore",
+      "area": "art",
+      "pri": "med",
+      "status": "open",
+      "why": "",
+      "opened": "2026-07-31",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-156",
+      "title": "Backlog items filed from an agent worktree go stale against a merge, and three did so in one session. LF-068 (no _fire() call sites for the new mechanics), LF-074 (Loadout never called) and LF-069 (leak dialog unwired) all described a HEAD that the merge had already fixed -- each was confirmed by grep at filing time, in a worktree that predated the merge. The cost is not large but it is repeated: an agent is dispatched to fix something already fixed, and the real value it delivers is verification rather than the work asked for. Worth a convention: an item filed from a worktree records the commit it was observed at, and the session-start skill re-checks any item whose observation commit is behind HEAD.",
+      "kind": "chore",
+      "area": "tooling",
       "pri": "med",
       "status": "open",
       "why": "",

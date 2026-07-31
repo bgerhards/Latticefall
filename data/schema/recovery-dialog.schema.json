@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Recovery draft reaction lines",
+  "description": "LF-070: lines that react to the between-anchor recovery draft (scripts/draft.gd), which is not scoped to any one anchor the way data/dialog/anchor-NN.json is. dialog.schema.json's `anchor` field is a real anchor id the validator cross-references against data/anchors/ (validate_data.py's check_dialog), which has no meaning here — the draft screen shows the same reaction regardless of which anchor was just cleared. This schema exists so that stays true without stretching the per-anchor one to mean something it does not.",
+  "type": "object",
+  "required": ["schema", "lines"],
+  "additionalProperties": false,
+  "properties": {
+    "schema": {"const": "recovery-dialog"},
+    "lines": {
+      "type": "array", "minItems": 1,
+      "items": {
+        "type": "object", "required": ["speaker", "text"], "additionalProperties": false,
+        "properties": {
+          "speaker": {"enum": ["vasquez", "okonkwo", "control", "ferrar"]},
+          "text": {"type": "string", "minLength": 1}
+        }
+      }
+    }
+  }
+}
