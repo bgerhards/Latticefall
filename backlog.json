@@ -1,5 +1,5 @@
 {
-  "next_id": 176,
+  "next_id": 180,
   "items": [
     {
       "id": "LF-001",
@@ -1987,11 +1987,11 @@
       "kind": "bug",
       "area": "tooling",
       "pri": "med",
-      "status": "open",
+      "status": "done",
       "why": "",
       "opened": "2026-07-31",
-      "closed": null,
-      "note": ""
+      "closed": "2026-07-31",
+      "note": "Fixed by the narrow-pathspec route rather than a new escape hatch, deliberately: widening the hatches teaches everyone to prefix LF_ALLOW_* onto safe commands, which is the failure mode and not the fix. 'git add <one-explicit-path>' is allowed; -A, ., -u, --all, --update, bare add, multiple paths, wildcards, .. and magic pathspecs all still deny. The documented harm is a broad add or a stash sweeping other agents' files, and a single named path cannot do that."
     },
     {
       "id": "LF-167",
@@ -1999,11 +1999,11 @@
       "kind": "bug",
       "area": "tooling",
       "pri": "med",
-      "status": "open",
+      "status": "done",
       "why": "",
       "opened": "2026-07-31",
-      "closed": null,
-      "note": ""
+      "closed": "2026-07-31",
+      "note": "Superseded by LF-171, which covers all four occurrences and the shared root cause. Fixed there."
     },
     {
       "id": "LF-168",
@@ -2047,11 +2047,11 @@
       "kind": "bug",
       "area": "tooling",
       "pri": "med",
-      "status": "open",
+      "status": "done",
       "why": "",
       "opened": "2026-07-31",
-      "closed": null,
-      "note": ""
+      "closed": "2026-07-31",
+      "note": "Fixed. guard.py now reasons about argv0 and tokenised positional args rather than shell text: shlex-based _segments(), _is_inspector_segment() skipping read-only inspectors before any pattern runs, and _scrub_payload_values() blanking -m/--message/-F/--file/--body/--body-file values. All four occurrences now allow. Verified twice \u2014 the author's --selftest at 45/45, and an independent 22-case coordinator probe at 0 mismatches confirming git stash, git reset, git checkout --, the wide git add forms, import-cache writes including a cat redirect, a raw versioned engine binary and a bare blender all still deny."
     },
     {
       "id": "LF-172",
@@ -2092,6 +2092,54 @@
     {
       "id": "LF-175",
       "title": "TRAP, cost real state this session: '--user-data-dir' is NOT a flag this Godot 4.7.1 build recognises, and it is ignored SILENTLY rather than rejected \u2014 confirmed against --help. A tool that passes it believing it has isolated the save is in fact writing to the real one. Concrete cost: the first version of tools/save_roundtrip.py ran twice against the live Linux dev save at ~/.local/share/godot/app_userdata/Latticefall/progress.json before an unchanged-mtime check caught it. State was reconstructed as far as it could be, but some ambiguity remains because several agents were active on the machine at the time. VERIFIED NOT AFFECTED: the owner's Windows userdata under AppData/Roaming has no progress.json at all and was never written \u2014 only its logs directory has a recent mtime, from the Windows parity leg. The working fix, already in save_roundtrip.py: set XDG_DATA_HOME in the child environment, which the Linux backend does honour, and assert the default location's mtime is unchanged after every run rather than trusting the flag. Generalise it: any future tool that needs an isolated user:// must set XDG_DATA_HOME and must ASSERT isolation rather than assume it, because the failure mode is silent and destructive. This belongs in CLAUDE.md next to the .godot/ warning \u2014 same class of mistake, same shared machine, and the owner plays out of the same tree.",
+      "kind": "bug",
+      "area": "tooling",
+      "pri": "med",
+      "status": "open",
+      "why": "",
+      "opened": "2026-07-31",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-176",
+      "title": "OWNER PLAY FEEDBACK 2026-07-31: most turrets are barely able to reach the enemies on the field, so the board feels slow and a lot of built emplacements contribute little. This is the owner playing, not a measurement, and it should be treated as the primary signal \u2014 the grader has never had a way to see it. Why the current tooling is blind to it: the sim only asks whether a build WINS, and tools/density.py reports units in flight, so a board where every gun fires at the edge of its range for a fraction of each pass grades identically to one where guns are sited well. Nothing measures per-emplacement uptime, time-on-target, or the fraction of the lane a slot actually covers. Concrete first instrument, cheap and pure-Python: report per-emplacement 'fraction of ticks with a live target in range' and 'share of total damage dealt' out of sim/engine.py, then look at the distribution per anchor \u2014 the owner's complaint predicts a long tail of near-zero contributors. Likely causes to separate once measured: (a) slot geometry, the slots authored into each anchor sit too far from the lane, which is what PLC-01 free placement and PLC-04's candidate lattice exist to fix; (b) range values in data/towers.json are simply low relative to lane length; (c) the autobuild/grader policy fills slots in priority order regardless of coverage (LF-053, LF-072), so what the owner sees when a level plays itself is not a sited board at all. Do not tune range numbers before the instrument exists \u2014 that is exactly the fitting-to-today's-data move decision 067 rejected.",
+      "kind": "bug",
+      "area": "design",
+      "pri": "med",
+      "status": "open",
+      "why": "",
+      "opened": "2026-07-31",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-177",
+      "title": "OWNER REQUEST 2026-07-31: add a game speed-up option (fast-forward). The pace is slow to play at 1x and there is currently no way to speed it up. Deferred to a later iteration by the owner's own framing, so this is a spec note rather than a task to start now. THE TRAP THAT MUST BE RECORDED WITH IT: a speed multiplier implemented by scaling delta is a RULES change and will break parity. scripts/anchor_sim.gd and sim/engine.py are compared across 1440 runs on two platforms, and float64 accumulation over a different number of differently-sized steps does not reproduce \u2014 this is the same class as LF-105's unsafe-op finding, where parity holds today by accident rather than design. The safe shape is to run the SAME fixed tick more times per rendered frame (N sim steps per frame, N integer), never a larger dt. That keeps every rule byte-identical, keeps the sim a pure function of its data, and is also what makes the speed setting safe to expose in a save. Presentation follows for free because the view already reads sim state per frame. Open questions for whoever picks it up: which speeds (2x/3x, or 2x/4x), whether speed is per-session or persisted in progress.json alongside the display block, whether it is disabled during dialog, and whether the FX layers should throttle rather than multiply \u2014 combat_fx.gd allocates per spawn and 3x spawn rate is a real cost at the unit budgets WAR-06 is raising toward.",
+      "kind": "feature",
+      "area": "design",
+      "pri": "med",
+      "status": "open",
+      "why": "",
+      "opened": "2026-07-31",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-178",
+      "title": "Tier 2 is over its own declared budget three runs in a row and the answer is NOT to raise it again. MEASURED today, idle-ish: 28598 ms and 28751 ms against a 28000 ms budget, plus 45555 ms on a contended run. PRC-18 raised the budget 25000 -> 28000 when sfx loudness added ~2.1 s; that was documented and reasonable, but a second raise would make the number decorative, and 'raise the threshold until the measurement fits' is the move decision 067 rejected for PRESSURE_FLOOR. The cost is not one check \u2014 it is broad: godot boots 5.3 s, sim determinism 4.8 s, facing harness 2.7 s, terrain parsers agree 2.6 s, hooks configured 2.6 s, sprite atlas 2.5 s, gdscript parses 2.1 s, sfx loudness 2.1 s. Real options, in preference order. (1) Move something to tier 3 \u2014 'facing harness' and 'terrain parsers agree' are both narrow regression harnesses rather than broad safety, and either alone brings tier 2 back under. (2) Split the tier: a pre-commit tier 2 at ~10 s and a pre-push tier 2.5, which is closer to what the tiers were originally sold as. (3) Accept the number and re-derive the budget from a documented percentile rather than a round figure, recording the machine and the load it was measured under \u2014 the current budget is a round number with no stated derivation, which is why it keeps being adjusted. Note --budget is NOT passed by check.py's default invocation or by the wrap, so this is currently advisory in every path that runs; asserting it is a separate decision and would turn this into a red run today. Interacts with LF-170: check.py times checks with time.time() rather than time.monotonic() and was seen reporting a NEGATIVE 796 ms under load, so the instrument the budget is judged against can move backwards.",
+      "kind": "chore",
+      "area": "tooling",
+      "pri": "med",
+      "status": "open",
+      "why": "",
+      "opened": "2026-07-31",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-179",
+      "title": "guard.py's payload scrubbing does not cover HEREDOC bodies, so the LF-171 class is narrowed but not closed. Found live by the chronicler immediately after the fix landed: a Bash command whose heredoc body merely MENTIONED an import-cache path in prose, alongside an unrelated 'cat > file' redirect elsewhere in the same command, tripped rule_godot_write. _scrub_payload_values() blanks the value after -m/--message/-F/--file/--body/--body-file, which covers the four occurrences that motivated the fix, but a heredoc is a different shape: the body is not an argv token at all, it is stdin, and shlex tokenises it as ordinary words. Worked around by using the Write tool instead of a heredoc, which is the right habit anyway and is now the coordinator's default for anything long. Not urgent \u2014 the remaining exposure is prose in a heredoc, which is rarer than a commit message and has an obvious workaround \u2014 but it should be recorded rather than left to be rediscovered, because 'the guard was fixed' is now in the chronicle and someone will reasonably read that as complete. Fix is to detect << and <<- and blank everything from the delimiter to its terminator before any pattern runs. Add it to guard.py --selftest with the exact shape found here: a heredoc mentioning a guarded path plus a real redirect in the same command, which must still deny on the redirect and not on the prose.",
       "kind": "bug",
       "area": "tooling",
       "pri": "med",

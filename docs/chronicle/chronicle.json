@@ -1671,6 +1671,102 @@
           "text": "Twelve of the sixteen originally-named zero-coverage scripts are still uncovered: `pause_menu.gd`, `audio_director.gd`, `ui_theme.gd` and `cli_args.gd` entirely; `dialog_view.gd` and `abilities.gd` only partially, as a side effect of this PR's own scenarios. Filed as LF-174 rather than left to quietly stay at zero with no record anyone looked."
         }
       ]
+    },
+    {
+      "id": "the-cost-was-never-the-retry",
+      "date": "2026-07-31",
+      "time": "18:04",
+      "title": "The cost was never the retry",
+      "summary": "The sequel to `silent-and-wrong`: the guard rail built to stop one agent's `git stash` sweeping five workstreams was denying commands for mentioning a guarded thing, not for doing it. Four false positives in one session, all worked around rather than blocked, and a fifth that caught its own repairer mid-verification.",
+      "tags": [
+        "PRC"
+      ],
+      "commits": [
+        {
+          "hash": "1b691d5",
+          "subject": "fix(hooks): the guard denied commands for mentioning a thing, not for doing it"
+        }
+      ],
+      "body": [
+        {
+          "type": "p",
+          "text": "This is the sequel to `silent-and-wrong`, filed earlier the same day. That entry left `LF-166` open with two candidate fixes, and one live wound: a coordinator's `git commit --only docs/chronicle` had silently dropped a new entry page because the guard denies `git add` with no escape hatch at all, and the published site carried a dead link with nothing red anywhere. `tools/hooks/guard.py` exists for a real reason — an agent's `git stash` once swept eleven files across five workstreams and left every other agent silently reading `HEAD` instead of its own edits, a harm that never raises an error, it just makes any measurement taken in that window describe code nobody wrote. The guard is a good idea. What this commit fixes is that it was denying commands for **mentioning** a guarded thing, not for **doing** it."
+        },
+        {
+          "type": "h3",
+          "text": "Four false positives, one session, three rules"
+        },
+        {
+          "type": "list",
+          "items": [
+            "`ps -eo pid,etime,pcpu,args | grep -E \"test_parity|sim.run|godot\"` — a process listing that launches nothing, denied anyway.",
+            "`git commit -m \"<message>\"` — denied because the commit **message text** named the engine's import-cache directory, in a message explaining why a sidecar file cannot affect the rules.",
+            "`gh pr comment --body \"<text>\"` — denied because the pasted body quoted `tools/test_parity.py`'s own success output, which names the Windows binary by its versioned filename.",
+            "`git add` — denied outright, with no escape hatch at all, unlike two sibling rules (`LF_ALLOW_BACKGROUND=1`, `LF_ALLOW_RAW_ENGINE=1`) that both ship one."
+          ]
+        },
+        {
+          "type": "p",
+          "text": "A fifth occurrence happened while verifying the fix: a coordinator probe written as an inline `python -c` was itself denied, because the probe's own text contained the trigger strings it was testing for. The probe now lives in a file instead. Worth keeping in the record — the bug was still catching people during its own repair."
+        },
+        {
+          "type": "h3",
+          "text": "The point worth making: the cost was never the retry"
+        },
+        {
+          "type": "p",
+          "text": "Every one of the four was worked around, not blocked. Occurrence 2 was defeated by `git commit -F <file>`, which the rule never inspected at all — the guard prevented nothing and only forced a reroute. A guard that is routinely worked around stops guarding, and it teaches the reflex of reaching for the escape hatch on commands that never needed one."
+        },
+        {
+          "type": "p",
+          "text": "Occurrence 4 was worse than an annoyance. Combined with `git commit --only <newfile>` failing outright and `git commit --only <dir>` silently dropping untracked files — the exact mechanism `silent-and-wrong` recorded — it made a new file uncommittable by the documented coordinator workflow, and it is what shipped that earlier entry's `index.html` and `chronicle.json` without the page they both link to. A dead link on the published site, nothing red anywhere."
+        },
+        {
+          "type": "h3",
+          "text": "The fix: argv structure, not shell text"
+        },
+        {
+          "type": "p",
+          "text": "Root cause fixed rather than patched: every rule reasoned about shell text rather than argv structure — `_segments()` said as much in its own docstring. It now tokenises with `shlex`, so a pipe inside a quoted grep pattern or a `-m` message no longer splits the command in two. `_is_inspector_segment()` skips a segment entirely, before any pattern runs, when its `argv0` is a read-only inspector — `ps`, `grep`, `rg`, `awk`, `sed -n`, `cat`, `head`, `tail`, `git log`/`show`/`diff`/`status`, `gh pr`/`issue comment`, `echo`. `_scrub_payload_values()` blanks the value that follows `-m`/`--message`/`-F`/`--file`/`--body`/`--body-file`, so a path named only in a commit message or PR body is never read as something the command does."
+        },
+        {
+          "type": "p",
+          "text": "`rule_git_safety` took the narrow-pathspec route rather than a new escape hatch, and the reasoning is the interesting part. Widening the hatches is how everyone learns to prefix `LF_ALLOW_RAW_ENGINE=1` onto a `ps` invocation, which is the failure mode and not the fix. `git add <one-explicit-path>` is now allowed; `-A`, `.`, `-u`, `--all`, bare `git add`, multiple paths, wildcards and magic pathspecs all still deny. The documented harm is a broad add sweeping other agents' files, and a single named path cannot do that."
+        },
+        {
+          "type": "h3",
+          "text": "A regression caught before shipping"
+        },
+        {
+          "type": "p",
+          "text": "Inspector-skip was initially applied to `rule_godot_write` too, which would have let a `cat` redirect write straight through — the redirect is the real write, `cat` merely reads. It was pulled back out of that rule, which only needed payload scrubbing rather than inspector-skip, and a new selftest case now proves the redirect still denies. A fix to a safety rail that quietly opened a hole in the same rail is exactly the outcome the verification bar exists to catch, and it caught it before this shipped."
+        },
+        {
+          "type": "h3",
+          "text": "Verified twice"
+        },
+        {
+          "type": "table",
+          "headers": [
+            "Check",
+            "Result"
+          ],
+          "rows": [
+            [
+              "Author's `--selftest`",
+              "45 passed, 0 failed (31 original, 1 flipped deny → allow for `git add`, 13 new)"
+            ],
+            [
+              "Independent 22-case coordinator probe",
+              "0 mismatches"
+            ]
+          ]
+        },
+        {
+          "type": "p",
+          "text": "The probe held the line on what must still deny — `git stash`, `git stash push -m`, `git reset --hard`, `git checkout -- <path>`, `git checkout .`, every wide `git add` form, `rm -rf` and `mv` on the import cache, a redirect write into it, a raw versioned engine binary, a bare `blender` — while confirming the five false positives now allow: `git add <one path>`, the `ps | grep`, the `git commit -m`, the `gh pr comment`, and `git commit -F`. `tools/check.py` needed no change of its own: its `hooks configured` check parses the pass/total straight out of the selftest output rather than hardcoding 31, so it now reports 45/45 with no edit at all."
+        }
+      ]
     }
   ]
 }
