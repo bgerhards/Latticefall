@@ -1879,11 +1879,11 @@
       "kind": "feature",
       "area": "engine",
       "pri": "med",
-      "status": "open",
+      "status": "done",
       "why": "",
       "opened": "2026-07-31",
-      "closed": null,
-      "note": ""
+      "closed": "2026-07-31",
+      "note": "closed at fcf9233"
     },
     {
       "id": "LF-158",
@@ -1891,11 +1891,11 @@
       "kind": "chore",
       "area": "art",
       "pri": "med",
-      "status": "open",
+      "status": "done",
       "why": "",
       "opened": "2026-07-31",
-      "closed": null,
-      "note": ""
+      "closed": "2026-07-31",
+      "note": "closed at fcf9233"
     },
     {
       "id": "LF-159",

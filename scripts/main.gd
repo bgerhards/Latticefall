@@ -596,9 +596,18 @@ func _process(_delta: float) -> void:
         _dump_veterancy()
         print("AUDIO %s" % Audio.report())
         if _dump_facings:
+            # ART-01/LF-157: a split tower drawable carries "bucket"/"yaw_count" instead of
+            # a degree "yaw" (16 buckets isn't a whole-degree quantity, see Iso.yaw_for_
+            # heading()'s own assert) — print both forms so a placed tower's base and head
+            # buckets are each visible on their own FACE line, not folded into one.
             for d in view.drawables():
-                print("FACE %s %s yaw=%d at=(%.0f,%.0f)"
-                    % [d["kind"], d["sprite"], d["yaw"], d["at"].x, d["at"].y])
+                if d.has("bucket"):
+                    print("FACE %s %s bucket=%d/%d at=(%.0f,%.0f)"
+                        % [d["kind"], d["sprite"], d["bucket"], d["yaw_count"],
+                           d["at"].x, d["at"].y])
+                else:
+                    print("FACE %s %s yaw=%d at=(%.0f,%.0f)"
+                        % [d["kind"], d["sprite"], d["yaw"], d["at"].x, d["at"].y])
         if _dump_lanes:
             for d in view.drawables():
                 if d["kind"] != "unit":

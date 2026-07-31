@@ -347,6 +347,22 @@ func _tex(sprite_name: String, yaw: int, pass_name: String) -> Texture2D:
 	return lib.get_tex(sprite_name, yaw, pass_name)
 
 
+func _tex_for(d: Dictionary, pass_name: String) -> Texture2D:
+	## ART-01: a drawable carrying "bucket" is a split base/head part (`get_bucket_tex()`);
+	## one that carries "yaw" instead is an unsplit 4-yaw drawable — every unit today, and
+	## any future tower that never gets a split render. Kept as one dispatch point rather
+	## than duplicated at each of the three call sites that walk `drawables()`
+	## (`_draw_entities()` here, `glow_layer.gd`, `fx_additive.gd` — the last only ever
+	## reads unit entries, so it never takes the bucket branch, but the helper still has to
+	## be correct for it).
+	var lib := _sprite_lib()
+	if lib == null or not lib.ok:
+		return null
+	if d.has("bucket"):
+		return lib.get_bucket_tex(d["sprite"], int(d["bucket"]), pass_name)
+	return lib.get_tex(d["sprite"], int(d["yaw"]), pass_name)
+
+
 func _strip_geometry(vp: Vector2) -> Dictionary:
 	## The free region between the two instrument panels, and its screen centre — the same
 	## quantity the old `_centre()` computed as `centre_pt`, factored out because zoom-to-fit,
@@ -1372,18 +1388,36 @@ func _idle_heading(slot: Vector2) -> Vector2:
 	return best
 
 
-func _face(p: Dictionary, heading: Vector2) -> int:
-	## Bucket an emplacement's heading, remembering the last answer on the placed record.
+## ART-01/LF-157: the head/base split needs two independent bucket resolutions per
+## emplacement — 4 for the base (matches the old combined sprite), 16 for the head, so a
+## turret's gun tracks sixteen ways while its housing still snaps through the same four
+## quarter-turns it always did. Each resolution is its own hysteresis state and needs its
+## own persisted previous bucket: collapsing them onto one field would make the base's
+## wide (90°) dead zone gate the head's fine (22.5°) one, or vice versa. Sprite names for
+## the split parts (`<id>_base` / `<id>_head`) are fixed by `render_split_asset()` in
+## `tools/blender/render.py`; only the bucket count differs per part.
+const BASE_YAW_COUNT := 4
+const HEAD_YAW_COUNT := 16
+
+
+func _face_parts(p: Dictionary, heading: Vector2) -> Dictionary:
+	## Bucket an emplacement's heading at both resolutions, remembering each answer
+	## separately on the placed record.
 	##
 	## The state lives on the emplacement and deliberately **not** on a unit: Godot 4.7
 	## compares Dictionaries by value, and anchor_sim's splash loop tests `u == target`, so
 	## one extra key on a unit dictionary would change which units count as the target and
 	## put the two rule implementations out of parity. `placed` records are only ever
 	## compared on their slot, so they are safe to annotate.
-	var prev: int = int(p.get("view_yaw", -1))
-	var yaw := IsoScript.yaw_for_heading(heading, prev, IsoScript.YAW_HYSTERESIS_DEG)
-	p["view_yaw"] = yaw
-	return yaw
+	var prev_base: int = int(p.get("view_bucket_base", -1))
+	var base := IsoScript.bucket_index_for_heading(
+			heading, BASE_YAW_COUNT, prev_base, IsoScript.YAW_HYSTERESIS_FRAC)
+	p["view_bucket_base"] = base
+	var prev_head: int = int(p.get("view_bucket_head", -1))
+	var head := IsoScript.bucket_index_for_heading(
+			heading, HEAD_YAW_COUNT, prev_head, IsoScript.YAW_HYSTERESIS_FRAC)
+	p["view_bucket_head"] = head
+	return {"base": base, "head": head}
 
 
 ## CAM-07: last frame `drawables()` built its list for, and the cached result — see
@@ -1428,7 +1462,8 @@ func drawables_rebuild_count() -> int:
 
 
 func _build_drawables() -> Array:
-	## `_face()` (bucket + hysteresis) now runs once per frame per emplacement instead of
+	## `_face_parts()` (bucket + hysteresis, now for both base and head) runs once per frame
+	## per emplacement instead of
 	## up to four times — see this file's own risk note in docs/issues/CAM-07 on why that
 	## is safe: sim state is frozen for the whole render pass (it only advances in
 	## `_process()`, which always completes before any `_draw()` this frame), so every one
@@ -1437,13 +1472,39 @@ func _build_drawables() -> Array:
 	## this issue's PR notes.
 	var out: Array = []
 	for p in sim.placed:
+		# ART-01/LF-157: two drawables per placed tower, not one — the base (4 buckets) and
+		# the head (16) are separate sprites (`<id>_base` / `<id>_head`) drawn at the same
+		# screen point. They share "depth" by construction (same slot), so `out.sort_custom`
+		# below needs an explicit tiebreak ("layer") to guarantee the head never sorts under
+		# the base — `sort_custom` is not stable, and an equal-depth pair would otherwise
+		# flip order intermittently.
+		var buckets := _face_parts(p, _tower_heading(p))
+		var base_id := String(p["tower"]["id"]).replace("-", "_")
+		var depth := IsoScript.depth(p["slot"].x, p["slot"].y)
+		var at := IsoScript.tile_to_screen(float(p["slot"].x), float(p["slot"].y)) + _origin
+		var online := bool(p["online"])
 		out.append({
-			"depth": IsoScript.depth(p["slot"].x, p["slot"].y),
+			"depth": depth,
+			"layer": 0,
 			"kind": "tower",
-			"sprite": String(p["tower"]["id"]).replace("-", "_"),
-			"yaw": _face(p, _tower_heading(p)),
-			"online": bool(p["online"]),
-			"at": IsoScript.tile_to_screen(float(p["slot"].x), float(p["slot"].y)) + _origin,
+			"part": "base",
+			"sprite": base_id + "_base",
+			"bucket": buckets["base"],
+			"yaw_count": BASE_YAW_COUNT,
+			"online": online,
+			"at": at,
+			"ref": p,
+		})
+		out.append({
+			"depth": depth,
+			"layer": 1,
+			"kind": "tower",
+			"part": "head",
+			"sprite": base_id + "_head",
+			"bucket": buckets["head"],
+			"yaw_count": HEAD_YAW_COUNT,
+			"online": online,
+			"at": at,
 			"ref": p,
 		})
 	for u in sim.units:
@@ -1452,6 +1513,7 @@ func _build_drawables() -> Array:
 		var at: Vector2 = sim.point_at(int(u["lane"]), u["dist"])
 		out.append({
 			"depth": IsoScript.depth(at.x, at.y),
+			"layer": 0,
 			"kind": "unit",
 			"sprite": String(u["kind"]["id"]).replace("-", "_"),
 			"yaw": IsoScript.yaw_for_heading(_unit_heading(u)),
@@ -1466,7 +1528,10 @@ func _build_drawables() -> Array:
 			"tile": at,
 			"ref": u,
 		})
-	out.sort_custom(func(a, b): return a["depth"] < b["depth"])
+	out.sort_custom(func(a, b):
+		if a["depth"] == b["depth"]:
+			return int(a.get("layer", 0)) < int(b.get("layer", 0))
+		return a["depth"] < b["depth"])
 	return out
 
 
@@ -1646,11 +1711,15 @@ func _draw_contact_shadow(at: Vector2, radius: float) -> void:
 func _draw_entities() -> void:
 	var dim: float = 0.6 if sim.brownout else 1.0
 	# Every shadow first, so a nearer sprite's shadow cannot land on top of a farther
-	# sprite that has already been drawn.
+	# sprite that has already been drawn. ART-01: base and head share one "at", so the head
+	# part is skipped here — a second identical shadow drawn on top of the first would only
+	# double its opacity, not add anything a viewer could see.
 	for d in drawables():
+		if d.get("part", "") == "head":
+			continue
 		_draw_contact_shadow(d["at"], 27.0 if d["kind"] == "tower" else 15.0)
 	for d in drawables():
-		var tex: Texture2D = _tex(d["sprite"], d["yaw"], "albedo")
+		var tex: Texture2D = _tex_for(d, "albedo")
 		if tex != null:
 			var tint := Color(1, 1, 1)
 			if d["kind"] == "tower" and not d["online"]:
@@ -1659,10 +1728,13 @@ func _draw_entities() -> void:
 			if d["kind"] == "unit":
 				_draw_health(d["ref"], d["at"])
 		elif d["kind"] == "tower":
-			_draw_tower(d["ref"], dim)
+			# ART-01: only the base falls back to the placeholder shape — the head part
+			# doing the same would draw a second, identical placeholder on top of it.
+			if d.get("part", "") != "head":
+				_draw_tower(d["ref"], dim)
 		else:
 			_draw_unit(d["ref"])
-		if d["kind"] == "tower":
+		if d["kind"] == "tower" and d.get("part", "") != "head":
 			_draw_rank_pip(d["ref"], d["at"])
 
 

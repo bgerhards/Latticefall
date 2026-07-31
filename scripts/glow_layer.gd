@@ -76,7 +76,17 @@ func _draw_impl() -> void:
 	var energy: float = (BROWNOUT_FACTOR if view.sim.brownout else 1.0) * Display.glow
 	var tint := Color(1, 1, 1, energy)
 	for d in view.drawables():
-		var tex: Texture2D = Sprites.get_tex(d["sprite"], d["yaw"], "glow")
+		# ART-01/LF-157: a drawable carrying "bucket" is a split base/head part and is
+		# fetched by bucket index; everything else (every unit today) still carries a
+		# degree "yaw" and goes through the untouched get_tex() path. Both parts of a
+		# placed tower appear in this same list, so both get their glow drawn here — the
+		# additive layer must not disagree with the albedo pass in anchor_view.gd about
+		# what a placed tower looks like.
+		var tex: Texture2D
+		if d.has("bucket"):
+			tex = Sprites.get_bucket_tex(d["sprite"], int(d["bucket"]), "glow")
+		else:
+			tex = Sprites.get_tex(d["sprite"], d["yaw"], "glow")
 		if tex == null:
 			continue
 		if d["kind"] == "tower" and not d["online"]:
