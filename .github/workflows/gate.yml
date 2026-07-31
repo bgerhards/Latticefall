@@ -1,7 +1,8 @@
-name: Gate (tier 1)
+name: Gate
 
-# PRC-08. Runs the fast, pre-commit-equivalent slice of tools/check.py on every PR and every
-# push to main — the same nine checks and the same ~5 s/10 s-budget contract PRC-04 measured
+# PRC-08 (tier-1 `gate` job) / PRC-17 (`build-ci-image` + `gate-tier3` jobs). The `gate` job
+# runs the fast, pre-commit-equivalent slice of tools/check.py on every PR and every push to
+# main — the same nine checks and the same ~5 s/10 s-budget contract PRC-04 measured
 # locally, so a red run here means exactly what a red `--tier 1` means on a workstation.
 #
 # ## What this workflow does and does not prove
@@ -44,20 +45,31 @@ name: Gate (tier 1)
 # byte-for-byte. With the import step, all 35 tracked scripts parse clean. **Removing the
 # import step re-breaks both**, not just whichever one prompted adding it.
 #
-# What this workflow cannot prove at all, on any tier: `game renders`, `menu renders` and
-# `accessibility` (tier 3) need a real GPU-backed Godot frame — GL Compatibility reads back
-# nothing under bare `--headless` (decision 052) — which on Linux means a native Godot build
-# under `xvfb-run` against a Mesa software-GL stack. `rules parity` (tier 4) needs the same
-# Godot plus ~9 minutes. `ubuntu-latest` has none of that, and this workflow does not attempt
-# to install Xvfb/Mesa or fake it: a green run here is silent about all four. The two ways to
-# actually run them in CI:
+# What the bare `ubuntu-latest gate` job above cannot prove, on any tier: `game renders`,
+# `menu renders` and `accessibility` (tier 3) need a real GPU-backed Godot frame — GL
+# Compatibility reads back nothing under bare `--headless` (decision 052) — which on Linux
+# means a native Godot build under `xvfb-run` against a Mesa software-GL stack. `ubuntu-
+# latest` has none of that. The two ways to get it in CI (`nightly.yml`'s own header
+# comment named these as options 1 and 2):
 #
-#   1. A **self-hosted runner** on a machine that already satisfies decision 052 (a native
-#      Linux Godot build + `xvfb-run` + Mesa) — e.g. the owner's own WSL2 box. See
-#      `nightly.yml`, which targets exactly this and is inert until configured.
-#   2. A **container image** carrying `Godot_v4.7.1-stable_linux.x86_64`, `xvfb`, and
-#      `mesa-utils`/a software-GL stack pre-baked, run on a hosted runner. Nobody has built
-#      that image yet; it is the alternative to (1), not a second thing to also do.
+#   1. A **self-hosted runner** on a machine that already satisfies decision 052 — e.g. the
+#      owner's own WSL2 box. See `nightly.yml`, which targets exactly this. **Deliberately
+#      declined** — see docs/STATE.md and docs/DECISIONS.md for the reasoning (a scheduled
+#      job competing for the machine the owner plays on, and `reap.py --kill` running
+#      unattended on a shared tree) — not an oversight or a "not yet".
+#   2. A **container image** carrying `Godot_v4.7.1-stable_linux.x86_64`, `xvfb`, and a Mesa
+#      software-GL stack pre-baked, run on a hosted runner. **This is `build-ci-image` +
+#      `gate-tier3` below** (PRC-17) — built from `tools/ci/Dockerfile`, and it is what
+#      puts `sprite atlas`, `sfx determinism`, `godot boots`, `terrain parsers agree`,
+#      `game renders`, `menu renders`, `accessibility` and every tier-1/2/3 scenario check
+#      onto every PR without any self-hosted infrastructure at all. Verified inside the
+#      container (not assumed): `game renders` reports the SAME `coverage 0.95, 99 tones`
+#      and `accessibility` the SAME `worst contrast 5.08:1` this project's thresholds were
+#      tuned against on the owner's own machine — a bare `ubuntu:24.04` + Mesa llvmpipe
+#      stack reproduces them exactly, not approximately, in every run measured while
+#      building this. `rules parity` (tier 4, ~9 min for the full suite) still does not run
+#      here — see `parity-shard.yml` for how that got into hosted CI anyway, via sharding
+#      rather than a bigger runner.
 #
 # `gdscript parses` is the one tier-1 check that does need a real Godot binary — but only for
 # a plain `--headless --check-only --script <f>` parse (see tools/validate/gdscript.py's
@@ -224,5 +236,147 @@ jobs:
           fi
           if [ "${{ steps.report.outcome }}" != "success" ]; then
             echo "::error::a tier-1 check skipped for a missing subsystem — broken CI environment"
+            exit 1
+          fi
+
+  # PRC-17. Builds tools/ci/Dockerfile (Godot 4.7.1 linux + xvfb + Mesa + the python venv
+  # tier 2/3 need) and pushes it to GHCR, tagged both with this exact commit's SHA (what
+  # `gate-tier3` below actually runs against, so a Dockerfile change in THIS PR is tested by
+  # THIS PR's own run, never a stale image) and a floating `:tier3` tag (what `parity-
+  # shard.yml` uses — see that workflow's header comment on why it deliberately does not
+  # rebuild per shard). `cache-from`/`cache-to: type=gha` means an unchanged Dockerfile
+  # rebuilds from cache in seconds rather than re-downloading Godot every run.
+  build-ci-image:
+    name: Build CI image (PRC-17)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image: ${{ steps.image.outputs.image }}
+    steps:
+      - name: Checkout (no LFS — the image build context is tools/ci/, text only)
+        uses: actions/checkout@v4
+        with:
+          lfs: false
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - id: image
+        run: echo "image=ghcr.io/${{ github.repository_owner }}/latticefall-ci:sha-${{ github.sha }}" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: tools/ci
+          file: tools/ci/Dockerfile
+          push: true
+          tags: |
+            ${{ steps.image.outputs.image }}
+            ghcr.io/${{ github.repository_owner }}/latticefall-ci:tier3
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # PRC-17. Tier 2/3 of tools/check.py, inside the image `build-ci-image` just built and
+  # pushed — see that job and this file's header comment (option 2) for why this needs no
+  # self-hosted runner. `lfs: true` here, unlike the tier-1 `gate` job above: `sprite atlas`
+  # hashes real render bytes and `sfx determinism` byte-compares a real `.wav` — both need
+  # real content, not LFS pointer text (see the tier-1 job's own header comment on this
+  # exact trap). Runs tier 3, which is a strict superset of tiers 1 and 2 (CLAUDE.md: "a
+  # tier is a minimum") — one job proves all three rather than three separate ones re-
+  # paying the same checkout/import cost.
+  gate-tier3:
+    name: Gate (tier 3, container)
+    needs: build-ci-image
+    runs-on: ubuntu-latest
+    container:
+      image: ${{ needs.build-ci-image.outputs.image }}
+    permissions:
+      contents: read
+      pull-requests: write
+      packages: read
+    steps:
+      - name: Checkout (with LFS — tier 2/3 read real sprite and audio bytes)
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Run tier-3 gate
+        id: gate
+        continue-on-error: true
+        # `python` on PATH resolves to the image's own /opt/venv (baked in via Dockerfile
+        # ENV) — no per-run `pip install`, unlike the tier-1 `gate` job's venv-from-scratch
+        # step, because this job's whole point is amortising that cost into the image.
+        run: python -u tools/check.py --tier 3 --json gate-tier3.json
+
+      - name: Render report and enforce no subsystem skips
+        id: report
+        if: always()
+        continue-on-error: true
+        run: |
+          python tools/gate_report.py gate-tier3.json --out gate-tier3.md \
+            --fail-on-subsystem-skip
+
+      - name: Upload gate-tier3.json
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gate-tier3-result
+          path: |
+            gate-tier3.json
+            gate-tier3.md
+          if-no-files-found: warn
+
+      - name: Comment on PR
+        if: always() && github.event_name == 'pull_request'
+        # Same fork restriction and the same reason for `continue-on-error` as the tier-1
+        # job's identical step above — see that step's comment.
+        continue-on-error: true
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            let body;
+            try {
+              body = fs.readFileSync('gate-tier3.md', 'utf8');
+            } catch (e) {
+              body = '### Gate — tier 3 (container)\n\nThe gate did not produce a report at all — see the workflow run.';
+            }
+            const marker = '<!-- latticefall-gate-tier3-comment -->';
+            body = marker + '\n' + body;
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner, repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            const existing = comments.find(c => c.body && c.body.startsWith(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner, repo: context.repo.repo,
+                comment_id: existing.id, body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner, repo: context.repo.repo,
+                issue_number: context.issue.number, body,
+              });
+            }
+
+      - name: Fail if the gate or the subsystem-skip check failed
+        if: always()
+        run: |
+          if [ "${{ steps.gate.outcome }}" != "success" ]; then
+            echo "::error::tier-3 gate failed — see gate-tier3.json / the PR comment"
+            exit 1
+          fi
+          if [ "${{ steps.report.outcome }}" != "success" ]; then
+            echo "::error::a tier-3 check skipped for a missing subsystem — broken container image"
             exit 1
           fi
