@@ -1,5 +1,5 @@
 {
-  "next_id": 124,
+  "next_id": 126,
   "items": [
     {
       "id": "LF-001",
@@ -847,11 +847,11 @@
       "kind": "bug",
       "area": "art",
       "pri": "med",
-      "status": "open",
+      "status": "done",
       "why": "",
       "opened": "2026-07-30",
-      "closed": null,
-      "note": ""
+      "closed": "2026-07-30",
+      "note": "closed at ed0193e"
     },
     {
       "id": "LF-072",
@@ -1351,11 +1351,11 @@
       "kind": "bug",
       "area": "art",
       "pri": "med",
-      "status": "open",
+      "status": "done",
       "why": "",
       "opened": "2026-07-30",
-      "closed": null,
-      "note": ""
+      "closed": "2026-07-30",
+      "note": "closed at ed0193e"
     },
     {
       "id": "LF-114",
@@ -1363,11 +1363,11 @@
       "kind": "risk",
       "area": "art",
       "pri": "med",
-      "status": "open",
+      "status": "done",
       "why": "",
       "opened": "2026-07-30",
-      "closed": null,
-      "note": ""
+      "closed": "2026-07-30",
+      "note": "closed at ed0193e"
     },
     {
       "id": "LF-115",
@@ -1470,6 +1470,30 @@
       "title": "scripts/test/parity.gd's _shed() reaches into AnchorSim.placed and free_slots directly rather than going through the class's own methods. One instance of this was a real bug, found by the first WAR-05 parity run: _shed() wrote s.placed[worst]['online'] = false instead of calling s.set_online(), which bypassed the per-effect list rebuild and left capacity() reading a stale restorer set -- 7 differences across anchor-23/burst at all three difficulties. Fixed for .online; the rest of the function still indexes s.placed and s.free_slots directly, so the next field that needs a hook on write reintroduces the same class of bug silently. Worth a convention note, or making the mutation points the only public way in.",
       "kind": "chore",
       "area": "design",
+      "pri": "med",
+      "status": "open",
+      "why": "",
+      "opened": "2026-07-30",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-124",
+      "title": "pack_atlas.py can assert that a page exceeds GL_MAX_TEXTURE_SIZE but cannot do anything about it: emitting multiple pages needs scripts/sprites.gd to resolve a sprite across pages, and it currently cannot. Measured on this machine: GL_MAX_TEXTURE_SIZE is 16384 (Mesa llvmpipe 25.2.8, via an EGL surfaceless probe), and the asserted floor in pack_atlas.py is 4096 rather than the GLES3.0 spec minimum of 2048, because 2048 would already fail today's real 3072px page. At a 512px cell the library fits; at 1024 it will not. So multi-page resolution in sprites.gd is the actual prerequisite for ART-04 going past 512, not the assertion.",
+      "kind": "chore",
+      "area": "art",
+      "pri": "med",
+      "status": "open",
+      "why": "",
+      "opened": "2026-07-30",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-125",
+      "title": "Every real render still overwrites the tracked assets/renders/_calibration.png, so even a single-asset re-render dirties a file that has nothing to do with that asset. Small residual against PRC-13's 'only what changed moves' story; pre-existing calibrate() behaviour. Either write the calibration probe to a scratch path, or stop tracking it.",
+      "kind": "chore",
+      "area": "art",
       "pri": "med",
       "status": "open",
       "why": "",

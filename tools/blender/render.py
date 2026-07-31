@@ -4,9 +4,17 @@ Latticefall sprite pipeline. Runs inside Blender 5.2:
     /Applications/Blender.app/Contents/MacOS/Blender -b --python tools/blender/render.py -- [args]
     ... -- --list
     ... -- --only pulse_turret
+    ... -- --assets pulse_turret,arc_node    # batch re-render, one Blender launch (PRC-13)
     ... -- --calibrate
     ... -- --calibrate --cell 512      # override the 256px default (ART-03/LF-102);
     ... -- --only pulse_turret --cell 512   # TILE_W and ORTHO_SCALE re-derive from it
+    ... -- --print-hashes                   # content hashes only, no scene/render (PRC-13)
+    ... -- --print-hashes --only pulse_turret
+
+`--print-hashes` is `tools/blender/build.py`'s fast path: it never calls wipe()/
+setup_scene()/calibrate(), so it never touches the tracked `_calibration.png` and costs
+only Blender's own startup. See `compute_hashes()` for what goes into a hash and why it
+uses ORTHO_SCALE_NOMINAL rather than the calibrated ORTHO_SCALE.
 
 Everything the game draws is rendered here, from scripted geometry, through one camera
 rig and one lighting rig. Consistency across forty assets is a property of the pipeline,
@@ -28,6 +36,8 @@ Verified Blender 5.2 facts, do not re-derive:
 
 from __future__ import annotations
 
+import hashlib
+import inspect
 import json
 import math
 import os
@@ -1117,6 +1127,61 @@ def calibrate(sc):
     return False
 
 
+def _shared_source() -> str:
+    """This file's source, minus every individual asset builder's body.
+
+    What is left — materials, primitives, the palette, the FX loader, the render rig
+    (`setup_scene`, `place_camera`, `calibrate`, ...) — is code every builder can call,
+    so a change there really does change every asset's output and every asset's hash
+    should move together. `compute_hashes()` combines a hash of this with one builder's
+    own source, which is the PRC-13 fix for "hash the builder, not the whole file":
+    editing `a_pulse_turret` no longer moves `a_arc_node`'s hash.
+
+    Implemented as substring removal rather than a second AST pass: every ASSETS value
+    is a plain top-level function, so `inspect.getsource()` returns exactly the text
+    that appears once, verbatim, in the whole-file source — a `.replace(..., 1)` finds
+    and removes it cleanly.
+    """
+    whole = inspect.getsource(sys.modules[__name__])
+    for fn in ASSETS.values():
+        whole = whole.replace(inspect.getsource(fn), "", 1)
+    return whole
+
+
+def compute_hashes(names: list) -> dict:
+    """Content hash per asset in `names`.
+
+    Inputs: this asset's builder source (`inspect.getsource()` over the ASSETS dict,
+    PRC-13), `_shared_source()`, and CELL / YAWS / HEIGHT_BIAS / ORTHO_SCALE_NOMINAL /
+    the Blender version string — the handful of things that change a render without
+    touching any function body.
+
+    Deliberately **ORTHO_SCALE_NOMINAL, not the calibrate()-solved ORTHO_SCALE**: this
+    function has to be callable without calibrate() having run at all. calibrate()
+    renders and overwrites the tracked `assets/renders/_calibration.png` on every call
+    (see `_measure_tile`), so if the hash needed the solved value, `build.py`'s fast
+    "has anything changed" pre-check would dirty git status on every *check*, not just
+    every actual render — exactly the failure PRC-13 exists to remove. NOMINAL is a
+    pure function of CELL, which is already a separate hash input, so nothing
+    invalidation-relevant is lost; the Blender version string is what catches drift in
+    calibrate()'s own tiny measured correction factor if that ever changes between
+    Blender installs.
+    """
+    shared_hash = hashlib.sha256(_shared_source().encode()).hexdigest()
+    constants = "CELL=%r YAWS=%r HEIGHT_BIAS=%r ORTHO_SCALE_NOMINAL=%.10f" % (
+        CELL, YAWS, HEIGHT_BIAS, ORTHO_SCALE_NOMINAL)
+    version = bpy.app.version_string
+    out = {}
+    for name in names:
+        h = hashlib.sha256()
+        h.update(shared_hash.encode())
+        h.update(inspect.getsource(ASSETS[name]).encode())
+        h.update(constants.encode())
+        h.update(version.encode())
+        out[name] = h.hexdigest()
+    return out
+
+
 def main() -> int:
     argv = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
     if "--list" in argv:
@@ -1124,12 +1189,38 @@ def main() -> int:
             print(k)
         return 0
 
+    if "--cell" in argv:
+        set_cell(int(argv[argv.index("--cell") + 1]))
+
     only = None
     if "--only" in argv:
         only = argv[argv.index("--only") + 1]
+    assets_arg = None
+    if "--assets" in argv:
+        assets_arg = argv[argv.index("--assets") + 1]
 
-    if "--cell" in argv:
-        set_cell(int(argv[argv.index("--cell") + 1]))
+    if assets_arg:
+        names = [n.strip() for n in assets_arg.split(",") if n.strip()]
+    elif only:
+        names = [only]
+    else:
+        names = list(ASSETS)
+
+    if "--print-hashes" in argv:
+        # build.py's fast path (PRC-13): content hashes for `names`, computed with no
+        # scene ever set up and no frame ever rendered — see compute_hashes()'s
+        # docstring for why this can skip calibrate() entirely. One line of tagged JSON
+        # so build.py can find it regardless of whatever else Blender prints around it
+        # (same trick tools/shot.py uses for Godot's own stdout — RELAY_PREFIXES).
+        bad = [n for n in names if n not in ASSETS]
+        if bad:
+            print("unknown asset(s): %s" % ", ".join(bad))
+            return 2
+        print("HASHES_JSON " + json.dumps({
+            "blender_version": bpy.app.version_string,
+            "hashes": compute_hashes(names),
+        }))
+        return 0
 
     os.makedirs(OUT_DIR, exist_ok=True)
     wipe()
@@ -1142,7 +1233,11 @@ def main() -> int:
     if "--calibrate" in argv:
         return 0
 
-    names = [only] if only else list(ASSETS)
+    bad = [n for n in names if n not in ASSETS]
+    if bad:
+        print("unknown asset(s): %s" % ", ".join(bad))
+        return 2
+
     manifest = {
         "elevation_deg": ELEVATION_DEG,
         "yaws": list(YAWS),
@@ -1155,11 +1250,14 @@ def main() -> int:
         # camera's HEIGHT_BIAS puts it well below that. See _measure_tile / LF-027.
         "pivot": [PIVOT[0], PIVOT[1]],
         "sprites": {},
+        # PRC-13: per-asset content hash, keyed by asset name and stored as a top-level
+        # sibling of "sprites" rather than nested inside each per-yaw entry — nesting it
+        # there would put a bare string where pack_atlas.collect() and sprites.gd both
+        # expect a {"y045": {...}, ...} dict of yaw slots, and break both.
+        "hashes": compute_hashes(names),
+        "blender_version": bpy.app.version_string,
     }
     for name in names:
-        if name not in ASSETS:
-            print("unknown asset: %s" % name)
-            return 2
         for o in [o for o in bpy.data.objects if o.type == "MESH"]:
             bpy.data.objects.remove(o, do_unlink=True)
         ASSETS[name]()
@@ -1181,10 +1279,17 @@ def main() -> int:
         manifest["sprites"][name] = entry
         print("RENDERED %s (%d yaws x 2 passes)" % (name, len(YAWS)))
 
-    if only and os.path.exists(MANIFEST):
+    # A partial run (--only / --assets) merges into whatever manifest is already on
+    # disk instead of replacing it, so re-rendering one asset does not forget every
+    # other one. A full run (no --only, no --assets — names is every key in ASSETS)
+    # replaces wholesale, same as before this change.
+    partial = names != list(ASSETS)
+    if partial and os.path.exists(MANIFEST):
         with open(MANIFEST) as f:
             prior = json.load(f)
         prior["sprites"].update(manifest["sprites"])
+        prior.setdefault("hashes", {}).update(manifest["hashes"])
+        prior["blender_version"] = manifest["blender_version"]
         manifest = prior
     with open(MANIFEST, "w") as f:
         json.dump(manifest, f, indent=2, sort_keys=True)
