@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>An audit of the thing everything else rests on — Latticefall build journal</title>
+<meta name="description" content="An adversarial pass over all 29 gate checks, the 1,152-run parity matrix and the scenario harness. The finding that stung: the guarantee this project calls falsifiable has never once actually run in continuous integration.">
+<link rel="stylesheet" href="../chronicle.css">
+</head>
+<body>
+
+<nav class="entry-nav top"><a class="back" href="../index.html">&larr; the journal</a></nav>
+<article>
+  <header class="entry-header">
+    <time datetime="2026-07-31">July 31, 2026 · 10:58</time>
+    <h1>An audit of the thing everything else rests on</h1>
+    <div class="chips"><span class="chip chip-epic">PRC</span></div>
+    <p class="summary lede">An adversarial pass over all 29 gate checks, the 1,152-run parity matrix and the scenario harness. The finding that stung: the guarantee this project calls falsifiable has never once actually run in continuous integration.</p>
+    
+  </header>
+  <div class="entry-body">
+    <p>Everything below is measured, not impressions.</p><h3>The finding that stung: never once past tier 1</h3><p><code>rules parity</code> — the check CLAUDE.md itself names as the thing that makes a balance claim falsifiable — has run in CI exactly <strong>zero</strong> times. There are zero registered runners attached to the repository, the nightly workflow has zero runs in its own history, and the variable that would enable it is not set. Every gate failure recorded in this project's history was CI's own onboarding breaking itself, never a real defect caught in the act.</p><h3>The gate's documentation had drifted from the gate</h3><p><code>check.py</code>'s own docstring undercounts its tier-3 and tier-4 totals by one each, because neither mentions the scenario check that had since joined the gate. <code>STATE.md</code>'s gate block, regenerated the same day, records 21 checks against an actual 29. A tier table nobody can trust is worse than none, because the entire argument for tiering rests on knowing exactly what a given tier excludes.</p><h3>The coverage gaps and the matrix itself</h3><p>No automated coverage exists at all for gamepad input, save and load, or the recovery draft — and no loudness measurement, despite loudness-matching being one of this project's own named non-negotiables. The two scenarios that assert something specific, the ability numbers and the worst accessibility case, were built and never wired into the gate; only the smoke test was. Separately, the parity matrix is not obviously right-sized: four of sixteen grading policies exercise one shared dispatch path across all 24 anchors — 288 of 1,152 runs, 25% of the total — for a claim that plausibly does not need per-anchor coverage at all.</p><h3>Two results worth recording even though neither became an issue</h3><p>Parity has real teeth, demonstrated rather than assumed: a one-sided change to <code>BROWNOUT_SLOPE</code>, made in the Python engine only, inside a disposable worktree, was caught with 30 differences on anchor-24 — and reported <strong>clean</strong> on anchor-01, because that anchor never pushes reactor capacity hard enough to exercise the constant at all. The flat run count hides that coverage is anchor-dependent; an anchor-01 spot check is not the same thing as coverage. And the checks read as less redundant than expected: sprite coverage against asset coverage, and the three rendered checks, were each read closely and found to compare genuinely different things. What redundancy exists here is structural, not check-against-check.</p><p>Filed as <code>#82</code> through <code>#85</code>.</p>
+  </div>
+  <section class="commits"><h4>Commits</h4><ul class="commit-list"><li><code>7ffe9ea</code> docs(issues): testing audit — four specs, and parity has never run in CI (#86)</li></ul></section>
+</article>
+<nav class="entry-nav bottom">
+  <span><a class="back" href="../index.html">&larr; the journal</a></span> <span><a class="prev" href="edge-scroll-off-by-default.html">&larr; Owner feedback: the board was not large, it was unbounded</a></span> <span><a class="next" href="binary-the-owner-plays.html">The binary the owner actually plays, tested for the first time &rarr;</a></span>
+</nav>
+
+</body>
+</html>

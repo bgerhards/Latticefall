@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The binary the owner actually plays, tested for the first time — Latticefall build journal</title>
+<meta name="description" content="1,152 parity runs so far had all compared the reference engine against the Linux build of Godot. The owner plays Windows. Nobody had checked whether the two agree — until now: 1,440 runs identical across CPython, Linux and Windows.">
+<link rel="stylesheet" href="../chronicle.css">
+</head>
+<body>
+
+<nav class="entry-nav top"><a class="back" href="../index.html">&larr; the journal</a></nav>
+<article>
+  <header class="entry-header">
+    <time datetime="2026-07-31">July 31, 2026 · 11:03</time>
+    <h1>The binary the owner actually plays, tested for the first time</h1>
+    <div class="chips"><span class="chip chip-epic">PRC</span><span class="chip chip-epic">BAL</span></div>
+    <p class="summary lede">1,152 parity runs so far had all compared the reference engine against the Linux build of Godot. The owner plays Windows. Nobody had checked whether the two agree — until now: 1,440 runs identical across CPython, Linux and Windows.</p>
+    
+  </header>
+  <div class="entry-body">
+    <p><code>BAL-06</code>, PRD risk #2 rated Blocker, closing <code>LF-105</code>. Every one of the 1,152 parity runs on record compared CPython against the Linux Godot build. The owner plays the Windows build, and the gate had never once tested it. It can be driven directly from this Linux machine, more simply than expected: the Windows console executable runs straight through WSL's own binfmt interop with no wrapper at all, because <code>--headless</code> never opens a window on any build, so nothing needs a virtual framebuffer either. Both new modes print the resolved executable path before anything runs, and error loudly rather than silently falling back to the Linux build if a platform cannot be resolved.</p><p><strong>three-way parity ok — 1440 runs identical (python, linux, windows)</strong> — 24 anchors, 20 policies (up from 16 mid-run, because <code>BAL-01</code>'s scheduled-action rewrite was landing at the same time, which makes this a real result on a moving tree rather than a permanent certification, and it says so), 3 difficulties.</p><p>This confirms rather than gets lucky: the rules use none of the operations measured to actually diverge between runtimes — <code>tan</code> disagreeing on 4.32% of samples, <code>sin</code> on 0.133%, <code>cos</code> on 0.120%, <code>pow</code> on 0.130% between the Windows and Linux math libraries — the exact operations decision 061's safe-operations check already excludes from both rule engines.</p><p>Timing is reported honestly and it is incomplete. The full three-way run took 989 seconds, but its last third overlapped a sibling parity run competing for the same CPU, so that figure is not trustworthy on its own. The one clean data point is anchor-01 run alone: 6.6-6.9 s on Windows against 7.4 s on Linux, so Windows is not the slower of the two. There is no clean per-leg split for the full run, because the three-way runner does not log per-leg completion — a real instrumentation gap, left open rather than papered over.</p><p>An earlier attempt died with an unhelpful "godot produced no parity output" that did not say which of the three legs had raised it; both error paths now name the executable, the anchor and the exit code. That earlier failure is attributed to the concurrent rules rewrite rather than to either platform — spot checks on both platforms passed individually once the rewrite had landed — but the record says plainly that this cannot be proven, only judged circumstantial.</p><p>The proposal going forward: run <code>--three-way</code> by hand before tagging a release, since it runs all three legs concurrently in one pass rather than two sequential ones, and it composes with sharding. No CI answer exists yet, because parity has never run in CI at all — the subject of the entry immediately before this one.</p>
+  </div>
+  <section class="commits"><h4>Commits</h4><ul class="commit-list"><li><code>87c534d</code> feat(parity): test the binary the owner actually plays (#87)</li></ul></section>
+</article>
+<nav class="entry-nav bottom">
+  <span><a class="back" href="../index.html">&larr; the journal</a></span> <span><a class="prev" href="the-testing-audit.html">&larr; An audit of the thing everything else rests on</a></span> <span><a class="next" href="largest-hole-closes.html">The largest hole in the project closes: a grade that presses buttons &rarr;</a></span>
+</nav>
+
+</body>
+</html>

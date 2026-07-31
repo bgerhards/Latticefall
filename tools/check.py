@@ -470,6 +470,55 @@ def check_music_manifest() -> Result:
     return Result(OK, f"{len(doc['tracks'])} tracks")
 
 
+## How many commits may land on main before the build journal is considered stale. The
+## journal is meant to be written DURING the work, one entry per pull request — it was
+## batched into three bulk "editions" at the end of a session instead, which produces a
+## story written ABOUT the work rather than during it, and loses exactly the pivots and
+## wrong turns that are the most interesting part. This is the mechanical version of that
+## rule, because the remembered version failed on its first outing.
+CHRONICLE_STALE_AFTER = 12
+
+
+def check_chronicle_current() -> Result:
+    """The build journal has an entry covering roughly the work that has landed.
+
+    Warns rather than fails, and deliberately: a chronicle entry is a judgement about what
+    was worth recording, and a gate that hard-fails on it would get satisfied with an empty
+    entry, which is worse than a late one. What it cannot do is stay silent.
+    """
+    rec = ROOT / "docs" / "chronicle" / "chronicle.json"
+    if not rec.exists():
+        return Result(SKIP, "no chronicle")
+    try:
+        entries = json.loads(rec.read_text()).get("entries", [])
+    except Exception as exc:
+        return Result(FAIL, f"chronicle.json does not parse: {exc}")
+    if not entries:
+        return Result(FAIL, "chronicle.json has no entries")
+    ## A commit record is {"hash": ..., "subject": ...}, not a bare string — read the
+    ## shape rather than assuming it; assuming it is what made this check raise on its
+    ## first run.
+    cited = {c["hash"] if isinstance(c, dict) else c
+             for e in entries for c in (e.get("commits") or [])}
+    if not cited:
+        return Result(OK, f"{len(entries)} entries (none cite a commit)")
+    r = subprocess.run(["git", "log", "--format=%h", "-60"],
+                       capture_output=True, text=True, cwd=str(ROOT))
+    log = [h for h in r.stdout.split() if h]
+    behind = 0
+    for h in log:
+        if any(c.startswith(h) or h.startswith(c) for c in cited):
+            break
+        behind += 1
+    else:
+        behind = len(log)
+    if behind > CHRONICLE_STALE_AFTER:
+        return Result(FAIL, f"{behind} commits since the newest journalled one — the "
+                            f"journal is meant to be written per pull request, not batched "
+                            f"at the end ({len(entries)} entries)")
+    return Result(OK, f"{len(entries)} entries, {behind} commit(s) behind")
+
+
 def check_backlog_rendered() -> Result:
     store, doc = ROOT / "backlog.json", ROOT / "docs" / "BACKLOG.md"
     if not store.exists():
@@ -1452,6 +1501,7 @@ CHECKS = [
     # check_asset_coverage's own docstring for why it is a sibling rather than a merge.
     Check("asset coverage",    1, check_asset_coverage),
     Check("backlog rendered",  1, check_backlog_rendered),
+    Check("chronicle current", 1, check_chronicle_current),
     Check("agent models",      1, check_agent_models),
     Check("leases wired",      1, check_leases_wired),
     Check("sim determinism",   2, check_sim),

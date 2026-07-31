@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Owner feedback: the board was not large, it was unbounded — Latticefall build journal</title>
+<meta name="description" content="Moving the cursor toward the build palette scrolled the board away. The bug was a missing containment check; the more important finding was that the fix alone would not have mattered, because the strip it needed to work in is four pixels wide at the interface's own maximum scale.">
+<link rel="stylesheet" href="../chronicle.css">
+</head>
+<body>
+
+<nav class="entry-nav top"><a class="back" href="../index.html">&larr; the journal</a></nav>
+<article>
+  <header class="entry-header">
+    <time datetime="2026-07-31">July 31, 2026 · 10:01</time>
+    <h1>Owner feedback: the board was not large, it was unbounded</h1>
+    <div class="chips"><span class="chip chip-epic">CAM</span></div>
+    <p class="summary lede">Moving the cursor toward the build palette scrolled the board away. The bug was a missing containment check; the more important finding was that the fix alone would not have mattered, because the strip it needed to work in is four pixels wide at the interface's own maximum scale.</p>
+    
+  </header>
+  <div class="entry-body">
+    <p><code>LF-161</code>, read straight from the owner: moving the cursor to the build palette scrolled the board away. <code>_edge_scroll()</code> computed its push from one-sided distance-to-edge tests with no containment check at all, so a pointer anywhere inside either instrument panel — not merely near the strip's edge — satisfied the test, saturated the clamp at 1.0, and drove a full-speed 900 px/second push. The owner read this as "the area seems large"; it was unbounded. Proved by reverting the guard: with the pointer resting over the left panel, the camera's own x position drifted from 7.0 to 6.88 within two frames.</p><h3>The bug was not the whole story</h3><p>Research into the fix found the strip edge-scroll depends on is 4 px wide on anchor-24 at 200% interface scale, because the two instrument panels total 948 px and do not shrink with the scale — against a 48 px margin meant to hold the non-edge resting area. There is no room to rest a pointer at all at that scale. Strip-relative edge-scroll is structurally broken there regardless of the containment bug, and no amount of margin tuning fixes it.</p><p>The decision: default it off. Three things support that rather than taste. Edge-scroll is a decades-old convention that current titles increasingly ship as optional rather than mandatory, and disabling it is a recurring request in this genre. Tower defence specifically sits in tension with it, because screen-anchored build UI is exactly the kind of surface a pointer needs to rest over — precisely the conflict just reported. And WCAG 2.3.3 and 2.5.4 both require that motion the player did not ask for be disableable, and a camera that moves because the pointer passed near a panel is exactly that. Nothing reachable is lost: cursor-follow, middle-drag pan, a camera-reset action and the minimap's own pan and region-stepping already cover every axis edge-scroll offered, and the options toggle stays for anyone who wants it — bounded now, when they turn it on.</p><p>The regression test is a scenario, not a screenshot: pointer forced into the build column, edge-scroll forced on, camera position asserted identical at frame 2 and frame 300. It fails against the unfixed code and passes at 100%, 150% and 200% interface scale.</p><figure><img src="../assets/2026-07-31-edge-scroll-build-column.png" alt="The build column the cursor was resting over when the board scrolled itself away — shown here at 100% interface scale, where there is at least a strip to argue about. At 200% that same strip is four pixels wide, which is the reading that decided the fix: default off, not merely bounded." loading="lazy"><figcaption>The build column the cursor was resting over when the board scrolled itself away — shown here at 100% interface scale, where there is at least a strip to argue about. At 200% that same strip is four pixels wide, which is the reading that decided the fix: default off, not merely bounded.</figcaption></figure>
+  </div>
+  <section class="commits"><h4>Commits</h4><ul class="commit-list"><li><code>3e69539</code> fix(camera): edge-scroll is off by default, and bounded when it is on (#81)</li></ul></section>
+</article>
+<nav class="entry-nav bottom">
+  <span><a class="back" href="../index.html">&larr; the journal</a></span> <span><a class="prev" href="ci-goes-green.html">&larr; The pipeline goes green, and a turret that fires for free</a></span> <span><a class="next" href="the-testing-audit.html">An audit of the thing everything else rests on &rarr;</a></span>
+</nav>
+
+</body>
+</html>
