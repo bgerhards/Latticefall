@@ -2703,3 +2703,66 @@ assertions.
 **A fast wrap that quietly skipped verification would be strictly worse than a slow one**, so the
 tier tally stays loud: a tier-excluded check reports `skip` with a reason, is **not** a pass, and
 is named in the summary line.
+
+---
+
+## 071 — CI runs the real gate in a container, and the self-hosted runner is declined
+
+**Date.** 2026-07-31. Closes `PRC-17` (#83), which the owner named the highest-value open work
+in the project.
+
+**Context, measured rather than assumed.** `rules parity` — in the gate's own words the one
+thing making a balance claim in this project falsifiable — had **never run in CI. Not once.**
+`nightly.yml` targeted `runs-on: [self-hosted, linux, latticefall]` against **zero registered
+runners**, so it was not "behind a flag", it was behind infrastructure that did not exist; it
+had zero runs in its entire history. Every merge to `main` was gated on 14 of 29 checks, and
+every red run in CI history was CI's own onboarding breakage, never a caught regression.
+
+**Decision one. A container image, not a self-hosted runner.** `tools/ci/Dockerfile` bakes
+Godot 4.7.1 linux + `xvfb-run` + a software-GL Mesa stack into `ubuntu:24.04`. `gate.yml`
+gains a `gate-tier3` job that runs `check.py --tier 3` inside it, putting `sprite atlas`,
+`godot boots`, `game renders`, `menu renders`, `accessibility`, `terrain parsers agree`,
+`sfx determinism` and every scenario check on **every pull request**.
+
+**The named risk did not happen, and that is the load-bearing measurement.** The spec warned
+that "a container image's software-GL stack is not automatically the same Mesa llvmpipe
+behaviour measured on this machine — verify the thresholds still mean the same thing there."
+Measured inside the container, twice, on two independent full runs: `game renders` **coverage
+0.95, 99 tones** and `accessibility` **worst contrast 5.08:1** — *identical* to this machine,
+not approximately. `tier 3 — 34 passed · 0 failed · 3 skipped · 80883ms`.
+
+**Decision two. Parity runs hosted and sharded**, in `parity-shard.yml`: `test_parity.py
+--shard I/4` across four jobs, daily plus any PR touching `sim/`, `data/`,
+`scripts/anchor_sim.gd` or `scripts/test/parity.gd`. Measured locally at **3m14s and 3m17s per
+shard** on this 16-core box. The extrapolation to a 4-core hosted runner is stated as a
+projection, not a measurement: parity is a serial per-anchor loop, so core *count* matters
+less than clock, and even a pessimistic 2.5x puts a shard at ~8 minutes. The workflow says in
+its own comment to trust a real run over that estimate.
+
+**Decision three. The self-hosted runner is declined.** The issue reserved this as an owner
+call, and declining is the half that does not touch the owner's machine, so it is taken here
+rather than deferred. A scheduled nightly on the box the owner plays from would compete with
+Godot captures that already take ~8 of 16 cores (`LF-116`), and would mean `reap.py --kill`
+running unattended on a shared tree where `CLAUDE_CODE_SESSION_ID` cannot distinguish a
+sibling agent's live process (`LF-133`). The hosted path delivers what `nightly.yml` existed
+for without either cost.
+
+**Reversible, and the reversal is cheap:** register a runner with the labels `nightly.yml`
+already targets and set `LF_NIGHTLY_ENABLED`. Revisit if a real `parity-shard.yml` run comes
+back far outside the projected band.
+
+**Rejected: flip `LF_NIGHTLY_ENABLED` and move on.** That was the reading `docs/STATE.md`
+carried for sessions — "inert behind a repo variable" — and it was false. Flipping it would
+have queued a job forever with nothing able to claim it.
+
+**What is still not covered, said plainly.** `rules parity (windows)` has **no** CI coverage
+and cannot get it from a hosted Linux path — it needs a Windows Godot binary. That matters
+because `BAL-06` established parity had been comparing CPython against the *Linux* build while
+the owner plays *Windows*. Branch protection also has no required checks at all; that is worth
+fixing once `gate-tier3` and `parity-shard` have proved stable, and is deliberately not done in
+the same change that introduces them.
+
+**And a freshness check, because this project has now twice believed a workflow ran when it had
+not.** `tools/ci/freshness_check.py` fails loud past 48 hours stale. Verified against the real
+repository before merge: `gate.yml` fresh at 0.1h **exit 0**, a workflow with no successful run
+**exit 1** — proved red as well as green.
