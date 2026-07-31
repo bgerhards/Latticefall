@@ -32,12 +32,19 @@ var _scroll: ScrollContainer
 
 
 func _ready() -> void:
-	## Sized explicitly rather than left to the anchor preset. Added mid-`_build()` of its
-	## parent, this node's rect is computed against a parent whose own size has not been
-	## resolved yet, so the layout pass clamps it to its minimum size — which is the panel —
-	## and the CenterContainer then has nothing to centre within. The result is a panel
-	## pinned to the top-left corner with a dim overlay that covers only itself.
-	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	## Sized explicitly, every frame the viewport can change, rather than through an anchor
+	## preset. Added mid-`_build()` of its parent, this node's rect is computed against a
+	## parent whose own size has not been resolved yet, so leaving it at its default (0,0)
+	## rect clamps it to its minimum size — which is the panel — and the CenterContainer
+	## then has nothing to centre within: a panel pinned to the top-left corner with a dim
+	## overlay that covers only itself.
+	##
+	## `PRESET_FULL_RECT` fixed that by stretching to the parent's rect, but a full-rect
+	## preset means *non-equal* opposite anchors (`anchor_left=0, anchor_right=1`), and Godot
+	## hands `size` back to its own layout engine on every frame those are unequal — which is
+	## LF-058, the "non-equal opposite anchors" warning on every single boot. The default
+	## anchors are equal on both axes and leave `size` alone, so `_fit()` below can own it
+	## outright instead of fighting the layout engine for it — same rect, no warning.
 	_fit()
 	get_viewport().size_changed.connect(_fit)
 	_build()
@@ -118,6 +125,8 @@ func _build() -> void:
 		func(_s: int): Display.set_vsync(not Display.vsync))
 	_add_cycler("FRAME CAP", func(): return _fps_text(),
 		func(step: int): _cycle_fps(step))
+	_add_cycler("EDGE SCROLL", func(): return "ON" if Display.edge_scroll else "OFF",
+		func(_s: int): Display.set_edge_scroll(not Display.edge_scroll))
 
 	_col.add_child(_gap(10))
 	_col.add_child(_section("LEGIBILITY"))

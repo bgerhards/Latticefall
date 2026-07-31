@@ -84,7 +84,12 @@ var _buttons: Array[Button] = []
 var _root: Control
 var _col_scroll: ScrollContainer
 var _threat_scroll: ScrollContainer
+var _verbs_panel: Control
+var _hint_panel: Control
 var _relayout_queued := false
+## LF-057. Survives `_build_ui()` rebuilds (resize, interface-scale change) because it is
+## read by `_apply_hud_visibility()` at the end of every rebuild rather than reset there.
+var _hud_hidden := false
 
 
 func _make_label(size: int, col: Color, mono: bool = false, bold: bool = false) -> Label:
@@ -105,6 +110,14 @@ func bind(v: Node2D) -> void:
 	get_viewport().size_changed.connect(_queue_relayout)
 	view.state_changed.connect(refresh)
 	view.wave_state.connect(func(_i, _n, _p): refresh())
+	# `-- --hud-hidden` boots straight into LF-057's hidden state. `toggle_hud()` is normally
+	# reached by `lf_hud_toggle`, an actual key/button press, which `--fixed-fps` has nobody
+	# to make — the same reasoning as main.gd's `--paused`/`--select`/`--scroll`. Parsed here
+	# rather than added to main.gd because the state is this node's own, the same way
+	# `display_settings.gd` parses `--ui-scale` for itself rather than routing it through
+	# main.gd.
+	if OS.get_cmdline_user_args().has("--hud-hidden"):
+		toggle_hud()
 	refresh()
 
 
@@ -294,6 +307,24 @@ func _build_ui() -> void:
 	_build_verbs(_root, Vector2(g, g + _col_scroll.size.y))
 	_build_threat(_root, vp, g)
 
+	# LF-057's way back: the only thing on screen while the HUD is hidden. Backed by
+	# C_PANEL like every other label in this file rather than floating over the board, so
+	# it holds AA contrast against whatever colours are underneath it — decision 050's
+	# zero-failure bar does not carve out an exception for a label that only exists because
+	# the rest of the panel is gone.
+	_hint_panel = Control.new()
+	_hint_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_hint_panel.position = Vector2(g, g)
+	var hint_label := _make_label(Ui.SIZE_CAPTION, C_MUTED, false, true)
+	hint_label.text = "HUD HIDDEN — H TO SHOW"
+	hint_label.position = Vector2(PAD * 0.5, PAD * 0.5)
+	var hint_bg := ColorRect.new()
+	hint_bg.color = C_PANEL
+	hint_bg.size = hint_label.get_minimum_size() + Vector2(PAD, PAD)
+	_hint_panel.add_child(hint_bg)
+	_hint_panel.add_child(hint_label)
+	_root.add_child(_hint_panel)
+
 	# End-of-anchor banner. Centred, large, and the only place the game tells the player
 	# how to get back out of a level — without it the only exit from a finished anchor is
 	# a key nobody has been told about.
@@ -341,6 +372,28 @@ func _build_ui() -> void:
 	ops.custom_minimum_size = Vector2(ACTION_W[2], 44)
 	ops.pressed.connect(func(): get_tree().change_scene_to_file(MENU_SCENE))
 	_outcome_actions.add_child(ops)
+
+	# Reapplied on every rebuild — a resize or an interface-scale change calls `_build_ui()`
+	# again from scratch, and the fresh nodes it creates default to visible.
+	_apply_hud_visibility()
+
+
+func _apply_hud_visibility() -> void:
+	## LF-057. One flag, four nodes: the instrument column, the threat panel and the pinned
+	## verb row are what covers the board, so all three hide together; the hint is the
+	## inverse of all three, and is the only thing shown while they are gone.
+	##
+	## The end-of-anchor banner and its action buttons are deliberately not part of this —
+	## they are not "the instrument panels", they are the one thing the game must still say
+	## regardless of what the player has hidden.
+	if _col_scroll != null:
+		_col_scroll.visible = not _hud_hidden
+	if _threat_scroll != null:
+		_threat_scroll.visible = not _hud_hidden
+	if _verbs_panel != null:
+		_verbs_panel.visible = not _hud_hidden
+	if _hint_panel != null:
+		_hint_panel.visible = _hud_hidden
 
 
 func dialog_reserve(vp: Vector2) -> float:
@@ -491,12 +544,20 @@ func _build_verbs(root: Control, at: Vector2) -> void:
 	## They act on `view.selected_slot`, never on the hover: reaching a button means dragging
 	## the cursor across the board, and a hover-targeted SELL sells whatever tile the cursor
 	## last crossed on its way over.
+	##
+	## Grouped under one `_verbs_panel` Control, all three added as its children rather than
+	## `root`'s directly, so LF-057's hide-HUD toggle can hide the whole block by setting one
+	## node's `visible` rather than tracking each part.
+	_verbs_panel = Control.new()
+	_verbs_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(_verbs_panel)
+
 	var panel := ColorRect.new()
 	panel.color = C_PANEL
 	panel.position = at
 	panel.size = Vector2(COL_W, VERBS_H)
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	root.add_child(panel)
+	_verbs_panel.add_child(panel)
 
 	var inner_x := at.x + PAD
 	var y := at.y + 10.0
@@ -504,7 +565,7 @@ func _build_verbs(root: Control, at: Vector2) -> void:
 	var verbs := HBoxContainer.new()
 	verbs.position = Vector2(inner_x, y)
 	verbs.add_theme_constant_override("separation", VERBS_GAP)
-	root.add_child(verbs)
+	_verbs_panel.add_child(verbs)
 
 	var verb_w := (INNER_W - VERBS_GAP) / 2.0
 	_sell_button = Ui.button("", Ui.SIZE_BODY)
@@ -522,7 +583,7 @@ func _build_verbs(root: Control, at: Vector2) -> void:
 	_power_button.custom_minimum_size = Vector2(INNER_W, POWER_H)
 	_power_button.position = Vector2(inner_x, y)
 	_power_button.pressed.connect(func(): view.toggle_at(view.selected_slot))
-	root.add_child(_power_button)
+	_verbs_panel.add_child(_power_button)
 
 
 func _build_threat(root: Control, vp: Vector2, g: float) -> void:
@@ -639,9 +700,29 @@ func _unhandled_input(event: InputEvent) -> void:
 		scroll_panels(1)
 	elif event.is_action_pressed("lf_panel_up"):
 		scroll_panels(-1)
+	elif event.is_action_pressed("lf_hud_toggle"):
+		toggle_hud()
 	else:
 		return
 	get_viewport().set_input_as_handled()
+
+
+func toggle_hud() -> void:
+	## LF-057. Public for the same reason `scroll_panels()` is: `--fixed-fps` has nobody to
+	## press H, so a verification pass needs a way to reach this state without a keypress.
+	##
+	## Hides the instrument column, the threat panel and the pinned verb row so the board is
+	## visible under them — at 200% interface scale they are 420 + 528 px of a 960 px design
+	## space. Costs the player every readout (bus load, funds/lives/leaks, wave/pace state,
+	## the emplacement datasheet, ability charge/cooldown, incoming-wave composition and the
+	## air-without-a-scan-relay warning). Costs no action: build, sell, upgrade, power,
+	## tower selection, targeting and the three abilities are all bound directly in
+	## `anchor_view.gd`'s `_action_input()` to `lf_build`/`lf_sell`/`lf_upgrade`/`lf_power`/
+	## `lf_next`/`lf_prev`/`lf_target`/`lf_ability_*` — none of them go through a HUD widget,
+	## so none of them go away when the widgets do.
+	_hud_hidden = not _hud_hidden
+	_apply_hud_visibility()
+	Audio.sfx("ui_click")
 
 
 func scroll_panels(steps: int) -> void:
