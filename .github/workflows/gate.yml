@@ -1,0 +1,175 @@
+name: Gate (tier 1)
+
+# PRC-08. Runs the fast, pre-commit-equivalent slice of tools/check.py on every PR and every
+# push to main — the same nine checks and the same ~5 s/10 s-budget contract PRC-04 measured
+# locally, so a red run here means exactly what a red `--tier 1` means on a workstation.
+#
+# ## What this workflow does and does not prove
+#
+# Tier 1 is schema/data/script-syntax/nomenclature checks plus `gdscript parses` (a headless
+# `--check-only` parse, no window, no rendering — see tools/validate/gdscript.py). None of
+# that reads a sprite's pixels or plays a frame, so this checkout out is `lfs: false` — the
+# 224 committed sprite renders are LFS pointer files here, never pulled. **That stops being
+# true the moment this workflow (or a future one) runs tier 2**: `sprite atlas` hashes real
+# render bytes (`tools/check.py`'s `check_sprite_atlas`, via `pack_atlas.source_digest`) and
+# `sfx determinism` re-synthesizes and byte-compares a real `.wav` — both would either report
+# a stale/missing-file FAIL against pointer files or silently pass against garbage. Flip
+# `lfs: true` below before ever raising `--tier` past 1 here.
+#
+# What this workflow cannot prove at all, on any tier: `game renders`, `menu renders` and
+# `accessibility` (tier 3) need a real GPU-backed Godot frame — GL Compatibility reads back
+# nothing under bare `--headless` (decision 052) — which on Linux means a native Godot build
+# under `xvfb-run` against a Mesa software-GL stack. `rules parity` (tier 4) needs the same
+# Godot plus ~9 minutes. `ubuntu-latest` has none of that, and this workflow does not attempt
+# to install Xvfb/Mesa or fake it: a green run here is silent about all four. The two ways to
+# actually run them in CI:
+#
+#   1. A **self-hosted runner** on a machine that already satisfies decision 052 (a native
+#      Linux Godot build + `xvfb-run` + Mesa) — e.g. the owner's own WSL2 box. See
+#      `nightly.yml`, which targets exactly this and is inert until configured.
+#   2. A **container image** carrying `Godot_v4.7.1-stable_linux.x86_64`, `xvfb`, and
+#      `mesa-utils`/a software-GL stack pre-baked, run on a hosted runner. Nobody has built
+#      that image yet; it is the alternative to (1), not a second thing to also do.
+#
+# `gdscript parses` is the one tier-1 check that does need a real Godot binary — but only for
+# a plain `--headless --check-only --script <f>` parse (see tools/validate/gdscript.py's
+# `build_argv`, which passes `want_window=True` and therefore never touches Xvfb even when
+# `toolpaths.godot_argv()` could wrap it). That needs no GPU and no display server at all, so
+# unlike the four checks above it genuinely is installable on a bare hosted runner — the
+# "install Godot" step below does exactly that, downloading the same official
+# `Godot_v4.7.1-stable_linux.x86_64` build CLAUDE.md names, and nothing else from the engine
+# or art pipeline.
+#
+# A run that finds `gdscript parses` (or any other tier-1 check) reporting
+# `skipped_reason: "subsystem"` anyway is therefore a broken environment, not an acceptable
+# skip — `tools/gate_report.py --fail-on-subsystem-skip` turns that into a job failure rather
+# than a quiet green run that skipped a check nobody asked to skip.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: gate-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GODOT_VERSION: "4.7.1-stable"
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (no LFS — tier 1 never reads a sprite/audio byte, see header comment)
+        uses: actions/checkout@v4
+        with:
+          lfs: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Create venv
+        run: |
+          python -m venv .venv
+          .venv/bin/python -m pip install --upgrade pip
+          # Only what tier 1 actually imports (validate_data.py's jsonschema). numpy/pillow/
+          # soundfile back the art and audio pipelines tier 1 never touches — see
+          # CLAUDE.md's Conventions ("stdlib + numpy/soundfile only") for why those exist at
+          # all; this job has no use for them.
+          .venv/bin/python -m pip install jsonschema
+
+      - name: Install Godot (headless parse-check only — see header comment)
+        run: |
+          set -eu
+          curl -fsSL -o godot.zip \
+            "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}/Godot_v${GODOT_VERSION}_linux.x86_64.zip"
+          unzip -q godot.zip -d godot-bin
+          BIN="$(find godot-bin -type f -name 'Godot_v*_linux.x86_64' | head -1)"
+          if [ -z "$BIN" ]; then
+            echo "::error::Godot binary not found in the downloaded archive — release asset name changed?"
+            exit 1
+          fi
+          chmod +x "$BIN"
+          "$BIN" --headless --version
+          echo "LF_GODOT=$PWD/$BIN" >>"$GITHUB_ENV"
+
+      - name: Run tier-1 gate
+        id: gate
+        continue-on-error: true
+        run: .venv/bin/python -u tools/check.py --tier 1 --json gate.json
+
+      - name: Render report and enforce no subsystem skips
+        id: report
+        if: always()
+        continue-on-error: true
+        run: |
+          .venv/bin/python tools/gate_report.py gate.json --out gate.md \
+            --fail-on-subsystem-skip
+
+      - name: Upload gate.json
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gate-tier1-result
+          path: |
+            gate.json
+            gate.md
+          if-no-files-found: warn
+
+      - name: Comment on PR
+        if: always() && github.event_name == 'pull_request'
+        # A `pull_request` run against a fork gets a read-only GITHUB_TOKEN no matter what
+        # `permissions:` above declares — GitHub's own restriction, not something this
+        # workflow can opt out of short of switching to `pull_request_target` (which this
+        # repo has no need for: it is a single-contributor project, per `git lfs env`'s
+        # origin). `continue-on-error` so that restriction shows up as a skipped comment,
+        # not a gate failure the owner has to go debug.
+        continue-on-error: true
+        uses: actions/github-script@v7
+        with:
+          # Default GITHUB_TOKEN only — no extra auth, per PRC-08's task list.
+          script: |
+            const fs = require('fs');
+            let body;
+            try {
+              body = fs.readFileSync('gate.md', 'utf8');
+            } catch (e) {
+              body = '### Gate — tier 1\n\nThe gate did not produce a report at all — see the workflow run.';
+            }
+            const marker = '<!-- latticefall-gate-comment -->';
+            body = marker + '\n' + body;
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner, repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            const existing = comments.find(c => c.body && c.body.startsWith(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner, repo: context.repo.repo,
+                comment_id: existing.id, body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner, repo: context.repo.repo,
+                issue_number: context.issue.number, body,
+              });
+            }
+
+      - name: Fail if the gate or the subsystem-skip check failed
+        if: always()
+        run: |
+          if [ "${{ steps.gate.outcome }}" != "success" ]; then
+            echo "::error::tier-1 gate failed — see gate.json / the PR comment"
+            exit 1
+          fi
+          if [ "${{ steps.report.outcome }}" != "success" ]; then
+            echo "::error::a tier-1 check skipped for a missing subsystem — broken CI environment"
+            exit 1
+          fi

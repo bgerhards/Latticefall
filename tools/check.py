@@ -51,7 +51,7 @@ or 25 s at `--tier 2` fails the run even if every check passed, because a tier w
 silently doubles is a tier nobody will keep running.
 
 `--json`'s shape, for `tools/session.py` and `tools/gate_report.py` (and eventually CI —
-there is no `.github/` directory yet):
+`.github/workflows/gate.yml` consumes it at tier 1):
 
     {
       "schema": "latticefall-gate", "version": 1,

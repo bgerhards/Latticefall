@@ -1,0 +1,58 @@
+#!/bin/sh
+# latticefall-managed-hook v1 — installed by tools/install_hooks.py.
+# Edit tools/hooks/pre-push, not this file: a re-run of the installer overwrites it.
+#
+# Chains git-lfs's own pre-push hook ahead of the tier-2 gate. tools/install_hooks.py moves
+# the pre-existing lfs shim aside to <hooks-dir>/pre-push.lfs the first time it installs this
+# file, because overwriting pre-push outright silently breaks LFS pushes for a repo whose 224
+# sprite renders live in LFS (PRC-08). If pre-push.lfs is missing (LFS never had a hook here,
+# or it was never installed), that stage is a no-op — this hook still runs the gate on its own.
+#
+# Both stages have to see git's stdin (the "<local ref> <local sha1> <remote ref> <remote
+# sha1>" lines pre-push hooks are fed) and stdin can only be read once, so it is buffered to
+# a temp file and replayed to whichever stage(s) run.
+#
+# Deliberately does NOT `set -e` around the gate invocation: its exit code is what this
+# script reports on.
+set -u
+
+ROOT="$(git rev-parse --show-toplevel)"
+HOOKS_DIR="$(git rev-parse --git-path hooks)"
+
+STDIN_BUF="$(mktemp)"
+trap 'rm -f "$STDIN_BUF"' EXIT
+cat >"$STDIN_BUF"
+
+if [ -x "$HOOKS_DIR/pre-push.lfs" ]; then
+    "$HOOKS_DIR/pre-push.lfs" "$@" <"$STDIN_BUF"
+    LFS_STATUS=$?
+    if [ "$LFS_STATUS" -ne 0 ]; then
+        echo "latticefall pre-push: git-lfs pre-push failed — push blocked before the gate" >&2
+        echo "  ran (see LFS output above)." >&2
+        exit "$LFS_STATUS"
+    fi
+fi
+
+PYTHON="$ROOT/.venv/bin/python"
+if [ ! -x "$PYTHON" ]; then
+    echo "latticefall pre-push: no .venv at $PYTHON (fresh clone not bootstrapped yet) —" >&2
+    echo "  skipping the tier-2 gate. Push allowed. Bootstrap the venv to enable this hook." >&2
+    exit 0
+fi
+
+REPORT="$ROOT/.cache/gate-prepush.json"
+mkdir -p "$(dirname "$REPORT")"
+
+"$PYTHON" "$ROOT/tools/check.py" --tier 2 --json "$REPORT"
+STATUS=$?
+
+if [ "$STATUS" -ne 0 ]; then
+    echo >&2
+    echo "latticefall pre-push: tier-2 gate failed — see the failing check(s) above." >&2
+    echo "  Full result: $REPORT" >&2
+    echo "  To push anyway: git push --no-verify" >&2
+    echo "  (An unbypassable hook gets uninstalled, so this escape exists — use it" >&2
+    echo "  deliberately, not by habit; it means the check that just failed did not run.)" >&2
+fi
+
+exit "$STATUS"

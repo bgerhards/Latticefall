@@ -1,0 +1,39 @@
+#!/bin/sh
+# latticefall-managed-hook v1 — installed by tools/install_hooks.py.
+# Edit tools/hooks/pre-commit, not this file: a re-run of the installer overwrites it.
+#
+# Runs the tier-1 gate (~5 s, 9 checks, no Godot window) and blocks the commit on failure.
+# PRC-08. See tools/check.py's module docstring for what tier 1 covers and excludes — a
+# tier-1 pass is not proof of everything; tier 2 runs at push, tier 3/4 do not run locally
+# by default at all.
+#
+# Deliberately does NOT `set -e`: the gate's own exit code is the thing this script reports
+# on, so it has to survive past a nonzero return rather than aborting the script before the
+# message below can print.
+set -u
+
+ROOT="$(git rev-parse --show-toplevel)"
+PYTHON="$ROOT/.venv/bin/python"
+
+if [ ! -x "$PYTHON" ]; then
+    echo "latticefall pre-commit: no .venv at $PYTHON (fresh clone not bootstrapped yet) —" >&2
+    echo "  skipping the tier-1 gate. Commit allowed. Bootstrap the venv to enable this hook." >&2
+    exit 0
+fi
+
+REPORT="$ROOT/.cache/gate-precommit.json"
+mkdir -p "$(dirname "$REPORT")"
+
+"$PYTHON" "$ROOT/tools/check.py" --tier 1 --json "$REPORT"
+STATUS=$?
+
+if [ "$STATUS" -ne 0 ]; then
+    echo >&2
+    echo "latticefall pre-commit: tier-1 gate failed — see the failing check(s) above." >&2
+    echo "  Full result: $REPORT" >&2
+    echo "  To commit anyway: git commit --no-verify" >&2
+    echo "  (An unbypassable hook gets uninstalled, so this escape exists — use it" >&2
+    echo "  deliberately, not by habit; it means the check that just failed did not run.)" >&2
+fi
+
+exit "$STATUS"
