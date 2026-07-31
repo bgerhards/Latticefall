@@ -19,9 +19,13 @@ and the one the owner cares most about, so it is step 4 of 8 rather than an afte
    `--tier 4` when it does. Do not open a PR on work you have not gated — CI runs tier 1
    only, so a green PR check is not a green gate.
    ```bash
-   .venv/bin/python tools/check.py --tier 2          # ~23 s
-   .venv/bin/python tools/check.py                   # tier 4, ~11 min, rules changes only
+   .venv/bin/python tools/check.py --tier 2          # pre-push; --json for the current cost
+   .venv/bin/python tools/check.py                   # tier 4 (default), rules changes only
    ```
+   Costs are deliberately not written here — they have drifted stale twice already (PRC-16).
+   Run either command with `--json` for today's real number, or see `tools/check.py`'s own
+   module docstring, which asserts its check *counts* against its `CHECKS` registry every
+   tier-1 run rather than stating them as prose that can rot.
    A rules change also needs `tools/test_parity.py`, which now exceeds the Bash tool's
    600 s ceiling — expect it to background and be notified.
 
