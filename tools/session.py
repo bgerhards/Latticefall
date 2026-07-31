@@ -15,6 +15,19 @@ owned by whoever is working.
     .venv/bin/python tools/session.py --print    # just show it
     .venv/bin/python tools/session.py --no-window            # skip the windowed checks
     .venv/bin/python tools/session.py --gate-from gate.txt   # reuse the wrap's gate run
+    .venv/bin/python tools/session.py --tier 2   # regenerate against a tier-2 gate (LF-115)
+
+LF-115, fixed: this used to call `tools/check.py` with no `--tier` at all, which meant a
+regeneration always ran (or re-read) the full tier-4 gate regardless of what the caller
+asked for — harmless while every wrap ran tier 4 unconditionally, but PRC-20 makes the wrap
+default to tier 2, and a STATE block silently produced from a tier-2 run while looking
+identical to a tier-4 one would be exactly the "green partial run that reads like a full
+one" CLAUDE.md calls out as the failure the whole gate contract exists to prevent. `--tier`
+is now forwarded to the `check.py` subprocess (or recorded from a `--gate-from` artefact's
+own `"tier"` field), and no extra bookkeeping was needed to *show* it: `check.py`'s own
+summary line already reads `"tier N — ... passed ..."`, and that line is what lands
+verbatim in STATE's Gate section — so a tier-2 regeneration says "tier 2" in the block
+itself rather than silently claiming a full run.
 """
 
 from __future__ import annotations
@@ -63,7 +76,8 @@ def _render_gate_json(doc: dict) -> tuple[str, list[str]]:
     return summary, lines
 
 
-def gate(no_window: bool = False, gate_from: Path | None = None) -> tuple[str, list[str]]:
+def gate(no_window: bool = False, gate_from: Path | None = None,
+        tier: int | None = None) -> tuple[str, list[str]]:
     """The gate's per-check lines for the STATE block, run now or read from a saved run.
 
     `gate_from` exists because the wrap procedure runs the gate and *then* runs this script,
@@ -85,6 +99,19 @@ def gate(no_window: bool = False, gate_from: Path | None = None) -> tuple[str, l
     them and can wedge for half an hour (decision 051, LF-061). Either way the skipped lines
     stay in the block as `skip`, so the record says what did not run rather than implying
     18 green.
+
+    `tier` forwards `--tier` to the subprocess (LF-115, fixed by PRC-20). Before this, a
+    STATE regeneration always ran (or trusted) a full tier-4 gate no matter what the caller
+    asked for — harmless while every wrap ran tier 4 unconditionally, but PRC-20 makes the
+    wrap default to tier 2, and this script is what writes the "Gate" section a reader
+    trusts. `None` (the default) omits `--tier` entirely, which is `check.py`'s own tier-4
+    default — unchanged behaviour for every existing caller. No separate bookkeeping was
+    needed to make the *result* honest about which tier ran: `check.py`'s own summary line
+    already reads `"tier N — X passed · Y failed · Z skipped · Wms"`, and that exact line is
+    what `_parse_gate`/`_render_gate_json` both return as `summary` — so whichever tier
+    actually ran says so in the block itself, on a `--gate-from` read as much as a live run
+    (a saved JSON artefact carries its own `"tier"` key, which is what `check.py --json`
+    always records regardless of how it was invoked).
     """
     if gate_from is not None:
         text = gate_from.read_text()
@@ -101,6 +128,8 @@ def gate(no_window: bool = False, gate_from: Path | None = None) -> tuple[str, l
     cmd = [sys.executable, "-u", str(ROOT / "tools" / "check.py")]
     if no_window:
         cmd.append("--no-window")
+    if tier is not None:
+        cmd += ["--tier", str(tier)]
     r = subprocess.run(cmd, capture_output=True, text=True, cwd=str(ROOT))
     summary, lines = _parse_gate(r.stdout)
     if no_window:
@@ -147,8 +176,9 @@ def inventory() -> dict:
     }
 
 
-def build(no_window: bool = False, gate_from: Path | None = None) -> str:
-    summary, lines = gate(no_window, gate_from)
+def build(no_window: bool = False, gate_from: Path | None = None,
+         tier: int | None = None) -> str:
+    summary, lines = gate(no_window, gate_from, tier)
     bl = backlog()
     inv = inventory()
     ancs = anchors()
@@ -207,9 +237,14 @@ def main() -> int:
                          "no hedging in the block) or the older saved stdout of a plain run.")
     ap.add_argument("--no-window", action="store_true",
                     help="forward --no-window to the gate: skip the three checks that\nopen a real Godot window. Use when somebody is working on this machine.")
+    ap.add_argument("--tier", type=int, choices=(1, 2, 3, 4), default=None,
+                    help="forward --tier to the gate (LF-115, PRC-20). Omit to keep the old "
+                         "behaviour: check.py's own tier-4 default. A --gate-from artefact "
+                         "carries its own tier already and ignores this flag — pass --tier "
+                         "only when this script is running the gate itself.")
     args = ap.parse_args()
 
-    block = build(args.no_window, args.gate_from)
+    block = build(args.no_window, args.gate_from, args.tier)
     if args.show:
         print(block)
         return 0
