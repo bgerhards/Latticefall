@@ -71,6 +71,25 @@ import toolpaths  # noqa: E402
 ESCALATE_EXACT = {"scripts/anchor_sim.gd"}
 ESCALATE_PREFIXES = ("sim/", "data/", "assets/")
 
+# Godot writes a sidecar next to every importable resource and regenerates it on any import.
+# They are editor bookkeeping, not content: a `.import` file records how a PNG is decoded
+# into `.godot/imported/`, and a `.uid` records a resource id. Neither can move a rule, a
+# wave table or a rendered pixel, and neither is in the parity digest — which covers the
+# four rule files, `data/**` and the engine version string, and nothing else.
+#
+# Excluding them is not a convenience. WITHOUT this, PRC-20 is inert on this machine:
+# measured on the tree that shipped it, 360 untracked `assets/renders/*.png.import`
+# sidecars were sitting in `git status`, so `wrap_gate.py` escalated to tier 4 on every
+# single invocation and the fast wrap never once ran. LF-169 filed it as a chore; running
+# the tool proved it was the difference between the feature working and not existing.
+#
+# The alternative — scoping to tracked files only, PRC-02's reasoning — is REJECTED here,
+# and this is the one place that reasoning does not transfer. A brand-new `sim/foo.py` or
+# `data/anchors/anchor-25.json` is untracked at exactly the moment it most needs tier 4,
+# and "tracked in this repository" would silently wave it through. The honest cut is by
+# what a file can affect, not by whether git has seen it yet.
+ESCALATE_IGNORE_SUFFIXES = (".import", ".uid")
+
 
 def _sh(*args: str) -> str:
     r = subprocess.run(args, capture_output=True, text=True, cwd=str(ROOT))
@@ -78,6 +97,8 @@ def _sh(*args: str) -> str:
 
 
 def _matches(rel: str) -> bool:
+    if rel.endswith(ESCALATE_IGNORE_SUFFIXES):
+        return False
     return rel in ESCALATE_EXACT or rel.startswith(ESCALATE_PREFIXES)
 
 
