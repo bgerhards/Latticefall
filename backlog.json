@@ -1,5 +1,5 @@
 {
-  "next_id": 164,
+  "next_id": 165,
   "items": [
     {
       "id": "LF-001",
@@ -1567,11 +1567,11 @@
       "kind": "question",
       "area": "design",
       "pri": "med",
-      "status": "open",
+      "status": "done",
       "why": "",
       "opened": "2026-07-31",
-      "closed": null,
-      "note": ""
+      "closed": "2026-07-31",
+      "note": "closed at 3a6b4da"
     },
     {
       "id": "LF-132",
@@ -1807,11 +1807,11 @@
       "kind": "question",
       "area": "art",
       "pri": "med",
-      "status": "open",
+      "status": "done",
       "why": "",
       "opened": "2026-07-31",
-      "closed": null,
-      "note": ""
+      "closed": "2026-07-31",
+      "note": "closed at 3a6b4da"
     },
     {
       "id": "LF-152",
@@ -1949,6 +1949,18 @@
       "id": "LF-163",
       "title": "Ability CHARGE ACCRUAL is not modelled in sim/engine.py, and it is the one gap that decides how much to trust BAL-01's Threshold Surge finding. Measured: surge-on-peak, firing every 40s with no charge, no cooldown and no cost, flips 9 of 72 anchor-by-difficulty cells from loss to win -- sweeping all three difficulties on both anchor-12 and anchor-13 -- and is 0 worse across all 72 even at full 20-cast spam. That zero-downside behaviour is suspicious on its own: Overcharge, which IS honestly modelled with its real draw cost, is the mirror image at 0 better and 12 worse. But truncating the schedule shows the wins need 5 to 14 casts, not one lucky early one, and surge's real charge cost is about 25 leak-cost-weighted kills per cast (charge_max 100 over charge_per_leak_cost 4) -- a board that kills most of every wave before collapsing at wave 6-8 of 8-14 very plausibly earns several real charges. So this is NOT yet evidence the 130-damage/35-percent-falloff numbers are hot. The concrete work: track charge_max and charge_per_leak_cost against the kills already flowing through _damage(), gate the ability verb behind it, and re-run those 9 cells. Until then no grade that assumes Surge is available on demand should be trusted, and BAL-04's regrade must not start without it.",
       "kind": "risk",
+      "area": "design",
+      "pri": "med",
+      "status": "open",
+      "why": "",
+      "opened": "2026-07-31",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-164",
+      "title": "PRESSURE_FLOOR is deleted (decision 067) and the property it claimed to test still has no instrument. 'The player is pressed against reactor capacity' is the one genuinely good idea the whole game rests on, and peak load ratio cannot measure it: peak is at or above 100 percent on every anchor at every difficulty, which says a greedy policy exists, not that a good board is squeezed. Candidate metrics worth measuring before picking one: the fraction of a WINNING run's sim time spent within some band of capacity; the margin by which the best build clears; or the gap between the best build and the second-best, since a level where one board wins comfortably and the rest fail is a puzzle rather than a decision. Whatever is chosen must be proved to DISCRIMINATE across the 24 anchors before it is trusted -- that is the failure the original made twice.",
+      "kind": "question",
       "area": "design",
       "pri": "med",
       "status": "open",
