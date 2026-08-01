@@ -2851,3 +2851,81 @@ unit every tick forever — measured at 2.19× cost at 8 towers/32 units, rising
 100/800. With the index, an idle gun scans its own empty cells instead of the whole board:
 `--all-idle` now measures **0.74×**, i.e. *faster* than the baseline it used to be nearly three
 times slower than.
+
+---
+
+## 073 — The board size target is 48², and that answers half of open decision #1 by arithmetic
+
+**Date.** 2026-08-01. Takes PRD §6 open decision **#2**, the last genuinely-open owner call in
+that table. Unblocks `BAL-04`'s density half, `LF-080` (the layout generator), `CAM-05` and the
+atlas/culling budgets.
+
+**Context.** The decision had waited on one number that did not exist: a measured frame cost at
+scale. Decision 072 (`WAR-03`) produced it — **1.73 ms/tick at 1000 units / 80 towers**. The
+owner took the decision with that in hand.
+
+**Decision. Boards target 48 × 48.** 2,304 tiles, against 18 × 15 = 270 today — **8.5× the
+area**.
+
+**The sim was never the binding constraint, and saying so is the point.** The sim budget is
+5.6 ms, not 16.7, because the speed control goes to 3× and the rules therefore run 90 ticks per
+second of wall clock (PRD §2.2). At 1.73 ms/tick that is 5.2 ms, which fits at 32², 48² *and*
+64². `WAR-03` unblocked this decision by supplying evidence; it did not narrow the choice. What
+narrows it is legibility and authoring.
+
+**What actually decided it, in the order it bites:**
+
+| | 32² | **48²** | 64² |
+|---|---|---|---|
+| tiles (vs 270 today) | 1,024 — 3.8× | **2,304 — 8.5×** | 4,096 — 15× |
+| projected board width | 4,096 px | **6,144 px** | 8,192 px |
+| zoom to fit the strip, 100% UI | 0.468× | **0.312×** | 0.234× |
+| at 200% interface scale | 0.234× | **0.156×** | 0.117× |
+| sprite on screen | ~60–120 px | **~40–80 px** | ~30–60 px |
+| draw path, post `CAM-06`+`CAM-07` | ~1.4 ms | **~3.0 ms** | ~5.4 ms |
+
+Only the 64² column is measured directly (`LF-104`, and PRD §2.2's 13.4 ms/frame naive draw
+figure against `CAM-07`'s **2.47×** measured improvement). The other two columns are that
+measurement scaled: zoom-to-fit is exactly linear in board edge, because a board of edge `N`
+projects to `N × TILE_W` px wide and the strip between the instrument panels does not move.
+**Treat 32² and 48² as arithmetic on a measurement, not as measurements** — if either becomes
+load-bearing for a further decision, take the frame directly.
+
+**Rejected: 64².** It is the most theatre-scale and it fails on the row the PRD's own break-order
+table already ranks second: sprite legibility, which that table puts at **48×48** as the point
+where it breaks. 64² renders a sprite at 30–60 px, below the threshold at which one enemy type
+can be told from another, and the fix that would rescue it does not exist — raising
+`Iso.TILE_W` is blocked because **`calibrate()` cannot converge at 384 or 1024 px cells**
+(`LF-102`; 256 and 512 work by luck), and decision 066 has already refused to grow the atlas
+cell on a measured 630 MB VRAM projection. Choosing 64² would therefore be choosing
+silhouette-first art as well, which is a much larger commitment than a board dimension.
+
+**Rejected: 32².** The only size that needs no concession at all — legible, ~1.4 ms of draw, and
+the only one where the existing 24 anchors could be grown by hand rather than regenerated. It is
+rejected because 3.8× the area does not carry the programme it exists to serve: `WAR-06`'s
+250–400 alive units and `WAR-01`'s 2–5 simultaneous lanes with real standoff between them do not
+fit on a 32² board in any way that makes a front line legible as a front line.
+
+**This settles half of open decision #1 as a consequence, and that should be said out loud rather
+than discovered later.** 48² needs zoom 0.312× to show the whole board, so `CAM-05`'s option 2 —
+**a zoom floor with `CAM-04`'s minimap doing the wide read** — is now the only affordable answer,
+and *the board is never fully visible in the playfield*. That is a design statement and it is
+being made on purpose, consistent with decision 056, which already accepted detail loss at
+zoom-out. What remains genuinely open in #1 is the art bar for E6 — whether sprites at ~40–80 px
+want silhouette-first treatment anyway — not `ZOOM_MIN`, which 48² now determines.
+
+**Consequences to schedule, not to rediscover:**
+
+- **Hand-authoring is dead at 48².** `LF-080`'s generator is now on the critical path *before*
+  any theatre-scale content exists, not alongside it.
+- **`BAL-04`'s density half is unblocked** and its rebase is against 2,304 tiles. The range pass
+  (`LF-181`) is tuning today's 18 × 15 boards and does **not** anticipate this; whatever it
+  concludes about range relative to lane length has to be re-derived at 48².
+- **`CAM-01` can take `ZOOM_MIN` from 0.312×** rather than waiting on #1.
+- `TER-05`'s O(n) merge and `CAM-06`'s cull are now sized against 2,304, not 4,096 — both were
+  specified against the 64² worst case, so both have margin rather than a shortfall.
+
+**Docker stays.** Raised alongside this as the second owner-gated item: the standing systemd
+service installed during `#83` is retained, because it is what builds and tests `gate.yml`'s
+container image locally, and removing it would leave CI-image changes verifiable only by pushing
+and watching — which is precisely how decision 071's two red runs happened.
