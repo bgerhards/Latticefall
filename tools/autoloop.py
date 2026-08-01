@@ -51,6 +51,8 @@ ISSUES = ROOT / "docs" / "issues"
 MAP = ISSUES / ".map.json"
 LOCK = ROOT / ".cache" / "autoloop.lock"
 STATEFILE = ROOT / ".cache" / "autoloop-state.json"
+STATUS = ROOT / ".cache" / "autoloop-status.json"   # live, human-readable, tail-friendly
+LOGDIR = ROOT / ".cache" / "autoloop-logs"
 
 # ntfy: set LF_NTFY_URL to a full topic URL, e.g. https://ntfy.example.lan/latticefall
 NTFY = os.environ.get("LF_NTFY_URL", "").strip()
@@ -258,35 +260,112 @@ def preflight() -> str | None:
     return None
 
 
-def run_one(issue: Issue, model: str, timeout_s: int,
-            remote_control: bool = True) -> tuple[str, str]:
-    """Spawn one session for this issue. Returns (verdict, detail).
+def progress_evidence(logfile: Path, branch_before: str) -> list[str]:
+    """What the session has actually DONE, not merely that it is still breathing.
 
-    REMOTE CONTROL IS ON BY DEFAULT and each session is named after the issue, so the owner
-    can watch a specific one from claude.ai or a phone without guessing which is which.
+    A heartbeat saying "alive" is nearly worthless — a wedged process is also alive. These are
+    the three signals that distinguish working from stuck, cheapest first: the last thing the
+    session said, how many commits exist that did not before, and whether a pull request is
+    open yet. Together they answer "is it moving" without anyone reading a log.
+    """
+    bits: list[str] = []
+    try:
+        tail = [ln.strip() for ln in logfile.read_text(errors="replace").splitlines() if ln.strip()]
+        if tail:
+            bits.append(f"last: {tail[-1][:160]}")
+    except Exception:                                          # noqa: BLE001
+        pass
+    code, branch = sh("git", "rev-parse", "--abbrev-ref", "HEAD", timeout=20)
+    if code == 0 and branch and branch != branch_before:
+        bits.append(f"branch: {branch}")
+        _, n = sh("git", "rev-list", "--count", f"origin/main..{branch}", timeout=20)
+        if n.strip().isdigit() and int(n) > 0:
+            bits.append(f"{n} commit(s)")
+    code, out = sh("gh", "pr", "list", "--state", "open", "--limit", "3",
+                   "--json", "number,title", timeout=45)
+    if code == 0:
+        try:
+            prs = json.loads(out)
+            if prs:
+                bits.append("PR " + ", ".join(f"#{p['number']}" for p in prs))
+        except Exception:                                      # noqa: BLE001
+            pass
+    return bits
 
-    UNVERIFIED COMBINATION, stated rather than assumed: `--help` describes `--remote-control`
-    as starting an *interactive* session, and `-p` is non-interactive by definition. Whether
-    they compose could not be tested from inside a session — spawning a nested
-    permission-bypassing `claude` is denied by the auto-mode classifier, correctly. If the
-    pair turns out to conflict, `--no-remote-control` drops the flag and everything else
-    works unchanged. Find out with a single `--max-iterations 1` run before trusting a night
-    to it.
+
+def write_status(**kw) -> None:
+    """A file anyone can look at without a notification. `tail -f` friendly, and it is what a
+    status page or a phone widget would read if one is ever wanted."""
+    try:
+        STATUS.parent.mkdir(parents=True, exist_ok=True)
+        STATUS.write_text(json.dumps({"updated": time.strftime("%Y-%m-%dT%H:%M:%SZ",
+                                                               time.gmtime()), **kw},
+                                     indent=2, sort_keys=True) + "\n")
+    except Exception:                                          # noqa: BLE001
+        pass
+
+
+def run_one(issue: Issue, model: str, timeout_s: int, heartbeat_s: int,
+            remote_control: bool = False) -> tuple[str, str]:
+    """Spawn one session for this issue, beating a pulse while it works.
+
+    Output goes to a FILE rather than a pipe, deliberately. A pipe that nobody drains fills its
+    kernel buffer and blocks the child — a session that produces a lot of output would deadlock
+    partway through and look exactly like a hang. A file cannot do that, and it doubles as the
+    source for the heartbeat's "last line", which is the cheapest real evidence of progress
+    there is.
+
+    `remote_control` is off by default: `--help` describes `--remote-control` as starting an
+    *interactive* session and `-p` is non-interactive, so the combination is unverified. It is
+    kept behind a flag rather than removed in case it is wanted later.
     """
     started = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+    t0 = time.time()
+    _, branch_before = sh("git", "rev-parse", "--abbrev-ref", "HEAD", timeout=20)
     prompt = PROMPT.format(number=issue.number, spec_id=issue.spec_id, title=issue.title)
     argv = ["claude", "-p", prompt, "--dangerously-skip-permissions",
             "--model", model, "--output-format", "text"]
     if remote_control:
-        # Named per issue so a remote viewer can tell sessions apart at a glance.
         argv += ["--remote-control", f"latticefall-{issue.spec_id}"]
-    code, out = sh(*argv, timeout=timeout_s)
-    tail = out[-4000:] if out else ""
 
-    if code == 124:
-        return "TIMEOUT", f"no result after {timeout_s}s"
+    LOGDIR.mkdir(parents=True, exist_ok=True)
+    logfile = LOGDIR / f"{issue.spec_id}-{int(t0)}.log"
+    last_beat = t0
+    try:
+        with logfile.open("w", encoding="utf-8") as fh:
+            proc = subprocess.Popen(argv, cwd=str(ROOT), stdout=fh,
+                                    stderr=subprocess.STDOUT, text=True)
+            while True:
+                if proc.poll() is not None:
+                    break
+                now = time.time()
+                if now - t0 > timeout_s:
+                    proc.kill()
+                    proc.wait(timeout=30)
+                    write_status(state="timeout", issue=issue.spec_id, log=str(logfile))
+                    return "TIMEOUT", f"killed after {int(now - t0)}s\n{logfile}"
+                if now - last_beat >= heartbeat_s:
+                    mins = int((now - t0) // 60)
+                    ev = progress_evidence(logfile, branch_before)
+                    write_status(state="working", issue=issue.spec_id, minutes=mins,
+                                 evidence=ev, log=str(logfile))
+                    notify(f"still working — {issue.spec_id} ({mins}m)",
+                           "\n".join(ev) or "no output yet",
+                           priority="low", tags="hourglass_flowing_sand")
+                    last_beat = now
+                time.sleep(5)
+        code = proc.returncode
+    except Exception as exc:                                   # noqa: BLE001
+        return "FAILED", f"{exc.__class__.__name__}: {exc}"
 
-    m = re.search(r"RESULT:\s*(SHIPPED|BLOCKED|REFUSED)\s*(.*)", out or "")
+    out = ""
+    try:
+        out = logfile.read_text(errors="replace")
+    except Exception:                                          # noqa: BLE001
+        pass
+    tail = out[-4000:]
+
+    m = re.search(r"RESULT:\s*(SHIPPED|BLOCKED|REFUSED)\s*(.*)", out)
     verdict = m.group(1) if m else ""
     reason = (m.group(2) or "").strip() if m else ""
 
@@ -311,9 +390,10 @@ def main() -> int:
     ap.add_argument("--max-wall-clock", type=int, default=28800, help="seconds, whole loop")
     ap.add_argument("--max-failures", type=int, default=2, help="per issue, before skipping")
     ap.add_argument("--model", default="sonnet")
-    ap.add_argument("--no-remote-control", action="store_true",
-                    help="drop --remote-control from spawned sessions (use if it conflicts "
-                         "with headless -p; see run_one's docstring)")
+    ap.add_argument("--heartbeat", type=int, default=600,
+                    help="seconds between progress pings while an issue is being worked")
+    ap.add_argument("--remote-control", action="store_true",
+                    help="add --remote-control to spawned sessions (UNVERIFIED with -p)")
     ap.add_argument("--start-with", default="", help="comma-separated spec ids to try first, "
                                                      "e.g. PLC-07,PLC-04 (still respects depends)")
     ap.add_argument("--dry-run", action="store_true", help="show the queue and exit")
@@ -373,7 +453,7 @@ def main() -> int:
             notify(f"autoloop {n}/{args.max_iterations} — starting",
                    f"{issue.spec_id} (#{issue.number}) {issue.title}", tags="hammer")
             verdict, detail = run_one(issue, args.model, args.issue_timeout,
-                                      remote_control=not args.no_remote_control)
+                                      args.heartbeat, args.remote_control)
 
             if verdict == "SHIPPED":
                 shipped.append(f"{issue.spec_id} — {detail}")
