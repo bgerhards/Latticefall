@@ -102,6 +102,15 @@ on:
       - "sim/engine.py"
       - "scripts/anchor_sim.gd"
       - "scripts/test/parity.gd"
+  # TEMPORARY, for CI verification only — removed in the next commit on this branch.
+  # workflow_dispatch cannot fire until this file exists on the default branch, and this
+  # proof branch touches none of the three paths above, so neither of the workflow's real
+  # triggers would ever execute it here. A push trigger scoped to this exact throwaway
+  # branch name is the narrowest way to get one genuine, provable run without opening a
+  # PR or touching scripts/anchor_sim.gd, sim/engine.py, or scripts/test/parity.gd (both
+  # off-limits — another agent owns them this session).
+  push:
+    branches: ["lf/bal06-parity-windows-ci"]
   schedule:
     # Weekly, not daily — see header comment's cost note. Offset from parity-shard.yml's
     # 09:30 UTC and freshness.yml's :00 so three schedules do not land in the same minute.
