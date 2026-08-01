@@ -1,5 +1,5 @@
 {
-  "next_id": 191,
+  "next_id": 195,
   "items": [
     {
       "id": "LF-001",
@@ -2274,6 +2274,54 @@
       "title": "LF-172 IS ANSWERED and the answer is that BAL-01's headline was WRONG WHEN PUBLISHED, not that it drifted. Two independent lines of evidence, both measured. FIRST, git (LF-188): between BAL-01 (4daeb7c) and the re-grade that disconfirmed it (00c64ca), data/anchors/ data/towers.json data/enemies.json data/tuning.json sim/engine.py and scripts/anchor_sim.gd ALL have zero changes, the only commits touching data/ sim/ or scripts/ are a PRESSURE_FLOOR deletion (which feeds the anchor verdict, not per-cell win/loss, and was measured dead at 0 of 72) and a whitespace-only reindent of a view script, and the 20-policy roster is byte-identical. SECOND, the method hypothesis is now tested and also dead. BAL-01 claimed surge flips 9 of 72 cells from LOSS to WIN, so nine cells must have had NO winner without surge. Every plausible baseline reconstruction was graded \u2014 11 policies (base minus greedy-overdraw), 12 (base only), 15, 16 (base plus capped-core, which is what BAL-01's own report claims it used) and 19 (everything except surge-on-peak) \u2014 and ALL FIVE produce ZERO flips. Run twice: once at today's post-LF-181 ranges and once at the PRE-LF-181 ranges via dataclasses.replace, to eliminate the range change as a confound. Byte-identical conclusions both times. The decisive number is that ZERO of the 72 cells are unwinnable by any policy at ANY baseline including the 11-policy one, so 'loss without surge' has nothing to be true of. surge-on-peak is the sole winner on 0 of 72, reproducing 00c64ca exactly. CONSEQUENCE: the chronicle correction already published stands and needs no further amendment, LF-172's 'why it moved is unknown' can be retired, and the four candidate causes it named (LF-098 LF-129 LF-130 LF-136) are all ruled out. The three unrecorded cells of the nine remain unrecoverable but no longer matter, because the claim does not reproduce under any reading of what its baseline was. WHAT REMAINS WORTH KEEPING from LF-172 is the process finding, not the balance one: a measurement was published with three of its nine data points never written down anywhere, which is why it could not be audited and had to be refuted by reconstruction instead",
       "kind": "chore",
       "area": "design",
+      "pri": "med",
+      "status": "open",
+      "why": "",
+      "opened": "2026-08-01",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-191",
+      "title": "TRAP for anyone debugging a Windows CI hang: PowerShell's Process object CPU / TotalProcessorTime is NOT a trustworthy 'is it stalled' signal for Godot on windows-latest. MEASURED during BAL-06's hosted Windows parity work: a CPU poll showed cpu_seconds=0 and working_set_mb=6.5 across all 12 samples over 4 minutes, on a run that PROVABLY completed real and correct work \u2014 anchor-05 alone finished at 55-60s emitting fully valid PARITY_JSON for all 48 of its combinations while the poll read a flat zero throughout. The flatline is a measurement artifact of how the Process object reports for this child, not evidence of a stall. Consequence: it sent the diagnosis down a false path, because 'no output plus no CPU' reads as wedged when the real state was 'working, slowly'. Distinguish 'no output' from 'no CPU' using wall clock against a known-good baseline \u2014 the single-anchor smoke path in parity-windows.yml completes in 20-30s and is the right reference \u2014 rather than CPU polling alone",
+      "kind": "risk",
+      "area": "tooling",
+      "pri": "med",
+      "status": "open",
+      "why": "",
+      "opened": "2026-08-01",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-192",
+      "title": "The Windows parity leg's per-anchor cost is both HIGHER than the local 16-core benchmark and RISES STEEPLY across anchors, which is why an unsharded full run cannot fit a sane job budget on windows-latest. MEASURED during BAL-06: sweeping anchors individually on the hosted runner, anchor-01 through anchor-04 completed cleanly with a rising trend of 24.1s to 48.1s, and anchor-05 alone took 55-60s. Extrapolating the observed 562s for 360 runs to the full 1152 gives roughly 1800s, which is almost exactly where the original unsharded 29-minute run died against test_parity.py's own 1700s no-output timeout. So the first Windows failure was never a hang \u2014 it was real computation that ran out of clock, and it looked exactly like decision 071's precedented class_name/import-cache hang without being it. The import step was added on that hypothesis and MEASURED NOT TO HELP: a post-import CPU poll was identical to the pre-import one. Sharding 4-way with PRC-05's existing --shard I/N mechanism is what actually fixed it. Note also that tools/parity_costs.json's LPT table is built from LOCAL 16-core timings, so it is the wrong weighting for the Windows shards just as LF-182 already records for the hosted Linux ones; only shard 0/4 has a real Windows number so far (562s for 360 runs)",
+      "kind": "chore",
+      "area": "tooling",
+      "pri": "med",
+      "status": "open",
+      "why": "",
+      "opened": "2026-08-01",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-193",
+      "title": "main is protected by NOTHING today, despite a ruleset that reads as active. The repository ruleset id 20132789 named 'main' has enforcement 'active' and configures three rules \u2014 deletion, non_fast_forward and pull_request \u2014 but its conditions.ref_name.include is an EMPTY list, so it applies to no refs at all. Confirmed two ways: gh api repos/:owner/:repo/rulesets/20132789 --jq .conditions returns {ref_name:{exclude:[],include:[]}}, and gh api repos/:owner/:repo/rules/branches/main \u2014 the endpoint that reports what actually applies \u2014 returns []. Note the classic endpoint MISLEADS here: gh api repos/:owner/:repo/branches/main/protection returns 404 Branch not protected, which reads as 'nobody set anything up' rather than 'somebody set it up and it targets nothing'. Same failure shape as nightly.yml targeting self-hosted labels against zero registered runners (decision 071): configuration that looks live in the UI and is inert. So this is worse than the owner's own framing of 'branch protection has no required checks' \u2014 there is no deletion protection, no force-push protection and no pull-request requirement either. The fix is a single PATCH that sets ref_name.include to ~DEFAULT_BRANCH and adds a required_status_checks rule, preserving every existing rule at its current live value; it was drafted and diffed byte-for-byte against a fresh fetch and is PENDING OWNER APPROVAL because enabling it starts enforcing a PR requirement on main that has never actually been enforced",
+      "kind": "bug",
+      "area": "tooling",
+      "pri": "med",
+      "status": "done",
+      "why": "",
+      "opened": "2026-08-01",
+      "closed": "2026-08-01",
+      "note": "closed at 9d50e94"
+    },
+    {
+      "id": "LF-194",
+      "title": "APPLIED 2026-08-01: main's branch protection is now live and verified. The inert ruleset (id 20132789, LF-193) had conditions.ref_name.include empty so it applied to no refs; a single PUT set include to ~DEFAULT_BRANCH and added a required_status_checks rule, preserving deletion, non_fast_forward and the pull_request rule at their exact live values. VERIFIED against the endpoint that reports what actually applies, not against the API returning success: gh api repos/:owner/:repo/rules/branches/main now returns [deletion, non_fast_forward, pull_request, required_status_checks], where it returned [] before. Required checks are 'gate', 'Build CI image (PRC-17)' and 'Gate (tier 3, container)'. All three come from gate.yml with NO path filters, so a docs-only PR is unaffected \u2014 all three always run and all three pass. Requiring 'Build CI image (PRC-17)' directly, rather than relying on 'Gate (tier 3, container)' alone, is deliberate: the tier-3 job declares needs: build-ci-image, and GitHub's needs semantics SKIP rather than fail a dependent job when its dependency fails, so a required check that gets skipped is a gap. Checked the last 8 merged PRs (#102-#109): all three were green on every one from #102 onward, so nothing recent would have been blocked. CONSEQUENCE TO KNOW: direct pushes to main now fail \u2014 everything goes through a pull request. That requirement had been configured but never enforced, so this is new behaviour rather than a restoration",
+      "kind": "chore",
+      "area": "tooling",
       "pri": "med",
       "status": "open",
       "why": "",

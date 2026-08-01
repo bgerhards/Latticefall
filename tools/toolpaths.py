@@ -141,7 +141,22 @@ def resolve_linux_godot() -> str | None:
 
 def resolve_windows_godot() -> str | None:
     """The Windows console Godot build reachable through WSL interop, or None — same
-    bypass as `resolve_linux_godot()`, for the same reason."""
+    bypass as `resolve_linux_godot()`, for the same reason.
+
+    Checks `$LF_WINDOWS_GODOT` first. This is additive, not a change to the WSL dev
+    machine's resolution order: `_WIN_GODOT_GLOBS` is WSL-shaped (`/mnt/<drive>/...`,
+    the only place a Windows binary lives *relative to a Linux process* on this project's
+    dev box) and has nothing to match on a native `windows-latest` hosted CI runner, where
+    Python itself already runs as a Windows process and the downloaded Godot build sits at
+    an ordinary Windows path with no `/mnt/` in it at all. BAL-06/LF-105's CI leg
+    (`.github/workflows/parity-windows.yml`) sets this env var after downloading and
+    verifying the official release zip, so `--platform windows` resolves there without
+    this function's default WSL-oriented search ever needing to change. Existing WSL dev
+    machines are unaffected: the env var is unset there, so behaviour is identical to
+    before this was added."""
+    env = os.environ.get("LF_WINDOWS_GODOT")
+    if env and Path(env).exists():
+        return env
     return _first_glob(_WIN_GODOT_GLOBS)
 
 
