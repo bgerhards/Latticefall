@@ -210,21 +210,29 @@ jobs:
           & "$env:LF_WINDOWS_GODOT" --headless --rendering-driver opengl3 --path . --script res://scripts/test/parity.gd -- --anchor anchor-01 2>&1 | Tee-Object -FilePath diag-opengl3.log
           Write-Host "exit code: $LASTEXITCODE"
 
-      # Single-anchor runs above succeeded in ~25s each on both drivers, ruling out a
-      # Godot-launch / GPU-driver hang. Next question: is the FULL (no --anchor)
-      # 1152-combination run actively computing (just slower than the ~594s local
-      # measurement) or genuinely stalled (0% CPU, waiting on something that never
-      # resolves) — a plain output-wait can't tell those apart since parity.gd prints
-      # PARITY_JSON exactly once, at the very end, never incrementally. Polling the
-      # process's own CPU time is a much sharper signal: steadily climbing CPU means
-      # it's working; flat CPU near a poll boundary means it's blocked.
-      - name: DIAGNOSTIC — direct Godot invocation, FULL suite, poll CPU for 4min
+      # DIAGNOSTIC hypothesis: the ONLY code path difference between the single-anchor
+      # runs above (fine) and the hung full run is scripts/test/parity.gd's own
+      # DirAccess.open("res://data/anchors").get_files() call, used ONLY when no
+      # --anchor filter is given. gate.yml's own header comment already documents that
+      # Godot-launching checks on a never-imported checkout hang/fail in exactly this
+      # shape (decision 071) because res:// resource listing depends on .godot/'s cache
+      # — untested for DirAccess specifically until now. Try the established fix (an
+      # --import pass) before assuming anything more exotic.
+      - name: DIAGNOSTIC — import project (decision 071's fix, untested for DirAccess)
+        shell: pwsh
+        timeout-minutes: 3
+        continue-on-error: true
+        run: |
+          & "$env:LF_WINDOWS_GODOT" --headless --path . --import 2>&1 | Tee-Object -FilePath diag-import.log
+          Write-Host "exit code: $LASTEXITCODE"
+
+      - name: DIAGNOSTIC — direct Godot invocation, FULL suite AFTER import, poll CPU for 4min
         shell: pwsh
         continue-on-error: true
         run: |
           $proc = Start-Process -FilePath "$env:LF_WINDOWS_GODOT" `
             -ArgumentList "--headless","--path",".","--script","res://scripts/test/parity.gd" `
-            -PassThru -RedirectStandardOutput diag-full-stdout.log -RedirectStandardError diag-full-stderr.log
+            -PassThru -RedirectStandardOutput diag-full-postimport-stdout.log -RedirectStandardError diag-full-postimport-stderr.log
           $deadline = (Get-Date).AddMinutes(4)
           while ((Get-Date) -lt $deadline) {
             Start-Sleep -Seconds 20
@@ -239,7 +247,13 @@ jobs:
             Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
           } else {
             Write-Host "process exited on its own, exit code $($proc.ExitCode)"
+            Write-Host "=== stdout ==="
+            Get-Content diag-full-postimport-stdout.log
           }
+
+      # (The pre-import version of this same poll already ran in run 30699049203: 12
+      # samples over 4min, cpu_seconds=0 and working_set_mb=6.5 on every single one —
+      # a genuine stall, not "slow but computing". Not re-run here; see that run's log.)
 
       - name: DIAGNOSTIC — print all logs
         if: always()
@@ -249,10 +263,12 @@ jobs:
           if (Test-Path diag-default.log) { Get-Content diag-default.log } else { Write-Host "(no log — step did not run)" }
           Write-Host "=== opengl3 driver log (single anchor) ==="
           if (Test-Path diag-opengl3.log) { Get-Content diag-opengl3.log } else { Write-Host "(no log — step did not run)" }
-          Write-Host "=== full-suite stdout ==="
-          if (Test-Path diag-full-stdout.log) { Get-Content diag-full-stdout.log } else { Write-Host "(no log — step did not run)" }
-          Write-Host "=== full-suite stderr ==="
-          if (Test-Path diag-full-stderr.log) { Get-Content diag-full-stderr.log } else { Write-Host "(no log — step did not run)" }
+          Write-Host "=== import log ==="
+          if (Test-Path diag-import.log) { Get-Content diag-import.log } else { Write-Host "(no log — step did not run)" }
+          Write-Host "=== full-suite AFTER import: stdout ==="
+          if (Test-Path diag-full-postimport-stdout.log) { Get-Content diag-full-postimport-stdout.log } else { Write-Host "(no log — step did not run)" }
+          Write-Host "=== full-suite AFTER import: stderr ==="
+          if (Test-Path diag-full-postimport-stderr.log) { Get-Content diag-full-postimport-stderr.log } else { Write-Host "(no log — step did not run)" }
 
       - name: Run Windows parity leg
         # TEMPORARY: disabled for this diagnostic push only, so it doesn't re-pay the
