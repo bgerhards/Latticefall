@@ -3039,6 +3039,60 @@
           "text": "Same shape as decision 071's `nightly.yml` pointing at zero registered runners: configuration that looks live in the interface and is inert. That is now twice in this project, which makes it a pattern worth naming rather than an anecdote. The fix was drafted, diffed byte-for-byte against a live fetch, and held for owner approval before being applied, because it starts enforcing a PR requirement that had never actually been enforced. Filed as `LF-193`; confirmed here, against the live endpoint, that it is now applied — `/rules/branches/main` returns all four rules, including `required_status_checks` naming the three checks the repository actually wants required."
         }
       ]
+    },
+    {
+      "id": "an-instrument-that-reclassifies-itself",
+      "date": "2026-08-01",
+      "time": "09:32",
+      "title": "An instrument that reclassifies itself when you tune the thing it measures",
+      "summary": "LF-186, found during decision 074's range pass: sim/coverage.py's verdict() calls an anchor (a) geometry or (b) range by comparing its geometric ceiling against the ceiling at double the current range — and both terms scale with data/towers.json. Raising every weapon's range flipped four of five LF-181 geometry calls to range or adequately-sited while their dynamic p10 went flat or worse. The ceiling was never wrong; the label read as a claim about slots when it was a claim about slots-and-range together. Fixed by recording and printing the range basis a verdict was computed against, not by changing the measurement.",
+      "tags": [
+        "BAL"
+      ],
+      "commits": [
+        {
+          "hash": "1fe96b6",
+          "subject": "fix(sim): record the ranges a coverage verdict was computed against"
+        }
+      ],
+      "body": [
+        {
+          "type": "p",
+          "text": "`sim/coverage.py`'s `verdict()` calls an anchor **(a) geometry** — the slots are simply far from the lane — or **(b) range** — the values are short — by comparing its geometric ceiling against the ceiling at double the current range. Both terms scale with whatever is in `data/towers.json` when it runs, and that is what LF-186 caught, during decision 074's range pass rather than by reasoning about the code: raising every weapon's base range flipped four of the five anchors the previous entry, `LF-181`, had declared \"(a) geometry\" — anchor-03, 04, 05, 07 — to \"(b) range\" or to sited adequately. Their actual dynamic p10 went flat or worse over the same change: 8→5%, 4→0%, 5→3%, 1→0%. The level did not change. The slots did not change. Only the yardstick moved."
+        },
+        {
+          "type": "p",
+          "text": "The `ceil_p50 >= 0.5` early return is the sharpest edge in it: cross that threshold and the (a)/(b) question is never even asked."
+        },
+        {
+          "type": "p",
+          "text": "None of this makes the ceiling wrong — it remains a true statement about the level given today's ranges. What is wrong is the **label**: it reads as a claim about slot geometry when it is a claim about geometry-and-range together. A true measurement, an untrue-sounding name."
+        },
+        {
+          "type": "p",
+          "text": "The fix does not touch the measurement. A new `range_basis()` records the weapon ranges a report was computed against, plus a 12-character digest of them, carried on every report and summary, written into the `--json` artefact, and **printed above the table**, not merely stored — a JSON field nobody looks at would not have prevented this:"
+        },
+        {
+          "type": "quote",
+          "text": "range basis 8189779cd568 — arc-node 3.8, flak-array 4.6, ion-lance 6.2, mortar-emplacement 7.0, pulse-turret 4.0\n(verdicts below are RELATIVE to these; only comparable to a run with the same digest)"
+        },
+        {
+          "type": "p",
+          "text": "Two verdicts are comparable only if their digests match. When they do not, the thing to compare is the dynamic distribution, not the letter."
+        },
+        {
+          "type": "p",
+          "text": "The digest was proved to discriminate rather than trusted: `8189779cd568` for today's ranges against `465958a1cc0a` for the pre-`LF-181` set, and stable across reloads — the same reasoning as the previous entry's audit checking itself for false positives. A fingerprint that failed to change when the ranges did would be worse than none."
+        },
+        {
+          "type": "p",
+          "text": "Deliberately not done: the label is still computed against current ranges rather than a frozen campaign reference. That was the other option on file; it needs a baseline committed somewhere, which brings its own staleness question. Recording the basis makes the existing label honest, which is the smaller and better-evidenced change."
+        },
+        {
+          "type": "p",
+          "text": "The third instrument this session found quietly untrustworthy, after a gate budget that had never been met and a journal renderer publishing invalid HTML — and the second where the fix was to make the measurement state its own terms, not to change the measurement."
+        }
+      ]
     }
   ]
 }

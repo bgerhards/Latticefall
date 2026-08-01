@@ -1,5 +1,5 @@
 {
-  "next_id": 195,
+  "next_id": 196,
   "items": [
     {
       "id": "LF-001",
@@ -1975,11 +1975,11 @@
       "kind": "chore",
       "area": "tooling",
       "pri": "med",
-      "status": "open",
+      "status": "done",
       "why": "",
       "opened": "2026-07-31",
-      "closed": null,
-      "note": ""
+      "closed": "2026-08-01",
+      "note": "closed at 1fe96b6"
     },
     {
       "id": "LF-166",
@@ -2023,11 +2023,11 @@
       "kind": "chore",
       "area": "tooling",
       "pri": "med",
-      "status": "open",
+      "status": "done",
       "why": "",
       "opened": "2026-07-31",
-      "closed": null,
-      "note": ""
+      "closed": "2026-08-01",
+      "note": "closed at 1fe96b6"
     },
     {
       "id": "LF-170",
@@ -2320,6 +2320,18 @@
     {
       "id": "LF-194",
       "title": "APPLIED 2026-08-01: main's branch protection is now live and verified. The inert ruleset (id 20132789, LF-193) had conditions.ref_name.include empty so it applied to no refs; a single PUT set include to ~DEFAULT_BRANCH and added a required_status_checks rule, preserving deletion, non_fast_forward and the pull_request rule at their exact live values. VERIFIED against the endpoint that reports what actually applies, not against the API returning success: gh api repos/:owner/:repo/rules/branches/main now returns [deletion, non_fast_forward, pull_request, required_status_checks], where it returned [] before. Required checks are 'gate', 'Build CI image (PRC-17)' and 'Gate (tier 3, container)'. All three come from gate.yml with NO path filters, so a docs-only PR is unaffected \u2014 all three always run and all three pass. Requiring 'Build CI image (PRC-17)' directly, rather than relying on 'Gate (tier 3, container)' alone, is deliberate: the tier-3 job declares needs: build-ci-image, and GitHub's needs semantics SKIP rather than fail a dependent job when its dependency fails, so a required check that gets skipped is a gap. Checked the last 8 merged PRs (#102-#109): all three were green on every one from #102 onward, so nothing recent would have been blocked. CONSEQUENCE TO KNOW: direct pushes to main now fail \u2014 everything goes through a pull request. That requirement had been configured but never enforced, so this is new behaviour rather than a restoration",
+      "kind": "chore",
+      "area": "tooling",
+      "pri": "med",
+      "status": "open",
+      "why": "",
+      "opened": "2026-08-01",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-195",
+      "title": "STALE-ITEM AUDIT, 2026-08-01: LF-165 and LF-169 were both already fixed in the tree while still reading as open, and were closed only because someone happened to check. VERIFIED before closing, not assumed. LF-165 (loose render .import sidecars churning git status): git ls-files on assets/renders sidecars returns 2, not the 224 the item describes, and those 2 are the atlas pages which .gitignore deliberately keeps with a comment saying so; git status --porcelain assets/ returns 0 lines. LF-169 (wrap_gate.py escalating to tier 4 on any assets/ change including .import litter): tools/wrap_gate.py carries ESCALATE_IGNORE_SUFFIXES = ('.import', '.uid') with a long comment recording that WITHOUT it PRC-20 was inert \u2014 360 untracked sidecars escalated every single invocation so the fast wrap never once ran \u2014 and explicitly rejecting PRC-02's tracked-files-only reasoning for this one case, because a brand-new sim/foo.py or data/anchors/anchor-25.json is untracked at exactly the moment it most needs tier 4. THE PROCESS FINDING, which is why this is filed rather than just closed: LF-156 already recorded that items filed from a worktree go stale against a merge, and proposed that an item record the commit it was observed at so session-start can re-check anything whose observation commit is behind HEAD. That is still not implemented, and this is two more instances. A backlog that carries fixed items is not merely untidy \u2014 it costs a dispatch, because the next agent sent to fix one of these would deliver verification rather than the work asked for",
       "kind": "chore",
       "area": "tooling",
       "pri": "med",
