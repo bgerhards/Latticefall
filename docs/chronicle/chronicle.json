@@ -2246,7 +2246,12 @@
         "027",
         "030"
       ],
-      "commits": [],
+      "commits": [
+        {
+          "hash": "54371d1",
+          "subject": "perf(rules): hoist unit positions, then index them \u2014 24x and 34x"
+        }
+      ],
       "body": [
         {
           "type": "p",
