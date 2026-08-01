@@ -265,6 +265,41 @@ jobs:
           & "$env:LF_WINDOWS_GODOT" --headless --path . --script res://ci_probe.gd 2>&1 | Tee-Object -FilePath diag-probe.log
           Write-Host "exit code: $LASTEXITCODE"
 
+      # DirAccess enumeration is instant (proven above: 24 entries at +1ms) — ruled out.
+      # The full run's own simulation loop (scripts/anchor_sim.gd's _run(), 16 policies x
+      # 3 difficulties PER anchor, called via scripts/test/parity.gd) is the only thing
+      # left that the single-anchor smoke runs above did not exercise at full breadth:
+      # they ran anchor-01 alone. Sweep every anchor individually — 24 short, independent
+      # Godot cold starts, each far cheaper than the full concatenated 1152-combo run — to
+      # see whether every anchor is fine alone (pointing at cross-anchor state/resource
+      # leakage in one long-lived process) or one specific anchor hangs even by itself
+      # (pointing at that anchor's own content/policy interaction).
+      - name: DIAGNOSTIC — sweep all 24 anchors individually, 60s cap each
+        shell: pwsh
+        timeout-minutes: 20
+        continue-on-error: true
+        run: |
+          $anchors = 1..24 | ForEach-Object { "anchor-{0:D2}" -f $_ }
+          foreach ($a in $anchors) {
+            $t0 = Get-Date
+            $proc = Start-Process -FilePath "$env:LF_WINDOWS_GODOT" `
+              -ArgumentList "--headless","--path",".","--script","res://scripts/test/parity.gd","--","--anchor",$a `
+              -PassThru -RedirectStandardOutput "diag-sweep-$a.log" -RedirectStandardError "diag-sweep-$a.err.log"
+            $deadline = (Get-Date).AddSeconds(60)
+            while ((Get-Date) -lt $deadline -and -not $proc.HasExited) {
+              Start-Sleep -Seconds 3
+              $proc.Refresh()
+            }
+            $elapsed = [math]::Round(((Get-Date) - $t0).TotalSeconds, 1)
+            if ($proc.HasExited) {
+              $hasJson = (Select-String -Path "diag-sweep-$a.log" -Pattern "^PARITY_JSON" -Quiet)
+              Write-Host "$a  exited  code=$($proc.ExitCode)  elapsed=${elapsed}s  parity_json=$hasJson"
+            } else {
+              Write-Host "$a  STILL RUNNING after 60s — killing (elapsed=${elapsed}s) *** HANG CANDIDATE ***"
+              Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
+            }
+          }
+
       # (The pre-import version of this same poll already ran in run 30699049203: 12
       # samples over 4min, cpu_seconds=0 and working_set_mb=6.5 on every single one —
       # a genuine stall, not "slow but computing". Not re-run here; see that run's log.)
