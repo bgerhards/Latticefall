@@ -7,7 +7,7 @@
       "cost": 100,
       "draw_mw": 12,
       "damage": 9,
-      "range": 3.2,
+      "range": 4.0,
       "fire_interval": 0.75,
       "targets": [
         "ground",
@@ -27,7 +27,7 @@
         "cost": 90,
         "draw_mw": 18,
         "damage": 14,
-        "range": 3.5
+        "range": 4.4
       }
     },
     {
@@ -36,7 +36,7 @@
       "cost": 190,
       "draw_mw": 26,
       "damage": 6,
-      "range": 2.6,
+      "range": 3.8,
       "fire_interval": 0.4,
       "targets": [
         "ground",
@@ -63,7 +63,7 @@
       "cost": 320,
       "draw_mw": 34,
       "damage": 48,
-      "range": 5.5,
+      "range": 6.2,
       "fire_interval": 2.4,
       "targets": [
         "ground",
@@ -83,7 +83,7 @@
         "cost": 280,
         "draw_mw": 48,
         "damage": 72,
-        "range": 6.0
+        "range": 6.8
       }
     },
     {
@@ -148,7 +148,7 @@
       "cost": 230,
       "draw_mw": 22,
       "damage": 8,
-      "range": 3.8,
+      "range": 4.6,
       "fire_interval": 0.55,
       "splash": 0.9,
       "targets": [
@@ -208,7 +208,7 @@
       "cost": 340,
       "draw_mw": 30,
       "damage": 26,
-      "range": 6.5,
+      "range": 7.0,
       "fire_interval": 2.0,
       "splash": 1.5,
       "targets": [

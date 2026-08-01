@@ -2929,3 +2929,108 @@ want silhouette-first treatment anyway — not `ZOOM_MIN`, which 48² now determ
 service installed during `#83` is retained, because it is what builds and tests `gate.yml`'s
 container image locally, and removing it would leave CI-image changes verifiable only by pushing
 and watching — which is precisely how decision 071's two red runs happened.
+
+---
+
+## 074 — Range is raised where the geometry says it helps, and the tail is conceded to be slots
+
+**Date.** 2026-08-01. Closes the first of `LF-181`'s two passes — `BAL-04`'s global range pass.
+Supersedes nothing; **corrects `LF-181`'s own stated premise**, which is the substance of this
+entry.
+
+**Context.** The owner played the build and said most turrets could barely reach anything
+(`LF-176`). `sim/coverage.py` measured it and agreed: median gun in range **28–38%** of ticks,
+**one in five** placed emplacements in acts 1–2 contributing essentially nothing, and a median
+lane-coverage **ceiling** of ~40%. `LF-181` concluded from that that the dominant cause was
+**(b) range values short**, *not* slot placement, with five Act 1 anchors (01, 03, 04, 05, 07) as
+the geometry exception.
+
+**Decision. Raise range on the five weapons, sized per weapon from a pure-geometry probe, and
+change nothing else.**
+
+| tower | range | change | near-zero-ceiling slots, before → after |
+|---|---|---|---|
+| arc-node | 2.6 → **3.8** | +46% | 56.0% → 2.3% |
+| pulse-turret | 3.2 → **4.0** | +25% | 10.6% → 0.9% |
+| flak-array | 3.8 → **4.6** | +21% | 2.3% → 0.0% |
+| ion-lance | 5.5 → **6.2** | +13% | 0.0% → 0.0% |
+| mortar-emplacement | 6.5 → **7.0** | +8% | 0.0% → 0.0% |
+
+Sizes were solved to bring each weapon's own near-zero *ceiling* to ~0%, deliberately stopping
+short of the values that push p90 toward saturation — ion-lance and mortar reach that around
+1.5–1.75×, so they got the smallest nudges. Relative range ordering is preserved
+(arc < pulse < flak < ion < mortar), and no `cost` or `draw_mw` moved: dominance was checked
+pairwise and arc-node still costs 1.9× a pulse-turret and draws 2.2× for its chain and faster
+cycle. The four support emplacements (`shield-wall`, `scan-relay`, `anchor-damper`, `restorer`,
+all `damage: 0`) are **untouched** — `lane_coverage()` never scores them and `LF-176`/`LF-181`'s
+findings are entirely about weapon uptime, so there was no evidence to act on.
+
+**Decision. `LF-181`'s premise is corrected: slot geometry is the larger share of the tail, and
+the five declared anchors are not the whole of it.** This is the finding, and it cost the pass
+its own headline.
+
+The range rise **did** lift the tail where geometry predicted it would — arc-node p10
+10.8% → **14.2%** with near-zero 9.0% → 6.9%, ion-lance p10 1.1% → **10.2%** with near-zero
+17.2% → **9.9%**. But `pulse-turret` is **66–79% of every near-zero sample in the game**, because
+the autobuild fills every leftover slot with it, and its tail did not move: p10 6.5% → **4.0%**
+(worse), near-zero 13.5% → 13.3% (flat). Its *median* moved 27.8% → 34.6%.
+
+**The proof that this is not a range problem, and it is the reason for this entry.** Sweeping
+pulse-turret from 3.2 to **7.0** — more than double what shipped — across the five worst anchors:
+
+```
+pulse range 3.2   near0=28.7%   p10=0.0%   p50=28.0%
+pulse range 4.0   near0=29.7%   p10=0.0%   p50=32.1%
+pulse range 5.0   near0=29.3%   p10=0.0%   p50=37.6%
+pulse range 6.0   near0=28.1%   p10=0.0%   p50=38.4%
+pulse range 7.0   near0=22.2%   p10=0.0%   p50=44.5%
+```
+
+**p10 is pinned at literal 0.0% across the entire sweep while p50 climbs sixteen points.** Chasing
+the median would have looked exactly like progress and would have been decision 067's rejected
+move — fitting to the diagnostic. So range was **not** pushed further, and the residual tail is
+recorded as what it is: individual slots that are geometrically bad, on anchors that were never
+declared as geometry cases. Named in `LF-185`: anchor-02, 08, 10, 11, 12 and 13 all carry slots
+that do not respond at 7.0. `PLC-01` free placement and `PLC-04`'s candidate lattice must treat
+those as first-class alongside 01/03/04/05/07.
+
+**Rejected: push range further until the tail moves.** The sweep above is the refusal, measured
+rather than argued. It never moves, and each step buys median that reads as success.
+
+**Rejected: revert the change because the headline failed.** Two weapons genuinely improved,
+nothing regressed, and all 24 anchors still grade `ok` at all three difficulties with distinct
+winning builds up modestly (anchor-09 standard 8→9, anchor-12 hard 6→8, anchor-16 standard 8→9,
+anchor-18 standard 4→6) and no cell reaching "every distinct build clears it". A bounded, justified,
+non-regressing improvement is worth keeping even when it does not resolve the complaint that
+prompted it.
+
+**Rejected: compensate by moving slots on the anchors in scope.** That is pass two's job, it needs
+`PLC-01`/`PLC-04`, and doing it inside a range pass would have made the two effects
+inseparable in the measurement.
+
+**Two of the three flagship anchors from `LF-181`'s own findings did not improve** — anchor-02
+88/320 → 94/320 (worse), anchor-10 178/589 → 181/586 (flat), anchor-13 172/644 → 162/644 (better).
+Said here because a decision entry that quoted only the two that worked would be the failure this
+project's whole method exists to prevent.
+
+**An instrument caveat found in passing, filed as `LF-186`.** `verdict()`'s anchor-level
+(a)-geometry/(b)-range label is computed against *whatever range is currently in
+`data/towers.json`*, so raising the base drags its 2× comparison along with it: four of the five
+declared geometry anchors — 03, 04, 05, 07 — **flipped label** to "range" or "adequately sited"
+while their dynamic p10 went flat or worse (8→5%, 4→0%, 5→3%, 1→0%). The ceiling is still a true
+statement about the level; the *label* reads as a claim about slots and is not one. **Never compare
+an (a)/(b) label taken before a range change with one taken after.**
+
+**Verification.** `sim/coverage.py --selftest` 5/5 including `Sim`/`InstrumentedSim` outcome
+parity. Two full 24-anchor coverage runs, before and after, the "before" graded against
+`git show HEAD:data/towers.json` rather than assumed. Full re-grade `sim/run.py --jobs 8`: 24
+anchors × 3 difficulties, all `ok`, zero `problems`. `say_capacity.py` silent (no `capacity_mw`
+moved, so no brief drifted). `density.py` unchanged. And **`rules parity` re-run because the data
+both engines read changed: 1440 runs identical, freshly verified, not from cache** — a range value
+is not a rules change, but that is exactly the kind of expectation parity exists to check rather
+than assume.
+
+**What this does not do.** It does not resolve the owner's complaint. `LF-185` carries pass two.
+And per `LF-187`, none of these numbers survive the move to 48² — decision 073 — where lanes get
+longer and a fixed absolute range covers a shrinking fraction of them; `BAL-04`'s density half must
+re-derive range from measured lane length rather than carry these constants forward.
