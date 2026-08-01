@@ -226,30 +226,44 @@ jobs:
           & "$env:LF_WINDOWS_GODOT" --headless --path . --import 2>&1 | Tee-Object -FilePath diag-import.log
           Write-Host "exit code: $LASTEXITCODE"
 
-      - name: DIAGNOSTIC — direct Godot invocation, FULL suite AFTER import, poll CPU for 4min
+      # (Already proven in run 30699298644: post-import, the full run still flatlines at
+      # cpu_seconds=0 / working_set_mb=6.5 for all 12 samples over 4min — not re-run here.)
+
+      # The import step did NOT fix it (run 30699298644: identical cpu_seconds=0,
+      # working_set_mb=6.5 across all 12 post-import samples) — decision 071's fix was a
+      # real, worth-testing hypothesis but it is now falsified for this symptom. Localize
+      # the exact hang site with a throwaway probe script (written here at CI runtime
+      # only — never committed, does not touch the repo's tracked scripts/) that prints
+      # BEFORE and AFTER each step of parity.gd's own DirAccess-based anchor discovery,
+      # unlike parity.gd itself which only prints once, at the very end.
+      - name: DIAGNOSTIC — localize the hang with an incrementally-printing probe script
         shell: pwsh
+        timeout-minutes: 3
         continue-on-error: true
         run: |
-          $proc = Start-Process -FilePath "$env:LF_WINDOWS_GODOT" `
-            -ArgumentList "--headless","--path",".","--script","res://scripts/test/parity.gd" `
-            -PassThru -RedirectStandardOutput diag-full-postimport-stdout.log -RedirectStandardError diag-full-postimport-stderr.log
-          $deadline = (Get-Date).AddMinutes(4)
-          while ((Get-Date) -lt $deadline) {
-            Start-Sleep -Seconds 20
-            $proc.Refresh()
-            if ($proc.HasExited) { break }
-            $cpu = if ($proc.CPU) { [math]::Round($proc.CPU, 1) } else { 0 }
-            $ws = [math]::Round($proc.WorkingSet64 / 1MB, 1)
-            Write-Host "$(Get-Date -Format o)  cpu_seconds=$cpu  working_set_mb=$ws  exited=$($proc.HasExited)"
-          }
-          if (-not $proc.HasExited) {
-            Write-Host "still running after 4min cap — killing for diagnostic purposes only"
-            Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
-          } else {
-            Write-Host "process exited on its own, exit code $($proc.ExitCode)"
-            Write-Host "=== stdout ==="
-            Get-Content diag-full-postimport-stdout.log
-          }
+          @'
+          extends SceneTree
+          func _init() -> void:
+              print("PROBE: start")
+              var t0 := Time.get_ticks_msec()
+              print("PROBE: about to DirAccess.open")
+              var d := DirAccess.open("res://data/anchors")
+              print("PROBE: DirAccess.open returned %s at +%dms" % [str(d), Time.get_ticks_msec() - t0])
+              if d:
+                  print("PROBE: about to get_files")
+                  var files := d.get_files()
+                  print("PROBE: get_files returned %d entries at +%dms" % [files.size(), Time.get_ticks_msec() - t0])
+                  for f in files:
+                      print("PROBE: file = %s" % f)
+              print("PROBE: about to read a single anchor JSON directly")
+              var fa := FileAccess.open("res://data/anchors/anchor-01.json", FileAccess.READ)
+              print("PROBE: FileAccess.open returned %s at +%dms" % [str(fa), Time.get_ticks_msec() - t0])
+              print("PROBE: end")
+              quit()
+          '@ | Set-Content -Path ci_probe.gd -Encoding utf8
+
+          & "$env:LF_WINDOWS_GODOT" --headless --path . --script res://ci_probe.gd 2>&1 | Tee-Object -FilePath diag-probe.log
+          Write-Host "exit code: $LASTEXITCODE"
 
       # (The pre-import version of this same poll already ran in run 30699049203: 12
       # samples over 4min, cpu_seconds=0 and working_set_mb=6.5 on every single one —
@@ -269,6 +283,8 @@ jobs:
           if (Test-Path diag-full-postimport-stdout.log) { Get-Content diag-full-postimport-stdout.log } else { Write-Host "(no log — step did not run)" }
           Write-Host "=== full-suite AFTER import: stderr ==="
           if (Test-Path diag-full-postimport-stderr.log) { Get-Content diag-full-postimport-stderr.log } else { Write-Host "(no log — step did not run)" }
+          Write-Host "=== probe log ==="
+          if (Test-Path diag-probe.log) { Get-Content diag-probe.log } else { Write-Host "(no log — step did not run)" }
 
       - name: Run Windows parity leg
         # TEMPORARY: disabled for this diagnostic push only, so it doesn't re-pay the
