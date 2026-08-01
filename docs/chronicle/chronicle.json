@@ -2508,6 +2508,83 @@
           "text": "Nothing above tripped a failing check. The budget was green until someone read the number next to its own margin \u2014 and would have stayed green even if the clock underneath it had been lying, until that clock was checked too. The renderer passed every existing test because none of them happened to contain a glob inside a code span. The hook actively denied its command \u2014 confidently, and for the wrong reason. Four different apparatuses, four different kinds of confident wrong answer, in one branch, and the clock is the most vivid of the four: a tool that measures time is not supposed to be able to report a negative duration and say nothing about it. No screenshot accompanies this entry; there is no frame for any of it to show."
         }
       ]
+    },
+    {
+      "id": "the-number-that-did-not-decide-it",
+      "date": "2026-08-01",
+      "time": "07:15",
+      "title": "The number that did not decide it",
+      "summary": "The board size decision had been blocked for sessions on one missing number \u2014 a measured frame cost at scale. Decision 072 delivered it, 1.73 ms/tick at 1000 units and 80 towers, a 33.8x speedup. And then it decided nothing, because the sim fits at 32\u00b2, 48\u00b2 and 64\u00b2 alike. What actually settled decision 073's 48\u00b2 target was legibility and authoring, two things nobody had been waiting on.",
+      "tags": [
+        "PRC"
+      ],
+      "decisions": [
+        "073"
+      ],
+      "commits": [
+        {
+          "hash": "0efa462",
+          "subject": "docs(decisions): the board is 48\u00b2, and that settles half of the legibility question"
+        }
+      ],
+      "body": [
+        {
+          "type": "p",
+          "text": "Decision 073 takes PRD \u00a76 open decision #2, the last genuinely-open owner call in that table: boards target **48 \u00d7 48**. It also records that Docker stays \u2014 the standing systemd service from `#83` is what builds and tests `gate.yml`'s container image locally, and removing it would leave CI-image changes verifiable only by pushing and watching, which is exactly how decision 071's two red runs happened."
+        },
+        {
+          "type": "p",
+          "text": "The interesting part is not the number 48. It is that the number everyone was waiting for turned out not to be the deciding one. The decision had sat blocked for sessions on \u201cwe need a measured frame cost at scale.\u201d Decision 072 (`WAR-03`) delivered it \u2014 **1.73 ms/tick at 1000 units / 80 towers**, a **33.8x** speedup. And then it decided nothing, because the sim budget is **5.6 ms, not 16.7** \u2014 the speed control goes to 3x, so the rules run 90 ticks per second of wall clock. At 1.73 ms/tick that is 5.2 ms, which fits at 32\u00b2, 48\u00b2 and 64\u00b2 alike. `WAR-03` unblocked the decision by supplying evidence; it did not narrow the choice. What narrowed it was legibility and authoring \u2014 two things nobody was waiting on."
+        },
+        {
+          "type": "table",
+          "headers": ["", "32\u00b2", "48\u00b2", "64\u00b2"],
+          "rows": [
+            ["tiles (vs 270 today)", "1,024 \u2014 3.8x", "**2,304 \u2014 8.5x**", "4,096 \u2014 15x"],
+            ["projected board width", "4,096 px", "**6,144 px**", "8,192 px"],
+            ["zoom to fit, 100% UI", "0.468x", "**0.312x**", "0.234x"],
+            ["at 200% interface scale", "0.234x", "**0.156x**", "0.117x"],
+            ["sprite on screen", "~60\u2013120 px", "**~40\u201380 px**", "~30\u201360 px"],
+            ["draw path, post CAM-06+07", "~1.4 ms", "**~3.0 ms**", "~5.4 ms"]
+          ]
+        },
+        {
+          "type": "p",
+          "text": "Provenance, stated rather than left implicit because it matters: only the 64\u00b2 column is measured directly (`LF-104`, plus PRD \u00a72.2's 13.4 ms/frame naive-draw figure against `CAM-07`'s measured **2.47x** improvement). The other two columns are that measurement **scaled** \u2014 zoom-to-fit is exactly linear in board edge, since a board of edge N projects to N \u00d7 `TILE_W` px wide and the strip between the two instrument panels does not move. Arithmetic on a measurement, not a measurement."
+        },
+        {
+          "type": "h3",
+          "text": "Why each option lost"
+        },
+        {
+          "type": "p",
+          "text": "**64\u00b2 was rejected** on the row the PRD's own break-order table already ranked second: sprite legibility, which that table puts at 48x48 as the breaking point. 64\u00b2 renders a sprite at 30\u201360 px, and the rescue does not exist \u2014 raising `Iso.TILE_W` is blocked because `calibrate()` will not converge at 384 or 1024 px cells (`LF-102` \u2014 256 and 512 work by luck), and decision 066 had already refused atlas growth on a measured **630 MB VRAM** projection. Choosing 64\u00b2 would have meant choosing silhouette-first art as well, a far larger commitment than a board dimension."
+        },
+        {
+          "type": "p",
+          "text": "**32\u00b2 was rejected** despite being the only option needing no concession at all \u2014 legible, ~1.4 ms of draw, and the only size where the existing 24 anchors could be grown by hand instead of regenerated. It loses because 3.8x the area does not carry the programme it exists to serve: `WAR-06`'s 250\u2013400 alive units and `WAR-01`'s 2\u20135 lanes with real standoff do not fit on it in a way that reads as a front line."
+        },
+        {
+          "type": "h3",
+          "text": "What it costs"
+        },
+        {
+          "type": "list",
+          "items": [
+            "**Hand-authoring is dead at 48\u00b2.** `LF-080`'s layout generator moves onto the critical path **before** any theatre-scale content exists, not alongside it.",
+            "**It settles half of open decision #1 as a side effect**, said out loud rather than discovered later: 48\u00b2 needs zoom 0.312x to fit, so `CAM-05` option 2 \u2014 a zoom floor with `CAM-04`'s minimap doing the wide read \u2014 becomes the only affordable answer, and the board is never fully visible in the playfield. A design statement, made on purpose, consistent with decision 056. What remains open in #1 is only the art bar for E6.",
+            "**Density work is unblocked** — `BAL-04`'s half now rebases against 2,304 tiles."
+          ]
+        },
+        {
+          "type": "p",
+          "text": "PRD \u00a76's table listed five open owner decisions. All five are now taken \u2014 #1 half-settled by this one, #2 by decision 073 itself, #3 and #4 by decision 069, #5 by decision 068. The table is rewritten as a record of where each answer lives rather than a list of what is pending."
+        },
+        {
+          "type": "p",
+          "text": "No screenshot accompanies this entry. There is nothing on screen a board-size number could show \u2014 the change is to `docs/DECISIONS.md` and `docs/PRD-THEATRE-SCALE.md` only."
+        }
+      ]
     }
   ]
 }
