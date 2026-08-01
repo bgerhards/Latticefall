@@ -43,19 +43,41 @@ silent drift. See that check's own docstring for what it caught before it existe
   `game data`, `wave density`, `dialog capacity`, `backlog rendered`, `chronicle current`,
   `agent models`, `leases wired`, `banned terms`, `tier counts`, `safe operations`,
   `rules autoloads`, `yaw hysteresis`, `asset coverage`. No Godot window opens.
-- **tier 2 (pre-push), 26 checks:** tier 1 + `sim determinism`, `sprite atlas`,
+- **tier 2 (pre-push), 25 checks:** tier 1 + `sim determinism`, `sprite atlas`,
   `sprite coverage`, `music manifest`, `sfx determinism`, `sfx loudness` (PRC-18 — see
   `_run_loudness_check`'s own comment for why it is `sfx loudness` and not `music loudness`
-  that landed here), `godot boots`, `terrain parsers agree`, `hooks configured`,
-  `facing harness`. The last two (PRC-06, LF-142) were measured at tier 1 first and moved
-  here: each spawns at least one real Godot process (`hooks configured` runs `guard.py
-  --selftest`, itself two Godot parse checks plus a `reap.py` probe; `facing harness` runs
-  `yaw_band.py`, one Godot launch of `scripts/test/facing.gd`), and together they pushed
-  tier 1 over its own `--budget` contract while they briefly lived there. Tier 2's budget in
-  `TIER_BUDGET_MS` was raised once already, for `sfx loudness` — and is measuring over that
-  raised number again (LF-178); the fix on file there is moving a check out, not raising the
-  number a second time, so do not "fix" LF-178 by editing `TIER_BUDGET_MS`.
-- **tier 3 (PR), 35 checks:** tier 2 + `game renders`, `menu renders`, `accessibility`,
+  that landed here), `godot boots`, `terrain parsers agree`, `hooks configured`.
+  `hooks configured` (PRC-06) was measured at tier 1 first and moved here: it spawns real
+  Godot processes (`guard.py --selftest`, itself two Godot parse checks plus a `reap.py`
+  probe) and pushed tier 1 over its own `--budget` contract while it briefly lived there.
+
+  **`facing harness` was moved OUT of tier 2 to tier 3, closing LF-178.** Tier 2 had been
+  over its 28,000 ms budget on four separate idle-ish measurements — 28,598, 28,751 and
+  29,831 ms here, plus 45,555 ms on a contended run — and `TIER_BUDGET_MS` had already been
+  raised once (25,000 → 28,000, for `sfx loudness`). A second raise would have made the
+  number decorative, which is the move decision 067 rejected when it deleted `PRESSURE_FLOOR`
+  rather than raising it. So the budget did not move and a check did. `facing harness`
+  (LF-142) was chosen over `terrain parsers agree`, the other candidate LF-178 names, because
+  it is a narrow regression harness for one mapping, whereas `terrain parsers agree` is the
+  cheap fast-tier sibling of `rules parity` — the same two-implementations-drifting risk at a
+  fraction of the cost — and decision 057 put it in the fast tier deliberately.
+
+  **What 28,000 ms means, since it was previously a round number with no stated derivation.**
+  It is an *idle-machine* ceiling on this 16-core WSL2 box: tier 2 measured **27,225 ms** and
+  **27,790 ms** on two runs after the move, both with one core busy, so the real headroom is
+  between **0.8% and 2.8%** and the run-to-run spread (~570 ms) is itself larger than the
+  smaller of those margins. Treat the budget as barely satisfied, not comfortably. It is
+  explicitly **not** survivable under contention — the 45,555 ms figure above was a real
+  tier-2 run while other agents held cores — and `--budget` is not passed by `check.py`'s
+  default invocation or by the wrap, so it is advisory in every path that currently runs it.
+  Two consequences worth knowing before touching this: a 3% margin means **the next check
+  added to tier 2 blows the budget again**, and the structural answer at that point is
+  LF-178's option (2), splitting into a ~10 s pre-commit tier and a pre-push tier, not
+  another raise. Also note LF-170: these durations are timed with `time.time()`, which has
+  been seen running backwards under load, so the instrument this budget is judged against
+  can itself move.
+- **tier 3 (PR), 35 checks:** tier 2 + `facing harness` (moved here from tier 2, above) +
+  `game renders`, `menu renders`, `accessibility`,
   `scenario smoke`, `scenario abilities`, `scenario a11y-worst`, `scenario lf161-scroll`,
   `scenario gamepad` (PRC-18 split what used to be one `scenarios pass` check hardcoding
   `smoke.json` into one check per `data/scenarios/*.json` file — see `SCENARIO_FILES`/
@@ -1771,7 +1793,7 @@ CHECKS = [
     # (godot boots, sim determinism, terrain parsers agree) rather than tier 1's "no Godot
     # window opens" checks — see the module docstring's ## Tiers table.
     Check("hooks configured",  2, check_hooks_configured),
-    Check("facing harness",    2, check_facing_harness),
+    Check("facing harness",    3, check_facing_harness),
 ]
 
 
