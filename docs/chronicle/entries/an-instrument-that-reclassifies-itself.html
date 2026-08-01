@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>An instrument that reclassifies itself when you tune the thing it measures — Latticefall build journal</title>
+<meta name="description" content="LF-186, found during decision 074's range pass: sim/coverage.py's verdict() calls an anchor (a) geometry or (b) range by comparing its geometric ceiling against the ceiling at double the current range — and both terms scale with data/towers.json. Raising every weapon's range flipped four of five LF-181 geometry calls to range or adequately-sited while their dynamic p10 went flat or worse. The ceiling was never wrong; the label read as a claim about slots when it was a claim about slots-and-range together. Fixed by recording and printing the range basis a verdict was computed against, not by changing the measurement.">
+<link rel="stylesheet" href="../chronicle.css">
+</head>
+<body>
+
+<nav class="entry-nav top"><a class="back" href="../index.html">&larr; the journal</a></nav>
+<article>
+  <header class="entry-header">
+    <time datetime="2026-08-01">August 1, 2026 · 09:32</time>
+    <h1>An instrument that reclassifies itself when you tune the thing it measures</h1>
+    <div class="chips"><span class="chip chip-epic">BAL</span></div>
+    <p class="summary lede">LF-186, found during decision 074's range pass: sim/coverage.py's verdict() calls an anchor (a) geometry or (b) range by comparing its geometric ceiling against the ceiling at double the current range — and both terms scale with data/towers.json. Raising every weapon's range flipped four of five LF-181 geometry calls to range or adequately-sited while their dynamic p10 went flat or worse. The ceiling was never wrong; the label read as a claim about slots when it was a claim about slots-and-range together. Fixed by recording and printing the range basis a verdict was computed against, not by changing the measurement.</p>
+    
+  </header>
+  <div class="entry-body">
+    <p><code>sim/coverage.py</code>'s <code>verdict()</code> calls an anchor <strong>(a) geometry</strong> — the slots are simply far from the lane — or <strong>(b) range</strong> — the values are short — by comparing its geometric ceiling against the ceiling at double the current range. Both terms scale with whatever is in <code>data/towers.json</code> when it runs, and that is what LF-186 caught, during decision 074's range pass rather than by reasoning about the code: raising every weapon's base range flipped four of the five anchors the previous entry, <code>LF-181</code>, had declared "(a) geometry" — anchor-03, 04, 05, 07 — to "(b) range" or to sited adequately. Their actual dynamic p10 went flat or worse over the same change: 8→5%, 4→0%, 5→3%, 1→0%. The level did not change. The slots did not change. Only the yardstick moved.</p><p>The <code>ceil_p50 &gt;= 0.5</code> early return is the sharpest edge in it: cross that threshold and the (a)/(b) question is never even asked.</p><p>None of this makes the ceiling wrong — it remains a true statement about the level given today's ranges. What is wrong is the <strong>label</strong>: it reads as a claim about slot geometry when it is a claim about geometry-and-range together. A true measurement, an untrue-sounding name.</p><p>The fix does not touch the measurement. A new <code>range_basis()</code> records the weapon ranges a report was computed against, plus a 12-character digest of them, carried on every report and summary, written into the <code>--json</code> artefact, and <strong>printed above the table</strong>, not merely stored — a JSON field nobody looks at would not have prevented this:</p><blockquote>range basis 8189779cd568 — arc-node 3.8, flak-array 4.6, ion-lance 6.2, mortar-emplacement 7.0, pulse-turret 4.0
+(verdicts below are RELATIVE to these; only comparable to a run with the same digest)</blockquote><p>Two verdicts are comparable only if their digests match. When they do not, the thing to compare is the dynamic distribution, not the letter.</p><p>The digest was proved to discriminate rather than trusted: <code>8189779cd568</code> for today's ranges against <code>465958a1cc0a</code> for the pre-<code>LF-181</code> set, and stable across reloads — the same reasoning as the previous entry's audit checking itself for false positives. A fingerprint that failed to change when the ranges did would be worse than none.</p><p>Deliberately not done: the label is still computed against current ranges rather than a frozen campaign reference. That was the other option on file; it needs a baseline committed somewhere, which brings its own staleness question. Recording the basis makes the existing label honest, which is the smaller and better-evidenced change.</p><p>The third instrument this session found quietly untrustworthy, after a gate budget that had never been met and a journal renderer publishing invalid HTML — and the second where the fix was to make the measurement state its own terms, not to change the measurement.</p>
+  </div>
+  <section class="commits"><h4>Commits</h4><ul class="commit-list"><li><code>1fe96b6</code> fix(sim): record the ranges a coverage verdict was computed against</li></ul></section>
+</article>
+<nav class="entry-nav bottom">
+  <span><a class="back" href="../index.html">&larr; the journal</a></span> <span><a class="prev" href="the-hang-that-never-was.html">&larr; The hang that never was</a></span>
+</nav>
+
+</body>
+</html>
