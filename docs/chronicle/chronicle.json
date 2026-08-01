@@ -3512,6 +3512,76 @@
           "text": "One more worth a line: `data/scenarios/gamepad_build.json` exercises the snap mechanism through a real joypad event and now lands at (7.95, 4.65). Its old assertions passed by coincidence — any press used to park the cursor at `slots[0]` regardless of direction, because that is what the fixed slot graph's first step always did. A test that passes for the wrong reason is the kind of thing this project keeps finding. `scripts/anchor_sim.gd` is untouched by this commit, so no rules changed and no parity risk was introduced."
         }
       ]
+    },
+    {
+      "id": "no-instrument-panel-no-brake",
+      "date": "2026-08-01",
+      "time": "15:37",
+      "title": "The autoloop had no instrument panel and no brake",
+      "summary": "The owner started the autoloop for its first real unattended run and had to kill it — blind to what it was doing and with no safe way to stop it. Killing it left a branch checked out, which is why the loop's own notifier turns out to matter: a Title header containing an em dash raised a latin-1 encoding error before any request left the machine, and the except arm reported it as “ntfy unreachable,” blaming the network for a bug that never touched it. Since every notification in this module is written in the project's own prose style, most pushes had been silently failing since the feature landed two commits earlier. Both are fixed and verified end to end; the loop's spawned session dying instantly on iteration 1 is not, and is filed as LF-209.",
+      "tags": [
+        "PRC"
+      ],
+      "commits": [
+        {
+          "hash": "6c6ed2c",
+          "subject": "fix(tooling): the notifier could not spell its own titles, and nothing could stop the loop"
+        },
+        {
+          "hash": "0c8ad3a",
+          "subject": "docs(backlog): LF-209 — the autoloop's spawned session dies instantly"
+        }
+      ],
+      "body": [
+        {
+          "type": "p",
+          "text": "The headline is not a bug fix, it is what the bug fix was *for*: the owner started `tools/autoloop.py` for its first real unattended run and had to kill it, because there was no way to see what it was doing and no way to stop it that did not just kill it. A loop built specifically to run unwatched had shipped with no instrument panel and no brake."
+        },
+        {
+          "type": "p",
+          "text": "Killing it left a branch checked out. Every autoloop run afterward refused at preflight with `on branch 'lf/...', expected main`, with nothing in the message to say this was the debris of a kill rather than a new fault — which is its own small failure, fixed in the same commit."
+        },
+        {
+          "type": "h3",
+          "text": "The notifier had been lying about its own failure"
+        },
+        {
+          "type": "p",
+          "text": "HTTP header values are latin-1 on the wire, and `http.client` enforces it. A `Title:` header containing an em dash raised `'latin-1' codec can't encode character '—'` — before the request ever left the machine — and the `except` arm printed “ntfy unreachable,” which points straight at the network for a bug that never touched it."
+        },
+        {
+          "type": "p",
+          "text": "Every notification title this module writes is composed in this project's own prose style, which is to say full of em dashes. Most pushes had therefore been failing since the feature landed, two commits earlier; the ones that arrived were the plain-ASCII minority. The irony worth naming: the project's house voice broke the one tool that exists to report on the project."
+        },
+        {
+          "type": "p",
+          "text": "The fix ASCII-folds header values (`_header_safe`) rather than RFC 2047 encoded-words. ntfy does decode `=?UTF-8?B?...?=`, but only on recent builds, and an older self-hosted box would just display that raw string as the title. A hyphen where an em dash used to be is a loss nobody notices on a phone. The body is untouched — it travels as UTF-8 request data, not a header, so it was never broken."
+        },
+        {
+          "type": "h3",
+          "text": "Stopping is now a boundary, not a kill"
+        },
+        {
+          "type": "list",
+          "items": [
+            "`--stop` from any terminal, or one Ctrl-C from the loop's own — finishes the current issue and exits with the tree back on `main`.",
+            "A second Ctrl-C kills the child immediately, and warns before it does it.",
+            "`--status` is a snapshot, not a follower: lockfile liveness, the live status file, the tail of the running session's log, and the tree state — it prints the `tail -f` command instead of arming one."
+          ]
+        },
+        {
+          "type": "p",
+          "text": "Both defects were verified end to end rather than by inspection. A stub HTTP server confirmed the folded Title and the intact UTF-8 body actually arrive on the wire. A harness drove the real loop body with a fake session through both stop paths: graceful exits 0 after the issue completes with the stopfile cleaned up, double-SIGINT kills the child, exits 1, and says “CHECK THE TREE.”"
+        },
+        {
+          "type": "h3",
+          "text": "The tail still open — LF-209"
+        },
+        {
+          "type": "p",
+          "text": "The loop's first spawned session died instantly, its entire log a 15-byte “Execution error.” That is why iteration 1 produced an empty branch and shipped nothing, and why iteration 2 then refused at preflight with `on branch 'lf/plc-placement-ghost', expected main` — debris of the kill, not a fault of its own. Plain `claude -p --model sonnet --output-format text` was verified working in this session; the untested difference is `--dangerously-skip-permissions`, which this session was not permitted to run. Said plainly rather than papered over: the autoloop's own plumbing is fixed, and the thing it launches still does not work."
+        }
+      ]
     }
   ]
 }
