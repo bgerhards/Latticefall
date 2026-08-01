@@ -449,6 +449,24 @@ def progress_evidence(logfile: Path, branch_before: str) -> list[str]:
     return bits
 
 
+def kill_tree(proc: subprocess.Popen) -> None:
+    """Kill the spawned session AND everything it spawned.
+
+    It is a process-group leader (`start_new_session=True`), so one `killpg` reaches its
+    subagents, its Blender, its Godot. `proc.kill()` alone would leave those reparented to init
+    with a core each — the survivor problem `tools/reap.py` exists for, and which costs money
+    rather than fan noise because the harness re-invokes the model when a tracked child exits.
+    """
+    try:
+        os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+    except (ProcessLookupError, PermissionError):
+        proc.kill()
+    try:
+        proc.wait(timeout=30)
+    except subprocess.TimeoutExpired:
+        pass
+
+
 def write_status(**kw) -> None:
     """A file anyone can look at without a notification. `tail -f` friendly, and it is what a
     status page or a phone widget would read if one is ever wanted."""
@@ -489,21 +507,35 @@ def run_one(issue: Issue, model: str, timeout_s: int, heartbeat_s: int,
     last_beat = t0
     try:
         with logfile.open("w", encoding="utf-8") as fh:
+            # OWN PROCESS GROUP, or the graceful stop is a lie. Ctrl-C in a terminal sends
+            # SIGINT to the whole foreground process group, so it reaches the spawned session
+            # directly — the parent's handler never gets to decide anything, and the child dies
+            # mid-tool-call. That is exactly what happened on the first unattended run: the
+            # session had worked for three minutes and was dispatching a subagent when it took
+            # `[Request interrupted by user for tool use]`, and `claude -p` printed a 15-byte
+            # "Execution error" that looked like the session was broken. It was not; it was
+            # interrupted. `start_new_session=True` detaches it, so a terminal Ctrl-C now hits
+            # only this loop and the child runs on until the loop decides otherwise.
             proc = subprocess.Popen(argv, cwd=str(ROOT), stdout=fh,
-                                    stderr=subprocess.STDOUT, text=True)
-            print(f"[autoloop] session log: {logfile}", flush=True)
+                                    stderr=subprocess.STDOUT, text=True,
+                                    start_new_session=True)
+            # The child's pid goes on the record immediately. Detaching it means a `kill -9` on
+            # the loop leaves it running — and an orphaned agent session bills tokens at nobody's
+            # request — so whoever has to end it by hand needs the number without hunting for it.
+            print(f"[autoloop] session pid {proc.pid} (own process group), log: {logfile}",
+                  flush=True)
+            write_status(state="working", issue=issue.spec_id, minutes=0,
+                         session_pid=proc.pid, log=str(logfile))
             while True:
                 if proc.poll() is not None:
                     break
                 now = time.time()
                 if _STOP["hard"]:
-                    proc.kill()
-                    proc.wait(timeout=30)
+                    kill_tree(proc)
                     write_status(state="killed", issue=issue.spec_id, log=str(logfile))
                     return "STOPPED", f"killed on request after {int(now - t0)}s\n{logfile}"
                 if now - t0 > timeout_s:
-                    proc.kill()
-                    proc.wait(timeout=30)
+                    kill_tree(proc)
                     write_status(state="timeout", issue=issue.spec_id, log=str(logfile))
                     return "TIMEOUT", f"killed after {int(now - t0)}s\n{logfile}"
                 if now - last_beat >= heartbeat_s:
@@ -513,7 +545,8 @@ def run_one(issue: Issue, model: str, timeout_s: int, heartbeat_s: int,
                     if pending:
                         ev.append(f"stopping after this issue ({pending})")
                     write_status(state="working", issue=issue.spec_id, minutes=mins,
-                                 evidence=ev, log=str(logfile), stop_pending=pending or None)
+                                 evidence=ev, log=str(logfile), session_pid=proc.pid,
+                                 stop_pending=pending or None)
                     notify(f"still working — {issue.spec_id} ({mins}m)",
                            "\n".join(ev) or "no output yet",
                            priority="low", tags="hourglass_flowing_sand")
