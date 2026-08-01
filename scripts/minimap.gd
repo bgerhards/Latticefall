@@ -249,7 +249,7 @@ func _draw_impl() -> void:
 	# 4. emplacement marks — shape carries online/offline, not colour alone: a filled square
 	# is online, a hollow one is offline, so a greyscale copy still tells them apart.
 	for p in sim.placed:
-		var c: Vector2 = _to_map(Vector2(p["slot"]))
+		var c: Vector2 = _to_map(Vector2(float(p["x"]), float(p["y"])))  # PLC-01: x/y, not slot
 		var online: bool = bool(p["online"])
 		draw_rect(Rect2(c - Vector2(3, 3), Vector2(6, 6)),
 			C_ONLINE if online else C_OFFLINE, online, 1.5)

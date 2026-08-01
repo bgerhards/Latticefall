@@ -289,7 +289,10 @@ func autobuild() -> void:
 
 func _autobuild_step() -> void:
 	var unlocked: Array = Content.unlocked_at(anchor_id)
-	while sim.free_slots.size() > 0:
+	while true:
+		var free: Array = sim.available_slots()   # PLC-01: computed, not sim.free_slots
+		if free.is_empty():
+			return
 		var placed_one := false
 		for tid in unlocked:
 			var tw: Dictionary = Content.tower(tid)
@@ -297,7 +300,7 @@ func _autobuild_step() -> void:
 				continue
 			if sim.online_draw() + float(tw["draw_mw"]) > sim.capacity():
 				continue
-			if sim.build_at(String(tid), sim.free_slots[0]):
+			if sim.build_at(String(tid), float(free[0].x), float(free[0].y)):
 				placed_one = true
 				break
 		if not placed_one:
@@ -910,14 +913,15 @@ func _on_unit_leaked_dialog(_u: Dictionary) -> void:
 		_fire("low-lives")
 
 
-func _on_built(_tower_id: String, _slot: Vector2i) -> void:
+func _on_built(_tower_id: String, _x: float, _y: float) -> void:
 	## "Ward" is Control's word for a built emplacement (data/dialog's wards-half/wards-full
 	## lines) — ward_engage_{1..6} is an indexed, counted cue, played on every build, and the
 	## two dialog thresholds are the ring being half and fully engaged.
 	# `sim` is untyped by this file's existing convention (see the field's own declaration
 	# and CLAUDE.md's note on the parse-time trap), so both need an explicit type rather
-	# than `:=`.
-	var total: int = sim.placed.size() + sim.free_slots.size()
+	# than `:=`. PLC-01: `total` is the anchor's authored slot count -- placed + still
+	# available -- computed via available_slots() now that there is no free_slots field.
+	var total: int = sim.placed.size() + sim.available_slots().size()
 	var n: int = sim.placed.size()
 	Audio.sfx("ward_engage_%d" % clampi(n, 1, 6))
 	if total > 0 and n * 2 >= total:
@@ -1162,8 +1166,10 @@ func _cycle_tower(step: int) -> void:
 
 
 func placed_index_at(slot: Vector2i) -> int:
+	# PLC-01: placed records carry x/y floats, not a slot -- compare against the integer
+	# slot the UI still deals in (every position this stub accepts is integer-valued).
 	for i in range(sim.placed.size()):
-		if sim.placed[i]["slot"] == slot:
+		if float(sim.placed[i]["x"]) == float(slot.x) and float(sim.placed[i]["y"]) == float(slot.y):
 			return i
 	return -1
 
@@ -1202,7 +1208,7 @@ func _click(slot: Vector2i) -> void:
 		state_changed.emit()
 		queue_redraw()
 		return
-	if not sim.free_slots.has(slot):
+	if not sim.available_slots().has(slot):
 		# Bare ground. Deselecting is a deliberate act, not a failed one — no deny cue.
 		selected_slot = NO_SLOT
 		state_changed.emit()
@@ -1211,7 +1217,7 @@ func _click(slot: Vector2i) -> void:
 	if selected_tower == "" or not sim.can_afford(selected_tower):
 		Audio.sfx("ui_deny")
 		return
-	if sim.build_at(selected_tower, slot):
+	if sim.build_at(selected_tower, float(slot.x), float(slot.y)):
 		selected_slot = slot         # inspect and upgrade what was just built, without a hunt
 		Audio.sfx("place_emplacement")
 		Audio.sfx("power_online")
@@ -1223,7 +1229,7 @@ func toggle_at(slot: Vector2i) -> void:
 	## Shed an emplacement's load without losing it. Right-click does this where the cursor
 	## is; the inspector does it to the selection.
 	for i in range(sim.placed.size()):
-		if sim.placed[i]["slot"] == slot:
+		if float(sim.placed[i]["x"]) == float(slot.x) and float(sim.placed[i]["y"]) == float(slot.y):
 			var now: bool = not sim.placed[i]["online"]
 			sim.set_online(i, now)
 			Audio.sfx("power_online" if now else "power_offline")
@@ -1429,7 +1435,7 @@ func _tower_heading(p: Dictionary) -> Vector2:
 	## What it last fired at, or the lane if it has not fired. `aim` is written by the sim
 	## at the moment of the shot and erased when it has a shot ready and nothing to take it
 	## on, so an emplacement tracks its target and returns to watching the path between waves.
-	var slot := Vector2(float(p["slot"].x), float(p["slot"].y))
+	var slot := Vector2(float(p["x"]), float(p["y"]))
 	var aim: Variant = p.get("aim", null)
 	if aim != null:
 		var h: Vector2 = (aim as Vector2) - slot
@@ -1643,14 +1649,14 @@ func _build_drawables() -> Array:
 		# flip order intermittently.
 		var buckets := _face_parts(p, _tower_heading(p))
 		var base_id := String(p["tower"]["id"]).replace("-", "_")
-		var depth := IsoScript.depth(p["slot"].x, p["slot"].y)
+		var depth := IsoScript.depth(p["x"], p["y"])
 		# TER-01: the surface the emplacement stands on. `at` folds the offset in so every
 		# consumer that reads "at" — glow_layer.gd, fx_additive.gd, the contact shadow, the
 		# recoiled head below — inherits elevation for free and cannot disagree with the
 		# albedo pass (the same argument the issue makes for why this is the one place to
 		# apply it, not each consumer separately).
-		var z := float(_height_at(int(p["slot"].x), int(p["slot"].y)))
-		var at := IsoScript.tile_to_screen(float(p["slot"].x), float(p["slot"].y)) + _origin \
+		var z := float(_height_at(int(p["x"]), int(p["y"])))
+		var at := IsoScript.tile_to_screen(float(p["x"]), float(p["y"])) + _origin \
 				+ IsoScript.height_offset(z)
 		var online := bool(p["online"])
 		out.append({
@@ -1844,7 +1850,7 @@ func _draw_hover() -> void:
 		if Vector2i(int(slot[0]), int(slot[1])) == hovered_slot:
 			is_slot = true
 			break
-	if not is_slot or not sim.free_slots.has(hovered_slot):
+	if not is_slot or not sim.available_slots().has(hovered_slot):
 		return
 	var hz := float(_height_at(hovered_slot.x, hovered_slot.y))
 	var hc := IsoScript.tile_to_screen(float(hovered_slot.x), float(hovered_slot.y)) + _origin \
@@ -1863,7 +1869,7 @@ func _draw_reach() -> void:
 		var p: Dictionary = sim.placed[i]
 		_draw_range(Vector2(selected_slot), float(p["tower"]["range"]),
 				Color(C_BONE if p["online"] else C_ALERT, 0.5))
-	if selected_tower != "" and sim.free_slots.has(hovered_slot) and hovered_slot != selected_slot:
+	if selected_tower != "" and sim.available_slots().has(hovered_slot) and hovered_slot != selected_slot:
 		var tw: Dictionary = Content.tower(selected_tower)
 		if not tw.is_empty():
 			_draw_range(Vector2(hovered_slot), float(tw["range"]), Color(C_AMBER, 0.4))
@@ -2049,7 +2055,7 @@ func _label(c: Vector2, text: String, col: Color) -> void:
 
 
 func _draw_tower(p: Dictionary, dim: float) -> void:
-	var c := IsoScript.tile_to_screen(float(p["slot"].x), float(p["slot"].y)) + _origin
+	var c := IsoScript.tile_to_screen(float(p["x"]), float(p["y"])) + _origin
 	var online: bool = p["online"]
 	var body := Color(0.42, 0.46, 0.48) if online else Color(0.22, 0.24, 0.26)
 	draw_colored_polygon(IsoScript.diamond(c + Vector2(0, -14), 0.55), body)
@@ -2169,7 +2175,9 @@ func export_state() -> Dictionary:
 		})
 	var placed: Array = []
 	for p in sim.placed:
-		var s: Vector2i = p["slot"]
+		# PLC-01: placed records carry x/y floats now, not a slot -- the exported key
+		# names ("slot_x"/"slot_y") are unchanged, so no scenario JSON needs an edit.
+		var s := Vector2(float(p["x"]), float(p["y"]))
 		placed.append({
 			"tower": String(p["tower"]["id"]), "online": bool(p["online"]),
 			"kills": int(p.get("kills", 0)),

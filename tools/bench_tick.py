@@ -165,7 +165,7 @@ def _place_towers(sim: Sim, towers: dict, n: int, mode: str) -> None:
         else:  # baseline: a realistic mix, all in range
             tw = weapon if i % 3 != 0 else support_cycle[i % len(support_cycle)]
             slot = (i % 200, 1)
-        sim.placed.append(Placed(tower=tw, slot=slot))
+        sim.placed.append(Placed(tower=tw, x=slot[0], y=slot[1]))  # PLC-01: x/y, not slot
     # Guarded: this script is also run against a pre-LF-099 engine.py copy (from
     # tools/reap.py-adjacent scratch comparisons) that has no rebuild method at all —
     # such an engine filters inline on every _covered_by() call instead, and needs no
@@ -249,7 +249,7 @@ def _build_war_sim(towers: dict, n_towers: int, n_units: int, segments: int,
     for i in range(n_towers):
         tw = roster[i % len(roster)]
         x = plen * i / max(1, n_towers)
-        sim.placed.append(Placed(tower=tw, slot=(x, 2.0)))
+        sim.placed.append(Placed(tower=tw, x=x, y=2.0))  # PLC-01: x/y, not slot
     if hasattr(sim, "_rebuild_effect_lists"):
         sim._rebuild_effect_lists()
     return sim
@@ -381,7 +381,7 @@ def _random_war_sim(towers: dict, rng: random.Random, sim_cls: type = Sim):
     for _ in range(n_towers):
         tw = rng.choice(roster)
         slot = (rng.uniform(0.0, plen), rng.uniform(-5.0, 5.0))
-        sim.placed.append(Placed(tower=tw, slot=slot))
+        sim.placed.append(Placed(tower=tw, x=slot[0], y=slot[1]))  # PLC-01: x/y, not slot
     if hasattr(sim, "_rebuild_effect_lists"):
         sim._rebuild_effect_lists()
     return sim
@@ -423,7 +423,7 @@ def crosscheck_identical_units(ticks: int = 30) -> list[tuple]:
     for _ in range(6):
         sim.units.append(Unit(kind=enemy, hp=enemy.hp, dist=10.0))
     for i in range(8):
-        sim.placed.append(Placed(tower=towers["pulse-turret"], slot=(10.0 + i, 1.0)))
+        sim.placed.append(Placed(tower=towers["pulse-turret"], x=10.0 + i, y=1.0))  # PLC-01
     if hasattr(sim, "_rebuild_effect_lists"):
         sim._rebuild_effect_lists()
     for _ in range(ticks):

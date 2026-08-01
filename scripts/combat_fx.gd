@@ -280,8 +280,8 @@ func _nearest_other_unit(placed: Dictionary, exclude_screen: Vector2) -> Variant
 	## _damage, and nothing does: this only reads view.sim.units, never writes to one.
 	var tw: Dictionary = placed["tower"]
 	var rng: float = float(tw["range"])
-	var sx: float = float(placed["slot"].x)
-	var sy: float = float(placed["slot"].y)
+	var sx: float = float(placed["x"])
+	var sy: float = float(placed["y"])
 	var best: Variant = null
 	var best_d := INF
 	for u in view.sim.units:
@@ -324,7 +324,9 @@ func _touch_beam(placed: Dictionary, from: Vector2, to: Vector2, colour: Color, 
 	## only marks the engagement alive on each shot_fired, per ART-05's contract against
 	## decision 053: no new signal, just inferring "still firing" from the cadence of the one
 	## that already exists.
-	var slot: Vector2i = placed["slot"]
+	# PLC-01: placed records carry x/y floats, not a slot -- the beam-hold key below is
+	# still an integer Vector2i, since every position the legality stub accepts is one.
+	var slot := Vector2i(int(float(placed["x"])), int(float(placed["y"])))
 	var now: float = view.sim_time()
 	if not _beams.has(slot):
 		_beams[slot] = {"hold_start": now,
@@ -370,7 +372,7 @@ func _step_beams(_delta: float) -> void:
 			drop.append(slot)
 			continue
 		var aim: Vector2 = p["aim"]
-		var slot_v: Vector2 = Vector2(float(p["slot"].x), float(p["slot"].y))
+		var slot_v: Vector2 = Vector2(float(p["x"]), float(p["y"]))
 		b["from"] = view.to_screen(slot_v)
 		b["to"] = view.to_screen(aim)
 		b["ramp"] = _compute_ramp_frac(p, b, now)
@@ -382,7 +384,7 @@ func _step_beams(_delta: float) -> void:
 func _find_placed(slot: Vector2i) -> Dictionary:
 	for entry in view.sim.placed:
 		var p: Dictionary = entry
-		if p["slot"] == slot:
+		if int(float(p["x"])) == slot.x and int(float(p["y"])) == slot.y:  # PLC-01
 			return p
 	return {}
 

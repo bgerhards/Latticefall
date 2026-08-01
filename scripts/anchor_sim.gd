@@ -71,7 +71,7 @@ signal wave_cleared(index: int)
 signal brownout_changed(active: bool)
 signal unit_killed(unit: Dictionary)
 signal unit_leaked(unit: Dictionary)
-signal built(tower_id: String, slot: Vector2i)
+signal built(tower_id: String, x: float, y: float)
 signal lives_changed(lives: int)
 signal funds_changed(funds: int)
 ## Presentation-only signals for the combat FX layer. None of them may be read by anything
@@ -93,12 +93,11 @@ var funds: int = 0
 var spend: int = 0
 var lives: int = 0
 var leaks: int = 0
-var placed: Array[Dictionary] = []      # {tower, slot:Vector2i, online:bool, cooldown:float}
-var free_slots: Array[Vector2i] = []
+var placed: Array[Dictionary] = []      # {tower, x:float, y:float, online:bool, cooldown:float}
 ## LF-152/decision 063. Board-saturation denominator once `slots` is deleted by free
 ## placement (PLC-01/PLC-05). 0 means "not authored" -- every one of the 24 real anchors
 ## today, all of which still author `slots` -- and effective_cap() falls back to
-## free_slots.size() + placed.size(), reproducing today's numbers exactly. Mirrors
+## anchor.get("slots", []).size(), reproducing today's numbers exactly. Mirrors
 ## sim/engine.py's Sim._effective_cap().
 var max_emplacements: int = 0
 var units: Array[Dictionary] = []       # {kind, hp, dist, alive}
@@ -187,9 +186,9 @@ func setup(anchor_data: Dictionary, tower_defs: Dictionary, enemy_defs: Dictiona
 	leaks = 0
 	max_emplacements = int(anchor.get("max_emplacements", 0))
 
-	free_slots.clear()
-	for s in anchor.get("slots", []):
-		free_slots.append(Vector2i(int(s[0]), int(s[1])))
+	# PLC-01: no free-list to seed. `anchor.get("slots", [])` is read on demand by
+	# effective_cap()/_is_placeable()/available_slots() instead of copied into mutable
+	# state here.
 
 	_wx = []
 	_wy = []
@@ -333,7 +332,7 @@ func _veteran_rank(p: Dictionary) -> Dictionary:
 	## never on a unit dictionary, see the comment on _face()'s precedent in anchor_view.gd
 	## and the same reasoning repeated on the splash loop below — so annotating it here is
 	## exactly as safe as `aim` and `view_yaw` already are: placed records are only ever
-	## compared by `slot`.
+	## compared by position (`x`/`y` — PLC-01; formerly `slot`).
 	if _veterancy_ranks.is_empty():
 		return {}
 	var kills := int(p.get("kills", 0))
@@ -396,32 +395,77 @@ func can_afford(tower_id: String) -> bool:
 func effective_cap() -> int:
 	## LF-152/decision 063. Mirrors sim/engine.py's Sim._effective_cap(): max_emplacements
 	## if the anchor authors one (0 is the "unset" sentinel — the schema's own minimum is
-	## 1), else free_slots.size() + placed.size(), which equals the anchor's original slot
-	## count by the same free_slots/placed invariant validate_data.py's len(slots)
-	## fallback relies on (a slot only ever moves between the two lists, in build_at()/
-	## sell(), never created or destroyed).
-	return max_emplacements if max_emplacements > 0 else free_slots.size() + placed.size()
+	## 1), else anchor.get("slots", []).size(), the anchor's authored slot count. PLC-01:
+	## no free_slots/placed invariant to lean on any more — this reads the anchor's own
+	## slots array directly, which is exactly what that invariant always equalled.
+	return max_emplacements if max_emplacements > 0 else anchor.get("slots", []).size()
 
 
-func build_at(tower_id: String, slot: Vector2i) -> bool:
+func _is_placeable(x: float, y: float) -> bool:
+	## TODO(PLC-02): deliberately temporary. PLC-01 is representation only — a continuous
+	## float position replaces the slot index — and the legality test stays a stub that
+	## accepts ONLY the anchor's existing authored `slots` positions, so behaviour is
+	## byte-identical to the fixed-slot game this replaces. PLC-02 replaces this one
+	## function with the real free-placement predicate (buildable area, minimum spacing,
+	## terrain); nothing else in this file needs to change when it does. Mirrors
+	## sim/engine.py's Sim._is_placeable().
+	for s in anchor.get("slots", []):
+		if float(s[0]) == x and float(s[1]) == y:
+			return true
+	return false
+
+
+func _occupied(x: float, y: float) -> bool:
+	## Whether some placed record already sits at exactly (x, y). PLC-01 has no free-list
+	## state to consult — this is the other half of what `free_slots.has(slot)` used to
+	## check in one call, alongside `_is_placeable()`. Mirrors sim/engine.py's
+	## Sim._occupied().
+	for p in placed:
+		if float(p["x"]) == x and float(p["y"]) == y:
+			return true
+	return false
+
+
+func available_slots() -> Array:
+	## Presentation/UI accessor. The anchor's authored slots not currently occupied, in
+	## the anchor's own authoring order — replaces the old free_slots array (PLC-01),
+	## computed on demand since there is no stored free-list any more; an anchor never
+	## carries more than a dozen slots, so this is cheap. Returns Vector2i (presentation
+	## is where that type belongs — never the rules; see the module docstring), so
+	## scripts/anchor_view.gd and friends need no shape change at their call sites beyond
+	## reading `sim.available_slots()` in place of `sim.free_slots`. The rules
+	## (build_at()/_is_placeable()/_occupied() above) never call this.
+	var out: Array = []
+	for s in anchor.get("slots", []):
+		var sx: float = float(s[0])
+		var sy: float = float(s[1])
+		if not _occupied(sx, sy):
+			out.append(Vector2i(int(sx), int(sy)))
+	return out
+
+
+func build_at(tower_id: String, x: float, y: float) -> bool:
 	## LF-152/decision 063: refuses at effective_cap() — a no-op for every anchor that
-	## omits max_emplacements (all 24 today; see effective_cap()'s own doc).
+	## omits max_emplacements (all 24 today; see effective_cap()'s own doc). PLC-01: takes
+	## a continuous (x, y), never a slot index or a Vector2/Vector2i (both float32,
+	## banned in the rules — PRD §2.1). `_is_placeable()` is the legality stub; `_occupied()`
+	## is the separate "something is already there" check the old
+	## `free_slots.has(slot)` used to fold into one test.
 	if placed.size() >= effective_cap():
 		return false
-	if not free_slots.has(slot) or not towers.has(tower_id):
+	if not _is_placeable(x, y) or _occupied(x, y) or not towers.has(tower_id):
 		return false
 	var tw: Dictionary = towers[tower_id]
 	if int(tw["cost"]) > funds:
 		return false
-	placed.append({"tower": tw, "slot": slot, "online": true, "cooldown": 0.0})
+	placed.append({"tower": tw, "x": x, "y": y, "online": true, "cooldown": 0.0})
 	# Eager, not tick-gated (LF-099): capacity()/_covered_by(), possibly called again
 	# before the next tick() by whatever placed this, must see it. See _eff_slow.
 	_rebuild_effect_lists()
-	free_slots.erase(slot)
 	funds -= int(tw["cost"])
 	spend += int(tw["cost"])
 	funds_changed.emit(funds)
-	built.emit(tower_id, slot)
+	built.emit(tower_id, x, y)
 	return true
 
 
@@ -453,7 +497,9 @@ func sell(index: int) -> int:
 	## branch inside it; this is the mechanism that enforces it.
 	## Clamped at 1.0: a refund above what was paid makes build-and-sell a money printer.
 	var refund := int(floor(float(paid) * minf(1.0, SELL_REFUND + sell_refund_bonus)))
-	free_slots.append(p["slot"])
+	# PLC-01: no free-list to hand the position back to — removing the placed record IS
+	# the whole of it; the position becomes available again the moment nothing in
+	# `placed` sits there (see _occupied()).
 	placed.remove_at(index)
 	_rebuild_effect_lists()   # eager, not tick-gated (LF-099) — see _eff_slow
 	funds += refund
@@ -521,8 +567,8 @@ func _covered_by(effect: String, x: float, y: float) -> float:
 		return 0.0
 	var best := 0.0
 	for p in eff_list:
-		var dx: float = float(p["slot"].x) - x
-		var dy: float = float(p["slot"].y) - y
+		var dx: float = float(p["x"]) - x
+		var dy: float = float(p["y"]) - y
 		var r: float = float(p["tower"]["range"])
 		if dx * dx + dy * dy <= r * r:
 			var eff: Dictionary = p["tower"].get("effect", {})
@@ -652,9 +698,9 @@ func _select_target(p: Dictionary, pos: PackedFloat64Array, grid, rng: float,
 	## _grid_query() sorts its merged result before returning. This loop's own `keep`
 	## logic never changed -- only which indices it is offered, and in what order,
 	## which is provably identical either way.
-	var candidates := _candidates_near(grid, float(p["slot"].x), float(p["slot"].y), rng)
-	var sx := float(p["slot"].x)
-	var sy := float(p["slot"].y)
+	var candidates := _candidates_near(grid, float(p["x"]), float(p["y"]), rng)
+	var sx := float(p["x"])
+	var sy := float(p["y"])
 	var tw: Dictionary = p["tower"]
 	var target: Dictionary = {}
 	var target_i := -1
@@ -817,8 +863,8 @@ func _step(penalty: float) -> void:
 		var vet := _veteran_rank(p)
 		var dmg_mult: float = float(vet.get("damage_mult", 1.0))
 		var rng_mult: float = float(vet.get("range_mult", 1.0))
-		var sx := float(p["slot"].x)
-		var sy := float(p["slot"].y)
+		var sx := float(p["x"])
+		var sy := float(p["y"])
 		var rng := float(tw["range"]) * rng_mult
 		# Per-emplacement targeting priority (data/tuning.json's `targeting`), cycled by the
 		# player on the selected emplacement. "first" is the default, so a placed record
@@ -860,12 +906,14 @@ func _step(penalty: float) -> void:
 		# Presentation only: fires the instant the shot leaves the barrel, so the FX layer can
 		# animate travel time the rules deliberately do not model (sim/engine.py's module
 		# docstring: "What is not modelled, deliberately: projectile travel time"). `p` is the
-		# same placed record `_face()` already annotates safely (compared only on `slot`);
+		# same placed record `_face()` already annotates safely (compared only on
+		# position, x/y -- PLC-01; formerly `slot`);
 		# `target["kind"]` is content data, not the mutable target dictionary.
 		shot_fired.emit(p, Vector2(sx, sy), p["aim"], target["kind"])
 		# Veterancy kills are counted on `p`, never on a unit — the same reasoning as
 		# target_i above, repeated: a unit dictionary must never grow a key, and `placed`
-		# records are safe because they are only ever compared by `slot`. Tracked
+		# records are safe because they are only ever compared by position (x/y --
+		# PLC-01; formerly `slot`). Tracked
 		# unconditionally, independent of whether _veterancy_ranks is set, so the count is
 		# already correct the moment scripts/anchor_view.gd turns veterancy on mid-run.
 		if _damage(target, tw, 1.0, dmg_mult):

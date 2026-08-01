@@ -241,7 +241,9 @@ func _ready() -> void:
 	_place_requested()
 	view.start()
 	if _select_nth > 0 and view.sim != null and view.sim.placed.size() >= _select_nth:
-		view.selected_slot = view.sim.placed[_select_nth - 1]["slot"]
+		# PLC-01: placed records carry x/y floats, not a slot.
+		var p0: Dictionary = view.sim.placed[_select_nth - 1]
+		view.selected_slot = Vector2i(int(p0["x"]), int(p0["y"]))
 	if _pick_tower != "":
 		view.select(_pick_tower)      # applied after --select, so it can be seen to win
 	if _scroll_steps != 0:
@@ -426,16 +428,19 @@ func _build_one(tid: String, slot_override: Vector2i = Vector2i(-999, -999)) -> 
 		push_warning("main: --build %s is not a tower id" % tid)
 		return
 	var slot: Vector2i
+	# PLC-01: view.sim.free_slots no longer exists -- available_slots() computes the
+	# same list (anchor's authored slots minus whatever is occupied) on demand.
+	var free: Array = view.sim.available_slots()
 	if slot_override != Vector2i(-999, -999):
-		if not Array(view.sim.free_slots).has(slot_override):
+		if not Array(free).has(slot_override):
 			push_warning("main: --build %s slot (%d,%d) is not free" % [tid, slot_override.x, slot_override.y])
 			return
 		slot = slot_override
 	else:
-		if view.sim.free_slots.is_empty():
+		if free.is_empty():
 			push_warning("main: --build %s has no free slot left" % tid)
 			return
-		slot = view.sim.free_slots[0]
+		slot = free[0]
 	var cost := int(Content.tower(tid)["cost"])
 	if cost > int(view.sim.funds):
 		# Annotated, not inferred: `view.sim` is an untyped var, so `view.sim.funds` is a
@@ -445,7 +450,7 @@ func _build_one(tid: String, slot_override: Vector2i = Vector2i(-999, -999)) -> 
 		var granted: int = cost - int(view.sim.funds)
 		view.sim.funds += granted
 		print("BUILD-GRANT %s +%d" % [tid, granted])
-	if view.sim.build_at(tid, slot):
+	if view.sim.build_at(tid, float(slot.x), float(slot.y)):
 		print("BUILD %s at (%d,%d)" % [tid, slot.x, slot.y])
 
 
@@ -911,7 +916,9 @@ func _run_scenario_action(verb: String, args: Array) -> void:
 			if view.sim != null:
 				var n := int(args[0])
 				if n > 0 and view.sim.placed.size() >= n:
-					view.selected_slot = view.sim.placed[n - 1]["slot"]
+					# PLC-01: placed records carry x/y floats, not a slot.
+					var pn: Dictionary = view.sim.placed[n - 1]
+					view.selected_slot = Vector2i(int(pn["x"]), int(pn["y"]))
 		"pick":
 			view.select(String(args[0]))
 		"press":
@@ -989,8 +996,8 @@ func _dump_target_state(tag: String, idx: int) -> void:
 	## (furthest along for "first", nearest hp for "weakest", ...) rather than trusted.
 	var p: Dictionary = view.sim.placed[idx]
 	var tw: Dictionary = p["tower"]
-	var sx: float = float(p["slot"].x)
-	var sy: float = float(p["slot"].y)
+	var sx: float = float(p["x"])
+	var sy: float = float(p["y"])
 	var rng: float = float(tw["range"])
 	var aim: Variant = p.get("aim", null)
 	var mode: String = String(p.get("target_mode", Tuning.targeting_default()))
@@ -1022,7 +1029,7 @@ func _dump_veterancy() -> void:
 		for r in ranks:
 			if kills >= int(r.get("kills", 0)):
 				best = r
-		var slot: Vector2i = p["slot"]
+		var slot := Vector2i(int(p["x"]), int(p["y"]))  # PLC-01: x/y, not slot
 		var base_range: float = float(p["tower"]["range"])
 		print("VET slot=(%d,%d) tower=%s kills=%d rank=%s damage_mult=%.2f range_mult=%.2f base_range=%.2f"
 			% [slot.x, slot.y, String(p["tower"]["id"]), kills, String(best.get("name", "")),
