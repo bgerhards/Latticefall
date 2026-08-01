@@ -123,18 +123,25 @@ name: Parity (windows)
 # (CLAUDE.md's eventual "a release runs Windows parity" line can use the full matrix
 # instead).
 #
-# ## Cost, measured rather than only projected
+# ## Cost, measured, not projected
 #
-# One shard's worth of real data: anchor-05 alone (a single, non-trivial anchor) took
-# ~55-60s complete, and anchor-01..04 ranged 24-48s. A 4-way LPT-balanced shard (6 anchors
-# each, weighted toward evening out total cost) landing in the 4-8 minute range per shard
-# is a reasonable expectation from this data, not yet a full measurement — the first real
-# sharded run is what turns this into one. GitHub bills Windows-hosted minutes at 2x the
-# Linux rate; 4 shards at, say, 6 minutes each is 24 job-minutes, billed as 48
-# Linux-equivalent minutes — for comparison, `parity-shard.yml`'s 4 Linux shards run
-# ~9-13 minutes total wall (parallel), well under half this leg's likely per-run cost even
-# before the 2x multiplier. That asymmetry is exactly why this workflow's trigger is
-# narrow rather than "every PR".
+# Verified for real: run 30700674063, shard 0/4 (LPT-balanced, 360 of the suite's 1152
+# runs) completed in 9m22s wall on `windows-2025-vs2026`, reporting `parity ok — 360 runs
+# identical (gdscript vs python) [shard 0/4] [windows]` — zero divergence between
+# CPython, the GDScript rules, and the Windows Godot binary. That number also explains
+# the very first attempt (run 30697883902): an UNSHARDED full run extrapolates to
+# roughly 562s / (360/1152) ≈ 1800s — a hair over `test_parity.py`'s own 1700s internal
+# wedge-timeout, which is why it looked like a hang rather than "simply too slow", and
+# why sharding (not a longer timeout) is the right fix. With 4 shards run in parallel,
+# expect wall-clock in the same ~9-10 minute neighbourhood as this one measured shard
+# (LPT-balanced, so no single shard should run dramatically longer); billed cost is
+# additive across the 4 parallel jobs, not reduced by parallelism — 4 x ~9.5min is ~38
+# job-minutes, billed at Windows' 2x multiplier as ~76 Linux-equivalent minutes per full
+# run. `parity-shard.yml`'s 4 Linux shards, by contrast, run ~9-13 minutes of WALL time
+# for a similar job-minute total but at the 1x rate — this leg costs several times more
+# per run than its Linux counterpart even before counting that its narrower trigger
+# means it fires far less often. That asymmetry is exactly why this workflow's trigger
+# is narrow rather than "every PR".
 
 on:
   workflow_dispatch:
@@ -151,9 +158,6 @@ on:
       - "sim/engine.py"
       - "scripts/anchor_sim.gd"
       - "scripts/test/parity.gd"
-  # TEMPORARY, for CI verification only — removed in the next commit on this branch.
-  push:
-    branches: ["lf/bal06-parity-windows-ci"]
   schedule:
     # Weekly, not daily — see header comment's cost note. Offset from parity-shard.yml's
     # 09:30 UTC and freshness.yml's :00 so three schedules do not land in the same minute.
@@ -234,9 +238,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # TEMPORARY: reduced to one shard for CI verification only — restored to
-        # [0, 1, 2, 3] in the next commit on this branch.
-        shard: [0]
+        shard: [0, 1, 2, 3]
     steps:
       - name: Checkout (no LFS — parity reads JSON under data/, never a sprite/audio byte)
         uses: actions/checkout@v4
