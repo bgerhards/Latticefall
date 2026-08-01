@@ -39,90 +39,140 @@ counterpart for stray *state* — worktrees and merged branches.
 
 ## Where the project is
 
-**Latticefall is content-complete, playable, and Theatre Scale's process phase is finished.**
-24 anchors, three acts, a board camera with a minimap, multi-lane paths, terrain data and now
-terrain *elevation*, sixteen-yaw turrets, a grading harness that presses buttons, and a
-published build journal.
+**Latticefall is content-complete, playable, and E3 free placement has started.** 24 anchors,
+three acts, a board camera with a minimap, multi-lane paths, terrain elevation, sixteen-yaw
+turrets, a grading harness that presses buttons, CI that runs the real gate and parity on
+**both platforms**, and a published build journal.
 
 The programme is `docs/PRD-THEATRE-SCALE.md`, decomposed into issue specs in `docs/issues/`.
-GitHub is a projection built by `tools/issues.py`. **34 open.**
+GitHub is a projection built by `tools/issues.py`. **31 open, 48 closed.** All five of PRD §6's
+owner decisions are now taken.
+
+**Milestone standing:** E1 Process 17/20 · E2 Camera **8/8 complete** · E3 Placement **4/7** ·
+E4 Terrain 5/14 · E5 War 6/15 · E6 Fidelity 5/8 · E7 Balance 4/7.
 
 ## What the last session did
 
-Fifteen pull requests, decisions 066–072. **E1 process is done and closed out.** Four results
-matter more than the rest.
+**Eleven pull requests (#110–#120), decisions 073 to 076.** The owner interrupted midway to ask
+whether the session was working on the game or on infrastructure — a fair question, and the
+answer was *mostly infrastructure*. **Only one of the first six PRs changed the game.** That
+correction is the most important thing on this page: default to game-facing work, and let
+tooling defects wait in the backlog unless they block.
 
-**`#83` closed — CI now runs the real gate and sharded parity on every pull request.** Before
-this, every merge to `main` was gated on 14 of 29 checks and `rules parity` — the one thing
-making a balance claim falsifiable — had **never run in CI once**. `nightly.yml` targeted
-`self-hosted` labels against **zero registered runners**, so "inert behind a repo variable" was
-wrong; flipping the flag would have queued forever. Now a container image (Godot + xvfb + Mesa)
-runs tier 3 on every PR at **~8 min**, and `parity-shard.yml` runs 1440 runs across four hosted
-shards in **~9m13s** wall clock. It took three CI runs to get green and the first two were red —
-see decision 071, which records the missing Import step and, more usefully, *why the local
-verification could not see it*: a scratch clone carried a gitignored `.godot/` cache that
-survived `git checkout`. Self-hosted was **declined**, reversibly.
+**Decision 073 — the board size target is 48².** The last genuinely-open owner decision.
+`WAR-03`'s 1.73 ms/tick turned out **not** to be the deciding number: the sim budget is 5.6 ms
+(the speed control goes to 3×, so 90 ticks/sec) and 5.2 ms fits at 32², 48² *and* 64². What
+decided it was legibility and authoring. 64² renders a sprite at 30–60 px and its rescue does
+not exist — `calibrate()` will not converge at 384 or 1024 px cells (`LF-102`) and decision 066
+already refused atlas growth on a 630 MB VRAM projection. **Consequences: hand-authoring is
+dead, `LF-080`'s generator is on the critical path, and `CAM-05` option 2 is forced — the board
+is never fully visible in the playfield.**
 
-**The owner played the game and the measurement agreed with them (`LF-176`).** "Most turrets are
-barely able to hit the enemies." Nothing in the project could see that — `sim/run.py` only asks
-whether a build *wins*. `sim/coverage.py` now measures per-emplacement uptime, damage share and a
-pure-geometry lane-coverage ceiling, with `InstrumentedSim` proved outcome-identical to `Sim`.
-Findings: the median gun has a target in range **28–38 % of ticks**; **one in five** placed
-emplacements in acts 1 and 2 contributes essentially nothing; the coverage *ceiling* is ~40 % and
-recovers to 97–100 % at 2x range on **17 of 24** anchors. So it is **range values**, not slot
-placement, and **not** the build policy — a ceiling is a property of the level. Five Act 1
-anchors (01, 03, 04, 05, 07) are the exception and are genuinely slot geometry. **`LF-181` is the
-follow-up and it belongs to `BAL-04`.** Nothing was tuned.
+**Decision 074 — the range pass, and its own premise corrected.** `LF-181` said the tail was
+range values, not slot placement, with five Act 1 anchors as the exception. Raising range lifted
+arc-node (p10 10.8→14.2%) and ion-lance (p10 1.1→**10.2%**) — but **pulse-turret, which is
+66–79% of every near-zero sample in the game, got worse** (p10 6.5→4.0%). The refusal is the
+result: sweeping pulse-turret from 3.2 to **7.0**, more than double what shipped, leaves p10
+pinned at **literally 0.0%** while the median climbs sixteen points. **The tail is slot
+geometry, on far more anchors than five** (`LF-185`). Chasing the median would have looked
+exactly like progress.
 
-**`WAR-02`/`WAR-03` took the rules 24x and 34x faster** — 20.08 ms → 0.84 ms per tick at 512
-units/60 towers, 58.43 ms → 1.73 ms at 1000/80. Both parity legs fresh and identical, Linux and
-Windows. Decision 058 is why the deliverable was the measurement: selection was tested *directly*
-with **0 differing selections** across four modes. `LF-098` closed incidentally — an idle gun now
-measures **0.74x** against a baseline it was 2.87x slower than.
+**`PLC-01` landed — an emplacement has a position, not a slot.** Float64 `x`/`y` in both
+engines, legality behind one mirrored stub. **1440 runs identical, freshly verified.** Gated in
+CI by the full Linux matrix *and* all four Windows shards — the first time a real rules change
+has ever been checked against the binary the owner plays.
 
-**`LF-172` — `BAL-01`'s published headline does not reproduce.** "Surge flips 9 of 72" is in the
-chronicle and is no longer true: `surge-on-peak` is not the sole winner on *any* cell. **Why it
-moved is unknown**, and **three of the nine cells were never written down.**
+**`rules parity (windows)` runs in CI at last**, closing `BAL-06`'s gap and the CI half of
+`LF-105`, the only blocker-severity item. The diagnosis is worth more than the fix: the first
+run failed looking **exactly** like decision 071's precedented import-cache hang, an `--import`
+was added on that hypothesis and **measured not to help**, and it was never hanging at all —
+per-anchor cost rises steeply on `windows-latest` and 562s/360 runs extrapolates past the 1700s
+timeout. It ran out of clock. **`$proc.CPU` read a flat zero through a run that provably did
+correct work** (`LF-191`), which is what made the wrong answer believable.
 
-Also: `PRC-20` (wrap 32 min → **1:20**), `PRC-18` (gamepad injection works, save/load round trip,
-five scenario checks), `PRC-16` (the gate's counts are now *asserted* against its own registry),
-`TER-01` (elevation, proved to the pixel), the first real **loudness** measurement of a named
-non-negotiable, and a `guard.py` rewrite after four false positives.
+**`main` was protected by nothing.** A ruleset reading `enforcement: active` with three
+configured rules whose `ref_name.include` was an **empty list** — so it applied to no refs.
+`/rules/branches/main` returned `[]`. Now fixed and verified against that same endpoint, with
+three required checks. **Second time this project has found configuration that looks live and is
+inert** (`nightly.yml` pointed at zero runners); twice makes it a pattern.
+
+**`LF-172` is answered with a negative**, which is stronger than the "unknown" it carried.
+BAL-01's headline did not drift — nothing that could change a per-cell win/loss changed between
+the two measurements, and no baseline reconstruction (11/12/15/16/19 policies, at both old and
+new ranges) reproduces 9 flips. **Zero of the 72 cells are unwinnable by any policy**, so "loss
+without surge" had nothing to be true of. It was wrong when published.
+
+**Four instruments were found quietly lying, none of them red** — a tier-2 budget that had never
+once been met and was about to be raised a third time, a clock that could count backwards
+(`time.time()`, observed at **−796 ms**), a journal renderer publishing crossed tags to the live
+site, and the inert ruleset. In three of the four the fix was **to make the measurement state its
+own terms**, not to change the measurement.
 
 ## What is broken or missing, in priority order
 
-1. **`LF-181`** — the campaign needs re-tuning against `sim/coverage.py`'s numbers. This is the
-   owner's own complaint and it is `BAL-04`'s job, because raising ranges re-grades everything.
-   Two separable passes: a global range pass, and a slot-geometry pass on the five Act 1 anchors.
-   **Compare the distribution, not the means — the mean hides the tail and the tail is the
-   complaint.**
-2. **`LF-172`** — do not cite `BAL-01`'s finding for anything until it is understood why it
-   moved. `git log -- data/anchors/anchor-12.json anchor-13.json` is the first place to look.
-3. **`rules parity (windows)` still has no CI coverage** and cannot get it from a hosted Linux
-   path. That is the leg `BAL-06` added *because* parity had been testing Linux while the owner
-   plays Windows, so the check that closed that hole is the one CI cannot watch.
-4. **Branch protection has no required checks at all.** There is now a green `gate-tier3` worth
-   requiring.
-5. **`LF-178`** — tier 2 is over its own 28,000 ms budget on clean runs. **Do not raise it
-   again**; move a check out. `facing harness` or `terrain parsers agree` would each do it.
-6. **`#85`** — 288 of 1440 parity runs exercise one shared dispatch mechanism. `LF-182` adds that
-   the shard cost table is built from local 16-core timings and mispacks on hosted runners.
+**Everything on the previous session's list is done.** `LF-181` (decision 074), `LF-172`
+(answered with a negative), Windows parity in CI, branch protection, `LF-178`. This list is
+rebuilt from what the session found and from the owner playing.
+
+1. **`PLC-07` — the placement UI.** `PLC-06` landed the free cursor and a turret now stands at
+   **(8.06, 3.94)** on anchor-01, whose authored slots do not include it, so the owner's original
+   complaint is finally addressable in play. What is left is the *ghost* and the full legality
+   presentation `PLC-07` specifies — the ring and reason exist, the continuous placement preview
+   does not. `PLC-04`'s candidate lattice is also still missing, and `LF-207` records that
+   `PLC-06` carries a minimal fallback scan in its place that must be deleted when it lands.
+2. **`LF-185` — slot geometry is bad on far more anchors than the five ever declared**, and free
+   placement is now the tool to fix it. Named unresponsive slots on anchor-02, 08, 10, 11, 12
+   and 13. This is the re-siting work decision 074 proved was needed.
+3. **`LF-205` — a correction worth reading before repeating anything from the backlog.**
+   `LF-196` claimed the speed control and the three abilities were undocumented anywhere the
+   owner would see them. A capture disproves it: the HUD renders `[1] SURGE`, `[2] OVERCHARGE`,
+   `[3] SHUTTER` with live charge state, and the current game speed with its key. **The real
+   failure was that the backlog said "deferred", that text was quoted back as though it
+   described the present, and nobody opened the game to check.** Same family as `LF-195` and
+   `LF-156` — three items now point at the same missing mechanism, an observation date on
+   anything describing a deferral. **Verify against the running game, not the backlog.** The
+   genuine remaining gap is small: there is no one place a player sees *all* the controls —
+   sell, upgrade, power-toggle, call-wave, target-cycle, minimap-focus and HUD-hide are keyed
+   and shown nowhere. A controls overlay on the existing pause menu.
+4. **`LF-204` — `guard.py` denies the operation its own message recommends.** A stderr redirect
+   counts as a file write, so an in-place Godot import piped to `tail` is blocked; and a bare
+   positional argument is not scrubbed the way a `-m` value is, so filing the report about that
+   was *also* blocked. `LF-179` closed the heredoc shape and narrowed rather than closed the
+   class. Both remaining shapes are in the item with the selftest cases they need.
+5. **`LF-201` — `tools/gc.py --apply` will delete a live agent's worktree branch.** Found live: a
+   fresh agent worktree branch points at `main` until the agent commits, so it classifies as
+   *merged*. Same sibling-safety hole leases closed in `reap.py` (`LF-133`), and worse — a killed
+   process can be re-run, a deleted branch cannot, and the failure is silent until push. **Until
+   fixed, only the coordinator runs `gc.py --apply`, at wrap, like `reap.py --kill`.**
+6. **`LF-208` — slot geometry is bad on far more anchors than the five ever declared.** Named
+   unresponsive slots on anchor-02, 08, 10, 11, 12 and 13. `PLC-04`'s candidate lattice needs them
+   as first-class cases.
+7. **`LF-187` — none of decision 074's range numbers survive 48².** Longer lanes mean a fixed
+   absolute range covers a shrinking fraction. `BAL-04`'s density half must **re-derive range from
+   measured lane length**, not carry these constants forward.
+8. **`#85`** — 288 of 1440 parity runs exercise one shared dispatch mechanism, and the shard cost
+   table is local-16-core-weighted (`LF-182`), now wrong for **two** platforms (`LF-192`).
 
 **Coverage is anchor-dependent in a way the run count hides.** A one-sided `BROWNOUT_SLOPE`
 change was caught with 30 differences on anchor-24 and reported **clean on anchor-01**, which
 never pushes capacity hard enough to exercise it. Never treat an anchor-01 spot check as coverage.
 
+**Two measurements that were being over-generalised, both corrected this session.** A Godot
+*capture* costs ~8 of 16 cores, but a `--script` **parity run is ~2** — it renders nothing, so
+parity and grading overlap freely with other work and the real serialization constraint is
+captures plus the one-rules-workstream rule. And `verdict()`'s (a)/(b) label is computed against
+whatever range is in `data/towers.json` *right now* (`LF-186`, fixed): never compare a coverage
+verdict taken before a tuning pass with one taken after.
+
 ## Needs the owner — do not decide these
 
-1. **PRD §6 #2 — board size target (32² / 48² / 64²).** The last genuinely-open owner decision.
-   It sets the culling, atlas and balance budgets. `WAR-03` has now landed, so the deciding input
-   — a measured frame cost at scale — finally exists: **1.73 ms/tick at 1000 units / 80 towers.**
-2. **Docker is now a standing systemd service on this machine**, installed by an agent during
-   `#83` and disclosed. Idle, ~204 KB. It is the enabling infrastructure for the CI image. Say if
-   it should be removed.
+*Empty. All five of PRD §6's open decisions are taken — #1 half-settled by 073 and otherwise now
+an E6 art question, #2 as decision 073 (48²), #3 and #4 by 069, #5 by 068. Docker stays.*
 
-*Everything else formerly on this list is decided: `LF-151` (decision 066), `LF-131` (067),
-`PRC-11` (068), `TER-12` and `WAR-11` (069) — the last two now closed as issues too.*
+**The standing instruction that outranks the backlog:** the owner interrupted this session to ask
+whether it was working on the game or on infrastructure. It was mostly infrastructure — one of the
+first six PRs changed the game. **Default to game-facing work; a tooling defect that is annoying
+but not blocking goes in the backlog and waits.**
 
 ## Method that works — do not skip it
 
@@ -142,6 +192,26 @@ never pushes capacity hard enough to exercise it. Never treat an anchor-01 spot 
 
 Newest first. Full detail in `CLAUDE.md`.
 
+- **A symptom that matches a known, well-documented, previously-expensive bug is exactly when
+  you stop looking.** The Windows parity run failed looking *exactly* like decision 071's
+  import-cache hang — banner printed, then silence. An `--import` was added on that hypothesis
+  and **measured not to help**. It was never hanging: it ran out of clock. Decision 071 being
+  real and well-written is what made the wrong answer so easy to reach for.
+- **`$proc.CPU` on `windows-latest` reads a flat zero through a process doing real work**
+  (`LF-191`). "No output plus no CPU" reads as wedged when the state is "working, slowly".
+- **`tools/gc.py --apply` deletes a live agent's worktree branch** (`LF-201`) — it points at
+  `main` until the agent commits, so it classifies as merged. Coordinator-only, at wrap.
+- **A check that verifies "output matches input" cannot see a generator that is wrong in a
+  stable, reproducible way.** `chronicle.py --check` was perfectly happy with two *published*
+  pages carrying invalid HTML, because the committed output matched the source exactly.
+- **A backlog item can be fixed and still read as open** — two were (`LF-195`), and one was a
+  *shipped player feature* the owner never heard about (`LF-196`). The cost is a wasted dispatch,
+  or worse, a play session at 1× speed.
+- **`git commit --only` cannot add or remove files and fails silently at both.** Use
+  `git update-index --add <file>`, then assert with `git status --porcelain <dir>`.
+- **Branching from pre-squash history conflicts with `main`** even when the trees are identical —
+  a squash-merge rewrites the SHA, so the old commits look divergent. Merge `main` in and resolve
+  from the source of truth (regenerate derived files) rather than hand-merging.
 - **A `class_name` global is invisible on a clean checkout**, and so are LFS-tracked fonts
   under `lfs: false` — together they made `gdscript parses` pass locally and fail in CI for
   two independent reasons. `gate.yml` imports the project first now.
@@ -172,27 +242,27 @@ Newest first. Full detail in `CLAUDE.md`.
 ### Gate
 
 ```
-[  ok  ] python syntax          1242ms  57 files
-[  ok  ] json parses             406ms  84 files
-[  ok  ] game data              1677ms  57 documents against 7 schemas (7 exercised) · no warnings
-[  ok  ] wave density            106ms  act 1 32 on screen (100%) · act 2 27 on screen (85%) · act 3 21 on screen (65%)
-[  ok  ] dialog capacity         161ms  24 briefs quote their own capacity
-[  ok  ] banned terms           1982ms  280 files clean
+[  ok  ] python syntax           908ms  57 files
+[  ok  ] json parses             360ms  84 files
+[  ok  ] game data              1366ms  57 documents against 7 schemas (7 exercised) · no warnings
+[  ok  ] wave density             96ms  act 1 32 on screen (100%) · act 2 27 on screen (85%) · act 3 21 on screen (65%)
+[  ok  ] dialog capacity         166ms  24 briefs quote their own capacity
+[  ok  ] banned terms           1068ms  280 files clean
 [  ok  ] tier counts               0ms  38 checks, tiers 1-4 all match the docstring
-[  ok  ] sfx determinism        1411ms  ui_confirm byte-identical
-[  ok  ] music manifest           29ms  14 tracks
-[  ok  ] sfx loudness           2328ms  86 file(s) measured (86 sfx, 0 music) · ALL WITHIN BAND
+[  ok  ] sfx determinism         884ms  ui_confirm byte-identical
+[  ok  ] music manifest           30ms  14 tracks
+[  ok  ] sfx loudness           1912ms  86 file(s) measured (86 sfx, 0 music) · ALL WITHIN BAND
 [ skip ] music loudness            0ms  excluded by --tier 2 (this check is tier 4) — did not run
-[  ok  ] sprite atlas           4735ms  568 cells in 2 pages, in sync
+[  ok  ] sprite atlas           2381ms  568 cells in 2 pages, in sync
 [  ok  ] sprite coverage           8ms  22 ids drawn from 44 sprites
-[  ok  ] asset coverage           44ms  22 data ids <-> 26 render assets, both directions clean
-[  ok  ] backlog rendered          5ms  73 open
-[  ok  ] chronicle current       360ms  31 entries, 2 commit(s) behind
-[  ok  ] agent models             16ms  6 agents pinned to sonnet
-[  ok  ] leases wired             22ms  7 launch sites leased
-[  ok  ] sim determinism        6646ms  deterministic
-[  ok  ] gdscript parses        2098ms  35 scripts parse clean
-[  ok  ] godot boots            5117ms  main scene loads clean
+[  ok  ] asset coverage           41ms  22 data ids <-> 26 render assets, both directions clean
+[  ok  ] backlog rendered          6ms  79 open
+[  ok  ] chronicle current       140ms  39 entries, 2 commit(s) behind
+[  ok  ] agent models             13ms  6 agents pinned to sonnet
+[  ok  ] leases wired             20ms  7 launch sites leased
+[  ok  ] sim determinism        7422ms  deterministic
+[  ok  ] gdscript parses        2050ms  35 scripts parse clean
+[  ok  ] godot boots            5116ms  main scene loads clean
 [ skip ] scenario smoke            0ms  excluded by --tier 2 (this check is tier 3) — did not run
 [ skip ] scenario abilities        0ms  excluded by --tier 2 (this check is tier 3) — did not run
 [ skip ] scenario a11y-worst       0ms  excluded by --tier 2 (this check is tier 3) — did not run
@@ -202,16 +272,16 @@ Newest first. Full detail in `CLAUDE.md`.
 [ skip ] game renders              0ms  excluded by --tier 2 (this check is tier 3) — did not run
 [ skip ] menu renders              0ms  excluded by --tier 2 (this check is tier 3) — did not run
 [ skip ] accessibility             0ms  excluded by --tier 2 (this check is tier 3) — did not run
-[  ok  ] terrain parsers agree   2455ms  ok — 2 case(s), python and godot agree with the fixture and each other
+[  ok  ] terrain parsers agree   2561ms  ok — 2 case(s), python and godot agree with the fixture and each other
 [ skip ] rules parity              0ms  excluded by --tier 2 (this check is tier 4) — did not run
 [ skip ] rules parity (windows)      0ms  excluded by --tier 2 (this check is tier 4) — did not run
-[  ok  ] safe operations          22ms  3 files clean (scripts/anchor_sim.gd, sim/engine.py, scripts/test/parity.gd)
-[  ok  ] rules autoloads           6ms  clean against 9 autoload(s): Audio, Content, Display, Progress, Recoveries, Sprites, Tuning, Ui, _mcp_game_helper
-[  ok  ] yaw hysteresis            3ms  YAW_HYSTERESIS_FRAC=0.25 (< 0.5)
-[  ok  ] hooks configured       2375ms  4 events wired (PreToolUse, PostToolUse, SubagentStop, SessionEnd) · guard.py --selftest 45/45 ok
-[  ok  ] facing harness         2792ms  yaw_band.py + facing.gd smoke ok (anchor-07, yaws=4, frac=0)
+[  ok  ] safe operations          25ms  3 files clean (scripts/anchor_sim.gd, sim/engine.py, scripts/test/parity.gd)
+[  ok  ] rules autoloads           7ms  clean against 9 autoload(s): Audio, Content, Display, Progress, Recoveries, Sprites, Tuning, Ui, _mcp_game_helper
+[  ok  ] yaw hysteresis            4ms  YAW_HYSTERESIS_FRAC=0.25 (< 0.5)
+[  ok  ] hooks configured       2390ms  4 events wired (PreToolUse, PostToolUse, SubagentStop, SessionEnd) · guard.py --selftest 52/52 ok
+[ skip ] facing harness            0ms  excluded by --tier 2 (this check is tier 3) — did not run
 
-tier 2 — 26 passed · 0 failed · 12 skipped · 36048ms
+tier 2 — 25 passed · 0 failed · 13 skipped · 28976ms
 ```
 
 ### Inventory
@@ -231,35 +301,35 @@ tier 2 — 26 passed · 0 failed · 12 skipped · 36048ms
 | anchor | act | cap | waves | standard | hard | brutal | verdict |
 |---|---|---|---|---|---|---|---|
 | anchor-01 | 1 | 60 MW | 6 | 2/5 | 2/5 | 1/5 | ok |
-| anchor-02 | 1 | 80 MW | 7 | 5/10 | 4/10 | 2/11 | ok |
-| anchor-03 | 1 | 92 MW | 7 | 4/10 | 4/12 | 2/9 | ok |
-| anchor-04 | 1 | 96 MW | 8 | 4/14 | 3/13 | 2/11 | ok |
-| anchor-05 | 1 | 100 MW | 7 | 5/13 | 4/13 | 3/13 | ok |
-| anchor-06 | 1 | 104 MW | 7 | 6/15 | 5/15 | 2/15 | ok |
-| anchor-07 | 1 | 106 MW | 8 | 4/14 | 3/14 | 2/13 | ok |
+| anchor-02 | 1 | 80 MW | 7 | 6/10 | 5/10 | 6/11 | ok |
+| anchor-03 | 1 | 92 MW | 7 | 4/10 | 4/11 | 3/11 | ok |
+| anchor-04 | 1 | 96 MW | 8 | 5/14 | 5/14 | 2/11 | ok |
+| anchor-05 | 1 | 100 MW | 7 | 6/14 | 5/12 | 4/13 | ok |
+| anchor-06 | 1 | 104 MW | 7 | 6/15 | 6/15 | 4/15 | ok |
+| anchor-07 | 1 | 106 MW | 8 | 4/14 | 4/14 | 4/14 | ok |
 | anchor-08 | 1 | 110 MW | 9 | 3/14 | 3/14 | 3/14 | ok |
-| anchor-09 | 2 | 170 MW | 8 | 8/14 | 4/15 | 3/15 | ok |
-| anchor-10 | 2 | 190 MW | 8 | 7/15 | 3/15 | 3/14 | ok |
-| anchor-11 | 2 | 200 MW | 8 | 6/13 | 3/13 | 2/13 | ok |
-| anchor-12 | 2 | 200 MW | 8 | 9/14 | 6/13 | 4/13 | ok |
-| anchor-13 | 2 | 250 MW | 9 | 6/14 | 6/14 | 4/14 | ok |
-| anchor-14 | 2 | 250 MW | 9 | 6/13 | 6/14 | 6/14 | ok |
-| anchor-15 | 2 | 260 MW | 9 | 6/13 | 6/13 | 4/13 | ok |
-| anchor-16 | 2 | 260 MW | 10 | 8/13 | 4/13 | 4/14 | ok |
-| anchor-17 | 3 | 290 MW | 8 | 5/15 | 4/15 | 4/15 | ok |
-| anchor-18 | 3 | 290 MW | 8 | 4/15 | 3/15 | 3/15 | ok |
-| anchor-19 | 3 | 290 MW | 8 | 6/16 | 5/16 | 4/16 | ok |
-| anchor-20 | 3 | 290 MW | 8 | 6/16 | 6/16 | 5/16 | ok |
-| anchor-21 | 3 | 290 MW | 8 | 6/16 | 3/15 | 2/16 | ok |
-| anchor-22 | 3 | 290 MW | 9 | 4/16 | 4/16 | 4/16 | ok |
-| anchor-23 | 3 | 290 MW | 9 | 5/15 | 4/15 | 2/15 | ok |
-| anchor-24 | 3 | 290 MW | 10 | 6/16 | 4/15 | 4/16 | ok |
+| anchor-09 | 2 | 170 MW | 8 | 9/14 | 6/15 | 4/15 | ok |
+| anchor-10 | 2 | 190 MW | 8 | 7/16 | 4/16 | 3/15 | ok |
+| anchor-11 | 2 | 200 MW | 8 | 7/13 | 5/13 | 4/13 | ok |
+| anchor-12 | 2 | 200 MW | 8 | 9/13 | 8/14 | 6/13 | ok |
+| anchor-13 | 2 | 250 MW | 9 | 5/14 | 5/14 | 5/14 | ok |
+| anchor-14 | 2 | 250 MW | 9 | 7/13 | 7/14 | 7/14 | ok |
+| anchor-15 | 2 | 260 MW | 9 | 6/13 | 6/13 | 6/13 | ok |
+| anchor-16 | 2 | 260 MW | 10 | 9/13 | 6/13 | 4/13 | ok |
+| anchor-17 | 3 | 290 MW | 8 | 5/15 | 5/15 | 5/15 | ok |
+| anchor-18 | 3 | 290 MW | 8 | 6/15 | 5/15 | 3/15 | ok |
+| anchor-19 | 3 | 290 MW | 8 | 6/16 | 5/16 | 5/16 | ok |
+| anchor-20 | 3 | 290 MW | 8 | 6/16 | 6/16 | 6/16 | ok |
+| anchor-21 | 3 | 290 MW | 8 | 5/15 | 4/15 | 3/15 | ok |
+| anchor-22 | 3 | 290 MW | 9 | 5/16 | 4/16 | 4/16 | ok |
+| anchor-23 | 3 | 290 MW | 9 | 5/15 | 4/15 | 4/15 | ok |
+| anchor-24 | 3 | 290 MW | 10 | 6/16 | 6/16 | 5/16 | ok |
 
 *Cells are distinct winning builds / distinct builds tried.*
 
 ### Backlog
 
-73 open · 111 closed
+79 open · 124 closed
 
 - `blocker` LF-105 PARITY BLIND SPOT: the gate never tests the build the owner plays. tools/test_parity.py goes through toolpaths.godot_argv(), and toolpaths.godot() prefers the native Linux build, so all 864 parity runs compare CPython against LINUX Godot. The owner plays the WINDOWS build. MEASURED across 100000 float64 samples on three runtimes: sqrt, fmod, +-*/, floor, round and manual hypot are byte-identical on all three, but Windows Godot (MSVC UCRT) diverges from CPython and Linux Godot (glibc) on atan2 0.084 percent, sin 0.133, cos 0.120, pow 0.130, log 0.031, exp 0.069 and tan 4.32 percent of samples. The rules currently use none of those ops so parity holds today BY ACCIDENT, not by design. Two fixes, both cheap: run test_parity.py against the Windows build at least once per release, and add a gate check that greps anchor_sim.gd and engine.py for the unsafe op set
 - `high` LF-080 THEATRE SCALE 05. Large-board authoring tooling. Hand-authoring a 64x64 multi-lane anchor is not viable and the generator has to exist before the content does. Extends tools/densify.py's preview-first method: generate layout plus lane set plus slot placement, preview it, then grade it
@@ -314,21 +384,27 @@ tier 2 — 26 passed · 0 failed · 12 skipped · 36048ms
 - `med` LF-160 ART-06 shipped two of three emplacement readings and the third is blocked on WAR-10. Idle reads as no arc and no recoil, firing as a cycling reload arc plus recoil, and offline as the existing grey tint with the arc suppressed. SUPPRESSED cannot be distinguished from idle because WAR-10 has not landed: no emp_until or equivalent field exists on the placed record in either engine, so there is nothing for the view to read. This blocks ART-06's own acceptance criterion of three states with three readings. Once WAR-10 adds the field the view side is small -- a separate colour or state on the reload arc, and refusing traverse while suppressed. Hand this to whoever picks up WAR-10.
 - `med` LF-162 The fonts are LFS-tracked and ui_theme.gd preloads them, which is why a clean checkout cascades. Under lfs:false the four .ttf files are pointer text, so the Ui autoload's preload() resolves to a broken FontFile and every script reading Ui.SANS follows it down -- hud.gd, menu.gd, pause_menu.gd, main.gd, draft.gd. CI is green now because gate.yml imports the project first and a parse check does not care that the FontFile has junk in it, but that is tolerating the symptom. The same blanket .gitattributes rule caused the chronicle images to deploy as pointer text. Fonts are small and are source rather than build output, unlike the sprite renders: consider excluding them from LFS the way docs/chronicle/assets was, which would make a clean checkout actually correct instead of merely parseable. Check total size first.
 - `med` LF-164 PRESSURE_FLOOR is deleted (decision 067) and the property it claimed to test still has no instrument. 'The player is pressed against reactor capacity' is the one genuinely good idea the whole game rests on, and peak load ratio cannot measure it: peak is at or above 100 percent on every anchor at every difficulty, which says a greedy policy exists, not that a good board is squeezed. Candidate metrics worth measuring before picking one: the fraction of a WINNING run's sim time spent within some band of capacity; the margin by which the best build clears; or the gap between the best build and the second-best, since a level where one board wins comfortably and the rest fail is a puzzle rather than a decision. Whatever is chosen must be proved to DISCRIMINATE across the 24 anchors before it is trusted -- that is the failure the original made twice.
-- `med` LF-165 The loose sprite renders' Godot .import sidecars are tracked inconsistently and churn the working tree. MEASURED: 584 render PNGs are tracked, only 224 .import sidecars are, and 360 more sit untracked in git status right now — so every agent's 'git status' is 360 lines of noise before it sees its own edits, and 'git status --porcelain | grep -v import' is now a reflex. The game never loads a loose render: scripts/sprites.gd reads only res://assets/renders/sprites.json and the packed atlas pages, so the per-render sidecars are build output of an editor import, not content. Fix is to gitignore assets/renders/**/*.png.import (KEEPING the atlas pages' and _calibration's, whichever sprites.json actually resolves) and git rm --cached the 224 tracked ones. Deliberately deferred out of a fan-out: git rm --cached is an index operation and CLAUDE.md's rule is that the index is global and shared, so this must run in a quiet window with no agent mid-edit. Same family as 3a6b4da, which dropped the sidecars Godot left on the documentation screenshots.
 - `med` LF-168 tools/audio/loudness.py's band is anchored to the bank's own spread and structurally cannot catch a UNIFORM bank-wide drift — every cue N dB hot together moves the mean, the stdev and the band with it, so the check stays green. Stated in the module docstring as a limit of the method rather than a bug, and worth recording separately because it is exactly the failure CLAUDE.md's fifth non-negotiable describes ('a synthesis change that is perfectly deterministic but drifts the whole bank's perceived loudness'). MEASURED consequence of the same property at the per-file level: the SFX band is 23.2 LU wide because cues are deliberately NOT matched to each other (a hover tick and a heavy footfall should not be equally loud), so ui_confirm.wav at +6 dB PASSES — proved, not assumed. Loud-edge and quiet-edge cues do fail at +/-6 dB (shield_break -8.89, threshold_idle -36.77), so the check is real, just blunt in the middle of the band. Fix needs a SECOND signal, not a tighter band: track the bank's mean LUFS against a frozen historical baseline committed alongside the bank, so a uniform shift moves the mean away from a number that does not move with it. Do NOT respond by narrowing the per-file band — that would fail cues the sound design intends to be quiet, and decision 011 already records what happens when a metric gets tuned against itself.
-- `med` LF-169 wrap_gate.py's assets/** escalation trigger fires on ANY uncommitted change under assets/, including Godot-regenerated *.import sidecars that carry no gameplay content. On a shared tree that forces the wrap to tier 4 for reasons unrelated to the session's own work — observed live during PRC-20's own verification, where untracked assets/renders/*.import litter left by another workstream escalated the wrap twice. Interacts directly with LF-165 (360 of those sidecars are sitting untracked right now), so fixing LF-165 also fixes most of this. Either exclude *.import from the trigger, or scope it to TRACKED-file diffs only — the latter is the same reasoning PRC-02 already applied to the gate's file enumeration ('tracked in this repository' is the definition of the thing the check means).
-- `med` LF-170 check.py's per-check elapsed timer uses time.time(), not time.monotonic(). Observed once during PRC-20's verification under heavy concurrent CPU load: a check reported -796ms, i.e. NEGATIVE elapsed time, consistent with a wall-clock adjustment landing mid-check. Not reproduced on demand, so this is one data point rather than a diagnosis. It matters more than it looks: the gate's whole tiering argument rests on per-check costs being trustworthy, --budget turns tier 1's 10s and tier 2's 25s into assertions against those numbers, and tier 2 is currently measuring 24.9-26.4s against a 25s budget — a timer that can move backwards under load is exactly the wrong instrument to be that close to a threshold with. One-line fix; monotonic is what a duration always wanted.
-- `med` LF-172 BAL-01's headline finding DOES NOT REPRODUCE against the current ruleset, and it is published in the chronicle. The claim was 'Threshold Surge flips 9 of 72 anchor-by-difficulty cells from loss to win, sweeping all three difficulties on anchor-12 and anchor-13, and is 0 worse across all 72'. Re-graded today with the full policy roster while closing LF-163: surge-on-peak is not the sole winner on ANY of the 72 cells, charge-gated or not. Every cell it used to flip is already won independently by another policy (mortar-core, burst, flak-screen, intel-first, depending on the anchor), so the loss-without-surge premise the finding rested on is gone. The 0-worse half still holds. Two things are unresolved and both matter. FIRST, why it moved: BAL-01's own report says the four capped-core policies including mortar-core were already in its 16-policy baseline when it ran, so mortar-core's arrival is NOT the explanation. Candidates not yet investigated are the intervening balance fixes LF-098, LF-129, LF-130, LF-136, or a content edit to anchor-12/13 itself; 'git log --oneline -- data/anchors/anchor-12.json data/anchors/anchor-13.json' is the first place to look. SECOND, the three unnamed cells: BAL-01 said nine, and only six (anchor-12 and anchor-13 at three difficulties each) are named anywhere in the issue spec, the chronicle entry, DECISIONS or the backlog — the other three were never written down, which is itself a finding about how a measurement gets recorded here. Do not cite BAL-01's finding for anything until this is settled. The chronicle is append-only, so the correction is a NEW entry linking back, never an edit to the old one.
-- `med` LF-173 tools/chronicle.py's render_inline applies its bold-split on ** AFTER wrapping code spans in <code>, so a glob inside backticks corrupts the output: a backticked 'sim/**' renders as '<code>sim/</strong></code>' — unbalanced tags in published HTML. Also single-asterisk *emphasis* is not supported at all and prints literal asterisks. Both are live on the published site right now: the 'measuring-the-fifth-non-negotiable' entry renders '*current accepted bank*' with the asterisks visible. Found by the chronicler while drafting the next entry, which worked around it by avoiding globs in code spans and using ** for emphasis — a workaround every future entry now has to remember, which is how this stays broken. The chronicle is append-only so the existing entry must NOT be edited; fixing the renderer will correct it on the next regeneration, which is the right shape. Fix is to split on ** BEFORE extracting code spans, or to tokenise once and never re-scan text already placed inside a tag.
 - `med` LF-175 TRAP, cost real state this session: '--user-data-dir' is NOT a flag this Godot 4.7.1 build recognises, and it is ignored SILENTLY rather than rejected — confirmed against --help. A tool that passes it believing it has isolated the save is in fact writing to the real one. Concrete cost: the first version of tools/save_roundtrip.py ran twice against the live Linux dev save at ~/.local/share/godot/app_userdata/Latticefall/progress.json before an unchanged-mtime check caught it. State was reconstructed as far as it could be, but some ambiguity remains because several agents were active on the machine at the time. VERIFIED NOT AFFECTED: the owner's Windows userdata under AppData/Roaming has no progress.json at all and was never written — only its logs directory has a recent mtime, from the Windows parity leg. The working fix, already in save_roundtrip.py: set XDG_DATA_HOME in the child environment, which the Linux backend does honour, and assert the default location's mtime is unchanged after every run rather than trusting the flag. Generalise it: any future tool that needs an isolated user:// must set XDG_DATA_HOME and must ASSERT isolation rather than assume it, because the failure mode is silent and destructive. This belongs in CLAUDE.md next to the .godot/ warning — same class of mistake, same shared machine, and the owner plays out of the same tree.
 - `med` LF-176 OWNER PLAY FEEDBACK 2026-07-31: most turrets are barely able to reach the enemies on the field, so the board feels slow and a lot of built emplacements contribute little. This is the owner playing, not a measurement, and it should be treated as the primary signal — the grader has never had a way to see it. Why the current tooling is blind to it: the sim only asks whether a build WINS, and tools/density.py reports units in flight, so a board where every gun fires at the edge of its range for a fraction of each pass grades identically to one where guns are sited well. Nothing measures per-emplacement uptime, time-on-target, or the fraction of the lane a slot actually covers. Concrete first instrument, cheap and pure-Python: report per-emplacement 'fraction of ticks with a live target in range' and 'share of total damage dealt' out of sim/engine.py, then look at the distribution per anchor — the owner's complaint predicts a long tail of near-zero contributors. Likely causes to separate once measured: (a) slot geometry, the slots authored into each anchor sit too far from the lane, which is what PLC-01 free placement and PLC-04's candidate lattice exist to fix; (b) range values in data/towers.json are simply low relative to lane length; (c) the autobuild/grader policy fills slots in priority order regardless of coverage (LF-053, LF-072), so what the owner sees when a level plays itself is not a sited board at all. Do not tune range numbers before the instrument exists — that is exactly the fitting-to-today's-data move decision 067 rejected.
-- `med` LF-177 OWNER REQUEST 2026-07-31: add a game speed-up option (fast-forward). The pace is slow to play at 1x and there is currently no way to speed it up. Deferred to a later iteration by the owner's own framing, so this is a spec note rather than a task to start now. THE TRAP THAT MUST BE RECORDED WITH IT: a speed multiplier implemented by scaling delta is a RULES change and will break parity. scripts/anchor_sim.gd and sim/engine.py are compared across 1440 runs on two platforms, and float64 accumulation over a different number of differently-sized steps does not reproduce — this is the same class as LF-105's unsafe-op finding, where parity holds today by accident rather than design. The safe shape is to run the SAME fixed tick more times per rendered frame (N sim steps per frame, N integer), never a larger dt. That keeps every rule byte-identical, keeps the sim a pure function of its data, and is also what makes the speed setting safe to expose in a save. Presentation follows for free because the view already reads sim state per frame. Open questions for whoever picks it up: which speeds (2x/3x, or 2x/4x), whether speed is per-session or persisted in progress.json alongside the display block, whether it is disabled during dialog, and whether the FX layers should throttle rather than multiply — combat_fx.gd allocates per spawn and 3x spawn rate is a real cost at the unit budgets WAR-06 is raising toward.
-- `med` LF-178 Tier 2 is over its own declared budget three runs in a row and the answer is NOT to raise it again. MEASURED today, idle-ish: 28598 ms and 28751 ms against a 28000 ms budget, plus 45555 ms on a contended run. PRC-18 raised the budget 25000 -> 28000 when sfx loudness added ~2.1 s; that was documented and reasonable, but a second raise would make the number decorative, and 'raise the threshold until the measurement fits' is the move decision 067 rejected for PRESSURE_FLOOR. The cost is not one check — it is broad: godot boots 5.3 s, sim determinism 4.8 s, facing harness 2.7 s, terrain parsers agree 2.6 s, hooks configured 2.6 s, sprite atlas 2.5 s, gdscript parses 2.1 s, sfx loudness 2.1 s. Real options, in preference order. (1) Move something to tier 3 — 'facing harness' and 'terrain parsers agree' are both narrow regression harnesses rather than broad safety, and either alone brings tier 2 back under. (2) Split the tier: a pre-commit tier 2 at ~10 s and a pre-push tier 2.5, which is closer to what the tiers were originally sold as. (3) Accept the number and re-derive the budget from a documented percentile rather than a round figure, recording the machine and the load it was measured under — the current budget is a round number with no stated derivation, which is why it keeps being adjusted. Note --budget is NOT passed by check.py's default invocation or by the wrap, so this is currently advisory in every path that runs; asserting it is a separate decision and would turn this into a red run today. Interacts with LF-170: check.py times checks with time.time() rather than time.monotonic() and was seen reporting a NEGATIVE 796 ms under load, so the instrument the budget is judged against can move backwards.
-- `med` LF-179 guard.py's payload scrubbing does not cover HEREDOC bodies, so the LF-171 class is narrowed but not closed. Found live by the chronicler immediately after the fix landed: a Bash command whose heredoc body merely MENTIONED an import-cache path in prose, alongside an unrelated 'cat > file' redirect elsewhere in the same command, tripped rule_godot_write. _scrub_payload_values() blanks the value after -m/--message/-F/--file/--body/--body-file, which covers the four occurrences that motivated the fix, but a heredoc is a different shape: the body is not an argv token at all, it is stdin, and shlex tokenises it as ordinary words. Worked around by using the Write tool instead of a heredoc, which is the right habit anyway and is now the coordinator's default for anything long. Not urgent — the remaining exposure is prose in a heredoc, which is rarer than a commit message and has an obvious workaround — but it should be recorded rather than left to be rediscovered, because 'the guard was fixed' is now in the chronicle and someone will reasonably read that as complete. Fix is to detect << and <<- and blank everything from the delimiter to its terminator before any pattern runs. Add it to guard.py --selftest with the exact shape found here: a heredoc mentioning a guarded path plus a real redirect in the same command, which must still deny on the redirect and not on the prose.
 - `med` LF-180 RULE, learned twice in one session: 'git commit --only <paths>' is for MODIFICATIONS to tracked files. It cannot add and it cannot remove, and it fails SILENTLY at both — reporting success while committing something other than what the message describes. Occurrence 1 (LF-166): --only on a directory omitted an untracked file, so a chronicle entry's index.html and chronicle.json shipped without the entry page they link to — a dead link on the published site. Naming the new file directly then errors with 'did not match any file(s) known to git'. Occurrence 2 (this one): 222 sidecars staged for removal with 'git rm --cached' still existed on disk, so --only saw them present, DISCARDED the staged deletion and committed 6 files while reporting success; the commit message claimed 222 removals and 'git ls-files' still showed 224 tracked. Nothing red either time. The coordinator workflow in CLAUDE.md and the ship skill both prescribe --only as THE way to commit in a shared tree, which is correct for its actual job — it is index-independent, so a concurrent agent's staging cannot leak in — but the docs do not say what it cannot do. They should, in one line, plus the two escapes: 'git update-index --add <file>' to introduce a new file, and an index-audited plain 'git commit' for removals ('git diff --cached --name-only' must be empty first, then verified to contain only the intended paths). And every commit that adds or removes a file should be followed by an assertion — 'git status --porcelain <dir>' empty for adds, 'git ls-files <glob>' for removals. A gate check is possible but probably overkill; the doc line and the habit are the fix.
-- `med` LF-181 LF-176 is MEASURED and the owner was right — this item is the follow-up work, and it is BAL-04's. sim/coverage.py now reports per-emplacement uptime, damage share and a pure-geometry lane-coverage ceiling per slot. Findings, from two byte-identical 24-anchor runs with InstrumentedSim proved outcome-identical to Sim: median gun has a target in range only 28-38 percent of ticks; roughly ONE IN FIVE placed emplacements in acts 1 and 2 contributes essentially nothing (178 of 589 samples on anchor-10, 172 of 644 on anchor-13, 88 of 320 on anchor-02); median lane-coverage CEILING — the best any tower could do from the best slot — is about 40 percent, rising to 97-100 percent at 2x range on 17 of 24 anchors. So the dominant cause is (b) RANGE VALUES SHORT relative to lane length, not slot placement, and not the autobuild policy: the ceiling is a property of the level, so no build policy can beat it. Five Act 1 anchors are the exception and are (a) GEOMETRY — anchor-01, 03, 04, 05, 07 do not recover even at 2x range, their slots are simply too far from the lane, and anchor-02's p10 uptime is 0 percent. Only anchor-06 and anchor-20 grade as sited adequately. THE WORK: raising ranges changes every grade, so this is a full campaign re-grade and must go through BAL-04, not a spot fix. Do it in two separable passes — a global range pass against the (b) anchors, and a slot-geometry pass against the five (a) anchors, which is what PLC-01 free placement and PLC-04's candidate lattice exist for. Re-run sim/coverage.py after each and compare the DISTRIBUTION, not the means; the mean hides the tail and the tail is the complaint. Do NOT tune to make the ceiling number look good — the ceiling is a diagnostic, and fitting to it is the move decision 067 rejected.
 - `med` LF-182 tools/parity_costs.json's LPT bin-packing is tuned on local 16-core timings and redistributes unevenly on hosted runners. MEASURED on the first real CI firing of parity-shard.yml (PR #104, run 30673542813): shard 0/4 7m47s, 1/4 9m05s, 2/4 5m37s, 3/4 7m42s — a 1.6x spread, all four passing. Not a problem at this scale, since the whole 1440-run matrix still finishes in ~9m13s wall clock with the shards in parallel, and the pre-merge projection of 'around 8 minutes per shard' held honestly. But the packing is doing less work than it thinks: the cost table is populated from runs on a 16-core box and hosted runners have different relative per-anchor costs, so the LPT assignment is optimising against the wrong weights. This is the first thing to look at if the matrix ever needs to be faster — better than adding shards blindly, which just multiplies the fixed per-job setup. PRC-19 (#85, right-size the parity matrix from measured discrimination) should own it, and should use hosted timings rather than local ones to rebuild the table. Note also that 288 of the 1440 runs exercise one shared dispatch mechanism across all 24 anchors, which #85 already records — cutting those is a bigger win than rebalancing what remains.
 - `med` LF-183 AnchorView._draw_editor_overlay() (the in-editor path/IN/OUT preview) does not apply Iso.height_offset() to its waypoint polyline or markers, unlike _draw_board()/drawables()/_draw_range() which TER-01 made elevation-aware. Cosmetic only — editor authoring aid, never seen in a real playthrough — but a path crossing a raised region will preview at ground level until this is fixed.
+- `med` LF-185 LF-181 pass 1 (global range) is DONE and PARTIAL — slot geometry is a much bigger share of the tail than LF-181 claimed, and the five declared anchors are not the whole of it. MEASURED: raising arc-node 2.6->3.8, pulse-turret 3.2->4.0, flak-array 3.8->4.6, ion-lance 5.5->6.2, mortar 6.5->7.0 lifted the tail for arc-node (p10 10.8->14.2 pct, near-zero 9.0->6.9 pct) and ion-lance (p10 1.1->10.2 pct, near-zero 17.2->9.9 pct) but NOT for pulse-turret (p10 6.5->4.0 pct WORSE, near-zero 13.5->13.3 pct flat). pulse-turret is 66-79 pct of every near-zero sample in the game because the autobuild fills every leftover slot with it, so its flat tail dominates the aggregate. THE DECISIVE PROOF that this is not a range problem: sweeping pulse-turret range 3.2 to 7.0 (more than 2x what shipped) on the five worst anchors leaves p10 pinned at literal 0.0 pct at every step while p50 climbs 28.0 to 44.5 pct — the median moves and the tail does not, which is exactly the ceiling-fitting trap decision 067 rejected. Named bad slots that do not respond to range at 7.0: anchor-02 (13,6)(9,10)(6,0), anchor-08 (5,8)(9,8)(13,8)(5,5), anchor-10 (7,13)(12,13)(3,9)(8,9), anchor-11 (15,11)(10,12)(6,12), anchor-12 (9,11)(13,11)(5,11), anchor-13 (11,0)(6,0)(1,4)(6,4). PLC-01 free placement and PLC-04's candidate lattice should treat these as first-class alongside anchor-01/03/04/05/07, not just the officially declared five. Also note two of the three flagship anchors from LF-181's own findings got WORSE or flat (anchor-02 88/320 to 94/320, anchor-10 178/589 to 181/586)
+- `med` LF-187 Tower range must be RE-DERIVED from measured lane length at 48 squared, not carried forward as a constant. Decision 073 set the board size target to 48x48 (2304 tiles, 8.5x today's 18x15). LF-181 measured that today's lane lengths of 24-51 tiles already leave a roughly 40 pct best-case lane-coverage ceiling at the OLD ranges, and only lifted it partially at the new ones. A board 8.5x larger lengthens lanes further, so a fixed absolute range constant covers a shrinking fraction of the lane and the near-zero tail LF-176 found gets structurally worse, not better. BAL-04's density half — the theatre-scale rebase, which is the part still blocked — must treat range as a quantity derived from lane length on the new board rather than an untouched constant. Same reasoning as the density targets and the leak budget, which BAL-04 already says to re-derive. Flagged by the LF-181 range pass, which deliberately did NOT act on it because it was tuning today's 18x15 boards
+- `med` LF-190 LF-172 IS ANSWERED and the answer is that BAL-01's headline was WRONG WHEN PUBLISHED, not that it drifted. Two independent lines of evidence, both measured. FIRST, git (LF-188): between BAL-01 (4daeb7c) and the re-grade that disconfirmed it (00c64ca), data/anchors/ data/towers.json data/enemies.json data/tuning.json sim/engine.py and scripts/anchor_sim.gd ALL have zero changes, the only commits touching data/ sim/ or scripts/ are a PRESSURE_FLOOR deletion (which feeds the anchor verdict, not per-cell win/loss, and was measured dead at 0 of 72) and a whitespace-only reindent of a view script, and the 20-policy roster is byte-identical. SECOND, the method hypothesis is now tested and also dead. BAL-01 claimed surge flips 9 of 72 cells from LOSS to WIN, so nine cells must have had NO winner without surge. Every plausible baseline reconstruction was graded — 11 policies (base minus greedy-overdraw), 12 (base only), 15, 16 (base plus capped-core, which is what BAL-01's own report claims it used) and 19 (everything except surge-on-peak) — and ALL FIVE produce ZERO flips. Run twice: once at today's post-LF-181 ranges and once at the PRE-LF-181 ranges via dataclasses.replace, to eliminate the range change as a confound. Byte-identical conclusions both times. The decisive number is that ZERO of the 72 cells are unwinnable by any policy at ANY baseline including the 11-policy one, so 'loss without surge' has nothing to be true of. surge-on-peak is the sole winner on 0 of 72, reproducing 00c64ca exactly. CONSEQUENCE: the chronicle correction already published stands and needs no further amendment, LF-172's 'why it moved is unknown' can be retired, and the four candidate causes it named (LF-098 LF-129 LF-130 LF-136) are all ruled out. The three unrecorded cells of the nine remain unrecoverable but no longer matter, because the claim does not reproduce under any reading of what its baseline was. WHAT REMAINS WORTH KEEPING from LF-172 is the process finding, not the balance one: a measurement was published with three of its nine data points never written down anywhere, which is why it could not be audited and had to be refuted by reconstruction instead
+- `med` LF-191 TRAP for anyone debugging a Windows CI hang: PowerShell's Process object CPU / TotalProcessorTime is NOT a trustworthy 'is it stalled' signal for Godot on windows-latest. MEASURED during BAL-06's hosted Windows parity work: a CPU poll showed cpu_seconds=0 and working_set_mb=6.5 across all 12 samples over 4 minutes, on a run that PROVABLY completed real and correct work — anchor-05 alone finished at 55-60s emitting fully valid PARITY_JSON for all 48 of its combinations while the poll read a flat zero throughout. The flatline is a measurement artifact of how the Process object reports for this child, not evidence of a stall. Consequence: it sent the diagnosis down a false path, because 'no output plus no CPU' reads as wedged when the real state was 'working, slowly'. Distinguish 'no output' from 'no CPU' using wall clock against a known-good baseline — the single-anchor smoke path in parity-windows.yml completes in 20-30s and is the right reference — rather than CPU polling alone
+- `med` LF-192 The Windows parity leg's per-anchor cost is both HIGHER than the local 16-core benchmark and RISES STEEPLY across anchors, which is why an unsharded full run cannot fit a sane job budget on windows-latest. MEASURED during BAL-06: sweeping anchors individually on the hosted runner, anchor-01 through anchor-04 completed cleanly with a rising trend of 24.1s to 48.1s, and anchor-05 alone took 55-60s. Extrapolating the observed 562s for 360 runs to the full 1152 gives roughly 1800s, which is almost exactly where the original unsharded 29-minute run died against test_parity.py's own 1700s no-output timeout. So the first Windows failure was never a hang — it was real computation that ran out of clock, and it looked exactly like decision 071's precedented class_name/import-cache hang without being it. The import step was added on that hypothesis and MEASURED NOT TO HELP: a post-import CPU poll was identical to the pre-import one. Sharding 4-way with PRC-05's existing --shard I/N mechanism is what actually fixed it. Note also that tools/parity_costs.json's LPT table is built from LOCAL 16-core timings, so it is the wrong weighting for the Windows shards just as LF-182 already records for the hosted Linux ones; only shard 0/4 has a real Windows number so far (562s for 360 runs)
+- `med` LF-194 APPLIED 2026-08-01: main's branch protection is now live and verified. The inert ruleset (id 20132789, LF-193) had conditions.ref_name.include empty so it applied to no refs; a single PUT set include to ~DEFAULT_BRANCH and added a required_status_checks rule, preserving deletion, non_fast_forward and the pull_request rule at their exact live values. VERIFIED against the endpoint that reports what actually applies, not against the API returning success: gh api repos/:owner/:repo/rules/branches/main now returns [deletion, non_fast_forward, pull_request, required_status_checks], where it returned [] before. Required checks are 'gate', 'Build CI image (PRC-17)' and 'Gate (tier 3, container)'. All three come from gate.yml with NO path filters, so a docs-only PR is unaffected — all three always run and all three pass. Requiring 'Build CI image (PRC-17)' directly, rather than relying on 'Gate (tier 3, container)' alone, is deliberate: the tier-3 job declares needs: build-ci-image, and GitHub's needs semantics SKIP rather than fail a dependent job when its dependency fails, so a required check that gets skipped is a gap. Checked the last 8 merged PRs (#102-#109): all three were green on every one from #102 onward, so nothing recent would have been blocked. CONSEQUENCE TO KNOW: direct pushes to main now fail — everything goes through a pull request. That requirement had been configured but never enforced, so this is new behaviour rather than a restoration
+- `med` LF-195 STALE-ITEM AUDIT, 2026-08-01: LF-165 and LF-169 were both already fixed in the tree while still reading as open, and were closed only because someone happened to check. VERIFIED before closing, not assumed. LF-165 (loose render .import sidecars churning git status): git ls-files on assets/renders sidecars returns 2, not the 224 the item describes, and those 2 are the atlas pages which .gitignore deliberately keeps with a comment saying so; git status --porcelain assets/ returns 0 lines. LF-169 (wrap_gate.py escalating to tier 4 on any assets/ change including .import litter): tools/wrap_gate.py carries ESCALATE_IGNORE_SUFFIXES = ('.import', '.uid') with a long comment recording that WITHOUT it PRC-20 was inert — 360 untracked sidecars escalated every single invocation so the fast wrap never once ran — and explicitly rejecting PRC-02's tracked-files-only reasoning for this one case, because a brand-new sim/foo.py or data/anchors/anchor-25.json is untracked at exactly the moment it most needs tier 4. THE PROCESS FINDING, which is why this is filed rather than just closed: LF-156 already recorded that items filed from a worktree go stale against a merge, and proposed that an item record the commit it was observed at so session-start can re-check anything whose observation commit is behind HEAD. That is still not implemented, and this is two more instances. A backlog that carries fixed items is not merely untidy — it costs a dispatch, because the next agent sent to fix one of these would deliver verification rather than the work asked for
+- `med` LF-196 OWNER-FACING CONTROLS AUDIT: LF-177 (game speed-up) was filed as 'deferred to a later iteration' and is in fact SHIPPED — the owner did not know, and asked about pacing again on 2026-08-01. data/tuning.json authors speeds [1.0, 2.0, 3.0], anchor_view.gd cycle_speed() wraps through them on the lf_speed_cycle action, project.godot binds that to physical keycode 96 (the backtick key) and gamepad button 7, and hud.gd renders the current value as 'Nx SPEED' top-left. It is implemented exactly the safe way LF-177 itself demanded: _accum += delta * speed runs the SAME fixed tick more times per frame rather than scaling dt, so parity is unaffected — which is why 1440 runs still pass. THE FINDING IS NOT ABOUT SPEED, IT IS ABOUT DISCOVERABILITY. A shipped player-facing control the owner does not know exists is worth nothing, and the backlog said 'deferred' for long enough that it got quoted back as outstanding. Two things worth doing. (1) Audit every player-facing control against what the owner has actually been told — speed is unlikely to be the only one; candidates are the minimap focus key, edge scroll, the pause menu volume controls, sell and upgrade, and gamepad build. (2) Treat 'shipped but unannounced' as a distinct backlog state from 'open', because closing it silently is what let this happen. Related to LF-195 (stale items cost a dispatch) but worse: this one cost the OWNER a play session at 1x speed
+- `med` LF-197 PLC-02 LANDMINES — four places still assume INTEGER slot coordinates and will bite the moment free placement's legality predicate opens up. Found deliberately during PLC-01 rather than left to surface later; all are presentation, none is in the rules. (1) LOAD-BEARING-WRONG: scripts/combat_fx.gd's _beams dictionary is keyed by Vector2i(int(x), int(y)), so two emplacements in the SAME integer cell — say (4.3, 7.0) and (4.7, 7.0) — collide, and _find_placed() returns whichever placed record it hits first for that key. A sustained-beam weapon's beam can therefore attach visually to the wrong emplacement. (2) AnchorSim.available_slots() enumerates anchor['slots'] and returns Vector2i, so it is tied to the fixed-slot CONCEPT rather than to _is_placeable(). The moment PLC-02 accepts a position outside that array this function will not reflect it at all, and every consumer needs rework rather than a signature change: _autobuild_step(), _click()'s legality gate, _draw_hover(), _draw_reach(), main.gd::_build_one(), facing.gd. (3) The entire click and select UI is Vector2i-typed — hovered_slot, selected_slot, NO_SLOT, _click(), placed_index_at(), sell_at(), upgrade_at(), toggle_at(), _step_cursor() — and hovered_slot = Vector2i(roundi(t.x), roundi(t.y)) rounds the mouse position before anything else sees it. THERE IS CURRENTLY NO WAY FOR A PLAYER TO BUILD, SELECT OR SELL AT A NON-INTEGER POSITION regardless of what the rules allow, which is exactly how PLC-02 could ship green and change nothing visible in play. That is the most important item here. (4) main.gd's scenario 'build' verb truncates with Vector2i(int(args[1]), int(args[2])), so a scenario JSON asserting a fractional build position would be silently floored. Cosmetic only and not worth blocking on: fx_additive.gd's field-pulse desync hash also rounds to Vector2i, where a collision just means two nearby supports pulse in phase. CONFIRMED ALREADY FLOAT-NATIVE and needing only the predicate body swapped: _is_placeable, _occupied, _slot_priority, _covered_by, _select_target, IsoScript.tile_to_screen. One int() cast that is CORRECT and must not be 'fixed': anchor_view.gd's _height_at(int(x), int(y)), the intended world-to-tile truncation matching sim/content.py's Anchor.height_at()
+- `med` LF-198 tools/analysis_overdraw.py and tools/analysis_shield_wall.py are dead code and are now also broken. Both call Placed(tower=..., slot=...) and self.free_slots.remove(...), neither of which exists after PLC-01 renamed the representation to x/y floats. Left untouched deliberately: both already carry a hardcoded sys.path.insert(0, '/Users/briangerhards/dev/defend-claude') pointing at a nonexistent path on this machine — an old project name and an old host — so they were non-runnable BEFORE this change, not broken by it. Neither is gate-checked, neither is imported by anything, and neither appears in any documented command. Recommend deleting both rather than repairing them; if they are worth keeping, the hardcoded macOS path has to be fixed in the same pass or they will stay dead either way. Note tools/analysis_lf014.py was in the same family but IS repaired, because it was reachable
+- `med` LF-199 Two backlog items name a field that no longer exists after PLC-01. LF-123 and LF-126 both refer to AnchorSim.free_slots by that field name; the fixed-slot free_slots array is gone, replaced by x/y float64 positions and a single _is_placeable() predicate. LF-123's actual concern is unaffected — it is about _shed() reaching into s.placed directly rather than going through set_online(), and it never touched free_slots. LF-126 says '2 of the anchor's 12 build slots (index 2 and 3 in free_slots order) are off-screen at anchor-17's default camera framing'; the ordering is unchanged but the phrase should now read 'in anchor[slots] order'. Both are stale wording rather than stale findings. Filed rather than silently edited because the backlog is a record and LF-195 already established that quietly-wrong items cost a dispatch
+- `med` LF-200 OWNER PLAY FEEDBACK 2026-08-01: WASD should PAN THE CAMERA, not step the build cursor. Verbatim: 'I do not like the idea of wasd changing cursor position the way it is. Wasd should allow to move the screen. Cursor selection with wasd does not feel great.' This is the owner playing, and this project's history says that signal outranks any measurement — LF-176 was the same class and became the most valuable finding of its session. MECHANISM, confirmed by reading the code rather than assumed: project.godot binds lf_up/lf_down/lf_left/lf_right to BOTH WASD and the arrow keys, and anchor_view.gd lines 1082-1089 routes all four straight to _step_cursor(Vector2(...)). There is NO keyboard camera pan on the board at all — _cam_target is moved only by edge scroll (line 607), by drag (657) and by the minimap (568). SECOND BUG FOUND WHILE CHECKING, and it is a documentation lie the player can see: hud.gd line 810 prints the minimap legend as 'M FOCUS · ARROWS PAN', but arrows only pan when _minimap_focused is true (hud.gd:850). On the board they step the cursor. So the HUD states a control that does not exist in the mode the player is usually in. THE DESIGN QUESTION, deliberately not decided here: the owner asked for WASD to pan, but did not say what should then move the cursor. Options are (a) arrows keep cursor stepping and the legend is corrected, (b) cursor stepping moves to the gamepad d-pad only and the keyboard loses it, (c) a modifier. Note this interacts directly with PLC-06 (a free board cursor, keyboard and gamepad placement without a slot graph) and with LF-197's finding that the whole click and select path is Vector2i-typed and rounds the mouse before anything sees it — so whoever takes PLC-06 should take this with it rather than the two being solved twice. Input goes through the action map and lf_* actions are generated by tools/godot/setup_input.gd; do NOT hand-edit the [input] block in project.godot, because a typo in a serialized InputEvent produces an action that silently never fires (decision 042)
+- `med` LF-201 tools/gc.py has the SAME sibling-safety hole that leases were built to close in tools/reap.py, and it is arguably worse because it destroys state rather than a process. FOUND LIVE 2026-08-01 while two agents were running: gc.py --apply dry-run reported 'branch would delete + worktree-agent-a7712cc56b9f06fe1 (merged into main)' for the branch of an agent that was ACTIVELY WORKING in that worktree at that moment. It classifies as merged because a freshly-created agent worktree branch points at the same commit as main until the agent commits something — so the entire window between 'worktree created' and 'agent's first commit' is a window in which gc.py --apply will delete a live agent's branch. reap.py had exactly this problem (LF-133: CLAUDE_CODE_SESSION_ID is per top-level session, not per subagent, so a sibling's live Godot classifies as own-session) and the answer there was leases under .cache/leases/ plus a classification walk up the parent chain. gc.py has no equivalent — it reasons purely about git state with no notion of whether anything is using it. THE ASYMMETRY THAT MAKES IT WORSE: a killed process can be re-run; a deleted branch carrying uncommitted-then-committed agent work is gone. And the failure is silent — the agent keeps working in a worktree whose branch ref no longer exists and only discovers it at push time. THREE CANDIDATE FIXES, in preference order. (1) Have the Agent-tool worktree mechanism take a lease the same way every other launch site does, and teach gc.py to skip leased worktrees and their branches — this is the consistent answer and reuses PRC-07's machinery. (2) Refuse to delete any branch whose worktree is currently checked out and locked; git worktree list already reports 'locked' for exactly these, and the dry run PRINTED locked for this one while still proposing to delete its branch, so the information is already there and simply is not consulted. (3) Weakest: treat 'points at main with zero commits' as 'too new to judge' rather than as 'merged'. Until one of these lands, the honest rule matches reap.py's: the coordinator runs gc.py --apply only at wrap, after every agent has reported. PRC-15 (worktree per workstream) should own this, since it is the issue that makes agent worktrees the normal case rather than the exception
+- `med` LF-202 FOOTPRINT_RADIUS is a single shared rules constant (0.45 tiles, defined in both sim/engine.py and scripts/anchor_sim.gd), NOT the per-tower footprint_radius field PLC-01's task list anticipated in data/towers.json. No such field exists yet, and data/towers.json was deliberately out of scope for PLC-02 because decision 074 had just re-tuned every range and a second edit in the same window would have made the two changes inseparable in any measurement. CONSEQUENCE TODAY: every tower gets an identical footprint, so the overlap test and the lane-standoff test treat a pulse-turret and a mortar-emplacement the same. Zero risk right now — VERIFIED, not assumed: no two authored slots in any of the 24 anchors are closer than 0.9 tiles, so the shared 0.45 can never produce a false overlap against the existing content. It becomes real the moment free placement is player-reachable, because a player will put emplacements as close together as the rule allows, and a siege battery occupying the same footprint as a scan relay is a design statement nobody made. THE WORK: author a per-tower footprint_radius in data/towers.json plus towers.schema.json, and read it in place of the constant in both _placement_reason() implementations — keeping the term order identical character-for-character, which is the discipline that made PLC-02's 48,837-position differential come out empty. Belongs with PLC-04 (candidate lattice) or PLC-07 (placement UI ghost), whichever lands first, since both need to draw or reason about real per-tower geometry
+- `med` LF-203 board_props.gd's ring and bindstone props (_ring_ground / _bind_ground) still project at elevation level 0 regardless of the height of the path's entrance and exit tiles. Same class of floating-prop bug TER-07 just fixed for the board itself, and explicitly outside TER-07's task list, which named only the ground sigils and the ring ticks. Harmless today because no authored anchor elevates its lane ends — but it becomes visible the moment one does, and it will read as a terrain bug rather than a prop bug, because the ground under the prop will have moved and the prop will not have. The fix is the same shape TER-07 already applied to _build_edge, _build_ground_sigils and _build_ring_ground_ticks: read the tile's own height instead of assuming 0. Worth doing alongside whichever issue first authors an anchor with raised lane ends — TER-09 (the lane climbs, waypoint z) is the obvious one, since it is the issue that makes raised lane ends exist at all
 - `low` LF-086 THEATRE SCALE 11. Per-node power grid, so supply is regional rather than one global capacity_mw. Losing a flank should cost the guns on that flank. Large rules change; check first whether it can be expressed as data plus an existing effect type before adding a new rule shape
 - `low` LF-091 THEATRE SCALE 16. Turret animation: traverse, recoil and reload frames. A turret that visibly turns and recoils sells mass better than any particle effect. Frames are cheap in the atlas and the pivot is already measured, but this multiplies cell count so it interacts with the atlas page budget
 - `low` LF-093 THEATRE SCALE 18. Dynamic score and battlefield mix responding to wave intensity, so pressure is audible before it is visible. The audio director already ducks music on brownout; this extends that idea to the whole fight
@@ -338,14 +414,14 @@ tier 2 — 26 passed · 0 failed · 12 skipped · 36048ms
 ### Recent commits
 
 ```
-f350a77 docs(state): rewrite for a session that finished E1 and started the game work (#108)
-ac81db1 fix(gate): the journal check matched on a hash that squash-merge destroys (#107)
-5a9fcb1 perf(rules): hoist unit positions, then index them — 24x and 34x (#106)
-131526a feat(terrain): elevation is a blit offset, measured against the real camera (#105)
-5d90e87 feat(sim): measure what the owner could see and the grader could not (#104)
-dc78b08 ci: run the real gate on every PR, and parity in CI for the first time ever (#102)
-fd6b53b docs(gate): assert the gate's own counts, and delete the costs that rotted (#103)
-ae27535 chore: stop tracking the loose renders' import sidecars (#101)
+352ce00 docs(chronicle): a placement rule, in both engines
+2911fd9 chore(parity): refresh the shard cost table from PLC-02's full run
+efdd278 docs(backlog): per-tower footprint geometry, deferred out of PLC-02
+64c9314 feat(rules): where you may build is a rule, in both engines
+0a3776a feat(rules): an emplacement has a position, not a slot (#116)
+c10217a fix(sim): record the ranges a coverage verdict was computed against (#115)
+0b9f038 ci(parity): rules parity runs against the Windows build the owner plays (#114)
+9227e51 fix(chronicle): pair bold across code spans, and assert the result instead of noticing it (#113)
 ```
 
 <!-- END AUTO -->
