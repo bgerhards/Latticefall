@@ -54,17 +54,48 @@ STEPS: list[tuple[list[str], str, int]] = [
     ([str(PY), "tools/session.py", "--tier", "2"], "STATE (tier 2 gate)", 900),
 ]
 
-NARRATIVE_REMINDER = """\
-A PreCompact wrap just ran the MECHANICAL half of the session wrap. It regenerated
+# Manual `/compact`: the model gets a turn between this hook and the summary, so an
+# instruction to write the narrative half can still be obeyed with the conversation intact.
+MANUAL_NOTE = """\
+A PreCompact wrap just ran the MECHANICAL half of the session wrap — it regenerated
 docs/STATE.md's AUTO block, rendered the backlog and reaped stray processes.
 
-It CANNOT write the half that matters. Before this context is compacted away, make sure
+It CANNOT write the half that matters, and you still can. BEFORE compacting, make sure
 docs/STATE.md's hand-written sections are current — "Where the project is", "What the last
 session did", the priority list, and any new traps — written for someone with no memory of
-this conversation. Also confirm anything in flight is committed or explicitly recorded as
+this conversation. Confirm anything in flight is committed or explicitly recorded as
 unfinished, and that docs/DECISIONS.md has an entry for every real decision taken.
 
 If that is already done, say so and carry on; do not redo it."""
+
+# AUTO-compact: there is NO model turn between this hook firing and the summary being
+# produced. An instruction to "write the narrative before the context goes" would be read
+# only AFTER the context is gone, which is an order that cannot be obeyed — and worse, it
+# would read as though the wrap had succeeded in full. So the auto path says the opposite:
+# it declares the narrative half MISSING and tells the next reader where to reconstruct it
+# from. Being told "this is stale, here is the ground truth" is worth far more than being
+# told to do something that is no longer possible.
+AUTO_NOTE = """\
+CONTEXT WAS AUTO-COMPACTED. A PreCompact wrap ran the mechanical half — docs/STATE.md's AUTO
+block, the backlog render, and the reaper.
+
+THE NARRATIVE HALF OF docs/STATE.md WAS NOT WRITTEN, and could not have been: auto-compaction
+gives no turn between this hook and the summary, so there was no moment in which to write it
+with the conversation still intact.
+
+TREAT STATE.md's HAND-WRITTEN SECTIONS AS STALE — "Where the project is", "What the last
+session did", the priority list. Its AUTO block below the marker is current; the prose above
+it is not. Reconstruct from ground truth rather than trusting it:
+
+  git log --oneline -30            what actually landed
+  gh pr list --state merged -L 10  what shipped, with the reasoning in each body
+  docs/chronicle/chronicle.json    the journal — written per PR, append-only
+  docs/DECISIONS.md                append-only; the tail is this session's decisions
+  tools/backlog.py list            what was filed, including anything mid-flight
+
+Then rewrite STATE.md's prose from what you find, and say plainly in your first message that
+the previous session ended on an auto-compaction so the summary may be missing work in
+flight. Check `git status` for uncommitted changes before starting anything new."""
 
 
 def run(argv: list[str], label: str, timeout: int) -> str:
@@ -80,22 +111,42 @@ def run(argv: list[str], label: str, timeout: int) -> str:
     return f"{label}: {'ok' if r.returncode == 0 else f'exit {r.returncode}'} — {last}"
 
 
+def trigger_from_stdin() -> str:
+    """"auto" or "manual" — which kind of compaction is about to happen.
+
+    PreCompact's stdin payload carries the trigger, and the two cases need OPPOSITE messages
+    (see MANUAL_NOTE / AUTO_NOTE). Defaulting to "auto" on anything unparseable is the safe
+    direction: the auto message tells the reader the narrative is missing and where to
+    reconstruct it from, which is merely redundant if it was actually a manual compact —
+    whereas wrongly claiming a turn is available produces an instruction nobody can obey.
+    """
+    try:
+        raw = sys.stdin.read()
+    except Exception:                                          # noqa: BLE001
+        return "auto"
+    try:
+        payload = json.loads(raw) if raw.strip() else {}
+    except Exception:                                          # noqa: BLE001
+        return "auto"
+    value = payload.get("trigger") or payload.get("matcher") or ""
+    return "manual" if str(value).lower() == "manual" else "auto"
+
+
 def main() -> int:
-    try:                       # PreCompact sends JSON on stdin; we do not need it, but
-        sys.stdin.read()       # draining avoids a broken pipe on the caller's side.
-    except Exception:          # noqa: BLE001
-        pass
+    trigger = trigger_from_stdin()
 
     if not PY.exists():        # No venv — say so rather than failing silently.
         print(json.dumps({"systemMessage": "pre-compact wrap skipped: .venv missing"}))
         return 0
 
     results = [run(argv, label, t) for argv, label, t in STEPS]
+    note = MANUAL_NOTE if trigger == "manual" else AUTO_NOTE
+    lead = "pre-compact wrap" if trigger == "manual" else "AUTO-compact wrap (narrative NOT written)"
     print(json.dumps({
-        "systemMessage": "pre-compact wrap — " + " · ".join(results),
+        "systemMessage": f"{lead} — " + " · ".join(results),
         "hookSpecificOutput": {
             "hookEventName": "PreCompact",
-            "additionalContext": NARRATIVE_REMINDER + "\n\n" + "\n".join(results),
+            "additionalContext": note + "\n\nMechanical steps:\n" + "\n".join(results),
         },
     }))
     return 0
