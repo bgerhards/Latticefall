@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Interrupted, not broken — Latticefall build journal</title>
+<meta name="description" content="The earlier entry today, “The autoloop had no instrument panel and no brake,” closed on an open question: the spawned session's first run had died instantly with a 15-byte log reading “Execution error,” filed as LF-209. That diagnosis was wrong, and the evidence had been on disk the whole time — the session transcript shows three minutes of real work ended by the owner's own Ctrl-C. The bug it uncovered instead was worse: Ctrl-C is delivered to the terminal's whole foreground process group, so it reached the child directly and the graceful-stop boundary shipped hours earlier could never have worked. LF-209 is dropped, not closed.">
+<link rel="stylesheet" href="../chronicle.css">
+</head>
+<body>
+
+<nav class="entry-nav top"><a class="back" href="../index.html">&larr; the journal</a></nav>
+<article>
+  <header class="entry-header">
+    <time datetime="2026-08-01">August 1, 2026 · 18:43</time>
+    <h1>Interrupted, not broken</h1>
+    <div class="chips"><span class="chip chip-epic">PRC</span></div>
+    <p class="summary lede">The earlier entry today, “The autoloop had no instrument panel and no brake,” closed on an open question: the spawned session's first run had died instantly with a 15-byte log reading “Execution error,” filed as LF-209. That diagnosis was wrong, and the evidence had been on disk the whole time — the session transcript shows three minutes of real work ended by the owner's own Ctrl-C. The bug it uncovered instead was worse: Ctrl-C is delivered to the terminal's whole foreground process group, so it reached the child directly and the graceful-stop boundary shipped hours earlier could never have worked. LF-209 is dropped, not closed.</p>
+    
+  </header>
+  <div class="entry-body">
+    <p>This corrects a claim made a few hours earlier in the same session, in “The autoloop had no instrument panel and no brake.” That entry ended on an open question, filed as <code>LF-209</code>: the autoloop's first spawned session had died instantly, its whole log 15 bytes reading “Execution error,” and the conclusion drawn from that was that the loop's plumbing was now fixed but the thing it launched still did not work. That conclusion was wrong, and the reason it was wrong is worth recording as carefully as the original claim was.</p><h3>The evidence had been on disk the whole time</h3><p>The session transcript under <code>~/.claude/projects/</code> for that run was never read before LF-209 was filed. Read afterward, it shows about three minutes of real work: <code>/session-start</code> completed, the PLC-07 spec was read, and a <code>godot-engineer</code> subagent was being dispatched when the transcript ends on <code>[Request interrupted by user for tool use]</code>. The session was not broken. It was interrupted — by the owner's own Ctrl-C. <code>claude -p</code> prints exactly “Execution error” when a run is aborted, and the log is 15 bytes for the plainest reason available: a session that never finishes emits no final text.</p><h3>The real defect was worse, and it shipped in the fix hours earlier</h3><p>Ctrl-C is delivered to the terminal's foreground <strong>process group</strong>, not to a pid. The child session lived inside the loop's own process group, so the terminal's signal reached it directly, and the parent's brand-new <code>SIGINT</code> handler — the one the earlier entry described as turning one Ctrl-C into a graceful stop — never got a turn to decide anything. “One Ctrl-C finishes the current issue” could not have held for a single run; it only ever looked like it might because nobody had pressed Ctrl-C against the fixed version yet. <code>start_new_session=True</code> now detaches the child into its own group, so a terminal Ctrl-C reaches only the loop.</p><h3>Reproduced both ways, not reasoned about</h3><p>A harness that signals the process group exactly as a real terminal does was run against both versions. Without the fix, the child prints:</p><blockquote>CHILD KILLED BY THE TERMINAL Ctrl-C</blockquote><p>and with it:</p><blockquote>CHILD FINISHED ITS WORK</blockquote><h3>Detaching moves the risk rather than removing it</h3><p>A detached child is a process-group leader, so a deliberate kill now goes through <code>killpg</code> rather than a plain <code>kill()</code> on its pid — killing the pid alone would strand its own subagents, its Godot, its Blender as reparented survivors, which on this project is a money bug and not fan noise. And because a detached child no longer dies for free when the loop does, its pid is now printed to the console and written to <code>.cache/autoloop-status.json</code>: a <code>kill -9</code> on the loop leaves a live agent session running with nobody watching it, and whoever has to end it by hand needs the number rather than a process listing to hunt through. That gap — the reaper does not yet know how to find or check that pid on its own — is open as <code>LF-210</code>.</p><h3>LF-209 is dropped, not closed</h3><p>The bug it described does not exist. The cheaper lesson is the one worth keeping: the transcript under <code>~/.claude/projects/</code> answers “what did the spawned session actually do” in seconds, and guessing from a 15-byte log instead produced a wrong diagnosis that survived a merge and into a published journal entry.</p>
+  </div>
+  <section class="commits"><h4>Commits</h4><ul class="commit-list"><li><code>ae22714</code> fix(tooling): Ctrl-C reached the spawned session directly, so the graceful stop was a lie</li></ul></section>
+</article>
+<nav class="entry-nav bottom">
+  <span><a class="back" href="../index.html">&larr; the journal</a></span> <span><a class="prev" href="no-instrument-panel-no-brake.html">&larr; The autoloop had no instrument panel and no brake</a></span>
+</nav>
+
+</body>
+</html>
