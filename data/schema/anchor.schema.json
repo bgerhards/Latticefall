@@ -180,6 +180,12 @@
       "minimum": 0,
       "description": "Act III: MW the bus loses at the start of each wave after the first, floored at 45% of rated capacity."
     },
+    "lane_half_width": {
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "default": 0.5,
+      "description": "PLC-02. Half-width, in tiles, of the standoff the free-placement legality predicate keeps between an emplacement's footprint and the path polyline: a position is legal off-lane only where its squared distance to the nearest lane segment is at least (lane_half_width + footprint_radius)^2. Defaults to 0.5 (today's single-tile lane) so every anchor that omits this key resolves to the same standoff the fixed-slot game always had. Authored per anchor so a level can widen its road."
+    },
     "terrain": {
       "type": "object",
       "additionalProperties": false,
