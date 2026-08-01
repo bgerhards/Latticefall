@@ -2352,6 +2352,162 @@
           "text": "As written, this work is uncommitted on lf/war-perf-core \u2014 sim/engine.py, scripts/anchor_sim.gd and tools/bench_tick.py \u2014 with the Linux parity leg confirmed and the Windows leg run but not yet confirmed complete. No screenshot accompanies this entry; there is nothing for one to show that a frame-cost number does not already say more precisely."
         }
       ]
+    },
+    {
+      "id": "none-of-them-was-red",
+      "date": "2026-08-01",
+      "time": "06:54",
+      "title": "None of them was red",
+      "summary": "Four tools, one shape: each was quietly telling the session something untrue, and none of them was red. A gate budget blown on every measurement anyone had taken, about to be raised a third time \u2014 judged by a clock that had once counted negative 796 ms under load. A journal renderer publishing invalid HTML to the live site. A safety hook denying a command over prose sitting in a heredoc it structurally could not see. All four were found by someone looking, not by the apparatus \u2014 not four bugs fixed, one thing noticed four times.",
+      "tags": [
+        "PRC"
+      ],
+      "commits": [
+        {
+          "hash": "7b5198f",
+          "subject": "fix(gate): tier 2 was over budget four times \u2014 move a check, not the number"
+        },
+        {
+          "hash": "59081c8",
+          "subject": "fix(gate): time checks with a clock that cannot run backwards"
+        },
+        {
+          "hash": "d9a93ad",
+          "subject": "fix(chronicle): code spans were re-scanned, so a glob crossed its own tags"
+        },
+        {
+          "hash": "43ce6af",
+          "subject": "fix(hooks): a heredoc body is stdin, not argv, and the guard was reading it as paths"
+        }
+      ],
+      "body": [
+        {
+          "type": "p",
+          "text": "Four unrelated tools, one shape. A gate budget that had been blown on every idle measurement anyone ever took, about to be raised for a third time, and judged the whole while by a clock that had once run backwards. A journal renderer that had been publishing invalid HTML to the live site since the entry it corrupted. A safety hook that denied a real command over prose sitting in a heredoc it could not structurally see. None of these produced a failing check. All four were found by someone looking, rather than by the apparatus \u2014 which is the entry, not \u201cfour bugs fixed.\u201d"
+        },
+        {
+          "type": "h3",
+          "text": "LF-178 \u2014 the gate's tier-2 budget"
+        },
+        {
+          "type": "p",
+          "text": "`TIER_BUDGET_MS` for tier 2 had already been raised once \u2014 25,000 to 28,000 ms, for PRC-18's loudness check \u2014 and every idle-ish measurement anyone had taken since blew straight through it anyway."
+        },
+        {
+          "type": "table",
+          "headers": [
+            "run",
+            "duration",
+            "against the 28,000 ms budget"
+          ],
+          "rows": [
+            ["idle, recorded in the backlog", "28,598 ms", "over"],
+            ["idle, recorded in the backlog", "28,751 ms", "over"],
+            ["measured here, before the move", "29,831 ms", "over"],
+            ["contended", "45,555 ms", "over"],
+            ["after moving `facing harness` to tier 3", "27,225 ms", "ok"],
+            ["second post-move run", "27,790 ms", "ok"]
+          ]
+        },
+        {
+          "type": "p",
+          "text": "A second raise would have made the number decorative \u2014 \u201craise the threshold until the measurement fits\u201d is exactly the move decision 067 rejected for `PRESSURE_FLOOR`. So the budget did not move and a check did: `facing harness` (LF-142), a narrow regression harness for one mapping, went from tier 2 to tier 3."
+        },
+        {
+          "type": "p",
+          "text": "The more interesting part is why `facing harness` and not `terrain parsers agree`, which LF-178 named as the equally cheap candidate. Decision 057 put `terrain parsers agree` in the fast tier on purpose: it is the inexpensive sibling of `rules parity`, the same two-implementations-drifting risk at a fraction of the cost, and `rules parity` would surface a one-tile terrain drift nine minutes in as an unexplained leak with no pointer to terrain anywhere in it. Moving it back out of tier 2 would have undone that reasoning to fix an unrelated number. The reason lived in CLAUDE.md, not in the backlog item \u2014 LF-178's own text could not have picked correctly on its own."
+        },
+        {
+          "type": "p",
+          "text": "The budget now states its own derivation, which it never did before, and the derivation is unflattering: 28,000 ms is an idle-machine ceiling on this 16-core box, two post-move runs measured 27,225 and 27,790 ms, so the real headroom is 0.8\u20132.8%, and the run-to-run spread \u2014 roughly 570 ms \u2014 is larger than the smaller of those margins. Written into the docstring as barely satisfied, not comfortably, along with the admission that the next check added to tier 2 blows it again \u2014 the answer at that point is splitting tiers, not a third raise. Cross-linked to LF-170: these durations are timed with `time.time()`, which has been seen running backwards under load, so the instrument the budget is judged against can itself move."
+        },
+        {
+          "type": "p",
+          "text": "Not done, deliberately: `--budget` is still not passed by `check.py`'s default invocation or by the wrap skill, so the assertion remains advisory in every path that actually runs today."
+        },
+        {
+          "type": "h3",
+          "text": "LF-170 \u2014 the clock the budget was judged by"
+        },
+        {
+          "type": "p",
+          "text": "LF-178 and LF-170 landed in this branch as one argument, not two separate fixes. The previous commit had just written tier 2's margin down as 0.8\u20132.8% headroom, thinner than the run-to-run spread \u2014 and a margin that thin is not worth stating if the instrument measuring it can move. `check.py` timed every check with `time.time()`, wall clock, subject to adjustment, and it had already been caught doing exactly that: a check reported negative 796 ms elapsed under heavy concurrent load during an earlier verification pass, consistent with a clock adjustment landing mid-check. One data point, never reproduced on demand \u2014 but the fix is one line per call site, and monotonic is what a duration always wanted."
+        },
+        {
+          "type": "p",
+          "text": "All four duration sites converted to `time.monotonic()`: the run total, the per-check start, the per-check elapsed, and the final total. `started_at` deliberately stays on the wall clock, via `datetime.now(timezone.utc)` \u2014 it is a timestamp, not a duration, and it is what the JSON artefact reports as when the run happened. The docstring now cross-references LF-178 and LF-170 in both directions, because neither is trustworthy alone: a budget stated to within 0.8% is not a claim worth making with a clock that can count backwards, and a clock made monotonic is not interesting on its own without a margin that thin to protect."
+        },
+        {
+          "type": "h3",
+          "text": "LF-173 \u2014 the journal renderer, and this one is about the chronicle itself"
+        },
+        {
+          "type": "p",
+          "text": "`render_inline()` wrapped code spans in `<code>` and then ran `split(\"**\")` over the whole string \u2014 including the text it had just placed inside those tags. LF-173's own backlog item recorded the damage as `<code>sim/</strong></code>`; the real output was worse, because the tags cross:"
+        },
+        {
+          "type": "table",
+          "headers": [
+            "input",
+            "old (crossed tags)",
+            "new"
+          ],
+          "rows": [
+            ["`sim/**`", "`<code>sim/<strong></code></strong>`", "`<code>sim/**</code>`"],
+            ["a `x**y` b **z** c", "`a <code>x<strong>y</code> b </strong>z<strong> c</strong>`", "`a <code>x**y</code> b <strong>z</strong> c`"]
+          ]
+        },
+        {
+          "type": "p",
+          "text": "The second row is the one that matters: one `**` inside a single code span inverted the bold pairing for the rest of the line. Three published entries carried invalid HTML, including `ci-goes-green.html` \u2014 where the `.gitattributes` line documenting the LFS fix was itself the thing rendering corrupted. An entry about fixing a publishing bug was published with a publishing bug in it."
+        },
+        {
+          "type": "h3",
+          "text": "The half that did not survive its own verification \u2014 read this part first"
+        },
+        {
+          "type": "p",
+          "text": "LF-173 also asked for single-asterisk emphasis, `*x*` to `<em>`, because one entry renders literal asterisks on the live site. It was implemented, and then run against the whole journal before being believed \u2014 which is the discipline worth naming, because it is what caught the rest of this. `chronicle.json` contains exactly two strings carrying a bare `*` outside a code span, and they split one to one: `*current accepted bank*` is genuine emphasis; a glob list of test-fixture paths is not, and the new feature silently ate it into an `<em>` spanning most of the sentence. A 50% false-positive rate on the real corpus. The feature was removed, and the reasoning is written into the docstring so nobody re-proposes it: `*` is an overloaded delimiter in a project whose prose is full of paths and globs, and no amount of pair-guarding separates the two cases. The entry that wanted emphasis keeps its literal asterisks."
+        },
+        {
+          "type": "p",
+          "text": "Verification: ten inline cases balanced, including both LF-173 shapes; across all 32 generated pages, `<strong>`, `<code>` and `<em>` balanced and zero instances of the crossed shape; the regeneration diff is three lines in three files, every one a correction. No entry text was edited \u2014 a renderer fix correcting old output on the next regeneration is exactly what the append-only rule permits."
+        },
+        {
+          "type": "h3",
+          "text": "LF-179 \u2014 the guard hook"
+        },
+        {
+          "type": "p",
+          "text": "`_scrub_payload_values()` blanks prose passed as an argv token after `-m`, `--message`, `-F`, `--body` and similar flags \u2014 the LF-171 fix. A heredoc body is a different shape and that scrubber structurally cannot see it: the body is stdin, not an argv token at all, so `shlex` tokenised the prose as ordinary words, and every path merely named inside it read as a path the command was operating on. Found live, by the chronicler, immediately after the LF-171 fix landed \u2014 a Bash command whose heredoc body only mentioned an import-cache path in prose, next to an unrelated redirect elsewhere in the same command, was denied by `rule_godot_write`. Worked around by using the Write tool instead, which is the better habit anyway."
+        },
+        {
+          "type": "p",
+          "text": "Proved red against HEAD's own guard, loaded side by side:"
+        },
+        {
+          "type": "table",
+          "headers": [
+            "case",
+            "HEAD (before)",
+            "now (after)"
+          ],
+          "rows": [
+            ["`.godot` named in body prose, unrelated redirect elsewhere in the command", "deny", "allow \u2014 fixed"],
+            ["a real `rm -rf .godot` after the terminator", "deny", "deny"],
+            ["`<<<` herestring (not a heredoc)", "deny", "deny"],
+            ["unterminated heredoc", "deny", "deny"]
+          ]
+        },
+        {
+          "type": "p",
+          "text": "Exactly one case moves \u2014 that is the shape a safety fix has to have. The asymmetry drove the design: under-stripping leaves a false positive, annoying but safe; over-stripping hides a real command from the rules, a false negative in a safety file, which is not acceptable. So the terminator test ends a body at the first plausible terminator rather than the strictly correct one, and an unterminated heredoc strips nothing at all, leaving every remaining line visible to every rule. `guard.py --selftest` went 45/45 to 52/52, five of the seven new cases being deny-proofs. Still not closed, and the commit says so: a command hidden inside `$(...)` or backticks remains invisible to every rule here."
+        },
+        {
+          "type": "p",
+          "text": "Nothing above tripped a failing check. The budget was green until someone read the number next to its own margin \u2014 and would have stayed green even if the clock underneath it had been lying, until that clock was checked too. The renderer passed every existing test because none of them happened to contain a glob inside a code span. The hook actively denied its command \u2014 confidently, and for the wrong reason. Four different apparatuses, four different kinds of confident wrong answer, in one branch, and the clock is the most vivid of the four: a tool that measures time is not supposed to be able to report a negative duration and say nothing about it. No screenshot accompanies this entry; there is no frame for any of it to show."
+        }
+      ]
     }
   ]
 }
