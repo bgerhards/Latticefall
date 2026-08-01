@@ -1,5 +1,5 @@
 {
-  "next_id": 207,
+  "next_id": 209,
   "items": [
     {
       "id": "LF-001",
@@ -1939,11 +1939,11 @@
       "kind": "chore",
       "area": "build",
       "pri": "med",
-      "status": "open",
+      "status": "done",
       "why": "",
       "opened": "2026-07-31",
-      "closed": null,
-      "note": ""
+      "closed": "2026-08-01",
+      "note": "closed at c4144f7"
     },
     {
       "id": "LF-163",
@@ -2359,11 +2359,11 @@
       "kind": "risk",
       "area": "engine",
       "pri": "med",
-      "status": "open",
+      "status": "done",
       "why": "",
       "opened": "2026-08-01",
-      "closed": null,
-      "note": ""
+      "closed": "2026-08-01",
+      "note": "closed at c4144f7"
     },
     {
       "id": "LF-198",
@@ -2395,11 +2395,11 @@
       "kind": "bug",
       "area": "engine",
       "pri": "med",
-      "status": "open",
+      "status": "done",
       "why": "",
       "opened": "2026-08-01",
-      "closed": null,
-      "note": ""
+      "closed": "2026-08-01",
+      "note": "closed at c4144f7"
     },
     {
       "id": "LF-201",
@@ -2466,6 +2466,30 @@
       "title": "OWNER INTENT 2026-08-01: package Latticefall for a storefront so other people can install and play it. Verbatim: \"I anticipate that at some point this game is actually going to be built up and put on the Steam marketplace or another marketplace that I could push it to for other individuals to pull it down and play.\" This is a spec note and a scouting task, not work to start now \u2014 the game is playable but only from the Godot editor, and several things below have to be true before a build is worth shipping to a stranger.\n\nWHAT DOES NOT EXIST YET, and each is a real prerequisite rather than a nicety.\n\n(1) NO EXPORT PIPELINE AT ALL. There are no export presets in the repository, no export_presets.cfg, and nothing in tools/ produces a binary. Godot needs export templates matching the exact engine version, and the project targets 4.7 with the GL Compatibility renderer. First task is a headless export producing a Windows executable that launches on a machine with no Godot installed and no repository checkout \u2014 and that must be verified on a clean machine or a container, because \"it runs on the dev box\" proves nothing here; the .godot import cache and the LFS working copy are both present there and neither ships.\n\n(2) THE IMPORT-CACHE ASSUMPTION INVERTS. Everything about this project's local workflow assumes the editor imports assets into .godot/ and that the cache is build output, gitignored, and rebuilt on demand. An exported build has that cache baked into the .pck instead. So the export is the FIRST context in which a missing or stale import is unfixable by the player, and the class_name/global-class-cache trap that makes a scene hang rather than error becomes a shipped hang. Export verification therefore has to include actually playing an anchor from the packaged build, not just confirming the binary starts.\n\n(3) NO LICENCE, AND THE AUDIO POSITION NEEDS RE-READING BEFORE MONEY IS INVOLVED. The repository has no LICENSE file. Decision 038 records that sound effects are synthesised in-repo (fine) and that music is generated under the owner's own subscription \u2014 that arrangement needs checking against the generator's terms for COMMERCIAL distribution specifically, which is a different question from personal use and is the owner's call, not an engineering one. Fonts are vendored under addons/ and LFS; their licences need auditing the same way. This is the item most likely to be discovered late and to block a release date.\n\n(4) SAVE COMPATIBILITY BECOMES PERMANENT. progress.json is currently free to change shape because the only player is the owner and the only save is on this machine. The moment a stranger has a save, a schema change is a migration. Decide before release whether saves are versioned and migrated or explicitly disposable, and write it down; tools/save_roundtrip.py already proves round-trip integrity and is the natural place to also prove a migration.\n\n(5) NO CRASH OR TELEMETRY PATH, and no way for a player to report anything. Worth deciding deliberately rather than by omission \u2014 this project's whole method is that claims are falsifiable, and shipping to strangers with no signal coming back is the opposite of that.\n\nSTOREFRONT SPECIFICS TO SCOUT, not to decide yet. Steam has a one-time app fee per title, requires a bank and tax setup that takes real calendar time to clear, wants store assets at fixed pixel sizes, and expects a build uploaded through steamcmd or the Steamworks SDK \u2014 none of which is hard, all of which is lead time. itch.io is the cheap and fast alternative and is the sensible place to put the first public build regardless, because it costs nothing, needs no approval, and exercises the same export pipeline. Recommend scouting itch.io FIRST as the forcing function for (1) and (2), and treating Steam as the second step once a packaged build has survived contact with someone who is not the author.\n\nSEQUENCING NOTE. Do not start this before the Theatre Scale programme's E3 placement work is playable \u2014 the board size target moved to 48 squared (decision 073), hand-authoring is dead, and the layout generator (LF-080) is on the critical path. A storefront build of the current 18x15 content would be packaging a game the programme is actively replacing.",
       "kind": "feature",
       "area": "tooling",
+      "pri": "med",
+      "status": "open",
+      "why": "",
+      "opened": "2026-08-01",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-207",
+      "title": "PLC-06 needed a build-candidate ordering for the autobuild fallback and PLC-04 does not exist yet, so it carries a minimal deterministic 1-tile fallback scan in scripts/anchor_view.gd instead. That scan is correct and deterministic but it is NOT the candidate lattice PLC-04 is meant to provide, and PLC-06's own task list says to reuse PLC-04's ordering. Revisit when PLC-04 lands: the fallback in anchor_view.gd should be deleted and replaced by whatever PLC-04 exposes, so there is one candidate ordering in the project rather than two that can drift. Low urgency \u2014 the fallback only runs for --autoplay and the grading harness never uses it, since the grader sources candidates from _slot_priority() in the rules engines. But two orderings that disagree would be exactly the kind of thing that shows up later as an unexplained difference between what the autobuild does and what the grader says is possible",
+      "kind": "chore",
+      "area": "engine",
+      "pri": "med",
+      "status": "open",
+      "why": "",
+      "opened": "2026-08-01",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-208",
+      "title": "The lane magnet, as PLC-06's spec described it, ACTIVELY FIGHTS THE PLAYER and was removed after being built and played. It needs a different formulation before anyone attempts it again. THE MECHANISM, measured rather than reasoned about: the free cursor moves along four tile-space diagonals that project to screen up/down/left/right, and each of those four is exactly 45 degrees from any axis-aligned lane tangent. The magnet scored alignment as a dot product against the raw tile-space lane tangent, so on an anchor whose lanes are axis-aligned \u2014 which is the common case, and anchor-01 specifically \u2014 EVERY direction the player pressed scored as \"aligned enough\" and the magnet pulled the cursor back toward the lane it was trying to leave. MEASURED: three presses of screen-right from a lane-adjacent start should land at (8.06, 3.94), which is legal; with the magnet enabled it reached (7.57, 3.61), which still returns REASON_LANE_STANDOFF. The player presses away from the lane three times and remains unable to build. A helper that fights the player is worse than no helper, so it was cut rather than tuned \u2014 tuning the strength would only have changed how far the fight went. IF IT IS ATTEMPTED AGAIN, the fix is to key the assist off the SCREEN direction the player actually pressed rather than off a raw tile-tangent dot product, so that \"I am moving away from the lane\" is expressible at all. Note also that snap-on-build already covers most of what the magnet was for: lf_build ring-searches within SNAP_RADIUS 0.6 tiles and lands on the nearest legal position, so a player who aims approximately still gets a clean placement. The magnet was solving a problem that the snap mostly solves already, at the cost of making movement feel wrong, and that trade should be re-justified before the idea comes back",
+      "kind": "polish",
+      "area": "engine",
       "pri": "med",
       "status": "open",
       "why": "",
