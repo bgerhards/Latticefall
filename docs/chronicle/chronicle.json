@@ -2401,12 +2401,36 @@
             "against the 28,000 ms budget"
           ],
           "rows": [
-            ["idle, recorded in the backlog", "28,598 ms", "over"],
-            ["idle, recorded in the backlog", "28,751 ms", "over"],
-            ["measured here, before the move", "29,831 ms", "over"],
-            ["contended", "45,555 ms", "over"],
-            ["after moving `facing harness` to tier 3", "27,225 ms", "ok"],
-            ["second post-move run", "27,790 ms", "ok"]
+            [
+              "idle, recorded in the backlog",
+              "28,598 ms",
+              "over"
+            ],
+            [
+              "idle, recorded in the backlog",
+              "28,751 ms",
+              "over"
+            ],
+            [
+              "measured here, before the move",
+              "29,831 ms",
+              "over"
+            ],
+            [
+              "contended",
+              "45,555 ms",
+              "over"
+            ],
+            [
+              "after moving `facing harness` to tier 3",
+              "27,225 ms",
+              "ok"
+            ],
+            [
+              "second post-move run",
+              "27,790 ms",
+              "ok"
+            ]
           ]
         },
         {
@@ -2453,8 +2477,16 @@
             "new"
           ],
           "rows": [
-            ["`sim/**`", "`<code>sim/<strong></code></strong>`", "`<code>sim/**</code>`"],
-            ["a `x**y` b **z** c", "`a <code>x<strong>y</code> b </strong>z<strong> c</strong>`", "`a <code>x**y</code> b <strong>z</strong> c`"]
+            [
+              "`sim/**`",
+              "`<code>sim/<strong></code></strong>`",
+              "`<code>sim/**</code>`"
+            ],
+            [
+              "a `x**y` b **z** c",
+              "`a <code>x<strong>y</code> b </strong>z<strong> c</strong>`",
+              "`a <code>x**y</code> b <strong>z</strong> c`"
+            ]
           ]
         },
         {
@@ -2493,10 +2525,26 @@
             "now (after)"
           ],
           "rows": [
-            ["`.godot` named in body prose, unrelated redirect elsewhere in the command", "deny", "allow \u2014 fixed"],
-            ["a real `rm -rf .godot` after the terminator", "deny", "deny"],
-            ["`<<<` herestring (not a heredoc)", "deny", "deny"],
-            ["unterminated heredoc", "deny", "deny"]
+            [
+              "`.godot` named in body prose, unrelated redirect elsewhere in the command",
+              "deny",
+              "allow \u2014 fixed"
+            ],
+            [
+              "a real `rm -rf .godot` after the terminator",
+              "deny",
+              "deny"
+            ],
+            [
+              "`<<<` herestring (not a heredoc)",
+              "deny",
+              "deny"
+            ],
+            [
+              "unterminated heredoc",
+              "deny",
+              "deny"
+            ]
           ]
         },
         {
@@ -2538,14 +2586,49 @@
         },
         {
           "type": "table",
-          "headers": ["", "32\u00b2", "48\u00b2", "64\u00b2"],
+          "headers": [
+            "",
+            "32\u00b2",
+            "48\u00b2",
+            "64\u00b2"
+          ],
           "rows": [
-            ["tiles (vs 270 today)", "1,024 \u2014 3.8x", "**2,304 \u2014 8.5x**", "4,096 \u2014 15x"],
-            ["projected board width", "4,096 px", "**6,144 px**", "8,192 px"],
-            ["zoom to fit, 100% UI", "0.468x", "**0.312x**", "0.234x"],
-            ["at 200% interface scale", "0.234x", "**0.156x**", "0.117x"],
-            ["sprite on screen", "~60\u2013120 px", "**~40\u201380 px**", "~30\u201360 px"],
-            ["draw path, post CAM-06+07", "~1.4 ms", "**~3.0 ms**", "~5.4 ms"]
+            [
+              "tiles (vs 270 today)",
+              "1,024 \u2014 3.8x",
+              "**2,304 \u2014 8.5x**",
+              "4,096 \u2014 15x"
+            ],
+            [
+              "projected board width",
+              "4,096 px",
+              "**6,144 px**",
+              "8,192 px"
+            ],
+            [
+              "zoom to fit, 100% UI",
+              "0.468x",
+              "**0.312x**",
+              "0.234x"
+            ],
+            [
+              "at 200% interface scale",
+              "0.234x",
+              "**0.156x**",
+              "0.117x"
+            ],
+            [
+              "sprite on screen",
+              "~60\u2013120 px",
+              "**~40\u201380 px**",
+              "~30\u201360 px"
+            ],
+            [
+              "draw path, post CAM-06+07",
+              "~1.4 ms",
+              "**~3.0 ms**",
+              "~5.4 ms"
+            ]
           ]
         },
         {
@@ -2573,7 +2656,7 @@
           "items": [
             "**Hand-authoring is dead at 48\u00b2.** `LF-080`'s layout generator moves onto the critical path **before** any theatre-scale content exists, not alongside it.",
             "**It settles half of open decision #1 as a side effect**, said out loud rather than discovered later: 48\u00b2 needs zoom 0.312x to fit, so `CAM-05` option 2 \u2014 a zoom floor with `CAM-04`'s minimap doing the wide read \u2014 becomes the only affordable answer, and the board is never fully visible in the playfield. A design statement, made on purpose, consistent with decision 056. What remains open in #1 is only the art bar for E6.",
-            "**Density work is unblocked** — `BAL-04`'s half now rebases against 2,304 tiles."
+            "**Density work is unblocked** \u2014 `BAL-04`'s half now rebases against 2,304 tiles."
           ]
         },
         {
@@ -2583,6 +2666,198 @@
         {
           "type": "p",
           "text": "No screenshot accompanies this entry. There is nothing on screen a board-size number could show \u2014 the change is to `docs/DECISIONS.md` and `docs/PRD-THEATRE-SCALE.md` only."
+        }
+      ]
+    },
+    {
+      "id": "the-tail-that-would-not-move",
+      "date": "2026-08-01",
+      "time": "07:38",
+      "title": "The tail that would not move",
+      "summary": "The follow-up to the entry where the owner said most turrets could barely reach anything and the instrument agreed. LF-181 had concluded the dominant cause was range values, not slot placement. Decision 074 corrects that: raising range per weapon lifted the tail for arc-node and ion-lance but not for pulse-turret, which is 66\u201379% of every near-zero sample in the game. Sweeping pulse-turret range to more than double what shipped left p10 pinned at literal 0.0% while the median climbed sixteen points \u2014 the median improving while the tail refuses is reported as the failure it is, not chased.",
+      "tags": [
+        "BAL"
+      ],
+      "decisions": [
+        "074"
+      ],
+      "commits": [
+        {
+          "hash": "abd9eab",
+          "subject": "fix(balance): raise range where the geometry says it helps, and concede the tail"
+        }
+      ],
+      "body": [
+        {
+          "type": "p",
+          "text": "This is the direct sequel to the entry that recorded the owner playing the build and saying most turrets could barely reach anything, and to `sim/coverage.py`, the instrument built to look. `LF-176` was the complaint; the coverage run found a median gun in range 28\u201338% of ticks, roughly one in five placed emplacements contributing nothing, and a median lane-coverage ceiling of about 40%. From that, `LF-181` concluded the dominant cause was (b) range values short, not slot placement, naming five Act 1 anchors \u2014 01, 03, 04, 05, 07 \u2014 as the geometry exception. Decision 074 corrects that premise, and the correction is what this entry is for."
+        },
+        {
+          "type": "p",
+          "text": "What changed, sized per weapon from a pure-geometry probe rather than a uniform multiplier:"
+        },
+        {
+          "type": "table",
+          "headers": [
+            "tower",
+            "range",
+            "change",
+            "near-zero-ceiling slots, before \u2192 after"
+          ],
+          "rows": [
+            [
+              "arc-node",
+              "2.6 \u2192 3.8",
+              "+46%",
+              "56.0% \u2192 2.3%"
+            ],
+            [
+              "pulse-turret",
+              "3.2 \u2192 4.0",
+              "+25%",
+              "10.6% \u2192 0.9%"
+            ],
+            [
+              "flak-array",
+              "3.8 \u2192 4.6",
+              "+21%",
+              "2.3% \u2192 0.0%"
+            ],
+            [
+              "ion-lance",
+              "5.5 \u2192 6.2",
+              "+13%",
+              "0.0% \u2192 0.0%"
+            ],
+            [
+              "mortar-emplacement",
+              "6.5 \u2192 7.0",
+              "+8%",
+              "0.0% \u2192 0.0%"
+            ]
+          ]
+        },
+        {
+          "type": "p",
+          "text": "Each size was solved to bring that weapon's own near-zero ceiling to roughly 0%, stopping short of the values that push p90 toward saturation. Relative range ordering held, and no `cost` or `draw_mw` moved. The four `damage: 0` support emplacements \u2014 `shield-wall`, `scan-relay`, `anchor-damper`, `restorer` \u2014 were left untouched, for a stated reason: `lane_coverage()` never scores them, so there was no evidence to act on."
+        },
+        {
+          "type": "p",
+          "text": "What improved:"
+        },
+        {
+          "type": "table",
+          "headers": [
+            "tower",
+            "p10 before \u2192 after",
+            "near-zero before \u2192 after"
+          ],
+          "rows": [
+            [
+              "arc-node",
+              "10.8% \u2192 14.2%",
+              "9.0% \u2192 6.9%"
+            ],
+            [
+              "ion-lance",
+              "1.1% \u2192 10.2%",
+              "17.2% \u2192 9.9%"
+            ],
+            [
+              "pulse-turret",
+              "6.5% \u2192 4.0%",
+              "13.5% \u2192 13.3%"
+            ]
+          ]
+        },
+        {
+          "type": "p",
+          "text": "**And pulse-turret is the whole problem.** It is 66\u201379% of every near-zero sample in the game \u2014 the autobuild fills every leftover slot with it. Its median moved, 27.8% \u2192 34.6%, and its tail moved the wrong way: p10 down, near-zero flat. By the owner's own instruction \u2014 compare the distribution, not the means \u2014 that is a failure, and it is reported as one rather than buried under the two weapons that worked."
+        },
+        {
+          "type": "h3",
+          "text": "The measurement that stopped the pass rather than extending it"
+        },
+        {
+          "type": "p",
+          "text": "Sweeping pulse-turret's range from 3.2 to 7.0 \u2014 more than double what shipped \u2014 across the five worst anchors:"
+        },
+        {
+          "type": "table",
+          "headers": [
+            "pulse range",
+            "near-zero",
+            "p10",
+            "p50"
+          ],
+          "rows": [
+            [
+              "3.2",
+              "28.7%",
+              "0.0%",
+              "28.0%"
+            ],
+            [
+              "4.0",
+              "29.7%",
+              "0.0%",
+              "32.1%"
+            ],
+            [
+              "5.0",
+              "29.3%",
+              "0.0%",
+              "37.6%"
+            ],
+            [
+              "6.0",
+              "28.1%",
+              "0.0%",
+              "38.4%"
+            ],
+            [
+              "7.0",
+              "22.2%",
+              "0.0%",
+              "44.5%"
+            ]
+          ]
+        },
+        {
+          "type": "p",
+          "text": "**p10 is pinned at literal 0.0% across the entire sweep, while p50 climbs sixteen points.** Every step buys median that reads as success and moves the tail not at all. That is decision 067's rejected move \u2014 fitting to the diagnostic \u2014 caught in the act. Range was not pushed further."
+        },
+        {
+          "type": "p",
+          "text": "Two of the three flagship anchors from `LF-181`'s own findings did not improve: anchor-02 88/320 \u2192 94/320 (worse), anchor-10 178/589 \u2192 181/586 (flat), anchor-13 172/644 \u2192 162/644 (better). All three are recorded here because a report quoting only the one that worked would be the failure this project's method exists to prevent."
+        },
+        {
+          "type": "h3",
+          "text": "The instrument caught lying about itself"
+        },
+        {
+          "type": "p",
+          "text": "**The instrument caught lying about itself, and it is a good one.** Filed as `LF-186`: `verdict()`'s anchor-level (a)-geometry / (b)-range label is computed against whatever range currently sits in `data/towers.json`. Raising the base drags its own 2\u00d7 comparison along with it: four of the five declared geometry anchors \u2014 03, 04, 05, 07 \u2014 flipped their label to \"range\" or \"adequately sited\" while their dynamic p10 went flat or worse \u2014 8\u21925%, 4\u21920%, 5\u21923%, 1\u21920%. The ceiling is still a true statement about the level; the label reads as a claim about slots and is not one."
+        },
+        {
+          "type": "p",
+          "text": "**A measurement that reclassifies itself when you tune the thing it is measuring.**"
+        },
+        {
+          "type": "p",
+          "text": "What was kept, and why, since the headline failed: two weapons genuinely improved, nothing regressed, and all 24 anchors still grade `ok` at all three difficulties. Distinct winning builds moved up modestly \u2014 anchor-09 standard 8\u21929, anchor-12 hard 6\u21928, anchor-16 standard 8\u21929, anchor-18 standard 4\u21926 \u2014 and no cell reached the point where every distinct build clears it. A bounded, non-regressing improvement is worth keeping even when it does not resolve the complaint that prompted it."
+        },
+        {
+          "type": "p",
+          "text": "**Verification worth naming.** The \"before\" coverage run was graded against `git show HEAD:data/towers.json` rather than assumed; `say_capacity.py` stayed silent, so no brief drifted; and `rules parity` was re-run because the data both engines read had changed: **1440 runs identical, freshly verified, not from cache.** A range value is not a rules change, but that is exactly the kind of expectation parity exists to check rather than assume."
+        },
+        {
+          "type": "p",
+          "text": "The complaint that started this is not resolved. What the project knows now is more useful than what it knew before: the tail is slots, not range, on far more anchors than `LF-181` declared. Pass two \u2014 `LF-185` \u2014 is the real fix, and it needs `PLC-01` free placement. And per `LF-187`, none of these numbers survive the move to 48\u00b2 (decision 073): longer lanes mean a fixed absolute range covers a shrinking fraction of them, so `BAL-04`'s density half has to re-derive range from measured lane length rather than carry these constants forward."
+        },
+        {
+          "type": "p",
+          "text": "**This entry's numbers have a known expiry date, and saying so is the point.**"
         }
       ]
     }
