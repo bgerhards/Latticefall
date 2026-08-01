@@ -68,6 +68,20 @@
           }
         ]
       }
+    ],
+    "PostCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd \"$CLAUDE_PROJECT_DIR\" && .venv/bin/python tools/hooks/postcompact_resume.py",
+            "timeout": 30
+          }
+        ]
+      }
     ]
-  }
+  },
+  "totalTokensReminder": "countdown",
+  "totalTokensReminderAfterUserTurn": true,
+  "autoCompactEnabled": true
 }
