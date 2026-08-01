@@ -23,8 +23,18 @@ including the wrong turns.
 | | Why |
 |---|---|
 | **Godot 4.7.1** | The project targets 4.7 with the **GL Compatibility** renderer. Other 4.x versions may open it but are untested. [Download](https://godotengine.org/download) |
-| **Git LFS** | **Not optional.** Every sprite, sound and font is stored in LFS — 694 files, ~140 MB. Without it you get 130-byte text pointers instead of images, and the game loads but draws nothing recognisable. |
-| ~300 MB disk | ~140 MB of LFS assets, plus the import cache Godot builds on first open. |
+| **Git LFS** | Sprites and audio are stored in LFS — ~690 files, 66 MB in the working tree. Without it you get 130-byte text pointers instead of images: the clone **succeeds** and the game draws nothing recognisable. Most machines already have it; check with `git lfs version`. |
+| ~250 MB disk | 66 MB of assets, plus the import cache Godot builds on first open. |
+
+> **You probably already have Git LFS.** It ships with Git for Windows and is a one-line
+> install elsewhere (`brew install git-lfs`, `apt install git-lfs`). It is used here only
+> because the sprite library is re-rendered routinely — without it, every clone would download
+> every historical version of every sprite forever. Nothing in the repository is near
+> GitHub's size limits (largest file: 6.5 MB), so this is about clone cost over time, not
+> about fitting.
+>
+> **Fonts are deliberately *not* in LFS**, because `ui_theme.gd` preloads them and a pointer
+> file there breaks five scripts at once with an error that names none of them.
 
 ### 2. Clone — install Git LFS *first*
 
