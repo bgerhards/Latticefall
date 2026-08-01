@@ -2230,6 +2230,123 @@
           ]
         }
       ]
+    },
+    {
+      "id": "the-redundant-sort-is-the-contract",
+      "date": "2026-07-31",
+      "time": "21:30",
+      "title": "The redundant sort is the contract: 24\u00d7 and 34\u00d7 off O(emplacements \u00d7 units)",
+      "summary": "WAR-02 and WAR-03 close the tick-cost gate that WAR-06's unit budget and the still-open board-size call in PRD \u00a76 both depend on. _step() was O(emplacements \u00d7 units) with an inner O(units) splash loop \u2014 24,000 distance checks a tick at 60 emplacements and 400 units at 30 Hz. WAR-02 resolves every unit's position once a tick instead of once per pair; WAR-03 adds a uniform grid sized larger than any real range or splash radius. Together: 20.08 ms to 0.84 ms at 512 units / 60 towers / 24 segments (24.1\u00d7), 58.43 ms to 1.73 ms at 1000/80/32 (33.8\u00d7), both PRD bars met. Selection was tested directly rather than inferred \u2014 decision 058 is the reason why \u2014 and decision 072 records the one thing about a spatial index that is invisible in its own diff: a sort that looks redundant because every bucket is already sorted, kept anyway, because it is the entire reason the indexed and exhaustive paths never disagree.",
+      "tags": [
+        "WAR"
+      ],
+      "decisions": [
+        "072",
+        "058",
+        "027",
+        "030"
+      ],
+      "commits": [],
+      "body": [
+        {
+          "type": "p",
+          "text": "_step() priced every tick as O(emplacements \u00d7 units), with a splash loop inside that added another O(units) on top of it \u2014 24,000 distance checks a tick at 60 emplacements and 400 units running at 30 Hz. That cost is the actual gate on scale: WAR-06's unit budget depends on it, and so does the board-size decision still open in PRD \u00a76, because the honest input to that call is a measured frame cost at 400 units, not a guess at one. This entry is the two fixes that closed it, WAR-02 and WAR-03, both landed in the same working tree and both worth telling apart, because they were verified differently and failed differently."
+        },
+        {
+          "type": "h3",
+          "text": "WAR-02: resolve a position once a tick, not once per pair"
+        },
+        {
+          "type": "p",
+          "text": "Every tick, the old fire phase called the lane's point_at() three separate times per unit it looked at \u2014 once in the targeting scan, once again for the reveal check, once more in the splash loop \u2014 and it looked at units once per emplacement, so the same unit's position was recomputed as many times as there were guns in range of it. WAR-02 resolves every live unit's position exactly once per tick, after the movement loop has advanced its distance along the lane, into an index-parallel cache that the targeting scan and the splash loop both read instead of recomputing. The one deliberate exception is bus_load(): it runs before _step() in the tick order, against pre-movement positions, and sharing WAR-02's post-movement cache with it would silently change what decision 027 prices \u2014 so it keeps its own resolve, with a comment now saying why, rather than being \u201cfixed\u201d into a shared read."
+        },
+        {
+          "type": "h3",
+          "text": "WAR-03: a grid sized larger than anything that queries it"
+        },
+        {
+          "type": "p",
+          "text": "WAR-03 adds a uniform grid over that same per-tick position cache, rebuilt from scratch every tick rather than maintained incrementally \u2014 an incrementally-maintained index is a second place for the Python and GDScript engines to drift apart, and decision 072 rejects it for exactly that reason. CELL_W is 8.0 tiles in both engines, a constant and never per-anchor data, chosen larger than the longest range or splash radius in data/towers.json (mortar-emplacement: 6.5 tiles range, 1.5 tiles splash), so a query at any real emplacement only ever touches a small, fixed number of cells regardless of board size. The exhaustive scan was not deleted \u2014 it is reachable behind grid=None in Python and a null grid in GDScript \u2014 specifically so the two paths could be diffed against each other rather than trusted on faith."
+        },
+        {
+          "type": "table",
+          "headers": [
+            "board",
+            "before",
+            "+WAR-02",
+            "+WAR-03",
+            "total"
+          ],
+          "rows": [
+            [
+              "512 units / 60 towers / 24 segments",
+              "20.08 ms",
+              "3.57 ms",
+              "0.84 ms",
+              "24.1\u00d7"
+            ],
+            [
+              "1000 units / 80 towers / 32 segments",
+              "58.43 ms",
+              "10.25 ms",
+              "1.73 ms",
+              "33.8\u00d7"
+            ]
+          ]
+        },
+        {
+          "type": "p",
+          "text": "Every PRD bar was met: \u2264 4.0 ms and \u2264 1.5 ms at 512/60/24, \u2264 3.0 ms at 1000/80/32 \u2014 the second cell landing under the first cell's own bar despite carrying almost twice the units and towers."
+        },
+        {
+          "type": "h3",
+          "text": "Why the measurement is the deliverable, not the diff"
+        },
+        {
+          "type": "p",
+          "text": "Decision 058 is the reason this could not be verified by parity alone: a previous idle-rescan fix in this exact codepath passed 864 runs of parity and changed nothing measurable, because a change that passes parity has only proved it did not change anything observable \u2014 which is precisely what a no-op also proves. So target selection was tested directly rather than inferred from an aggregate grade. Four independent modes, all reporting zero differing selections between the indexed and exhaustive paths: a synthetic 512-unit / 60-tower / 24-segment board over 300 ticks; 300 randomised boards over 1,500 ticks; an LF-055-shaped case built specifically to have several structurally identical units alive on the same tick in range of the same guns; and every one of the 24 anchors, at all 3 difficulties, at every standard policy, driven through the real Sim.run() rather than a synthetic rig."
+        },
+        {
+          "type": "p",
+          "text": "One structural proof sits next to the statistical ones and is the nicer of the two: wrapping point_at() and running an identical board once at 10 towers and once at 100 towers gives 1,024 calls per tick in both cases \u2014 a count invariant to tower count, which is exactly the property WAR-02 claims about itself. Before the change, that same count scales with tower count directly."
+        },
+        {
+          "type": "h3",
+          "text": "Parity, and why the Windows leg matters specifically here"
+        },
+        {
+          "type": "p",
+          "text": "The Linux leg is confirmed green, freshly run rather than read from cache: digest 52d5a4e66195, 1,440 runs identical. The Windows leg was started as this entry was being written and its result is not confirmed here \u2014 a machine running someone else's parity pass is not a machine to also drive a screenshot or a second parity run against, so this entry says only what it can stand behind."
+        },
+        {
+          "type": "p",
+          "text": "Windows matters more for this change than for most. BAL-06 established that every parity run before it had been comparing CPython against the Linux Godot build while the owner plays on Windows, and LF-105 then measured that Windows Godot's atan2, sin, cos, pow, log, exp and tan diverge from CPython \u2014 parity has held so far only because the rules use none of them. A spatial hash is exactly the kind of code where someone reaches for one of those. This one does not: it uses floor and fmod, both measured byte-identical across all three runtimes, and the gate's safe operations check is green. Worth naming as a near miss rather than passing over \u2014 the trap was real, and this implementation happened to route around it rather than being designed around it from the start."
+        },
+        {
+          "type": "h3",
+          "text": "LF-098: the general fix beat the special one"
+        },
+        {
+          "type": "p",
+          "text": "An emplacement with nothing in range used to rescan every unit on the board, every tick, forever \u2014 measured at 2.19\u00d7 cost at 8 towers / 32 units, rising to 2.87\u00d7 at 100 towers / 800 units. WAR-03 closes it as a side effect: an idle gun now only scans the cells within its own range, so --all-idle now measures 0.74\u00d7 \u2014 faster than the baseline it used to run nearly three times slower than. No targeted fix was written for LF-098, and none needed to be \u2014 decision 058 already records that a targeted attempt at this exact problem had been tried once and done nothing. The general fix arrived for an unrelated reason and happened to be the answer."
+        },
+        {
+          "type": "h3",
+          "text": "The ordering contract \u2014 decision 072"
+        },
+        {
+          "type": "p",
+          "text": "The actual risk in a spatial index is invisible in the diff, and decision 072 is what names it. Both engines' grid queries sort their merged candidate list on every call, even though each individual bucket is already sorted by construction from insertion order \u2014 and that sort looks, on a skim, like dead weight to delete. It is not: iterating buckets in their own order would be free, but it would make a tie between two units in the same cell depend on which of them entered the grid first, which is spawn history and container internals leaking into which unit a gun picks. That is PRD risk #3 by name, with LF-055 as its precedent. The redundant sort is what makes the ordering ours instead of the container's, and it is why the indexed and exhaustive paths provably pick the same unit on every tie, not just the ones a test happened to cover. GDScript keys its grid with a packed int (cy times a fixed stride, plus cx) rather than a Vector2i for the same reason \u2014 Vector2i hashing order is a Godot engine internal, and this index does not get to depend on one."
+        },
+        {
+          "type": "p",
+          "text": "sim/coverage.py \u2014 the siting instrument that landed earlier the same session \u2014 needed no changes at all to keep working against the refactored engine, because _veteran_rank, _damage and _tick_once kept identical signatures and call sites throughout. Its own --selftest is green. A refactor this large leaving a fresh, unrelated subclass completely untouched is a good sign about both pieces of work."
+        },
+        {
+          "type": "p",
+          "text": "As written, this work is uncommitted on lf/war-perf-core \u2014 sim/engine.py, scripts/anchor_sim.gd and tools/bench_tick.py \u2014 with the Linux parity leg confirmed and the Windows leg run but not yet confirmed complete. No screenshot accompanies this entry; there is nothing for one to show that a frame-cost number does not already say more precisely."
+        }
+      ]
     }
   ]
 }
