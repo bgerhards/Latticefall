@@ -1,0 +1,305 @@
+name: Parity (windows)
+
+# COST, UP FRONT — this is the whole justification for the narrow trigger below, and it
+# will get re-litigated if it isn't stated where nobody can miss it. Measured, not
+# projected (run 30700674063, shard 0/4): ~9.5 minutes per shard. Four shards, run in
+# parallel: wall-clock stays in that ~9.5min neighbourhood, but BILLED cost is additive
+# across the four parallel jobs, not reduced by running them at once — 4 x ~9.5min =
+# ~38 job-minutes. GitHub bills Windows-hosted minutes at 2x the Linux rate, so that is
+# ~76 Linux-equivalent minutes per full run of this workflow — several times
+# `parity-shard.yml`'s comparable Linux cost. This is why this workflow does not run on
+# every PR (see "Trigger shape and sharding" below), and why "just remove the path
+# filter, it's more correct" is not a free upgrade if it's ever proposed later.
+#
+# BAL-06 / LF-105. `rules parity` (gate.yml's container job, tier 4 locally) and
+# `parity-shard.yml` both compare CPython against the native *Linux* Godot build — never
+# the Windows build the owner actually plays. Measured across 100,000 float64 samples on
+# all three runtimes (docs/DECISIONS.md): `+ - * /`, `sqrt`, `fmod`, `floor`, comparisons
+# are byte-identical everywhere, but Windows Godot's MSVC UCRT diverges from CPython and
+# Linux Godot's glibc on `atan2` (0.084%), `sin`/`cos` (0.133%/0.120%), `pow`/`log`/`exp`
+# (0.130%/0.031%/0.069%) and `tan` (4.32%). The rules use none of those ops today —
+# `tools/check.py`'s `safe operations` check (decision 061) is what keeps that true by
+# design — so cross-platform parity holding was, until this workflow, unverified rather
+# than disproven. `tools/check.py`'s own `rules parity (windows)` check (BAL-06) already
+# exists locally and reports `skip, skipped_reason: "subsystem"` on any machine with no
+# Windows Godot resolvable — which was every hosted CI box, because a Windows binary
+# needs a `windows-latest` runner, not a container on `ubuntu-latest`. This workflow is
+# that runner.
+#
+# ## Why a separate workflow file, not a job bolted onto gate.yml or parity-shard.yml
+#
+# A Windows-runner failure should name itself as "the Windows leg broke" at a glance, not
+# show up as one red job in a matrix whose other three legs are the Linux shards this
+# project already trusts. Windows minutes also bill at 2x the Linux rate on GitHub-hosted
+# runners (see cost note below) — folding this into a workflow that already runs on every
+# relevant PR would double that PR's Windows spend for a leg that, by design, catches
+# nothing unless one of three specific files changed.
+#
+# ## What actually needs proving before this file could be trusted, in order — all four answered
+#
+# 1. Resolution. `tools/test_parity.py --platform windows` resolves Godot through
+#    `toolpaths.resolve_for_platform("windows")` -> `resolve_windows_godot()`, which
+#    globbed WSL-shaped paths only (`/mnt/*/godot/Godot_v*_win64_console.exe`) — nothing a
+#    native `windows-latest` runner (no WSL, no `/mnt/`) could ever match. Fixed
+#    additively in `tools/toolpaths.py`: `resolve_windows_godot()` now checks
+#    `$LF_WINDOWS_GODOT` first, before its existing globs. Unset on every other machine
+#    (nobody's dev box exports it), so this changes nothing about the WSL dev machine's
+#    own resolution order — see that function's docstring. Verified live: run 30699049203
+#    printed `resolved: D:\a\Latticefall\Latticefall\godot-bin\Godot_v4.7.1-stable_win64_
+#    console.exe` and the binary's real `--version` output.
+# 2. Fetchability. Confirmed. `godotengine/godot`'s `4.7.1-stable` release ships exactly
+#    one non-mono win64 asset, `Godot_v4.7.1-stable_win64.exe.zip` (verified via the
+#    GitHub API, not assumed), containing BOTH `Godot_v4.7.1-stable_win64.exe` (the
+#    ~179MB engine) and `Godot_v4.7.1-stable_win64_console.exe` (a ~198KB
+#    console-subsystem stub) — the latter is the one `toolpaths.py`'s existing glob
+#    already expects, because a GUI-subsystem exe's stdout is not reliably capturable by
+#    a piped subprocess the way a console-subsystem exe's is. The zip's SHA-256 is pinned
+#    below and verified before extraction, answering "hashed".
+# 3. Tooling. `tools/test_parity.py` and everything it imports (`sim/content.py`,
+#    `sim/engine.py`, `tools/lease.py`, `tools/toolpaths.py`) are stdlib-only — no
+#    `jsonschema`, no `numpy`/`soundfile` — so there is no `.venv` / `pip install` step
+#    here at all, sidestepping the whole `.venv/bin/python` vs `Scripts/python.exe`
+#    question. `tools/lease.py`'s ordinary `acquire()` (what `test_parity.py` uses; NOT
+#    `acquire_capture()`) is pure `json`/`os`/`pathlib` — no `fcntl` — so it needs no
+#    POSIX-only primitive either. `toolpaths.host_path_for()` is a no-op here for an
+#    unrelated reason from the WSL case: `_running_under_wsl()` is False on a native
+#    Windows runner, so paths pass through unchanged — correct, because on this runner
+#    they are already native Windows paths with nothing to translate. Verified live: the
+#    resolved-binary print above, and every run below, executed cleanly.
+# 4. Cost and shape — the one that took real digging. See "Trigger shape and sharding"
+#    below; short version: an UNSHARDED full run genuinely does not fit a sane per-job
+#    budget on this runner, and the fix is sharding, not a longer timeout.
+#
+# ## What debugging the first real run found — read this before you touch this file
+# ## again, because the next person will hit exactly what this session hit
+#
+# The first unsharded run (30697883902) failed at 29 minutes looking **exactly** like a
+# known, precedented bug in this codebase: Godot launched, printed its version banner, and
+# then produced nothing for the full 1700s internal wedge-timeout
+# (`tools/test_parity.py`'s `GODOT_SUBPROCESS_TIMEOUT_S`). A hang with no error right after
+# the banner is the *exact* symptom `gate.yml`'s own header comment and decision 071
+# describe for a checkout that has never been imported (a `class_name` global or a font
+# `preload()` blocking on missing `.godot/` cache content).
+#
+# **It was not that.** An `--import` pass was added on that hypothesis and measured, not
+# assumed, not to help: a CPU-time poll of the full run taken immediately AFTER `--import`
+# was identical to one taken before it — flat `cpu_seconds=0`, flat `working_set_mb=6.5`,
+# both for the full 4 minutes each was sampled. The import step was then removed again; it
+# is not present in the jobs below. If you are reading this because someone re-added an
+# `--import` step to "fix" a slow or failing run here, read the next two paragraphs before
+# assuming that is the fix — it measurably was not, once. Filed as `LF-192`.
+#
+# **It was never hanging at all.** Single-anchor runs (both the default and
+# `--rendering-driver opengl3`) succeeded in ~20-30s each, ruling out a Godot-launch/GPU
+# hang. A throwaway probe script proved `DirAccess.open("res://data/anchors").get_files()`
+# — the only code path an unfiltered run takes that a filtered one does not — resolves in
+# ~1ms, ruling out directory enumeration. Sweeping all 24 anchors individually (each its
+# own short, independent Godot process) showed anchor-01 through anchor-04 completing
+# cleanly with a rising cost trend — **24.1s, 33s, 39.1s, 48.1s** — before every anchor
+# from 05 onward hit a 60s test cap with no output. Per-anchor cost on `windows-latest` is
+# higher than the ~594s/1152-run local 16-core benchmark AND rises steeply across the
+# anchor list (already documented: `tools/parity_costs.json`'s own reason for existing is
+# "anchor-24 has been measured at a double-digit multiple of anchor-01's cost"). Measured
+# directly: **562s for 360 runs (shard 0/4) extrapolates to ~1800s for the full,
+# unsharded 1152 — a hair over the 1700s no-output timeout.** It ran out of clock, nothing
+# more.
+#
+# **`$proc.CPU` (PowerShell's `Process.TotalProcessorTime`) is not a trustworthy "is it
+# stalled" signal for this binary on this runner, and that false signal is what made the
+# wrong diagnosis look believable.** It read a flat zero for the ENTIRE 60s+ of every poll
+# above, including a longer, dedicated CPU-poll of anchor-05 alone that ran past the same
+# 60s mark and then completed successfully with fully valid `PARITY_JSON` for all 48 of
+# its combinations — proof the process was doing real, correct work while the metric
+# claimed 0% CPU throughout. Anyone debugging a future slow-or-failing run here: check
+# wall-clock against the single-anchor smoke path's own baseline (~20-30s) FIRST, and do
+# not trust `$proc.CPU`/`Process.CPU` alone to tell "computing" from "stalled" on this
+# runner. Filed as `LF-191`.
+#
+# Conclusion, and the actual fix: this is not a hang, so sharding — not a longer timeout —
+# is the correct response, exactly the response `parity-shard.yml` already proved out for
+# the Linux leg. Verified for real, not projected: run 30700674063, shard 0/4 (360 of the
+# suite's 1152 runs, LPT-balanced) completed in 9m22s, reporting `parity ok — 360 runs
+# identical (gdscript vs python) [shard 0/4] [windows]` — zero divergence between CPython,
+# the GDScript rules, and the Windows Godot binary, the first time this comparison has run
+# anywhere but the owner's own machine.
+#
+# ## Trigger shape and sharding
+#
+# Sharded across 4 jobs via `tools/test_parity.py --platform windows --shard I/4` —
+# reusing PRC-05's existing LPT bin-packing (`tools/parity_costs.json`) exactly the way
+# `parity-shard.yml` already does for Linux, rather than inventing a second mechanism.
+# `tools/parity_costs.json` is built from the PYTHON side's own per-anchor wall-clock
+# (see `tools/test_parity.py`'s `_save_costs()`), which has no Godot boot overhead and
+# ticks the identical simulation on both platforms — so the RELATIVE proportions between
+# anchors should still be directionally informative here even though the table was
+# recorded on a much faster machine (LF-182's mispacking concern is about a hosted
+# runner's absolute clock speed skewing the BALANCE between shards, not about the
+# proportions being meaningless) — a real run is what confirms or corrects that, not
+# assumption.
+#
+# Not sharded further than 4, and not run on every PR: only `sim/engine.py`,
+# `scripts/anchor_sim.gd` and `scripts/test/parity.gd` can possibly move this check's
+# outcome (the same three files `test_parity.py`'s own `DIGEST_FIXED_FILES` treats as
+# parity-relevant, minus `sim/content.py` and `data/**` which change outcomes on BOTH
+# platforms identically and so add cost here without adding platform-specific signal).
+# Plus a weekly schedule — not daily like `parity-shard.yml` — because a Godot upgrade
+# (the other thing that can move float behaviour) is rare, and this leg costs more per run
+# than the Linux one; a week's staleness window is the cheaper trade against catching an
+# upgrade-caused drift a few days later. Plus `workflow_dispatch`, with an optional
+# single-anchor input that skips the matrix entirely, for a fast manual sanity check
+# (CLAUDE.md's eventual "a release runs Windows parity" line can use the full matrix
+# instead).
+#
+# ## Cost versus the Linux leg (see the top of this file for the headline number)
+#
+# `parity-shard.yml`'s 4 Linux shards run ~9-13 minutes of WALL time for a comparable
+# job-minute total, but at the 1x rate. This leg costs several times more per run than its
+# Linux counterpart even before its narrower trigger is counted — which is exactly why
+# that trigger is narrow rather than "every PR" (see "Trigger shape and sharding" above).
+# All four shards running in parallel should land in the same ~9-10 minute wall-clock
+# neighbourhood as the single measured shard (LPT-balanced, so no shard should run
+# dramatically longer) — the top-of-file number is what the total BILLED cost of that
+# comes to, since billed minutes are additive across parallel jobs, not reduced by them.
+
+on:
+  workflow_dispatch:
+    inputs:
+      anchor:
+        description: >-
+          Optional: run parity for a single anchor only (e.g. anchor-01) instead of the
+          full sharded suite. Skips the matrix entirely and runs one job. Never touches
+          the digest cache (same rule tools/test_parity.py already applies to --anchor).
+        required: false
+        default: ""
+  pull_request:
+    paths:
+      - "sim/engine.py"
+      - "scripts/anchor_sim.gd"
+      - "scripts/test/parity.gd"
+  schedule:
+    # Weekly, not daily — see header comment's cost note. Offset from parity-shard.yml's
+    # 09:30 UTC and freshness.yml's :00 so three schedules do not land in the same minute.
+    - cron: "45 9 * * 1"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: parity-windows-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GODOT_VERSION: "4.7.1-stable"
+  # Verified against the GitHub API on 2026-08-01 (`gh api
+  # repos/godotengine/godot/releases/tags/4.7.1-stable`): the only non-mono win64 asset is
+  # `Godot_v4.7.1-stable_win64.exe.zip`, and this is its SHA-256. A mismatch means the
+  # release asset changed under this tag (should not happen for a `-stable` tag) —
+  # investigate before bumping this rather than deleting the check.
+  GODOT_WIN64_ZIP_SHA256: "c7a289051eaefb460b0106b60e9cd5bee0ef55fd102dcb2bed1eb356cf3d90a1"
+
+jobs:
+  # Manual single-anchor smoke path — only when explicitly requested via
+  # workflow_dispatch's `anchor` input. Skips the whole matrix below.
+  parity-windows-smoke:
+    name: rules parity (windows) — smoke (${{ github.event.inputs.anchor }})
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.anchor != ''
+    runs-on: windows-latest
+    steps:
+      - name: Checkout (no LFS — parity reads JSON under data/, never a sprite/audio byte)
+        uses: actions/checkout@v4
+        with:
+          lfs: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Download, verify, and extract Windows Godot ${{ env.GODOT_VERSION }}
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $url = "https://github.com/godotengine/godot/releases/download/$env:GODOT_VERSION/Godot_v${env:GODOT_VERSION}_win64.exe.zip"
+          Invoke-WebRequest -Uri $url -OutFile godot-win64.zip
+          $actual = (Get-FileHash -Path godot-win64.zip -Algorithm SHA256).Hash.ToLower()
+          $expected = $env:GODOT_WIN64_ZIP_SHA256
+          if ($actual -ne $expected) {
+            Write-Error "SHA-256 mismatch on $url`nexpected: $expected`nactual:   $actual`nThe release asset changed under a -stable tag — investigate before updating the pin."
+            exit 1
+          }
+          Write-Host "sha256 verified: $actual"
+          Expand-Archive -Path godot-win64.zip -DestinationPath godot-bin -Force
+          $consoleExe = Join-Path $PWD "godot-bin\Godot_v${env:GODOT_VERSION}_win64_console.exe"
+          if (-not (Test-Path $consoleExe)) {
+            Write-Error "expected console exe not found at $consoleExe — release archive layout changed?"
+            exit 1
+          }
+          echo "LF_WINDOWS_GODOT=$consoleExe" >> $env:GITHUB_ENV
+
+      - name: Print resolved binary and version (BAL-06 acceptance criterion)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          python -c "import sys; sys.path.insert(0, 'tools'); import toolpaths; p = toolpaths.resolve_for_platform('windows'); print('resolved:', p); import subprocess; print(subprocess.run([p, '--version'], capture_output=True, text=True).stdout.strip())"
+
+      - name: Run single-anchor smoke
+        shell: pwsh
+        run: python tools/test_parity.py --platform windows --anchor ${{ github.event.inputs.anchor }} --verbose
+
+  # The real check. Sharded exactly like parity-shard.yml's Linux legs — see header
+  # comment's "Trigger shape and sharding" for why an unsharded full run does not fit a
+  # sane per-job budget on this runner.
+  parity-windows:
+    name: rules parity (windows) — shard ${{ matrix.shard }}/4
+    if: github.event_name != 'workflow_dispatch' || github.event.inputs.anchor == ''
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3]
+    steps:
+      - name: Checkout (no LFS — parity reads JSON under data/, never a sprite/audio byte)
+        uses: actions/checkout@v4
+        with:
+          lfs: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # No venv / pip install step: tools/test_parity.py and everything it imports are
+      # stdlib-only — see header comment point 3.
+      - name: Download, verify, and extract Windows Godot ${{ env.GODOT_VERSION }}
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $url = "https://github.com/godotengine/godot/releases/download/$env:GODOT_VERSION/Godot_v${env:GODOT_VERSION}_win64.exe.zip"
+          Invoke-WebRequest -Uri $url -OutFile godot-win64.zip
+          $actual = (Get-FileHash -Path godot-win64.zip -Algorithm SHA256).Hash.ToLower()
+          $expected = $env:GODOT_WIN64_ZIP_SHA256
+          if ($actual -ne $expected) {
+            Write-Error "SHA-256 mismatch on $url`nexpected: $expected`nactual:   $actual`nThe release asset changed under a -stable tag — investigate before updating the pin."
+            exit 1
+          }
+          Write-Host "sha256 verified: $actual"
+          Expand-Archive -Path godot-win64.zip -DestinationPath godot-bin -Force
+          $consoleExe = Join-Path $PWD "godot-bin\Godot_v${env:GODOT_VERSION}_win64_console.exe"
+          if (-not (Test-Path $consoleExe)) {
+            Write-Error "expected console exe not found at $consoleExe — release archive layout changed?"
+            exit 1
+          }
+          # LF_WINDOWS_GODOT: the additive env var tools/toolpaths.py's
+          # resolve_windows_godot() now checks first (see that function's docstring) —
+          # this is what makes --platform windows resolve on a runner with no /mnt/ at all.
+          echo "LF_WINDOWS_GODOT=$consoleExe" >> $env:GITHUB_ENV
+
+      - name: Print resolved binary and version (BAL-06 acceptance criterion)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          python -c "import sys; sys.path.insert(0, 'tools'); import toolpaths; p = toolpaths.resolve_for_platform('windows'); print('resolved:', p); import subprocess; print(subprocess.run([p, '--version'], capture_output=True, text=True).stdout.strip())"
+
+      - name: Run parity shard ${{ matrix.shard }}/4 (windows)
+        shell: pwsh
+        run: python tools/test_parity.py --platform windows --shard ${{ matrix.shard }}/4
