@@ -338,13 +338,16 @@ E4 terrain ──┴────────────────────
 
 These are not engineering calls and the programme should not guess at them.
 
-| # | Decision | Why it cannot wait |
+**All five are now taken.** This table is kept as the record of what was open and where each
+answer lives; `docs/DECISIONS.md` is append-only and is the authority.
+
+| # | Decision | Status |
 |---|---|---|
-| 1 | **Sprite legibility at zoom-out** — bigger tiles, a zoom floor, or silhouette-first art? | Blocks finishing E2 and sets the art bar for E6. |
-| 2 | **Board size target** — 32², 48², 64²? | Sets the culling, atlas and balance budgets. |
-| 3 | **Line of sight — in or out?** | Largest single work item; invalidates all 24 grades. |
-| 4 | **Regional power grid — in or out?** | Recommended out for now; it is the expensive one. |
-| 5 | **Indentation** — tabs or spaces, pinned in `.editorconfig`. | Two lines, a 6,000-line branch waiting, and the editor silently reindents. |
+| 1 | **Sprite legibility at zoom-out** — bigger tiles, a zoom floor, or silhouette-first art? | **Half-settled by #2.** 48² needs zoom 0.312× to fit, so `ZOOM_MIN` is determined and `CAM-05`'s option 2 — a zoom floor with `CAM-04`'s minimap doing the wide read — is the answer; *the board is never fully visible in the playfield*. Bigger tiles are ruled out (`calibrate()` will not converge at 384 or 1024 px, `LF-102`; decision 066 refused the atlas growth on a 630 MB VRAM projection). What remains open is only the **art bar for E6** — whether sprites at ~40–80 px want silhouette-first treatment anyway. Decision 073. |
+| 2 | **Board size target** — 32², 48², 64²? | **48².** 2,304 tiles, 8.5× today. Decision 073. |
+| 3 | **Line of sight — in or out?** | **Out.** Decision 069. |
+| 4 | **Regional power grid — in or out?** | **Out.** Relay nodes deliver the interesting half for a fraction of the cost. Decision 069. |
+| 5 | **Indentation** — tabs or spaces, pinned in `.editorconfig`. | **Tabs.** Decision 068. |
 
 ---
 
