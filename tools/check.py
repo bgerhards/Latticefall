@@ -73,9 +73,13 @@ silent drift. See that check's own docstring for what it caught before it existe
   Two consequences worth knowing before touching this: a 3% margin means **the next check
   added to tier 2 blows the budget again**, and the structural answer at that point is
   LF-178's option (2), splitting into a ~10 s pre-commit tier and a pre-push tier, not
-  another raise. Also note LF-170: these durations are timed with `time.time()`, which has
-  been seen running backwards under load, so the instrument this budget is judged against
-  can itself move.
+  another raise. Every duration here is timed with **`time.monotonic()`**, closing LF-170 —
+  it was `time.time()`, which is subject to wall-clock adjustment and was observed once
+  reporting a **negative 796 ms** elapsed under heavy concurrent load. That matters more
+  than a cosmetic wrong number: the whole tiering argument rests on per-check costs being
+  trustworthy, and `--budget` turns the figures above into assertions, so an instrument that
+  can run backwards is the wrong one to be judging a 0.8% margin with. Only `started_at`
+  stays on the wall clock, because a timestamp is not a duration.
 - **tier 3 (PR), 35 checks:** tier 2 + `facing harness` (moved here from tier 2, above) +
   `game renders`, `menu renders`, `accessibility`,
   `scenario smoke`, `scenario abilities`, `scenario a11y-worst`, `scenario lf161-scroll`,
@@ -1888,10 +1892,10 @@ def main() -> int:
 
     started_at = datetime.now(timezone.utc).isoformat()
     failed = skipped = by_flag = by_tier = by_cache = 0
-    t0 = time.time()
+    t0 = time.monotonic()
     records: list[dict] = []
     for check in CHECKS:
-        start = time.time()
+        start = time.monotonic()
         try:
             if check.tier > args.tier:
                 res = Result(SKIP, f"excluded by --tier {args.tier} (this check is tier "
@@ -1924,7 +1928,7 @@ def main() -> int:
                     res.skipped_reason = "subsystem"
         except Exception as e:
             res = Result(FAIL, f"check itself raised: {type(e).__name__}: {e}")
-        ms = (time.time() - start) * 1000
+        ms = (time.monotonic() - start) * 1000
         mark = {OK: "  ok  ", FAIL: " FAIL ", SKIP: " skip "}[res.status]
         if not quiet:
             print(f"[{mark}] {check.name:<20s} {ms:6.0f}ms  "
@@ -1940,7 +1944,7 @@ def main() -> int:
                         "detail": res.detail, "tier": check.tier,
                         "skipped_reason": res.skipped_reason})
 
-    total = (time.time() - t0) * 1000
+    total = (time.monotonic() - t0) * 1000
     summary_line = (f"tier {args.tier} — {len(CHECKS) - failed - skipped} passed · "
                     f"{failed} failed · {skipped} skipped · {total:.0f}ms")
     budget = TIER_BUDGET_MS.get(args.tier)
