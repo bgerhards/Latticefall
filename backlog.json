@@ -1,5 +1,5 @@
 {
-  "next_id": 190,
+  "next_id": 191,
   "items": [
     {
       "id": "LF-001",
@@ -2035,11 +2035,11 @@
       "kind": "bug",
       "area": "tooling",
       "pri": "med",
-      "status": "open",
+      "status": "done",
       "why": "",
       "opened": "2026-07-31",
-      "closed": null,
-      "note": ""
+      "closed": "2026-08-01",
+      "note": "closed at abd9eab"
     },
     {
       "id": "LF-171",
@@ -2059,11 +2059,11 @@
       "kind": "bug",
       "area": "design",
       "pri": "med",
-      "status": "open",
+      "status": "done",
       "why": "",
       "opened": "2026-07-31",
-      "closed": null,
-      "note": ""
+      "closed": "2026-08-01",
+      "note": "closed at abd9eab"
     },
     {
       "id": "LF-173",
@@ -2071,11 +2071,11 @@
       "kind": "bug",
       "area": "tooling",
       "pri": "med",
-      "status": "open",
+      "status": "done",
       "why": "",
       "opened": "2026-07-31",
-      "closed": null,
-      "note": ""
+      "closed": "2026-08-01",
+      "note": "closed at abd9eab"
     },
     {
       "id": "LF-174",
@@ -2131,11 +2131,11 @@
       "kind": "chore",
       "area": "tooling",
       "pri": "med",
-      "status": "open",
+      "status": "done",
       "why": "",
       "opened": "2026-07-31",
-      "closed": null,
-      "note": ""
+      "closed": "2026-08-01",
+      "note": "closed at abd9eab"
     },
     {
       "id": "LF-179",
@@ -2143,11 +2143,11 @@
       "kind": "bug",
       "area": "tooling",
       "pri": "med",
-      "status": "open",
+      "status": "done",
       "why": "",
       "opened": "2026-07-31",
-      "closed": null,
-      "note": ""
+      "closed": "2026-08-01",
+      "note": "closed at abd9eab"
     },
     {
       "id": "LF-180",
@@ -2167,11 +2167,11 @@
       "kind": "feature",
       "area": "design",
       "pri": "med",
-      "status": "open",
+      "status": "done",
       "why": "",
       "opened": "2026-07-31",
-      "closed": null,
-      "note": ""
+      "closed": "2026-08-01",
+      "note": "closed at abd9eab"
     },
     {
       "id": "LF-182",
@@ -2251,6 +2251,18 @@
       "kind": "chore",
       "area": "design",
       "pri": "med",
+      "status": "done",
+      "why": "",
+      "opened": "2026-08-01",
+      "closed": "2026-08-01",
+      "note": "closed at abd9eab"
+    },
+    {
+      "id": "LF-189",
+      "title": "KNOWN LIMITATION of the LF-173 chronicle renderer fix, found by the first author to use it: a bold span that CROSSES a code-span boundary never pairs and prints literal asterisks. render_inline() splits on backticks first and applies _wrap_pairs(part, '**', 'strong') to each PROSE segment independently, so in a string shaped like '**see BACKTICK BAL-04 BACKTICK for why**' the opening ** lives in segment 0 and the closing ** in segment 2, and neither finds its partner. Output is literal '**see <code>BAL-04</code> for why**'. This is strictly better than the pre-fix behaviour, which produced CROSSED tags for the same input, and it is safe \u2014 literal text never breaks the page \u2014 but it is still wrong output and the author has to notice and rewrite the sentence. Caught during the-number-that-did-not-decide-it by diffing rendered HTML for stray asterisks before committing, which is not a check anyone should have to remember. Two candidate fixes. (1) Tokenise once into a flat list of (kind, text) spans \u2014 code or prose \u2014 then pair ** across PROSE spans only, emitting the code spans untouched between them; this is the 'tokenise once and never re-scan' shape LF-173 originally asked for and handles the case properly. (2) Cheaper: keep the current structure but add a generator-side assertion that no rendered page contains a literal ** or an unpaired <strong>, so the failure is red rather than silent \u2014 chronicle.py --check is the natural home. Prefer (1); do (2) regardless, because (2) would have caught this without a human diffing HTML. Note the same argument does NOT apply to single-asterisk emphasis, which was deliberately rejected at 50 percent false positives on the real corpus",
+      "kind": "bug",
+      "area": "tooling",
+      "pri": "med",
       "status": "open",
       "why": "",
       "opened": "2026-08-01",
@@ -2258,10 +2270,10 @@
       "note": ""
     },
     {
-      "id": "LF-189",
-      "title": "KNOWN LIMITATION of the LF-173 chronicle renderer fix, found by the first author to use it: a bold span that CROSSES a code-span boundary never pairs and prints literal asterisks. render_inline() splits on backticks first and applies _wrap_pairs(part, '**', 'strong') to each PROSE segment independently, so in a string shaped like '**see BACKTICK BAL-04 BACKTICK for why**' the opening ** lives in segment 0 and the closing ** in segment 2, and neither finds its partner. Output is literal '**see <code>BAL-04</code> for why**'. This is strictly better than the pre-fix behaviour, which produced CROSSED tags for the same input, and it is safe \u2014 literal text never breaks the page \u2014 but it is still wrong output and the author has to notice and rewrite the sentence. Caught during the-number-that-did-not-decide-it by diffing rendered HTML for stray asterisks before committing, which is not a check anyone should have to remember. Two candidate fixes. (1) Tokenise once into a flat list of (kind, text) spans \u2014 code or prose \u2014 then pair ** across PROSE spans only, emitting the code spans untouched between them; this is the 'tokenise once and never re-scan' shape LF-173 originally asked for and handles the case properly. (2) Cheaper: keep the current structure but add a generator-side assertion that no rendered page contains a literal ** or an unpaired <strong>, so the failure is red rather than silent \u2014 chronicle.py --check is the natural home. Prefer (1); do (2) regardless, because (2) would have caught this without a human diffing HTML. Note the same argument does NOT apply to single-asterisk emphasis, which was deliberately rejected at 50 percent false positives on the real corpus",
-      "kind": "bug",
-      "area": "tooling",
+      "id": "LF-190",
+      "title": "LF-172 IS ANSWERED and the answer is that BAL-01's headline was WRONG WHEN PUBLISHED, not that it drifted. Two independent lines of evidence, both measured. FIRST, git (LF-188): between BAL-01 (4daeb7c) and the re-grade that disconfirmed it (00c64ca), data/anchors/ data/towers.json data/enemies.json data/tuning.json sim/engine.py and scripts/anchor_sim.gd ALL have zero changes, the only commits touching data/ sim/ or scripts/ are a PRESSURE_FLOOR deletion (which feeds the anchor verdict, not per-cell win/loss, and was measured dead at 0 of 72) and a whitespace-only reindent of a view script, and the 20-policy roster is byte-identical. SECOND, the method hypothesis is now tested and also dead. BAL-01 claimed surge flips 9 of 72 cells from LOSS to WIN, so nine cells must have had NO winner without surge. Every plausible baseline reconstruction was graded \u2014 11 policies (base minus greedy-overdraw), 12 (base only), 15, 16 (base plus capped-core, which is what BAL-01's own report claims it used) and 19 (everything except surge-on-peak) \u2014 and ALL FIVE produce ZERO flips. Run twice: once at today's post-LF-181 ranges and once at the PRE-LF-181 ranges via dataclasses.replace, to eliminate the range change as a confound. Byte-identical conclusions both times. The decisive number is that ZERO of the 72 cells are unwinnable by any policy at ANY baseline including the 11-policy one, so 'loss without surge' has nothing to be true of. surge-on-peak is the sole winner on 0 of 72, reproducing 00c64ca exactly. CONSEQUENCE: the chronicle correction already published stands and needs no further amendment, LF-172's 'why it moved is unknown' can be retired, and the four candidate causes it named (LF-098 LF-129 LF-130 LF-136) are all ruled out. The three unrecorded cells of the nine remain unrecoverable but no longer matter, because the claim does not reproduce under any reading of what its baseline was. WHAT REMAINS WORTH KEEPING from LF-172 is the process finding, not the balance one: a measurement was published with three of its nine data points never written down anywhere, which is why it could not be audited and had to be refuted by reconstruction instead",
+      "kind": "chore",
+      "area": "design",
       "pri": "med",
       "status": "open",
       "why": "",
