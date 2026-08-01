@@ -1,0 +1,188 @@
+name: Parity (windows)
+
+# BAL-06 / LF-105. `rules parity` (gate.yml's container job, tier 4 locally) and
+# `parity-shard.yml` both compare CPython against the native *Linux* Godot build — never
+# the Windows build the owner actually plays. Measured across 100,000 float64 samples on
+# all three runtimes (docs/DECISIONS.md): `+ - * /`, `sqrt`, `fmod`, `floor`, comparisons
+# are byte-identical everywhere, but Windows Godot's MSVC UCRT diverges from CPython and
+# Linux Godot's glibc on `atan2` (0.084%), `sin`/`cos` (0.133%/0.120%), `pow`/`log`/`exp`
+# (0.130%/0.031%/0.069%) and `tan` (4.32%). The rules use none of those ops today —
+# `tools/check.py`'s `safe operations` check (decision 061) is what keeps that true by
+# design — so cross-platform parity holding was, until this workflow, unverified rather
+# than disproven. `tools/check.py`'s own `rules parity (windows)` check (BAL-06) already
+# exists locally and reports `skip, skipped_reason: "subsystem"` on any machine with no
+# Windows Godot resolvable — which was every hosted CI box, because a Windows binary
+# needs a `windows-latest` runner, not a container on `ubuntu-latest`. This workflow is
+# that runner.
+#
+# ## Why a separate workflow file, not a job bolted onto gate.yml or parity-shard.yml
+#
+# A Windows-runner failure should name itself as "the Windows leg broke" at a glance, not
+# show up as one red job in a matrix whose other three legs are the Linux shards this
+# project already trusts. Windows minutes also bill at 2x the Linux rate on GitHub-hosted
+# runners (see cost note below) — folding this into a workflow that already runs on every
+# relevant PR would double that PR's Windows spend for a leg that, by design, catches
+# nothing unless one of three specific files changed.
+#
+# ## What actually needs proving before this file could be trusted, in order
+#
+# 1. `tools/test_parity.py --platform windows` resolves Godot through
+#    `toolpaths.resolve_for_platform("windows")` -> `resolve_windows_godot()`, which
+#    globbed WSL-shaped paths only (`/mnt/*/godot/Godot_v*_win64_console.exe`) — nothing a
+#    native `windows-latest` runner (no WSL, no `/mnt/`) could ever match. Fixed additively
+#    in `tools/toolpaths.py`: `resolve_windows_godot()` now checks `$LF_WINDOWS_GODOT`
+#    first, before its existing globs. Unset on every other machine (nobody's dev box
+#    exports it), so this changes nothing about the WSL dev machine's own resolution
+#    order — see that function's docstring.
+# 2. A Windows Godot 4.7.1 build is fetchable and runs `--headless --script` with no GPU:
+#    confirmed. `godotengine/godot`'s `4.7.1-stable` release ships exactly one non-mono
+#    win64 asset, `Godot_v4.7.1-stable_win64.exe.zip` (verified via the GitHub API, not
+#    assumed), containing BOTH `Godot_v4.7.1-stable_win64.exe` (the ~179MB engine) and
+#    `Godot_v4.7.1-stable_win64_console.exe` (a ~198KB console-subsystem stub) — the
+#    latter is the one `toolpaths.py`'s existing glob already expects, because a
+#    GUI-subsystem exe's stdout is not reliably capturable by a piped subprocess the way a
+#    console-subsystem exe's is. The zip's SHA-256 is pinned below and verified before
+#    extraction, answering "hashed" — the same integrity bar `gate.yml`'s Linux download
+#    does not currently hold itself to, done here because this file had to fetch the hash
+#    fresh anyway to write this comment.
+# 3. Do the project's Python tools run on `windows-latest` at all? `tools/test_parity.py`
+#    and everything it imports (`sim/content.py`, `sim/engine.py`, `tools/lease.py`,
+#    `tools/toolpaths.py`) are stdlib-only — no `jsonschema`, no `numpy`/`soundfile` — so
+#    there is no `.venv` / `pip install` step here at all, sidestepping the whole
+#    `.venv/bin/python` vs `Scripts/python.exe` question. `tools/lease.py`'s ordinary
+#    `acquire()` (what `test_parity.py` uses; NOT `acquire_capture()`) is pure
+#    `json`/`os`/`pathlib` — no `fcntl` — so it needs no POSIX-only primitive either;
+#    `fcntl` is only ever imported inside `acquire_capture()`, deferred, and this workflow
+#    never calls it. `toolpaths.host_path_for()` is a no-op here for an unrelated reason
+#    from the WSL case: `_running_under_wsl()` is False on a native Windows runner (no
+#    `WSL_DISTRO_NAME`, no `/proc/version`), so paths pass through unchanged — which is
+#    correct, because on this runner they are already native Windows paths with nothing to
+#    translate.
+# 4. Honest cost. GitHub bills Windows-hosted minutes at 2x the Linux rate. The full local
+#    suite (1152 sims, both languages) measured ~594s (~9.9min) on a 16-core dev box, with
+#    the Godot side running as ONE process (not one cold start per anchor — that only
+#    happens under `--anchor`/`--shard`). `parity-shard.yml`'s own header comment argues a
+#    *shard's* clock-bound (not core-bound) cost degrades hosted-Linux runners by up to
+#    ~2.5x; the same reasoning applied to a *full, unsharded* run on a hosted Windows
+#    runner puts a pessimistic estimate at ~25 minutes wall / ~50 Linux-equivalent billed
+#    minutes per run — a projection, not a measurement, exactly like that comment's own
+#    caveat: trust a real run over this number once one exists. Deliberately NOT sharded
+#    here (`tools/parity_costs.json`'s LPT bin-packing is tuned on local 16-core timings
+#    and already mispacks on hosted Linux runners per LF-182 — the same table would be
+#    doubly wrong on a differently-clocked Windows runner, and this workflow's narrow
+#    trigger means the cost is paid rarely enough that a single job is the simpler, safer
+#    choice over a matrix tuned against numbers this project does not trust yet).
+#
+# ## Trigger shape
+#
+# Not every PR: only `sim/engine.py`, `scripts/anchor_sim.gd` and `scripts/test/parity.gd`
+# can possibly move this check's outcome (the same three files `test_parity.py`'s own
+# `DIGEST_FIXED_FILES` treats as parity-relevant, minus `sim/content.py` and `data/**`
+# which change outcomes on BOTH platforms identically and so add cost here without adding
+# platform-specific signal). Plus a weekly schedule — not daily like `parity-shard.yml` —
+# because a Godot upgrade (the other thing that can move float behaviour) is rare, and
+# this leg costs roughly 2.5x what a Linux shard does per run; a week's staleness window
+# is the cheaper trade against catching an upgrade-caused drift a few days later. Plus
+# `workflow_dispatch`, with an optional single-anchor input, for a fast manual sanity
+# check or a pre-release run (CLAUDE.md's eventual "a release runs Windows parity" line).
+
+on:
+  workflow_dispatch:
+    inputs:
+      anchor:
+        description: >-
+          Optional: run parity for a single anchor only (e.g. anchor-01) instead of the
+          full 1152-run suite. Useful to sanity-check the Windows leg itself without
+          paying the full ~25min wall / ~50min-billed cost. Never touches the digest
+          cache (same rule tools/test_parity.py already applies to --anchor).
+        required: false
+        default: ""
+  pull_request:
+    paths:
+      - "sim/engine.py"
+      - "scripts/anchor_sim.gd"
+      - "scripts/test/parity.gd"
+  schedule:
+    # Weekly, not daily — see header comment's cost note. Offset from parity-shard.yml's
+    # 09:30 UTC and freshness.yml's :00 so three schedules do not land in the same minute.
+    - cron: "45 9 * * 1"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: parity-windows-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GODOT_VERSION: "4.7.1-stable"
+  # Verified against the GitHub API on 2026-08-01 (`gh api
+  # repos/godotengine/godot/releases/tags/4.7.1-stable`): the only non-mono win64 asset is
+  # `Godot_v4.7.1-stable_win64.exe.zip`, and this is its SHA-256. A mismatch means the
+  # release asset changed under this tag (should not happen for a `-stable` tag, but "the
+  # download changed and nobody noticed" is exactly the failure class decision 071's
+  # import-cache miss belongs to) — investigate before bumping this rather than deleting
+  # the check.
+  GODOT_WIN64_ZIP_SHA256: "c7a289051eaefb460b0106b60e9cd5bee0ef55fd102dcb2bed1eb356cf3d90a1"
+
+jobs:
+  parity-windows:
+    name: rules parity (windows)
+    runs-on: windows-latest
+    steps:
+      - name: Checkout (no LFS — parity reads JSON under data/, never a sprite/audio byte)
+        uses: actions/checkout@v4
+        with:
+          lfs: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # No venv / pip install step: tools/test_parity.py and everything it imports
+      # (sim/content.py, sim/engine.py, tools/lease.py, tools/toolpaths.py) are stdlib
+      # only — see header comment point 3.
+      - name: Download, verify, and extract Windows Godot ${{ env.GODOT_VERSION }}
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $url = "https://github.com/godotengine/godot/releases/download/$env:GODOT_VERSION/Godot_v${env:GODOT_VERSION}_win64.exe.zip"
+          Invoke-WebRequest -Uri $url -OutFile godot-win64.zip
+
+          $actual = (Get-FileHash -Path godot-win64.zip -Algorithm SHA256).Hash.ToLower()
+          $expected = $env:GODOT_WIN64_ZIP_SHA256
+          if ($actual -ne $expected) {
+            Write-Error "SHA-256 mismatch on $url`nexpected: $expected`nactual:   $actual`nThe release asset changed under a -stable tag — investigate before updating the pin."
+            exit 1
+          }
+          Write-Host "sha256 verified: $actual"
+
+          Expand-Archive -Path godot-win64.zip -DestinationPath godot-bin -Force
+          $consoleExe = Join-Path $PWD "godot-bin\Godot_v${env:GODOT_VERSION}_win64_console.exe"
+          if (-not (Test-Path $consoleExe)) {
+            Write-Error "expected console exe not found at $consoleExe — release archive layout changed?"
+            exit 1
+          }
+          # LF_WINDOWS_GODOT: the additive env var tools/toolpaths.py's
+          # resolve_windows_godot() now checks first (see that function's docstring) —
+          # this is what makes --platform windows resolve on a runner with no /mnt/ at all.
+          echo "LF_WINDOWS_GODOT=$consoleExe" >> $env:GITHUB_ENV
+
+      - name: Print resolved binary and version (BAL-06 acceptance criterion)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          python -c "import sys; sys.path.insert(0, 'tools'); import toolpaths; p = toolpaths.resolve_for_platform('windows'); print('resolved:', p); import subprocess; print(subprocess.run([p, '--version'], capture_output=True, text=True).stdout.strip())"
+
+      - name: Run Windows parity leg
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $anchor = "${{ github.event.inputs.anchor }}"
+          if ($anchor -ne "") {
+            Write-Host "single-anchor smoke run: $anchor"
+            python tools/test_parity.py --platform windows --anchor $anchor --verbose
+          } else {
+            python tools/test_parity.py --platform windows --verbose
+          }
