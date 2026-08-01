@@ -258,12 +258,28 @@ def preflight() -> str | None:
     return None
 
 
-def run_one(issue: Issue, model: str, timeout_s: int) -> tuple[str, str]:
-    """Spawn one headless session. Returns (verdict, detail)."""
+def run_one(issue: Issue, model: str, timeout_s: int,
+            remote_control: bool = True) -> tuple[str, str]:
+    """Spawn one session for this issue. Returns (verdict, detail).
+
+    REMOTE CONTROL IS ON BY DEFAULT and each session is named after the issue, so the owner
+    can watch a specific one from claude.ai or a phone without guessing which is which.
+
+    UNVERIFIED COMBINATION, stated rather than assumed: `--help` describes `--remote-control`
+    as starting an *interactive* session, and `-p` is non-interactive by definition. Whether
+    they compose could not be tested from inside a session — spawning a nested
+    permission-bypassing `claude` is denied by the auto-mode classifier, correctly. If the
+    pair turns out to conflict, `--no-remote-control` drops the flag and everything else
+    works unchanged. Find out with a single `--max-iterations 1` run before trusting a night
+    to it.
+    """
     started = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
     prompt = PROMPT.format(number=issue.number, spec_id=issue.spec_id, title=issue.title)
     argv = ["claude", "-p", prompt, "--dangerously-skip-permissions",
             "--model", model, "--output-format", "text"]
+    if remote_control:
+        # Named per issue so a remote viewer can tell sessions apart at a glance.
+        argv += ["--remote-control", f"latticefall-{issue.spec_id}"]
     code, out = sh(*argv, timeout=timeout_s)
     tail = out[-4000:] if out else ""
 
@@ -295,6 +311,9 @@ def main() -> int:
     ap.add_argument("--max-wall-clock", type=int, default=28800, help="seconds, whole loop")
     ap.add_argument("--max-failures", type=int, default=2, help="per issue, before skipping")
     ap.add_argument("--model", default="sonnet")
+    ap.add_argument("--no-remote-control", action="store_true",
+                    help="drop --remote-control from spawned sessions (use if it conflicts "
+                         "with headless -p; see run_one's docstring)")
     ap.add_argument("--start-with", default="", help="comma-separated spec ids to try first, "
                                                      "e.g. PLC-07,PLC-04 (still respects depends)")
     ap.add_argument("--dry-run", action="store_true", help="show the queue and exit")
@@ -353,7 +372,8 @@ def main() -> int:
 
             notify(f"autoloop {n}/{args.max_iterations} — starting",
                    f"{issue.spec_id} (#{issue.number}) {issue.title}", tags="hammer")
-            verdict, detail = run_one(issue, args.model, args.issue_timeout)
+            verdict, detail = run_one(issue, args.model, args.issue_timeout,
+                                      remote_control=not args.no_remote_control)
 
             if verdict == "SHIPPED":
                 shipped.append(f"{issue.spec_id} — {detail}")
