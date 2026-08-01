@@ -3113,3 +3113,84 @@ looks.
 regardless of the height of the lane's entrance and exit tiles — the same floating-prop class,
 outside `TER-07`'s task list, harmless until an anchor elevates its lane ends. `TER-09` is where
 that becomes real.
+
+---
+
+## 076 — The cursor is continuous, snapping happens on build only, and WASD pans
+
+**Date.** 2026-08-01. Closes `PLC-06`. **Supersedes the cursor half of decision 042 and leaves
+its action-map half standing.** Takes the owner's play feedback recorded as `LF-200`.
+
+**Context.** Decision 042 said: *"the cursor moves between slots rather than sweeping pixels: a
+virtual pointer on a stick is slow and imprecise, and the only tiles that can be acted on are
+the slots anyway."* Both halves of that argument were correct **and both were removed by
+`PLC-01` and `PLC-02`**. With continuous positions there is no slot array to walk, and with a
+real legality predicate the set of actionable positions is no longer a short list — it is a
+region. Decision 042's conclusion did not survive its own premises.
+
+**Decision. The cursor is a continuous float64 board position.** `hovered_slot`/`selected_slot`
+(`Vector2i`) become `cursor_at`/`selected_at` (`Vector2`), and the `NO_SLOT` sentinel becomes an
+explicit `has_selection: bool`. The mouse no longer rounds — `Vector2i(roundi(t.x), roundi(t.y))`
+is deleted. **The fields were renamed on purpose**: a magic sentinel does not survive a type
+change, and a rename is what stops a call site from continuing to work by accident.
+
+Keyboard movement is a **sub-tile lattice** — ½ tile per press, ¼ with a modifier — along the
+four tile-space diagonals that project to screen up/down/left/right. Decision 042's screen-space
+reasoning is kept verbatim in the code, because it was right: "up" means up on the screen.
+
+**Decision. Snapping happens on build, never on move.** `lf_build` ring-searches for the nearest
+legal position within 0.6 tiles and builds there, or refuses with the reason. Movement itself is
+free and unassisted.
+
+**Rejected, after building it and playing it: the lane magnet.** The issue specified a gentle
+pull toward good positions. It was implemented, measured, and removed. The four cursor diagonals
+are each **exactly 45° from any axis-aligned lane tangent**, so on anchor-01's axis-aligned lanes
+*every* direction pressed scored as "aligned enough" and dragged the cursor back toward the lane
+it was trying to leave:
+
+```
+three presses of screen-right, from a lane-adjacent start
+  expected   (8.06, 3.94)   legal
+  with magnet(7.57, 3.61)   REASON_LANE_STANDOFF — still refusing
+```
+
+**A helper that fights the player is worse than no helper.** The idea may be salvageable keyed
+off the screen direction rather than a raw tile-tangent dot product; that is filed, not shipped.
+This is the shape decision 067 and decision 074 both record — the tempting quantity moved and the
+thing that mattered did not.
+
+**Decision. Legality is shown continuously, not only on refusal.** An amber ring for legal, red
+for illegal, following the cursor, with the reason in words. This is *why* `PLC-02`'s predicate
+returns which of bounds/lane/overlap failed rather than a bare boolean — so a player learns a
+position is bad **before** committing to it, not after.
+
+**Decision. WASD pans the camera; the arrows, d-pad and left stick keep the cursor.** Taken
+directly from the owner playing: *"I do not like the idea of wasd changing cursor position the
+way it is. Wasd should allow to move the screen."* Two facts made this more than a preference —
+there was **no keyboard camera pan on the board at all**, and the minimap legend **claimed**
+`ARROWS PAN`, which was true only while the minimap was focused. The legend now reads
+`WASD PAN · M FOCUS · ARROWS PAN` and is finally accurate.
+
+**Rejected: moving cursor stepping to a modifier or to the gamepad only.** Giving the arrows the
+cursor is the smaller change and it makes the existing legend true rather than requiring it to
+carry a second meaning.
+
+**Decision 042's action-map half is untouched and still binds.** Bindings are regenerated through
+`tools/godot/setup_input.gd` and the `[input]` block in `project.godot` is never hand-edited,
+because a typo in a serialized `InputEvent` produces an action that **silently never fires**
+rather than an error.
+
+**What this finally makes true.** `LF-176` was the owner reporting that most turrets could barely
+reach anything. Decision 074 measured it and proved the residual is **slot geometry, not range** —
+pulse-turret swept from 3.2 to 7.0, more than double what shipped, leaves p10 pinned at **literally
+0.0%**. No range value reaches a pad that is simply too far from the lane. A turret now stands at
+**(8.06, 3.94)** on anchor-01, whose authored slots are
+`[[2,3],[4,4],[5,1],[6,4],[8,5],[9,3],[10,6],[12,6]]`.
+
+**A test that had been passing for the wrong reason.** `data/scenarios/gamepad_build.json`
+asserted an exact slot position — which any press satisfied, because any press parked the cursor
+at `slots[0]`. It now drives a real `InputEventJoypadMotion`/`Button` through the snap mechanism
+and lands at (7.95, 4.65), asserted as bounds plus `has_selection`.
+
+**`scripts/anchor_sim.gd` is untouched**, so no rule changed and no parity risk was introduced by
+a presentation change — which is the distinction decision 054 exists to keep sharp.
