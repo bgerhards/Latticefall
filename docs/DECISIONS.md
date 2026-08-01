@@ -2796,3 +2796,58 @@ the same change that introduces them.
 not.** `tools/ci/freshness_check.py` fails loud past 48 hours stale. Verified against the real
 repository before merge: `gate.yml` fresh at 0.1h **exit 0**, a workflow with no successful run
 **exit 1** — proved red as well as green.
+
+---
+
+## 072 — The spatial index's candidate order is ascending unit index, and the cell size is a constant
+
+**Date.** 2026-07-31. Closes `WAR-02` (#66) and `WAR-03` (#67).
+
+**Context.** `_step()` was O(emplacements × units) with an inner O(units) splash loop — 24,000
+distance checks per tick at 60 emplacements and 400 units. `WAR-06`'s unit budget, the board-size
+decision in PRD §6, and every scale target in the programme depend on fixing it. PRD risk #3
+names the danger of the fix precisely: "grid-hash tie-break ordering breaking parity
+intermittently", with `LF-055` as the precedent.
+
+**Decision. The index yields candidate unit indices in ascending `units`-index order, in both
+engines, unconditionally.** Each bucket is already sorted by construction from insertion order,
+and the merged query is sorted *anyway*, on every query, in both implementations. That redundant
+sort is the contract.
+
+**Rejected: iterate buckets in their own insertion order.** It is free, and it makes the
+tie-break depend on spawn history and container internals — two identical units in the same cell
+would be picked by which entered the grid first rather than by anything about the board. That is
+`LF-055` with a new face, and it is the exact failure mode PRD risk #3 predicts.
+
+**Decision. `CELL_W = 8.0` tiles is a constant in both engines, never per-anchor data.** A
+per-anchor cell size is a per-anchor bucket order, and bucket order is precisely what the
+ordering contract above exists to make irrelevant. 8.0 is chosen larger than the longest range or
+splash radius in `data/towers.json` (mortar-emplacement, 6.5 and 1.5), so a query at any real
+emplacement touches a small fixed number of cells regardless of board size.
+
+**GDScript keys the grid with a packed `int` (`cy * 1_000_000 + cx`), not `Vector2i`**, because
+`Vector2i` hashing order is a Godot engine internal — and the whole point is that ordering is
+ours, proved by an explicit sort rather than inherited from a container.
+
+**Measured, at two scales, against the PRD's own acceptance bars:**
+
+| | before | WAR-02 | WAR-03 | total |
+|---|---|---|---|---|
+| 512 units / 60 towers / 24 seg | 20.08 ms | 3.57 ms | **0.84 ms** | **24.1×** |
+| 1000 units / 80 towers / 32 seg | 58.43 ms | 10.25 ms | **1.73 ms** | **33.8×** |
+
+Bars: ≤4.0 ms and ≤1.5 ms at 512/60/24 — both met. ≤3.0 ms at 1000/80/32 — met.
+
+**Decision 058 is why the measurement is the deliverable and not the diff.** A previous idle-rescan
+fix passed 864-run parity and changed nothing measurable; a perf change that passes parity has
+only proved it changed nothing *observable*, which is also what a no-op proves. So selection was
+tested directly rather than inferred: **0 differing selections** across four independent modes —
+a synthetic 512/60/24 board over 300 ticks, 300 randomised boards over 1,500 ticks, an
+`LF-055`-shaped identical-units-same-tick case, and every one of the 24 anchors × 3 difficulties ×
+every standard policy driven through the real `Sim.run()`.
+
+**`LF-098` is incidentally closed.** An emplacement with nothing in range used to re-scan every
+unit every tick forever — measured at 2.19× cost at 8 towers/32 units, rising to 2.87× at
+100/800. With the index, an idle gun scans its own empty cells instead of the whole board:
+`--all-idle` now measures **0.74×**, i.e. *faster* than the baseline it used to be nearly three
+times slower than.

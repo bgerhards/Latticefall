@@ -9,6 +9,45 @@ extends RefCounted
 const TILE_W: float = 128.0
 const TILE_H: float = 64.0
 
+## Elevation core (TER-01). One world-space level's screen displacement, in px, and its
+## world-space height, in world units — the blit offset that puts a raised tile higher on
+## screen without ever touching `Iso.depth()` or the rules (PRD §2.3, decision see
+## DECISIONS.md).
+##
+## Derivation: the render camera is orthographic at elevation ε = 30° (`arcsin 0.5`, the
+## same angle the sprite library is rendered at — decision 002/017) with the calibrated
+## `ortho_scale = 2.784233`. That gives `s = CELL / ortho_scale = 256 / 2.784233 =
+## 91.9463` px per world unit, and — because raising a point by one world unit moves its
+## screen position by that world unit projected through the camera's elevation —
+## `k = s * cos(ε) = 91.9463 * cos(30°) = 79.6279` px of screen-space rise per world unit
+## of height. Verified against two throwaway Blender renders at `k/s = 0.865994` vs
+## `cos 30° = 0.866025` (0.004% off). `LEVEL_PX = 32.0` is the chosen level height in
+## screen px (one level should read as a clean, small step); `LEVEL_H = LEVEL_PX / k =
+## 0.401872` is the world-space height that produces it.
+##
+## **Never derive `LEVEL_H` from the nominal 128px tile width.** The rendered tile is
+## geometrically 130.03 px; "128" is an alpha-threshold artefact `calibrate()` bakes into
+## `TILE_W` above, not the true projection width, and using it here would be the same
+## shape of error as decision 017's `atan(1/2)` mistake — a small, plausible-looking wrong
+## number nobody would think to re-derive. Likewise this is `cos`, never `sin`: `sin(30°)
+## = 0.5` would give ~46 px/level and a board that looks subtly wrong forever.
+##
+## `LEVEL_H` is presentation-only math; TER-03 measures it directly in `calibrate()` and
+## writes it to the sprite manifest so a future change to `ortho_scale`, `HEIGHT_BIAS` or
+## `CELL` cannot silently desynchronise this constant from what the art was rendered in.
+const LEVEL_PX: float = 32.0
+const LEVEL_H: float = 0.401872
+
+## `Iso.depth()`'s height contribution, once something (TER-10, bridges) needs it. Nothing
+## uses this yet — a pure heightfield's painter order is proven unchanged by height alone
+## (TER-01), so this exists only so the constant has one home before its first caller.
+## Derived from `LEVEL_PX`, not a second independent number: true camera-space depth for a
+## point raised by `z` levels is `(sqrt(3)/(2*sqrt(2))) * (tx + ty) + z/2` world units, which
+## normalises — against the existing `depth()`'s `(tx+ty)*1000.0` scale and `LEVEL_PX/96.0`
+## happening to equal that ratio exactly — to this coefficient: `LEVEL_DEPTH = LEVEL_PX /
+## 96.0` (exactly 1/3).
+const LEVEL_DEPTH: float = LEVEL_PX / 96.0
+
 
 static func tile_to_screen(tx: float, ty: float) -> Vector2:
 	return Vector2((tx - ty) * TILE_W * 0.5, (tx + ty) * TILE_H * 0.5)
@@ -20,10 +59,26 @@ static func screen_to_tile(p: Vector2) -> Vector2:
 	return Vector2((a + b) * 0.5, (b - a) * 0.5)
 
 
+## The screen-space blit offset for a drawable standing `z` levels up. One function so no
+## call site ever writes the sign of the offset by hand — screen −y is "up", so raising a
+## tile moves it toward negative y. `Vector2` (float32) is fine here because this is pure
+## presentation; it must never be read back by anything in `sim/engine.py` or
+## `anchor_sim.gd` (PRD §2.1 bans float32 from the rules).
+static func height_offset(z: float) -> Vector2:
+	return Vector2(0.0, -z * LEVEL_PX)
+
+
 ## Draw order. Painter's algorithm on tile depth; ties broken by x so the result
 ## is stable frame to frame rather than flickering on equal depth.
-static func depth(tx: float, ty: float) -> float:
-	return (tx + ty) * 1000.0 + tx
+##
+## `z` defaults to 0.0 so every existing two-argument call site keeps returning the exact
+## float it always has — TER-01 proves a pure heightfield's painter order is unchanged by
+## height (raising a tile only ever moves it toward the camera along screen −y, never past
+## a tile with a larger `tx + ty`), so nothing in this issue passes a third argument. `z`
+## exists only for TER-10 (bridges), where two surfaces can occupy one tile and `tx + ty`
+## alone can no longer break the tie.
+static func depth(tx: float, ty: float, z: float = 0.0) -> float:
+	return (tx + ty) * 1000.0 + tx + z * LEVEL_DEPTH
 
 
 # ────────────────────────────────────────────────────────────────── facing ──

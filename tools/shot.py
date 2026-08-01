@@ -74,7 +74,12 @@ RELAY_PREFIXES = ("SHOT ", "MENUSHOT ", "DRAFTSHOT ", "FRAME ", "STATE ", "AUDIO
                   # comment warns about (the flag reaches Godot, Godot prints, this filter
                   # drops it). Found while taking ART-06's own required frame-time-budget
                   # measurement, which needs this line to see anything at all.
-                  "PROFILE ")
+                  "PROFILE ",
+                  # TER-01: `-- --heights` prints `HEIGHT TILE ...`/`HEIGHT DRAW ...` on the
+                  # captured frame — added in the same change as the hook itself, per this
+                  # list's own warning above, so it does not join PROFILE as a hook that ran,
+                  # printed, and was silently dropped.
+                  "HEIGHT ")
 
 # LF-153: the three screens that can end a run with a saved PNG, each printing its own
 # "<X> <path> err=<n> <w>x<h>" confirmation line — `main.gd`'s `SHOT`, `menu.gd`'s

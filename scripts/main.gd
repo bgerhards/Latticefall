@@ -55,6 +55,12 @@ var _dump_facings: bool = false
 ## the same idea as `--facings` (decision 049): a screenshot cannot settle which lane a unit
 ## is walking on a multi-lane anchor, so WAR-01 needs this to verify it rather than eyeball it.
 var _dump_lanes: bool = false
+## `-- --heights` prints `tx ty level` for every board tile whose terrain level is
+## non-zero, plus the `z` of every drawable, on the frame `--shot` captures. TER-01: a
+## screenshot shows *a* silhouette raised somewhere; only this settles whether tile (7,4)
+## is at level 2 or level 3 — the same reasoning `--facings` (decision 049) and `--lanes`
+## already give for a fact a screenshot cannot by itself distinguish.
+var _dump_heights: bool = false
 ## `-- --dump-placeholder`: LF-046 verification — prints, for every enemy kind Content
 ## knows, its faction, the placeholder colour `_draw_unit()` would use, and the placeholder
 ## radius, without needing an actually-missing sprite to reach that code path at all (the
@@ -276,7 +282,8 @@ func _ready() -> void:
 ## over `--scenario` per PRC-12's own task list — kept working exactly as before, not
 ## removed, because CLAUDE.md, tools/check.py and tools/shot.py all still name them.
 const KNOWN_FLAGS := {
-	"--shot": [1, 2], "--a11y": 1, "--facings": 0, "--lanes": 0, "--dump-placeholder": 0,
+	"--shot": [1, 2], "--a11y": 1, "--facings": 0, "--lanes": 0, "--heights": 0,
+	"--dump-placeholder": 0,
 	"--anchor": 1, "--autoplay": 0, "--paused": 0, "--select": 1, "--pick": 1,
 	"--scroll": 1, "--cursor": 1, "--build": 1, "--difficulty": 1, "--speed": 1,
 	"--ability": 1, "--ability-at": 2, "--press-at": 2, "--chain": 1, "--debrief-at": 1,
@@ -296,6 +303,7 @@ func _setup_cli() -> void:
 	_a11y_path = CliArgsScript.str_val(p, "--a11y", 0, _a11y_path)
 	_dump_facings = CliArgsScript.has(p, "--facings")
 	_dump_lanes = CliArgsScript.has(p, "--lanes")
+	_dump_heights = CliArgsScript.has(p, "--heights")
 	_dump_placeholder = CliArgsScript.has(p, "--dump-placeholder")
 
 	if CliArgsScript.has(p, "--anchor"):
@@ -646,6 +654,26 @@ func _process(_delta: float) -> void:
 				var u: Dictionary = d["ref"]
 				print("LANE %s lane=%d dist=%.2f at=(%.0f,%.0f)"
 					% [d["sprite"], int(u["lane"]), float(u["dist"]), d["at"].x, d["at"].y])
+		if _dump_heights:
+			# TER-01: a screenshot shows *a* silhouette raised somewhere; this settles
+			# which tile and by how many levels, and *where on screen* to look for the
+			# proof — "measured from the PNG, not eyeballed" needs a pixel coordinate, not
+			# just a level number. TILE carries `at` (the same pre-zoom local coordinate
+			# FACE/LANE/DRAW below already report) for every board tile, not only the
+			# non-zero ones the issue names as the minimum: a raised tile's offset can only
+			# be measured against a *real*, actually-rendered level-0 tile's screen
+			# position, and printing only the non-zero cells would throw away exactly the
+			# reference points that comparison needs. DRAW lines cover every entity on
+			# screen this frame, mirroring --facings/--lanes' own "walk drawables()" shape.
+			var grid: Dictionary = view.sim.anchor.get("grid", {"w": 0, "h": 0})
+			for ty in range(int(grid.get("h", 0))):
+				for tx in range(int(grid.get("w", 0))):
+					var lvl: int = view.height_at(tx, ty)
+					var at: Vector2 = view.to_screen(Vector2(tx, ty))
+					print("HEIGHT TILE %d %d %d at=(%.1f,%.1f)" % [tx, ty, lvl, at.x, at.y])
+			for d in view.drawables():
+				print("HEIGHT DRAW %s %s z=%.3f at=(%.0f,%.0f)"
+					% [d["kind"], d["sprite"], float(d.get("z", 0.0)), d["at"].x, d["at"].y])
 		if _profile_frames > 0:
 			_print_profile_stats()
 		if _scenario != null:
