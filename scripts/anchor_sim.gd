@@ -30,6 +30,28 @@ const CAPACITY_FLOOR: float = 0.45
 ## rebuilt free every wave and the build decision stops being a decision.
 const SELL_REFUND: float = 0.6
 
+## WAR-03. Uniform grid cell width, tiles. Mirrors sim/engine.py's CELL_W -- a
+## constant, never per-anchor data, because a per-anchor cell size is a per-anchor
+## bucket order, and the candidate-ordering contract (docs/DECISIONS.md WAR-03)
+## exists specifically so bucket order never leaks into which unit a gun picks.
+## Larger than the longest range or splash radius of any tower in data/towers.json
+## (mortar-emplacement: range 6.5; splash tops out at 1.5), so a query at any real
+## emplacement's range or any real weapon's splash radius touches a small, fixed
+## handful of cells regardless of board size.
+const CELL_W: float = 8.0
+## A packed `int` grid key is `cy * CELL_KEY_STRIDE + cx`, never a Vector2i -- Vector2i
+## hashing order is a Godot engine internal, and the whole point of this index is that
+## ordering is OURS, proved by an explicit sort, not inherited from a container.
+## STRIDE only has to exceed the widest plausible cx (a coordinate a board's width
+## could reach, divided by CELL_W); 1,000,000 leaves enormous headroom either side of
+## zero for a negative cx (free placement, PLC-01) without colliding across rows.
+const CELL_KEY_STRIDE: int = 1000000
+## Kept true, and the exhaustive scan kept reachable behind it (never delete either)
+## until tools/bench_tick.py's --crosscheck-anchors and --crosscheck-random have both
+## run clean, mirroring sim/engine.py's USE_SPATIAL_INDEX -- see the WAR-03 issue's
+## own task list.
+const USE_SPATIAL_INDEX: bool = true
+
 ## Added to SELL_REFUND by the caller, and left at 0.0 by anything that does not set it —
 ## which is every grading path, so this cannot move a grade. It exists because
 ## `Recoveries.sell_refund_add()` may not be read from inside this file at all: parity.gd
@@ -323,6 +345,13 @@ func _veteran_rank(p: Dictionary) -> Dictionary:
 
 
 func bus_load() -> float:
+	## WAR-02: called from begin_tick(), BEFORE _step() runs (see that method's own
+	## comment on the ordering) -- resolves each unit's position itself rather than
+	## reading _step()'s per-tick position cache. That cache holds POST-movement
+	## positions for the tick about to run; sharing it here would sample damper
+	## coverage against where a unit will stand after it moves this tick instead of
+	## where it stood when this tick began, changing what decision 027 prices. Do not
+	## "fix" this into a shared read.
 	var v := online_draw()
 	# Mirrors Sim.bus_load() in sim/engine.py: a damper suppresses that fraction of the
 	# drain of any unit inside its radius. Decision 027.
@@ -538,6 +567,128 @@ func _shield_scale(tw: Dictionary, u: Dictionary) -> float:
 	return 1.0
 
 
+# ──────────────────────────────────────────────────────── WAR-03: the index ──
+
+func _cell_key(cx: int, cy: int) -> int:
+	return cy * CELL_KEY_STRIDE + cx
+
+
+func _build_grid(pos: PackedFloat64Array) -> Dictionary:
+	## Uniform grid over this tick's resolved positions (WAR-02's `pos`), keyed by
+	## _cell_key(floor(x / CELL_W), floor(y / CELL_W)). Built by walking `units` in
+	## ascending index order and only ever appending, so every bucket is sorted by
+	## construction -- but a query below merges several buckets, and THAT merge is
+	## not sorted by construction, so _select_target()/_candidates_near() still sort
+	## explicitly. Mirrors sim/engine.py's Sim._build_grid() -- see docs/DECISIONS.md's
+	## WAR-03 entry for the full candidate-ordering contract this exists to satisfy.
+	var grid := {}
+	for i in range(units.size()):
+		var u: Dictionary = units[i]
+		if not u["alive"]:
+			continue
+		var cx: int = int(floor(pos[2 * i] / CELL_W))
+		var cy: int = int(floor(pos[2 * i + 1] / CELL_W))
+		var key := _cell_key(cx, cy)
+		if grid.has(key):
+			(grid[key] as Array).append(i)
+		else:
+			grid[key] = [i]
+	return grid
+
+
+func _grid_query(grid: Dictionary, cx: float, cy: float, r: float) -> Array:
+	## Unit indices in every cell overlapping the square [cx-r, cx+r] x [cy-r, cy+r] --
+	## a superset of the circular range _select_target()/the splash walk test exactly
+	## afterward (decision 030: the double-arithmetic squared-distance compare still
+	## runs on every candidate; this only narrows which units reach it). `floor` on
+	## the square's own endpoints is monotonic in the coordinate, so the cell range
+	## computed from cx-r/cx+r is guaranteed to include the cell of every point
+	## actually inside the square, including for negative coordinates (free
+	## placement, PLC-01) -- `floor`, never `int()` truncation, is what makes that
+	## true (PRD safe operation set). Mirrors sim/engine.py's Sim._grid_query().
+	##
+	## Sorted ascending before returning: each bucket is already sorted (see
+	## _build_grid), but the MERGE across cells is not, and the candidate-ordering
+	## contract (docs/DECISIONS.md WAR-03) requires the full merged set to come back
+	## in ascending `units` index order, not bucket-iteration order.
+	var x0: int = int(floor((cx - r) / CELL_W))
+	var x1: int = int(floor((cx + r) / CELL_W))
+	var y0: int = int(floor((cy - r) / CELL_W))
+	var y1: int = int(floor((cy + r) / CELL_W))
+	var out: Array = []
+	for gx in range(x0, x1 + 1):
+		for gy in range(y0, y1 + 1):
+			var key := _cell_key(gx, gy)
+			if grid.has(key):
+				out.append_array(grid[key])
+	out.sort()
+	return out
+
+
+func _candidates_near(grid, cx: float, cy: float, r: float) -> Array:
+	## Unit indices to test against a point/radius: the grid query when a grid is in
+	## play (a Dictionary), else every index in ascending order (the exhaustive scan
+	## kept reachable behind USE_SPATIAL_INDEX / an explicit `null` grid -- see the
+	## WAR-03 issue's own task list on why neither implementation is deleted yet).
+	## `grid` is untyped because it is either a Dictionary or null.
+	if grid != null:
+		return _grid_query(grid, cx, cy, r)
+	var out: Array = []
+	out.resize(units.size())
+	for i in range(units.size()):
+		out[i] = i
+	return out
+
+
+func _select_target(p: Dictionary, pos: PackedFloat64Array, grid, rng: float,
+		mode: String) -> Array:
+	## Pure target selection for one emplacement -- no cooldown, hp or funds write.
+	## Returns [target: Dictionary, target_i: int]. Factored out of the old inline
+	## loop, mirroring sim/engine.py's Sim._select_target(), so a differential test
+	## can call this twice on the exact same tick -- once indexed, once exhaustive
+	## (`grid = null`) -- and diff the two target_i results without touching game
+	## state. See that method's docstring for the full candidate-ordering contract:
+	## `grid = null` gives ascending order directly; `grid` not null gives it because
+	## _grid_query() sorts its merged result before returning. This loop's own `keep`
+	## logic never changed -- only which indices it is offered, and in what order,
+	## which is provably identical either way.
+	var candidates := _candidates_near(grid, float(p["slot"].x), float(p["slot"].y), rng)
+	var sx := float(p["slot"].x)
+	var sy := float(p["slot"].y)
+	var tw: Dictionary = p["tower"]
+	var target: Dictionary = {}
+	var target_i := -1
+	for i in candidates:
+		var u: Dictionary = units[i]
+		if not u["alive"]:
+			continue
+		var ux: float = pos[2 * i]
+		var uy: float = pos[2 * i + 1]
+		var dx: float = sx - ux
+		var dy: float = sy - uy
+		if dx * dx + dy * dy > rng * rng:
+			continue
+		var revealed: bool = String(u["kind"].get("kind", "ground")) != "air" \
+			or _covered_by("reveal", ux, uy) > 0.0
+		if not _can_target(tw, u, revealed):
+			continue
+		var keep: bool
+		match mode:
+			"last":
+				keep = target.is_empty() or float(u["dist"]) < float(target["dist"])
+			"strongest":
+				keep = target.is_empty() or float(u["hp"]) > float(target["hp"])
+			"weakest":
+				keep = target.is_empty() or float(u["hp"]) < float(target["hp"])
+			_:
+				keep = target.is_empty() or _progress(float(u["dist"]), int(u["lane"])) \
+					> _progress(float(target["dist"]), int(target["lane"]))
+		if keep:
+			target = u
+			target_i = i
+	return [target, target_i]
+
+
 # ─────────────────────────────────────────────────────────────── ticking ──
 
 func brownout_penalty(load_mw: float, cap_mw: float) -> float:
@@ -623,6 +774,35 @@ func _step(penalty: float) -> void:
 			lives_changed.emit(lives)
 			unit_leaked.emit(u)
 
+	## WAR-02: resolve every unit's position exactly once per tick, AFTER the movement
+	## loop above has advanced "dist" -- the position the fire phase below used to
+	## resolve itself, redundantly, via a separate point_at_xy() call at each of three
+	## sites (the targeting scan, its reveal check, and the splash loop). A
+	## PackedFloat64Array of 2 * units.size() (x at 2*i, y at 2*i+1) is one allocation
+	## per tick rather than one PackedFloat64Array per unit. Mirrors sim/engine.py's
+	## `pos` list -- see its comment for the full invalidation contract: this cache is
+	## good for exactly this tick, invalidated by exactly one thing (a write to a
+	## unit's "dist"), and only the movement loop above and fire_surge() (GDScript-
+	## only, runs outside _step() entirely -- never read this cache from in there)
+	## write that key. bus_load(), called by begin_tick() BEFORE _step() runs, samples
+	## the PRE-movement position and must not be changed to read this cache -- see its
+	## own doc.
+	var pos := PackedFloat64Array()
+	pos.resize(2 * units.size())
+	for i in range(units.size()):
+		var u: Dictionary = units[i]
+		if u["alive"]:
+			var at := point_at_xy(int(u["lane"]), u["dist"])
+			pos[2 * i] = at[0]
+			pos[2 * i + 1] = at[1]
+
+	# WAR-03: the uniform grid, rebuilt from this tick's `pos` -- never carried across
+	# ticks (see CELL_W's own comment: an incrementally-maintained index is a second
+	# place for the two engines to drift). `grid` is null, the exhaustive-scan signal
+	# _select_target()/_candidates_near() already handle, whenever USE_SPATIAL_INDEX
+	# is off -- kept reachable, not deleted, per the WAR-03 issue's own task list.
+	var grid = _build_grid(pos) if USE_SPATIAL_INDEX else null
+
 	for p in placed:
 		var tw: Dictionary = p["tower"]
 		if not p["online"] or float(tw["damage"]) <= 0.0:
@@ -640,14 +820,6 @@ func _step(penalty: float) -> void:
 		var sx := float(p["slot"].x)
 		var sy := float(p["slot"].y)
 		var rng := float(tw["range"]) * rng_mult
-		var target: Dictionary = {}
-		# The target's *index*, because the splash loop below has to exclude the unit it
-		# already hit and `==` on a Dictionary is a value comparison in Godot 4.7 — two
-		# units of the same kind with equal hp and equal dist compare equal. sim/engine.py
-		# writes `u is target`, an identity test, so the two implementations disagreed the
-		# moment a wave put two identical units at the same distance. Latent rather than
-		# live only because same-kind units spawn on different ticks. LF-055.
-		var target_i := -1
 		# Per-emplacement targeting priority (data/tuning.json's `targeting`), cycled by the
 		# player on the selected emplacement. "first" is the default, so a placed record
 		# nobody has touched (every one built by build_at(), including every grading
@@ -657,48 +829,34 @@ func _step(penalty: float) -> void:
 		# and only rule) is parity-critical. LF-145: `_` now compares progress fraction,
 		# not raw dist -- see _progress()'s doc.
 		var mode := String(p.get("target_mode", "first"))
-		for i in range(units.size()):
-			var u: Dictionary = units[i]
-			if not u["alive"]:
-				continue
-			var at := point_at_xy(int(u["lane"]), u["dist"])
-			var dx: float = sx - at[0]
-			var dy: float = sy - at[1]
-			if dx * dx + dy * dy > rng * rng:
-				continue
-			var revealed: bool = String(u["kind"].get("kind", "ground")) != "air" \
-				or _covered_by("reveal", at[0], at[1]) > 0.0
-			if not _can_target(tw, u, revealed):
-				continue
-			var keep: bool
-			match mode:
-				"last":
-					keep = target.is_empty() or float(u["dist"]) < float(target["dist"])
-				"strongest":
-					keep = target.is_empty() or float(u["hp"]) > float(target["hp"])
-				"weakest":
-					keep = target.is_empty() or float(u["hp"]) < float(target["hp"])
-				_:
-					# LF-145: progress as a fraction of each unit's OWN lane length, not raw
-					# dist -- see _progress()'s doc for why raw dist across lanes of
-					# different length was structurally biased toward the longer one.
-					keep = target.is_empty() or _progress(float(u["dist"]), int(u["lane"])) \
-						> _progress(float(target["dist"]), int(target["lane"]))
-			if keep:
-				target = u
-				target_i = i
+		# An emplacement with nothing in range used to rescan every unit, every tick,
+		# forever (LF-098, measured 14.3x-17.1x) -- the empty-target path below never
+		# resets the cooldown, which has already gone negative. WAR-03 is the actual
+		# fix decision 058 pointed at: _select_target() below costs the CELLS in
+		# range, not every unit on the board, so an idle gun's retry is cheap even
+		# though it still happens every tick.
+		#
+		# The target's *index* comes back alongside the target itself (target_i)
+		# because the splash walk below has to exclude the unit it already hit and
+		# `==` on a Dictionary is a value comparison in Godot 4.7 -- two units of the
+		# same kind with equal hp and equal dist compare equal. sim/engine.py's own
+		# splash loop excludes by index for the identical reason (LF-055).
+		var sel := _select_target(p, pos, grid, rng, mode)
+		var target: Dictionary = sel[0]
+		var target_i: int = sel[1]
 		if target.is_empty():
 			# Ready to fire with nothing to shoot: drop the aim so the view can point the
 			# emplacement back down the lane instead of at whatever it last killed.
 			p.erase("aim")
 			continue
-		var tp := point_at_xy(int(target["lane"]), target["dist"])
+		var tx: float = pos[2 * target_i]
+		var ty: float = pos[2 * target_i + 1]
 		# Presentation only, and the only line in this file that is not a rule: where the
 		# shot went, so anchor_view can face the emplacement at it. Deliberately absent from
 		# sim/engine.py — the headless reference has nothing to draw, nothing reads this, and
 		# parity compares outcomes. Position is unaffected by _damage, so computing it here
 		# rather than inside the splash branch is the same number.
-		p["aim"] = Vector2(float(tp[0]), float(tp[1]))
+		p["aim"] = Vector2(tx, ty)
 		# Presentation only: fires the instant the shot leaves the barrel, so the FX layer can
 		# animate travel time the rules deliberately do not model (sim/engine.py's module
 		# docstring: "What is not modelled, deliberately: projectile travel time"). `p` is the
@@ -717,15 +875,21 @@ func _step(penalty: float) -> void:
 			# Presentation only: lets the view size the burst at the radius the rules
 			# actually use, rather than a guess that could drift from tw["splash"].
 			splash_landed.emit(p["aim"], splash)
-			for i in range(units.size()):
+			# WAR-03: the same index applied to the splash walk -- a range query
+			# centred on the TARGET's position at the splash radius, not the
+			# emplacement's own slot/range. Splash has no tie-break to protect (every
+			# candidate that passes the exact distance test takes damage; order never
+			# changes which units that is), so this needs no sorted-merge proof the
+			# way _select_target()'s does -- _candidates_near()'s sort is just reused
+			# for free.
+			for i in _candidates_near(grid, tx, ty, splash):
 				if i == target_i:
 					continue
 				var u: Dictionary = units[i]
 				if not u["alive"]:
 					continue
-				var up := point_at_xy(int(u["lane"]), u["dist"])
-				var sdx: float = up[0] - tp[0]
-				var sdy: float = up[1] - tp[1]
+				var sdx: float = pos[2 * i] - tx
+				var sdy: float = pos[2 * i + 1] - ty
 				if sdx * sdx + sdy * sdy <= splash * splash:
 					if _damage(u, tw, 0.5, dmg_mult):
 						p["kills"] = int(p.get("kills", 0)) + 1

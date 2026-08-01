@@ -251,6 +251,26 @@ class Policy:
                    reserve=reserve, core=core, closed=True)
 
 
+# ─────────────────────────────────────────────────────────────────── WAR-03 ──
+#
+# Uniform grid over unit positions, rebuilt from scratch every tick (see decision
+# WAR-03's own entry in docs/DECISIONS.md for why an incrementally-maintained index
+# was rejected). CELL_W is a constant — never per-anchor data — because a per-anchor
+# cell size is a per-anchor bucket order, and the whole point of the candidate-
+# ordering contract below is that bucket order never leaks into which unit a gun
+# picks. Chosen larger than the longest range or splash radius of any tower in
+# data/towers.json (mortar-emplacement: range 6.5, the longest; flak-array/mortar
+# splash tops out at 1.5) so a query at any real emplacement's range, or any real
+# weapon's splash radius, only ever touches a small, fixed handful of cells
+# regardless of board size.
+CELL_W = 8.0
+
+# Kept true, and the exhaustive scan kept reachable behind it (never delete either)
+# until tools/bench_tick.py's --crosscheck-anchors and --crosscheck-random have both
+# run clean — see the WAR-03 issue's own task list.
+USE_SPATIAL_INDEX = True
+
+
 class Sim:
     def __init__(self, anchor: Anchor, towers: dict[str, Tower], enemies: dict[str, Enemy],
                  policy: Policy, difficulty: str = "standard", *,
@@ -399,6 +419,13 @@ class Sim:
     # ───────────────────────────────────────────────────────────── power ──
 
     def bus_load(self) -> float:
+        # WAR-02: this runs BEFORE _step() in _tick_once() (see that method's own
+        # comment on the ordering), so it resolves u.dist itself rather than reading
+        # _step()'s per-tick position cache. That cache holds POST-movement
+        # positions for the tick about to run; using it here would sample damper
+        # coverage against where a unit will stand after it moves this tick instead
+        # of where it stood when this tick began, which changes what decision 027
+        # prices. Do not "fix" this into a shared read.
         load = self._online_draw()
         # A drain is suppressed where a damper covers the unit doing it. The damper
         # spends a fixed draw to deny a variable one, so it pays only on waves that
@@ -839,6 +866,111 @@ class Sim:
             return SHIELD_LEAK
         return 1.0
 
+    # ────────────────────────────────────────────────────────── WAR-03 index ──
+
+    def _build_grid(self, pos: list[tuple[float, float]]) -> dict[tuple[int, int], list[int]]:
+        """Uniform grid over this tick's resolved positions (WAR-02's `pos`), keyed by
+        `(floor(x / CELL_W), floor(y / CELL_W))`. Built by walking `self.units` in
+        ascending index order and only ever appending, so every bucket is sorted by
+        construction — but a query below merges several buckets, and THAT merge is
+        not sorted by construction, so `_select_target`/`_candidates_near` still sort
+        explicitly. See docs/DECISIONS.md's WAR-03 entry for the full candidate-
+        ordering contract this and `_grid_query` exist to satisfy."""
+        grid: dict[tuple[int, int], list[int]] = {}
+        for i, u in enumerate(self.units):
+            if not u.alive:
+                continue
+            x, y = pos[i]
+            cell = (int(math.floor(x / CELL_W)), int(math.floor(y / CELL_W)))
+            grid.setdefault(cell, []).append(i)
+        return grid
+
+    @staticmethod
+    def _grid_query(grid: dict[tuple[int, int], list[int]], cx: float, cy: float,
+                    r: float) -> list[int]:
+        """Unit indices in every cell overlapping the square `[cx-r, cx+r] x [cy-r,
+        cy+r]` — a superset of the circular range `_select_target`/the splash loop
+        test exactly afterward (decision 030: the double-arithmetic squared-distance
+        compare still runs on every candidate; this only narrows which units reach
+        it). `floor` on the square's own endpoints is monotonic in the coordinate, so
+        the cell range computed from `cx-r`/`cx+r` is guaranteed to include the cell
+        of every point actually inside the square, including for negative
+        coordinates (free placement, PLC-01) — `floor`, never `int()` truncation, is
+        what makes that true (PRD §4.2's safe operation set).
+
+        Sorted ascending before returning: each bucket is already sorted (see
+        _build_grid), but the MERGE across cells is not, and the candidate-ordering
+        contract (docs/DECISIONS.md WAR-03) requires the full merged set to come back
+        in ascending `units` index order, not bucket-iteration order."""
+        x0 = int(math.floor((cx - r) / CELL_W))
+        x1 = int(math.floor((cx + r) / CELL_W))
+        y0 = int(math.floor((cy - r) / CELL_W))
+        y1 = int(math.floor((cy + r) / CELL_W))
+        out: list[int] = []
+        for gx in range(x0, x1 + 1):
+            for gy in range(y0, y1 + 1):
+                bucket = grid.get((gx, gy))
+                if bucket:
+                    out.extend(bucket)
+        out.sort()
+        return out
+
+    def _candidates_near(self, grid: dict[tuple[int, int], list[int]] | None,
+                         cx: float, cy: float, r: float):
+        """Unit indices to test against a point/radius: the grid query when a grid is
+        in play, else every index in ascending order (the exhaustive scan kept
+        reachable behind USE_SPATIAL_INDEX / an explicit `grid=None` — see the
+        WAR-03 issue's own task list on why neither implementation is deleted yet)."""
+        if grid is not None:
+            return self._grid_query(grid, cx, cy, r)
+        return range(len(self.units))
+
+    def _select_target(self, p: Placed, pos: list[tuple[float, float]],
+                       grid: dict[tuple[int, int], list[int]] | None,
+                       rng: float, mode: str) -> tuple[Unit | None, int]:
+        """Pure target selection for one emplacement — no cooldown, hp or funds
+        write — factored out of the old inline loop so a differential test
+        (tools/bench_tick.py's `_CrosscheckSim`) can call this twice on the exact
+        same tick, once indexed and once exhaustive, and diff the two `target_i`
+        results without touching game state. WAR-03's acceptance bar is that those
+        two calls return the SAME unit on every tick of a full anchor, not merely
+        that the grade matches — a grade can match while selection quietly differs
+        in a way that only bites later.
+
+        The candidate-ordering contract (docs/DECISIONS.md WAR-03): candidates are
+        visited in ascending `units` index order, always, in both engines — `grid=None`
+        gives that directly (`range(len(self.units))`); `grid` is not None gives it
+        because `_grid_query` sorts its merged result before returning. That is the
+        ENTIRE reason the indexed and exhaustive paths pick the same unit on a tie:
+        this loop's own `keep` logic never changed, only which indices it is offered
+        and in what order — and the order is provably identical either way."""
+        candidates = self._candidates_near(grid, p.slot[0], p.slot[1], rng)
+        target: Unit | None = None
+        target_i = -1
+        for i in candidates:
+            u = self.units[i]
+            if not u.alive:
+                continue
+            x, y = pos[i]
+            dx, dy = p.slot[0] - x, p.slot[1] - y
+            if dx * dx + dy * dy > rng * rng:
+                continue
+            revealed = u.kind.kind != "air" or self._covered_by("reveal", x, y) > 0
+            if not self._can_target(p.tower, u, revealed):
+                continue
+            if mode == "last":
+                keep = target is None or u.dist < target.dist
+            elif mode == "strongest":
+                keep = target is None or u.hp > target.hp
+            elif mode == "weakest":
+                keep = target is None or u.hp < target.hp
+            else:
+                keep = target is None or self._progress(u) > self._progress(target)
+            if keep:
+                target = u
+                target_i = i
+        return target, target_i
+
     # ───────────────────────────────────────────────────────────── tick ──
 
     def _step(self, penalty: float) -> None:
@@ -875,6 +1007,39 @@ class Sim:
                 # counts bodies — it is a different question from what they cost.
                 self.lives -= u.kind.leak_cost
 
+        # WAR-02: resolve every unit's position exactly once per tick, AFTER the
+        # movement loop above has advanced `dist` — the position the fire phase below
+        # used to resolve itself, redundantly, via a separate self.a.point_at() call
+        # at each of three sites (the targeting scan, its reveal check, and the
+        # splash loop). Index-parallel with `self.units`, including dead units (a
+        # (0.0, 0.0) sentinel that nothing below ever reads, since every consumer
+        # already guards on `.alive` first) rather than compacted — the splash loop
+        # excludes the target by INDEX (see `target_i` below, and WAR-03's spatial
+        # index, which stores unit indices too), so a compacted list would make
+        # "index into pos" mean something different from "index into units".
+        #
+        # Invalidated by exactly one thing: a write to u.dist. Only the movement loop
+        # above and fire_surge() (GDScript-only, runs outside _step() entirely — never
+        # call it from in here) write that field. Do NOT cache this across ticks —
+        # dist advances every tick, and a one-tick-stale position is a sub-ulp
+        # difference the parity gate finds at run 700 of 864 and nowhere else.
+        #
+        # bus_load() is NOT a consumer — it runs BEFORE _step() in _tick_once() and
+        # samples the PRE-movement position; see its own comment for why sharing this
+        # cache with it would be a rules change, not a hoist.
+        pos: list[tuple[float, float]] = [
+            self.a.point_at(u.lane, u.dist) if u.alive else (0.0, 0.0)
+            for u in self.units
+        ]
+
+        # WAR-03: the uniform grid, rebuilt from this tick's `pos` — never carried
+        # across ticks (see CELL_W's own comment: an incrementally-maintained index
+        # is a second place for the two engines to drift). `grid` is None, the
+        # exhaustive-scan signal `_select_target`/`_candidates_near` already handle,
+        # whenever USE_SPATIAL_INDEX is off — kept reachable, not deleted, per the
+        # WAR-03 issue's own task list.
+        grid = self._build_grid(pos) if USE_SPATIAL_INDEX else None
+
         # fire — furthest-along reachable target, a total order, so no RNG needed.
         # "Furthest along" means furthest along ITS OWN lane, as a fraction of that
         # lane's length (_progress(), LF-145) — not raw dist, which only ties across
@@ -899,43 +1064,17 @@ class Sim:
             # below — the identical _progress() comparison this loop always ran before
             # this verb existed. Mirrors scripts/anchor_sim.gd:620's `match mode`.
             mode = p.target_mode
-            # An emplacement with nothing in range rescans every unit, every tick,
-            # forever — the empty-target path below never resets the cooldown, which has
-            # already gone negative. That is LF-098, and it is real: measured 14.3x at
-            # 60 towers / 400 units and 17.1x at 100/800 against the same board with
-            # targets in range. It is NOT fixed here, and there is no cheap fix, because
-            # the only retry interval that preserves "acquires the frame a unit enters
-            # range" is one tick — which is the same tick it already scans on. Decision
-            # 058 has the measurements and the two rejected repairs; WAR-03's spatial
-            # hash is the actual answer, since it makes an idle scan cost the cells in
-            # range rather than every unit on the board.
-            target = None
-            for u in self.units:
-                if not u.alive:
-                    continue
-                x, y = self.a.point_at(u.lane, u.dist)
-                dx, dy = p.slot[0] - x, p.slot[1] - y
-                if dx * dx + dy * dy > rng * rng:
-                    continue
-                revealed = u.kind.kind != "air" or self._covered_by("reveal", x, y) > 0
-                if not self._can_target(p.tower, u, revealed):
-                    continue
-                if mode == "last":
-                    keep = target is None or u.dist < target.dist
-                elif mode == "strongest":
-                    keep = target is None or u.hp > target.hp
-                elif mode == "weakest":
-                    keep = target is None or u.hp < target.hp
-                else:
-                    keep = target is None or self._progress(u) > self._progress(target)
-                if keep:
-                    target = u
+            # An emplacement with nothing in range used to rescan every unit, every
+            # tick, forever (LF-098, measured 14.3x-17.1x) — the empty-target path
+            # below never resets the cooldown, which has already gone negative. WAR-03
+            # is the actual fix decision 058 pointed at: `_select_target` below costs
+            # the CELLS in range, not every unit on the board, so an idle gun's retry
+            # is cheap even though it still happens every tick.
+            target, target_i = self._select_target(p, pos, grid, rng, mode)
             if target is None:
-                # Retry next tick rather than scanning every tick forever (LF-098) — see
-                # the gate above. Rejected a longer retry interval: it would cut more
-                # cost, but delays "acquires the frame a unit enters range" by that same
-                # interval, changing which tick an idle gun re-acquires on — a rules
-                # change, not a performance one.
+                # Retry next tick rather than widening the retry interval — the only
+                # interval that preserves "acquires the frame a unit enters range" is
+                # one tick, which is the same tick this already scans on. Decision 058.
                 continue
             killed = self._damage(target, p.tower, dmg_mult=dmg_mult)
             # Kills are counted on `p`, never on a unit — a Placed record is only ever
@@ -946,11 +1085,21 @@ class Sim:
             if killed:
                 p.kills += 1
             if p.tower.splash > 0:
-                tx, ty = self.a.point_at(target.lane, target.dist)
-                for u in self.units:
-                    if u is target or not u.alive:
+                tx, ty = pos[target_i]
+                # WAR-03: the same index applied to the splash walk — a range query
+                # centred on the TARGET's position at the splash radius, not the
+                # emplacement's own slot/range. Splash has no tie-break to protect
+                # (every candidate that passes the exact distance test takes damage;
+                # order never changes which units that is), so this needs no sorted-
+                # merge proof the way _select_target's does — _candidates_near's sort
+                # is just reused for free.
+                for i in self._candidates_near(grid, tx, ty, p.tower.splash):
+                    if i == target_i:
                         continue
-                    ux, uy = self.a.point_at(u.lane, u.dist)
+                    u = self.units[i]
+                    if not u.alive:
+                        continue
+                    ux, uy = pos[i]
                     dx, dy = ux - tx, uy - ty
                     if dx * dx + dy * dy <= p.tower.splash * p.tower.splash:
                         if self._damage(u, p.tower, scale=0.5, dmg_mult=dmg_mult):
