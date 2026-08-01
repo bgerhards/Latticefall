@@ -931,11 +931,11 @@
       "kind": "chore",
       "area": "engine",
       "pri": "high",
-      "status": "open",
+      "status": "done",
       "why": "Sim cost is the hard ceiling on unit count",
       "opened": "2026-07-30",
-      "closed": null,
-      "note": ""
+      "closed": "2026-07-31",
+      "note": "Closed by WAR-03 (#67). The item described _step() as O(emplacements x units) with an inner O(units) splash loop \u2014 24000 distance checks per tick at 60 emplacements and 400 units at 30 Hz \u2014 and required that the fix be mirrored in sim/engine.py and not change WHICH unit is selected. Both conditions met. Measured: 512 units/60 towers/24 segments went 20.08 ms -> 0.84 ms per tick (24.1x), and 1000/80/32 went 58.43 ms -> 1.73 ms (33.8x). Selection was verified directly rather than inferred, with 0 differing selections across four independent modes including an LF-055-shaped identical-units-same-tick case and every anchor x difficulty x policy driven through the real Sim.run(). Decision 072 records the ordering contract that makes it safe."
     },
     {
       "id": "LF-079",
@@ -1171,11 +1171,11 @@
       "kind": "bug",
       "area": "engine",
       "pri": "high",
-      "status": "open",
+      "status": "done",
       "why": "2.9x sim cost for guns that are doing nothing",
       "opened": "2026-07-30",
-      "closed": null,
-      "note": ""
+      "closed": "2026-07-31",
+      "note": "Closed incidentally by WAR-03's spatial index (#67). The item measured that an emplacement with nothing in range re-scans every unit every tick forever, costing 2.19x at 8 towers/32 units rising to 2.87x at 100/800 versus the same board with targets in range. With the index, an idle gun scans its OWN EMPTY CELLS rather than the whole board: --all-idle now measures 0.74x \u2014 faster than the baseline it used to be nearly three times slower than. No separate fix was needed and none was written; the general solution subsumed the special case. Note decision 058 already recorded that an earlier targeted attempt at this exact problem passed 864-run parity and changed nothing measurable, which is why the number above is a measurement and not an argument."
     },
     {
       "id": "LF-099",
