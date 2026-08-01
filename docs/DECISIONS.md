@@ -3034,3 +3034,82 @@ than assume.
 And per `LF-187`, none of these numbers survive the move to 48² — decision 073 — where lanes get
 longer and a fixed absolute range covers a shrinking fraction of them; `BAL-04`'s density half must
 re-derive range from measured lane length rather than carry these constants forward.
+
+---
+
+## 075 — Cliffs are drawn, not rendered, and 32 px is confirmed as the elevation step
+
+**Date.** 2026-08-01. Closes `TER-07`. Confirms `LEVEL_PX = 32` from decision 057's terrain
+work by *playing* it rather than deriving it, and sets the terms `TER-14` inherits.
+
+**Context.** `TER-01` made a tile's elevation real and proved it to the pixel. It also made a
+raised tile look **wrong** in a specific way: the surface moves up 32 px and nothing fills the
+gap where the ground used to be, so a plateau reads as floating slabs with see-through edges.
+The obvious answer is to render cliff assets — which commits the atlas, the manifest and a
+`.blend` before anyone has looked at a cliff in the game.
+
+**Decision. Cliff faces and ramps are drawn procedurally from the existing palette, and no
+asset is committed.** `pack_atlas.py --check` reports `nothing written`; the atlas is
+untouched. `board_props.gd` already had the idiom, and its `pillar_cap`/`pillar_faces` are
+promoted to `static` so `anchor_view.gd` can reuse the geometry rather than duplicate it.
+
+**Rejected: render cliff assets first.** It is the intuitive move and it is backwards. A
+rendered cliff set is ~17 asset types before anybody knows whether 32 px is the right step,
+whether two levels stack legibly, or whether a face needs a rim at all. Decision 066 already
+refused atlas growth on a measured VRAM projection, and the cheapest way to *earn* that cost
+later is to play the free version first. `TER-14` remains open and now inherits an answer
+instead of a question.
+
+**Decision. `Iso.LEVEL_PX` stays 32, and this is the first time that number has been judged
+by eye rather than derived.** Played anchor-01's authored two-level plateau at zoom 1.0 and at
+0.61. One 32 px face reads as a clean, legible step without dominating the board; two levels
+stack as two visually distinct tiers rather than one tall block. No case was found where it
+looked too small to notice or too large against a tile's 128×64 footprint. Decision 057
+derived 32 as an integer that lands a raised tile on a whole pixel and makes two levels exactly
+one tile height — correct arithmetic that said nothing about whether it *looks* right.
+
+**Faces go in `_tile_cache`, never in `board_props.gd`** — appended into the same
+painter-ordered array `_draw_board()` already culls and draws, which runs before
+`_draw_entities()`. A cliff face is therefore guaranteed to draw *under* every unit.
+`board_props.gd`'s own `DRAW_Z` docstring explains why that layer sits above everything, and
+putting terrain there would have been the natural-looking mistake.
+
+**`terrain.ramps` has been declared in the schema all along and nothing ever drew it.**
+`resolve_terrain()` explicitly never consulted it. This is the first time that authored data
+reaches the screen, as a per-corner-height tilted quad plus two filler triangles on the seam
+against flat lateral neighbours, keyed so a ramp suppresses the plain cliff at that boundary.
+
+**The bug worth recording, because the verification caught what review would not have.** The
+first implementation gated the ramp lookup inside the `if nh < h` cliff-only branch. A ramp
+declared on the **low** side climbing to a higher neighbour — anchor-01's actual authored ramp,
+`(8,1) → (9,1)`, `+x`, 0 → 1 — was therefore silently never drawn, and the boundary rendered
+flat. **That failure mode looks exactly like "no ramp was authored here", not like a defect.**
+It was found by capturing before and after, not by reading the diff.
+
+**Measured, not asserted.** `AnchorView._draw` mean **0.383 ms**, p95 0.432 ms over 300 frames
+on anchor-01. Built once in `_rebuild_tile_cache()`, never per frame — PRD risk 5 measures
+naive per-frame terrain at **52 ms/frame at 64²**, and decision 073 has since set the target to
+48², so per-frame was never an option.
+
+**Colour was pixel-sampled from a real rendered frame, not compared against the source
+literals** — the only way to catch the sRGB/linear class of error that made the board a grey
+slab three times (`LF-023`/`020`/`022`):
+
+| face | sampled | predicted |
+|---|---|---|
+| left / south | `(9, 10, 12)` | `STONE_DARK × 255 = (8.9, 10.2, 12.2)` |
+| right / east | `(11–12, 13, 15–16)` | `STONE_DARK × 1.3 × 255 = (11.6, 13.3, 15.9)` |
+| rim blend | `~(60–66, 68–75, 76–79)` | `ALLOY_LIGHT` at 0.30 over ground `(60.5, 70.5, 78.5)` |
+
+All within anti-aliasing rounding, and **no literal `Color(...)` anywhere** — every face traces
+to the existing `STONE_DARK`/`ALLOY_LIGHT` palette, per the convention that colours are
+accessibility policy rather than taste (decisions 045/046).
+
+**Regression-checked against the 23 anchors that carry no `terrain` block** — anchor-02 and the
+rest render identically to before, so this is additive and not a change to how a flat board
+looks.
+
+**Left open, filed as `LF-203`.** `board_props.gd`'s ring and bindstone still project at level 0
+regardless of the height of the lane's entrance and exit tiles — the same floating-prop class,
+outside `TER-07`'s task list, harmless until an anchor elevates its lane ends. `TER-09` is where
+that becomes real.
