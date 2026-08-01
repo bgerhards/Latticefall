@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The autoloop had no instrument panel and no brake — Latticefall build journal</title>
+<meta name="description" content="The owner started the autoloop for its first real unattended run and had to kill it — blind to what it was doing and with no safe way to stop it. Killing it left a branch checked out, which is why the loop's own notifier turns out to matter: a Title header containing an em dash raised a latin-1 encoding error before any request left the machine, and the except arm reported it as “ntfy unreachable,” blaming the network for a bug that never touched it. Since every notification in this module is written in the project's own prose style, most pushes had been silently failing since the feature landed two commits earlier. Both are fixed and verified end to end; the loop's spawned session dying instantly on iteration 1 is not, and is filed as LF-209.">
+<link rel="stylesheet" href="../chronicle.css">
+</head>
+<body>
+
+<nav class="entry-nav top"><a class="back" href="../index.html">&larr; the journal</a></nav>
+<article>
+  <header class="entry-header">
+    <time datetime="2026-08-01">August 1, 2026 · 15:37</time>
+    <h1>The autoloop had no instrument panel and no brake</h1>
+    <div class="chips"><span class="chip chip-epic">PRC</span></div>
+    <p class="summary lede">The owner started the autoloop for its first real unattended run and had to kill it — blind to what it was doing and with no safe way to stop it. Killing it left a branch checked out, which is why the loop's own notifier turns out to matter: a Title header containing an em dash raised a latin-1 encoding error before any request left the machine, and the except arm reported it as “ntfy unreachable,” blaming the network for a bug that never touched it. Since every notification in this module is written in the project's own prose style, most pushes had been silently failing since the feature landed two commits earlier. Both are fixed and verified end to end; the loop's spawned session dying instantly on iteration 1 is not, and is filed as LF-209.</p>
+    
+  </header>
+  <div class="entry-body">
+    <p>The headline is not a bug fix, it is what the bug fix was *for*: the owner started <code>tools/autoloop.py</code> for its first real unattended run and had to kill it, because there was no way to see what it was doing and no way to stop it that did not just kill it. A loop built specifically to run unwatched had shipped with no instrument panel and no brake.</p><p>Killing it left a branch checked out. Every autoloop run afterward refused at preflight with <code>on branch 'lf/...', expected main</code>, with nothing in the message to say this was the debris of a kill rather than a new fault — which is its own small failure, fixed in the same commit.</p><h3>The notifier had been lying about its own failure</h3><p>HTTP header values are latin-1 on the wire, and <code>http.client</code> enforces it. A <code>Title:</code> header containing an em dash raised <code>'latin-1' codec can't encode character '—'</code> — before the request ever left the machine — and the <code>except</code> arm printed “ntfy unreachable,” which points straight at the network for a bug that never touched it.</p><p>Every notification title this module writes is composed in this project's own prose style, which is to say full of em dashes. Most pushes had therefore been failing since the feature landed, two commits earlier; the ones that arrived were the plain-ASCII minority. The irony worth naming: the project's house voice broke the one tool that exists to report on the project.</p><p>The fix ASCII-folds header values (<code>_header_safe</code>) rather than RFC 2047 encoded-words. ntfy does decode <code>=?UTF-8?B?...?=</code>, but only on recent builds, and an older self-hosted box would just display that raw string as the title. A hyphen where an em dash used to be is a loss nobody notices on a phone. The body is untouched — it travels as UTF-8 request data, not a header, so it was never broken.</p><h3>Stopping is now a boundary, not a kill</h3><ul><li><code>--stop</code> from any terminal, or one Ctrl-C from the loop's own — finishes the current issue and exits with the tree back on <code>main</code>.</li><li>A second Ctrl-C kills the child immediately, and warns before it does it.</li><li><code>--status</code> is a snapshot, not a follower: lockfile liveness, the live status file, the tail of the running session's log, and the tree state — it prints the <code>tail -f</code> command instead of arming one.</li></ul><p>Both defects were verified end to end rather than by inspection. A stub HTTP server confirmed the folded Title and the intact UTF-8 body actually arrive on the wire. A harness drove the real loop body with a fake session through both stop paths: graceful exits 0 after the issue completes with the stopfile cleaned up, double-SIGINT kills the child, exits 1, and says “CHECK THE TREE.”</p><h3>The tail still open — LF-209</h3><p>The loop's first spawned session died instantly, its entire log a 15-byte “Execution error.” That is why iteration 1 produced an empty branch and shipped nothing, and why iteration 2 then refused at preflight with <code>on branch 'lf/plc-placement-ghost', expected main</code> — debris of the kill, not a fault of its own. Plain <code>claude -p --model sonnet --output-format text</code> was verified working in this session; the untested difference is <code>--dangerously-skip-permissions</code>, which this session was not permitted to run. Said plainly rather than papered over: the autoloop's own plumbing is fixed, and the thing it launches still does not work.</p>
+  </div>
+  <section class="commits"><h4>Commits</h4><ul class="commit-list"><li><code>6c6ed2c</code> fix(tooling): the notifier could not spell its own titles, and nothing could stop the loop</li><li><code>0c8ad3a</code> docs(backlog): LF-209 — the autoloop's spawned session dies instantly</li></ul></section>
+</article>
+<nav class="entry-nav bottom">
+  <span><a class="back" href="../index.html">&larr; the journal</a></span> <span><a class="prev" href="build-where-you-want.html">&larr; Pillar 2 is true in the running game</a></span>
+</nav>
+
+</body>
+</html>
