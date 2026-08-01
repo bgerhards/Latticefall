@@ -34,9 +34,11 @@ or `nohup` if you want to walk away; do not run two.
 from __future__ import annotations
 
 import argparse
+import base64
 import json
 import os
 import re
+import ssl
 import subprocess
 import sys
 import time
@@ -54,8 +56,26 @@ STATEFILE = ROOT / ".cache" / "autoloop-state.json"
 STATUS = ROOT / ".cache" / "autoloop-status.json"   # live, human-readable, tail-friendly
 LOGDIR = ROOT / ".cache" / "autoloop-logs"
 
-# ntfy: set LF_NTFY_URL to a full topic URL, e.g. https://ntfy.example.lan/latticefall
+# ntfy. A self-hosted instance is usually behind auth and often behind a self-signed cert, so
+# both are supported and neither is guessed. All of it is opt-in via the environment; nothing
+# is stored in the repository.
+#
+#   LF_NTFY_URL       full topic URL, e.g. https://ntfy.home.lan/latticefall   (required)
+#   LF_NTFY_TOKEN     ntfy access token -> Authorization: Bearer tk_...        (preferred)
+#   LF_NTFY_USER      username, with LF_NTFY_PASS -> HTTP Basic
+#   LF_NTFY_PASS      password
+#   LF_NTFY_CA        path to a CA bundle, for a private/self-signed cert      (preferred)
+#   LF_NTFY_INSECURE  "1" to skip TLS verification entirely                    (last resort)
+#
+# Token beats user/pass when both are set, because that is ntfy's own preference and a token
+# can be scoped to one topic. LF_NTFY_CA beats LF_NTFY_INSECURE for the obvious reason: one
+# verifies a certificate you chose to trust, the other verifies nothing at all.
 NTFY = os.environ.get("LF_NTFY_URL", "").strip()
+NTFY_TOKEN = os.environ.get("LF_NTFY_TOKEN", "").strip()
+NTFY_USER = os.environ.get("LF_NTFY_USER", "").strip()
+NTFY_PASS = os.environ.get("LF_NTFY_PASS", "")
+NTFY_CA = os.environ.get("LF_NTFY_CA", "").strip()
+NTFY_INSECURE = os.environ.get("LF_NTFY_INSECURE", "").strip() == "1"
 
 # GAME WORK FIRST, PROCESS LAST — and this ordering is deliberate rather than the PRD's.
 #
@@ -94,20 +114,72 @@ def sh(*args: str, timeout: int = 120, cwd: Path = ROOT) -> tuple[int, str]:
         return 1, f"{exc.__class__.__name__}: {exc}"
 
 
+def _ntfy_auth() -> dict[str, str]:
+    """Authorization header for a protected instance, or nothing."""
+    if NTFY_TOKEN:
+        return {"Authorization": f"Bearer {NTFY_TOKEN}"}
+    if NTFY_USER:
+        raw = base64.b64encode(f"{NTFY_USER}:{NTFY_PASS}".encode()).decode()
+        return {"Authorization": f"Basic {raw}"}
+    return {}
+
+
+def _ntfy_ssl():
+    """TLS context for a self-hosted host, or None to use the default.
+
+    A private CA is the right answer and is tried first. `LF_NTFY_INSECURE` exists because a
+    LAN box with a self-signed cert is common and a notification is not a secret — but it
+    disables verification entirely, so it announces itself once rather than failing quietly
+    into a false sense of encryption.
+    """
+    if NTFY_CA:
+        return ssl.create_default_context(cafile=NTFY_CA)
+    if NTFY_INSECURE:
+        ctx = ssl.create_default_context()
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+        return ctx
+    return None
+
+
+_ntfy_warned = False
+
+
 def notify(title: str, body: str, priority: str = "default", tags: str = "") -> None:
     """Best-effort push. A failed notification must never stop the loop — the whole point is
-    that nobody is watching, so the work continuing matters more than the message landing."""
+    that nobody is watching, so the work continuing matters more than the message landing.
+
+    It does, however, say so ONCE. A silently-401ing notifier is indistinguishable from a
+    silent loop, which is the exact anxiety this feature exists to remove.
+    """
+    global _ntfy_warned
     line = f"[autoloop] {title}: {body.splitlines()[0] if body else ''}"
     print(line, flush=True)
     if not NTFY:
         return
-    req = urllib.request.Request(
-        NTFY, data=body.encode("utf-8"), method="POST",
-        headers={"Title": title, "Priority": priority, **({"Tags": tags} if tags else {})})
+    headers = {"Title": title, "Priority": priority, **_ntfy_auth()}
+    if tags:
+        headers["Tags"] = tags
+    req = urllib.request.Request(NTFY, data=body.encode("utf-8"), method="POST",
+                                 headers=headers)
     try:
-        urllib.request.urlopen(req, timeout=10).read()
-    except (urllib.error.URLError, OSError) as exc:
-        print(f"[autoloop] ntfy failed ({exc}) — continuing", flush=True)
+        ctx = _ntfy_ssl()
+        urllib.request.urlopen(req, timeout=10, **({"context": ctx} if ctx else {})).read()
+    except urllib.error.HTTPError as exc:
+        if not _ntfy_warned:
+            _ntfy_warned = True
+            hint = (" — set LF_NTFY_TOKEN, or LF_NTFY_USER/LF_NTFY_PASS"
+                    if exc.code in (401, 403) else "")
+            print(f"[autoloop] ntfy rejected the push: HTTP {exc.code}{hint}. "
+                  f"Continuing WITHOUT notifications.", flush=True)
+    except Exception as exc:                                   # noqa: BLE001
+        if not _ntfy_warned:
+            _ntfy_warned = True
+            extra = ""
+            if isinstance(exc, urllib.error.URLError) and "CERTIFICATE" in str(exc).upper():
+                extra = " — set LF_NTFY_CA to your CA bundle, or LF_NTFY_INSECURE=1 on a LAN host"
+            print(f"[autoloop] ntfy unreachable ({exc}){extra}. "
+                  f"Continuing WITHOUT notifications.", flush=True)
 
 
 def load_state() -> dict:
@@ -397,7 +469,23 @@ def main() -> int:
     ap.add_argument("--start-with", default="", help="comma-separated spec ids to try first, "
                                                      "e.g. PLC-07,PLC-04 (still respects depends)")
     ap.add_argument("--dry-run", action="store_true", help="show the queue and exit")
+    ap.add_argument("--notify-test", action="store_true",
+                    help="send one test push and exit — verify auth BEFORE trusting a night")
     args = ap.parse_args()
+
+    if args.notify_test:
+        # Verify the notifier end to end before a night depends on it. Discovering a 401 at
+        # 03:00, from silence, is the worst possible time to discover it.
+        if not NTFY:
+            print("LF_NTFY_URL is not set — nothing to test.")
+            return 1
+        auth = ("token" if NTFY_TOKEN else "basic" if NTFY_USER else "none")
+        tls = ("custom CA" if NTFY_CA else "UNVERIFIED" if NTFY_INSECURE else "system")
+        print(f"url  {NTFY}\nauth {auth}\ntls  {tls}\n")
+        notify("Latticefall autoloop", "Notification test — if you can read this on your "
+               "phone, the loop can reach you.", priority="default", tags="satellite")
+        print("\nIf no push arrived, the line above says why. Nothing else was run.")
+        return 0
 
     if not MAP.exists():
         print("docs/issues/.map.json missing — run tools/issues.py first", file=sys.stderr)
