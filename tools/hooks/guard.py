@@ -102,8 +102,61 @@ def _tool_input(payload: dict) -> dict:
     return ti if isinstance(ti, dict) else {}
 
 
+# A heredoc opener: `<<EOF`, `<<'EOF'`, `<<"EOF"`, `<<-EOF`. The `(?<!<)`/`(?!<)` guards
+# keep `<<<` (a herestring, which is a single-line argument and NOT a body) out of it.
+_HEREDOC_START_RE = re.compile(r"""(?<!<)<<(?!<)(-?)\s*(['"]?)([A-Za-z_][A-Za-z0-9_]*)\2""")
+
+
+def _strip_heredocs(command: str) -> str:
+    """Remove heredoc BODIES before any rule looks at the command text (LF-179).
+
+    `_scrub_payload_values` blanks the value after `-m`/`--message`/`-F`/`--file`/`--body`/
+    `--body-file`, which covers prose passed as an argv token. A heredoc is a different
+    shape and that scrubber cannot see it: the body is **stdin**, not an argv token at all,
+    so `shlex` tokenises it as ordinary words and every path mentioned in it reads as a path
+    the command is operating on. Found live immediately after the LF-171 fix landed: a Bash
+    command whose heredoc body merely *mentioned* an import-cache path in prose, alongside an
+    unrelated `cat > file` redirect elsewhere in the same command, was denied by
+    `rule_godot_write` — the guard reading documentation as an operation.
+
+    Two deliberate conservatism choices, because the failure modes are not symmetric. Under-
+    stripping leaves a false positive (annoying, safe); over-stripping hides a real command
+    from the rules (a false negative in a safety file, which is not acceptable). So:
+
+      - The terminator test is `line.strip() == delim` for both `<<` and `<<-`, which ends a
+        body at the FIRST plausible terminator rather than the strictly-correct one.
+      - An **unterminated** heredoc strips nothing and leaves the remaining lines fully
+        visible to every rule.
+
+    The opener itself is replaced by a space rather than deleted, so `cat > f <<'EOF'` still
+    presents its `>` redirect to `rule_godot_write`.
+    """
+    if "<<" not in command:
+        return command
+    lines = command.split("\n")
+    kept: list[str] = []
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        i += 1
+        starts = list(_HEREDOC_START_RE.finditer(line))
+        if not starts:
+            kept.append(line)
+            continue
+        kept.append(_HEREDOC_START_RE.sub(" ", line))
+        for m in starts:
+            delim = m.group(3)
+            end = next((j for j in range(i, len(lines)) if lines[j].strip() == delim), None)
+            if end is None:
+                break                     # unterminated — leave the rest visible
+            i = end + 1
+    return "\n".join(kept)
+
+
 def _command(payload: dict) -> str:
-    return str(_tool_input(payload).get("command", ""))
+    """The Bash command, with heredoc bodies removed (LF-179). Every rule that reasons about
+    command text goes through here, so the stripping happens once rather than per rule."""
+    return _strip_heredocs(str(_tool_input(payload).get("command", "")))
 
 
 def _file_path(payload: dict) -> str:
@@ -288,7 +341,8 @@ def rule_background(payload: dict) -> Decision | None:
     if payload.get("tool_name") != "Bash":
         return None
     ti = _tool_input(payload)
-    cmd = str(ti.get("command", ""))
+    cmd = _command(payload)          # heredoc bodies stripped (LF-179) — a long-running
+                                     # tool NAMED in prose is not a tool being launched
     if not _LONG_CMD_RE.search(cmd):
         return None
     if _ALLOW_BACKGROUND_MARK in cmd:
@@ -672,6 +726,32 @@ def _selftest() -> int:
         ("deny-proof: a real redirect write via a read-only tool (cat > .godot/...) is still "
          "denied — inspector-skip is NOT applied to rule_godot_write, only to rule_raw_engine",
          bash("cat foo.ctex > .godot/imported/foo.ctex"), "deny"),
+
+        # LF-179: heredoc BODIES are stdin, not argv, so `_scrub_payload_values` cannot see
+        # them and every path named in prose read as a path being operated on. The first case
+        # is the exact shape found live — guarded path mentioned in the body, unrelated
+        # `cat >` redirect in the same command — and the rest are the deny-proofs that keep
+        # the fix from becoming a hole.
+        ("heredoc: guarded path in the BODY prose + an unrelated redirect is allowed",
+         bash("cat > /tmp/notes.md <<'EOF'\nRebuilding .godot/imported blanks the level.\nEOF"),
+         "allow"),
+        ("heredoc: <<- (tab-stripped) body prose is allowed too",
+         bash("cat > /tmp/n.md <<-EOF\n\tsee .godot/imported for the cache\n\tEOF"), "allow"),
+        ("deny-proof: heredoc body is stripped, but a REAL .godot write after the "
+         "terminator is still denied",
+         bash("cat > /tmp/n.md <<'EOF'\njust prose\nEOF\nrm -rf .godot"), "deny"),
+        ("deny-proof: a real .godot redirect on the SAME line as a heredoc opener is still "
+         "denied — the opener is blanked, the redirect is not",
+         bash("cat > .godot/imported/x.ctex <<'EOF'\nprose\nEOF"), "deny"),
+        ("deny-proof: an UNTERMINATED heredoc strips nothing, so a real write below it "
+         "stays visible to the rules",
+         bash("cat > /tmp/n.md <<'EOF'\nprose\nrm -rf .godot"), "deny"),
+        ("deny-proof: <<< is a herestring, not a heredoc — its text is still scanned",
+         bash("rm -rf .godot <<< foo"), "deny"),
+        ("heredoc: a long-running tool NAMED in body prose is not a launch (rule_background)",
+         {"hook_event_name": "PreToolUse", "tool_name": "Bash",
+          "tool_input": {"command": "cat > /tmp/n.md <<'EOF'\nrun tools/test_parity.py later\nEOF",
+                         "run_in_background": True}}, "allow"),
 
         ("post-lint: clean .gd allowed", post("scripts/hud.gd"), "allow"),
         ("post-lint: broken .gd denied",
