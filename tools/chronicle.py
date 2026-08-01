@@ -82,21 +82,74 @@ def esc(s: str) -> str:
     return html.escape(s, quote=False)
 
 
+def _wrap_pairs(s: str, delim: str, tag: str) -> str:
+    """Wrap `delim`-delimited spans in `<tag>`, left to right, leaving anything unpaired as
+    literal text.
+
+    A delimiter only opens a span if a closing one exists AND the content between them is
+    non-empty and not whitespace-bounded. That guard is what keeps a stray `**` in prose
+    (`sim/**`, a glob) from emitting an empty `<strong></strong>` — the naive
+    `split(delim)` this replaced had no way to express "this delimiter is not markup",
+    so every occurrence became a tag boundary whether or not it was paired.
+    """
+    out: list[str] = []
+    i, n, d = 0, len(s), len(delim)
+    while i < n:
+        if s.startswith(delim, i):
+            close = s.find(delim, i + d)
+            content = s[i + d:close] if close != -1 else ""
+            if close != -1 and content and not content[0].isspace() and not content[-1].isspace():
+                out.append(f"<{tag}>{content}</{tag}>")
+                i = close + d
+                continue
+            out.append(delim)          # unpaired — literal, not markup
+            i += d
+            continue
+        out.append(s[i])
+        i += 1
+    return "".join(out)
+
+
 def render_inline(text: str) -> str:
-    """Escape text, then apply a tiny bold/code markup so body prose can carry emphasis
-    without every entry hand-writing HTML in the data file. `**x**` -> <strong>, `` `x` ``
-    -> <code>. Deliberately not a full markdown parser: the data file's blocks already carry
-    structure (heading, list, table), so inline markup only ever needs these two."""
-    out = esc(text)
-    parts = out.split("`")
-    for i in range(1, len(parts), 2):
-        parts[i] = f"<code>{parts[i]}</code>"
-    out = "".join(parts)
-    parts = out.split("**")
-    for i in range(1, len(parts), 2):
-        parts[i] = f"<strong>{parts[i]}</strong>"
-    out = "".join(parts)
-    return out
+    """Escape text, then apply a tiny code/bold markup so body prose can carry emphasis
+    without every entry hand-writing HTML in the data file. `` `x` `` -> <code>,
+    `**x**` -> <strong>. Deliberately not a full markdown parser: the data file's blocks
+    already carry structure (heading, list, table), so inline markup only ever needs these
+    two.
+
+    **Code spans are extracted FIRST and never re-scanned, and that ordering is the fix for
+    LF-173.** The previous version wrapped code spans and THEN ran a `split("**")` over the
+    whole string, including the text it had just placed inside `<code>`. A glob inside
+    backticks therefore came out as *crossed* tags — `` `sim/**` `` rendered as
+    `<code>sim/<strong></code></strong>` — and worse, one `**` inside a single code span
+    inverted the pairing for every bold later on the same line. Both were live on the
+    published site. Bold is now applied only to the even-indexed prose segments; whatever is
+    inside backticks is verbatim by construction, which is what a code span means.
+
+    **Single-asterisk emphasis is deliberately NOT supported, and that is a reversal of
+    LF-173's second half — measured, not assumed.** LF-173 asked for `*x*` -> <em> because
+    one entry renders literal asterisks. It was implemented, and then run against the whole
+    journal: `chronicle.json` contains exactly two strings carrying a bare `*` outside a code
+    span, and they split one-to-one. One is genuine emphasis (`*current accepted bank*`); the
+    other is globs in prose — `scripts/*.gd filename against every tools/*.py,
+    scripts/test/*.gd and data/scenarios/*.json` — which the feature silently ate into
+    `<em>.gd filename against every tools/</em>`. A 50% false-positive rate on the real
+    corpus is not a rendering improvement, and the cause is structural rather than a tuning
+    problem: `*` is an overloaded delimiter in a project whose prose is full of paths and
+    globs, and no amount of pair-guarding distinguishes the two cases. Authors use `**` for
+    emphasis, which is unambiguous and already the established habit.
+
+    `_wrap_pairs` keeps its unpaired-delimiter guard even though only `**` uses it now: a
+    stray `**` in prose (`sim/**`, a glob) must stay literal rather than emit an empty
+    `<strong></strong>`, which the old `split("**")` had no way to express.
+    """
+    parts = esc(text).split("`")
+    for i, part in enumerate(parts):
+        if i % 2:
+            parts[i] = f"<code>{part}</code>"        # verbatim; never re-scanned
+        else:
+            parts[i] = _wrap_pairs(part, "**", "strong")
+    return "".join(parts)
 
 
 def render_block(block: dict[str, Any], image_prefix: str) -> str:
