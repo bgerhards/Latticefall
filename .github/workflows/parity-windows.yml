@@ -274,35 +274,40 @@ jobs:
       # see whether every anchor is fine alone (pointing at cross-anchor state/resource
       # leakage in one long-lived process) or one specific anchor hangs even by itself
       # (pointing at that anchor's own content/policy interaction).
-      - name: DIAGNOSTIC — sweep all 24 anchors individually, 60s cap each
+      # (Already run once, run 30699678537: anchor-01..04 completed cleanly in 24.1s,
+      # 33s, 39.1s, 48.1s — a clear, expected upward cost trend — then EVERY anchor from
+      # 05 through 21 hit the 60s wall-clock cap with nothing (the sweep's own 20min step
+      # budget cut it off before reaching 22-24). Ambiguous on its own: a strict jump from
+      # "always finishes" to "never finishes even once" could mean either the per-anchor
+      # cost genuinely cliffs upward around anchor-05 (more unlocked towers => more
+      # policies x difficulties x longer simulated battles — matches this project's own
+      # documented cost model) and 60s was simply too short, OR a genuine stall starts
+      # there. Wall-clock alone cannot tell those apart — CPU-time can, the same way it
+      # did for the full run above.)
+      - name: DIAGNOSTIC — CPU-poll anchor-05 alone for 3min (resolve slow vs. stalled)
         shell: pwsh
-        timeout-minutes: 20
         continue-on-error: true
         run: |
-          $anchors = 1..24 | ForEach-Object { "anchor-{0:D2}" -f $_ }
-          foreach ($a in $anchors) {
-            $t0 = Get-Date
-            $proc = Start-Process -FilePath "$env:LF_WINDOWS_GODOT" `
-              -ArgumentList "--headless","--path",".","--script","res://scripts/test/parity.gd","--","--anchor",$a `
-              -PassThru -RedirectStandardOutput "diag-sweep-$a.log" -RedirectStandardError "diag-sweep-$a.err.log"
-            $deadline = (Get-Date).AddSeconds(60)
-            while ((Get-Date) -lt $deadline -and -not $proc.HasExited) {
-              Start-Sleep -Seconds 3
-              $proc.Refresh()
-            }
-            $elapsed = [math]::Round(((Get-Date) - $t0).TotalSeconds, 1)
-            if ($proc.HasExited) {
-              $hasJson = (Select-String -Path "diag-sweep-$a.log" -Pattern "^PARITY_JSON" -Quiet)
-              Write-Host "$a  exited  code=$($proc.ExitCode)  elapsed=${elapsed}s  parity_json=$hasJson"
-            } else {
-              Write-Host "$a  STILL RUNNING after 60s — killing (elapsed=${elapsed}s) *** HANG CANDIDATE ***"
-              Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
-            }
+          $proc = Start-Process -FilePath "$env:LF_WINDOWS_GODOT" `
+            -ArgumentList "--headless","--path",".","--script","res://scripts/test/parity.gd","--","--anchor","anchor-05" `
+            -PassThru -RedirectStandardOutput diag-anchor05-stdout.log -RedirectStandardError diag-anchor05-stderr.log
+          $deadline = (Get-Date).AddMinutes(3)
+          while ((Get-Date) -lt $deadline) {
+            Start-Sleep -Seconds 15
+            $proc.Refresh()
+            if ($proc.HasExited) { break }
+            $cpu = if ($proc.CPU) { [math]::Round($proc.CPU, 1) } else { 0 }
+            $ws = [math]::Round($proc.WorkingSet64 / 1MB, 1)
+            Write-Host "$(Get-Date -Format o)  cpu_seconds=$cpu  working_set_mb=$ws  exited=$($proc.HasExited)"
           }
-
-      # (The pre-import version of this same poll already ran in run 30699049203: 12
-      # samples over 4min, cpu_seconds=0 and working_set_mb=6.5 on every single one —
-      # a genuine stall, not "slow but computing". Not re-run here; see that run's log.)
+          if (-not $proc.HasExited) {
+            Write-Host "still running after 3min cap — killing for diagnostic purposes only"
+            Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
+          } else {
+            Write-Host "process exited on its own, exit code $($proc.ExitCode)"
+            Write-Host "=== stdout ==="
+            Get-Content diag-anchor05-stdout.log
+          }
 
       - name: DIAGNOSTIC — print all logs
         if: always()
