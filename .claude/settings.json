@@ -45,6 +45,29 @@
           }
         ]
       }
+    ],
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd \"$CLAUDE_PROJECT_DIR\" && .venv/bin/python tools/hooks/precompact_wrap.py",
+            "timeout": 1020,
+            "statusMessage": "Wrapping the session before compaction..."
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd \"$CLAUDE_PROJECT_DIR\" && .venv/bin/python tools/hooks/standing_orders.py",
+            "timeout": 20
+          }
+        ]
+      }
     ]
   }
 }

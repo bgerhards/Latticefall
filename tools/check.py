@@ -731,7 +731,37 @@ def check_hooks_configured() -> Result:
     m = re.search(r"(\d+) passed, (\d+) failed, (\d+) total", r.stdout)
     tally = f"guard.py --selftest {m.group(1)}/{m.group(3)} ok" if m \
         else "guard.py --selftest exit 0"
-    return Result(OK, f"{len(HOOK_EVENTS)} events wired ({', '.join(HOOK_EVENTS)}) · {tally}")
+
+    # Every OTHER wired hook is checked too — that its target script exists and compiles.
+    # `HOOK_EVENTS` above is deliberately scoped to the four events `guard.py` dispatches,
+    # so a hook pointing at any other script was previously invisible here: it could be
+    # deleted, renamed or left with a syntax error and this check would still report a
+    # cheerful "4 events wired". That is precisely the silent-drop failure the whole check
+    # exists to prevent, one script over. A missing file or a SyntaxError is caught by
+    # `py_compile` without running anything — these hooks fire at session start and before
+    # compaction, neither of which can be provoked from inside this process (LF-112).
+    extra: list[str] = []
+    for event, groups in sorted(hooks.items()):
+        if event in HOOK_EVENTS or not isinstance(groups, list):
+            continue
+        for group in groups:
+            for hook in (group or {}).get("hooks", []):
+                cmd = hook.get("command", "")
+                for token in cmd.split():
+                    if not token.endswith(".py"):
+                        continue
+                    target = ROOT / token
+                    if not target.exists():
+                        return Result(FAIL, f"{event} hook points at a missing script: {token}")
+                    c = run(PY, "-m", "py_compile", str(target), timeout=30.0)
+                    if c.returncode != 0:
+                        return Result(FAIL, f"{event} hook script does not compile ({token}): "
+                                            f"{(c.stdout + c.stderr).strip()[-400:]}")
+                    extra.append(event)
+    suffix = f" · +{len(extra)} more wired ({', '.join(sorted(set(extra)))}), scripts compile" \
+        if extra else ""
+    return Result(OK,
+                  f"{len(HOOK_EVENTS)} events wired ({', '.join(HOOK_EVENTS)}) · {tally}{suffix}")
 
 
 def check_asset_coverage() -> Result:
