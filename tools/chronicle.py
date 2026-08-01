@@ -35,6 +35,7 @@ import argparse
 import filecmp
 import html
 import json
+import re
 import sys
 import tempfile
 from pathlib import Path
@@ -142,14 +143,35 @@ def render_inline(text: str) -> str:
     `_wrap_pairs` keeps its unpaired-delimiter guard even though only `**` uses it now: a
     stray `**` in prose (`sim/**`, a glob) must stay literal rather than emit an empty
     `<strong></strong>`, which the old `split("**")` had no way to express.
+
+    **Bold pairs ACROSS a code span, which closes LF-189.** The first version of this fix
+    applied bold to each prose segment *independently*, so a span shaped like
+    ``**see `X` for why**`` opened its bold in segment 0 and closed it in segment 2 and
+    neither half ever found its partner — the asterisks printed literally. That is strictly
+    safer than the crossed tags it replaced, but it is still wrong output, and it was hit by
+    the only author using this renderer in two consecutive entries plus two entries already
+    published. So code spans are swapped for opaque sentinels, bold is paired over the whole
+    string at once, and the sentinels are restored: the code content cannot participate in
+    pairing (a `` `split("**")` `` stays verbatim) while prose on either side of it can.
+    `audit_markup` asserts the result, because "an author noticed stray asterisks" is not a
+    check.
     """
     parts = esc(text).split("`")
+    codes: list[str] = []
+    stitched: list[str] = []
     for i, part in enumerate(parts):
         if i % 2:
-            parts[i] = f"<code>{part}</code>"        # verbatim; never re-scanned
+            # An opaque, asterisk-free, markup-free placeholder. NUL cannot appear in the
+            # escaped source, so it cannot collide with real content.
+            stitched.append(f"\x00{len(codes)}\x00")
+            codes.append(part)
         else:
-            parts[i] = _wrap_pairs(part, "**", "strong")
-    return "".join(parts)
+            stitched.append(part)
+
+    out = _wrap_pairs("".join(stitched), "**", "strong")
+    for i, code in enumerate(codes):
+        out = out.replace(f"\x00{i}\x00", f"<code>{code}</code>", 1)
+    return out
 
 
 def render_block(block: dict[str, Any], image_prefix: str) -> str:
@@ -329,8 +351,76 @@ def generate(out_dir: Path) -> list[Path]:
     return written
 
 
+def audit_markup(out_dir: Path) -> bool:
+    """Assert no generated page carries markup that failed to render (LF-189).
+
+    Staleness is not the only way a page can be wrong. Two failure shapes have reached the
+    *published* site and neither made `check()` unhappy, because the committed HTML matched
+    `chronicle.json` perfectly — it was the rendering that was wrong, identically, in both
+    places:
+
+      - **A literal `**` survives into the output.** `render_inline` splits on backticks
+        first and pairs bold within each prose segment, so a bold span that CROSSES a code
+        span (`**see `X` for why**`) never finds its partner and prints its asterisks.
+        Hit live by the chronicler in two consecutive entries, and caught both times only
+        because a human thought to diff the rendered HTML for stray asterisks — which is
+        not a check anyone should have to remember.
+      - **An unbalanced `<strong>`/`<code>`/`<em>`.** The LF-173 shape, where a code span
+        was re-scanned and the tags came out crossed rather than nested.
+
+    LF-189 proposed this as the cheap option (2) alongside a proper renderer fix (1).
+    **Both were done**, in this order and deliberately: the audit was written first, run
+    against the corpus, and found the defect live in two ALREADY-PUBLISHED entries
+    (`measuring-the-fifth-non-negotiable`, `the-headline-did-not-survive`) that nobody had
+    noticed in either. That is what justified fixing `render_inline` properly rather than
+    asking authors to keep working around it — see its docstring.
+
+    Its first run also caught its own false positive, which is worth keeping in mind before
+    tightening it: `**` INSIDE a `<code>` element is legitimate content (an entry quoting
+    `` `split("**")` ``), so code spans are stripped before the scan. A check that cries
+    wolf on correct output is worse than no check.
+
+    **Known remaining false positive:** a bare, un-backticked glob in prose (`sim/**`)
+    trips the `**` scan. That is accepted rather than worked around — every path in this
+    journal belongs in backticks by house style, so the check nudges toward the convention
+    instead of fighting it, and the message says so. A red run here almost always means an
+    entry needs a pair of backticks or a closing `**`, not that this file is broken.
+    """
+    ok = True
+    for path in sorted(out_dir.rglob("*.html")):
+        html_text = path.read_text(encoding="utf-8")
+        rel = path.relative_to(out_dir)
+
+        # `**` INSIDE a <code> element is legitimate content, not unrendered markup — an
+        # entry quoting `split("**")` is correct output. Only asterisks left in PROSE mean
+        # a bold span failed to pair. Caught by this check's own first run, which flagged
+        # `<code>split("**")</code>` in the very entry describing the LF-173 fix; a check
+        # that cries wolf on correct content is worse than no check at all.
+        prose = re.sub(r"<code>.*?</code>", "", html_text, flags=re.DOTALL)
+        if "**" in prose:
+            i = prose.index("**")
+            print(f"unrendered bold in {rel}: literal '**' in prose — "
+                  f"...{prose[max(0, i - 70):i + 70]}...")
+            print("  either a bold span that never closed, or a bare glob in prose — "
+                  "put paths and globs in backticks, which is house style anyway")
+            ok = False
+
+        for tag in ("strong", "code", "em"):
+            opens, closes = html_text.count(f"<{tag}>"), html_text.count(f"</{tag}>")
+            if opens != closes:
+                print(f"unbalanced <{tag}> in {rel}: {opens} open, {closes} close")
+                ok = False
+
+        for m in re.finditer(r"<code>[^<]*<(strong|em)>[^<]*</code>", html_text):
+            print(f"crossed tags in {rel}: {m.group(0)[:80]}")
+            ok = False
+    return ok
+
+
 def check(out_dir: Path) -> bool:
-    """Regenerate into a scratch directory and diff every file against what is committed."""
+    """Regenerate into a scratch directory and diff every file against what is committed,
+    then audit the generated markup itself (see `audit_markup` — staleness and correctness
+    are different questions, and only the first one used to be asked)."""
     with tempfile.TemporaryDirectory() as tmp:
         tmp_dir = Path(tmp)
         generate(tmp_dir)
@@ -344,7 +434,7 @@ def check(out_dir: Path) -> bool:
             elif not filecmp.cmp(path, committed, shallow=False):
                 print(f"stale: {rel} (chronicle.json changed since this was last generated)")
                 ok = False
-        return ok
+        return audit_markup(tmp_dir) and ok
 
 
 def main() -> None:
