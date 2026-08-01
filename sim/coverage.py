@@ -46,12 +46,14 @@ existing methods; nothing here is imported back into engine.py, content.py, or r
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import sys
 from dataclasses import asdict, dataclass, field, replace as dc_replace
 from multiprocessing import Pool
 from pathlib import Path
+from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
@@ -296,7 +298,24 @@ def analyze_anchor(anchor_id: str, difficulties: list[str] | None = None) -> dic
                 })
 
     return {"anchor": anchor.id, "act": anchor.act, "title": anchor.title,
+            "range_basis": range_basis(towers),
             "geometry": [asdict(g) for g in geometry], "samples": samples}
+
+
+def range_basis(towers: dict[str, Tower]) -> dict[str, Any]:
+    """The weapon ranges this report was computed against, plus a short digest of them.
+
+    `verdict()` below is defined RELATIVE to whatever is in `data/towers.json` at the
+    moment it runs — its 2x comparison scales with the base — so two reports are only
+    comparable if this matches. Recording it is what makes that checkable instead of
+    assumed (LF-186; measured in decision 074, where a global range rise flipped four of
+    five anchors' labels while their dynamic tails went flat or worse).
+    """
+    ranges = {t.id: t.range for t in sorted(towers.values(), key=lambda t: t.id)
+              if t.is_weapon}
+    payload = json.dumps(ranges, sort_keys=True).encode()
+    return {"weapon_ranges": ranges,
+            "digest": hashlib.sha256(payload).hexdigest()[:12]}
 
 
 def _quantiles(values: list[float]) -> dict[str, float]:
@@ -324,6 +343,8 @@ def summarize(report: dict) -> dict:
         "near_zero_n": near_zero, "sample_n": len(uptimes),
         "geometric_ceiling": _quantiles(ceiling),
         "geometric_ceiling_2x_range": _quantiles(ceiling_2x),
+        # Carried through so a summary is never separated from the ranges it describes.
+        "range_basis": report.get("range_basis"),
     }
 
 
@@ -336,6 +357,22 @@ def verdict(summary: dict) -> str:
     otherwise-reasonable slot) and does not for (a) (the slot is simply far from the
     lane, and no plausible range value reaches it). If the ceiling is comfortably high
     but the dynamic uptime distribution is still low, the gap is the build policy — (c).
+
+    **This label is RELATIVE to whatever ranges are in `data/towers.json` when it runs, and
+    it is therefore not comparable across a tuning pass.** LF-186, measured during decision
+    074's range pass rather than reasoned about: raising every weapon's base range raises
+    `ceil_p50` *and* the `ceil2x_p50` it is compared against, so the classification moves on
+    its own. Four of the five anchors LF-181 had declared "(a) geometry" — anchor-03, 04, 05
+    and 07 — **flipped** to "(b) range" or to "sited adequately" while their dynamic p10 went
+    flat or *worse* (8→5%, 4→0%, 5→3%, 1→0%). The `ceil_p50 >= 0.5` early return is the
+    sharpest edge: cross that threshold and the (a)/(b) question is never even asked.
+
+    None of that makes the ceiling wrong — it remains a true statement about the level given
+    today's ranges. It makes the *label* read as a claim about slot geometry when it is a
+    claim about geometry-and-range together. So `range_basis()` records the ranges and a
+    digest of them alongside every report: **two labels are comparable only if their
+    `range_basis.digest` matches**, and if it does not, the dynamic distribution is the thing
+    to compare, not the letter.
     """
     ceil_p50 = summary["geometric_ceiling"]["p50"]
     ceil2x_p50 = summary["geometric_ceiling_2x_range"]["p50"]
@@ -504,6 +541,16 @@ def main() -> int:
         for g in sorted(r["geometry"], key=lambda g: -g["best_coverage"]):
             print(f"  slot {g['slot']!s:>10s}  best {g['best_tower']:<18s} "
                   f"{g['best_coverage']:>6.1%}  (2x range {g['best_coverage_2x_range']:>6.1%})")
+
+    # Printed, not just stored: the (a)/(b) verdict below is defined relative to these
+    # ranges, so a reader comparing this table against an older one needs to see whether
+    # the basis moved. LF-186 — a range pass silently reclassified four anchors.
+    if summaries and summaries[0].get("range_basis"):
+        rb = summaries[0]["range_basis"]
+        print(f"\nrange basis {rb['digest']} — "
+              + ", ".join(f"{k} {v}" for k, v in rb["weapon_ranges"].items())
+              + "\n  (verdicts below are RELATIVE to these; only comparable to a run with "
+                "the same digest)")
 
     print(f"\n{'anchor':<10s} {'act':>3s} {'ceiling p50':>11s} {'ceil@2x p50':>11s} "
           f"{'uptime p10/p50/p90':>19s} {'dmg-share p10/p50/p90':>22s} "
