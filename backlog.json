@@ -1,5 +1,5 @@
 {
-  "next_id": 196,
+  "next_id": 200,
   "items": [
     {
       "id": "LF-001",
@@ -2119,11 +2119,11 @@
       "kind": "feature",
       "area": "design",
       "pri": "med",
-      "status": "open",
+      "status": "done",
       "why": "",
       "opened": "2026-07-31",
-      "closed": null,
-      "note": ""
+      "closed": "2026-08-01",
+      "note": "closed at c10217a"
     },
     {
       "id": "LF-178",
@@ -2332,6 +2332,54 @@
     {
       "id": "LF-195",
       "title": "STALE-ITEM AUDIT, 2026-08-01: LF-165 and LF-169 were both already fixed in the tree while still reading as open, and were closed only because someone happened to check. VERIFIED before closing, not assumed. LF-165 (loose render .import sidecars churning git status): git ls-files on assets/renders sidecars returns 2, not the 224 the item describes, and those 2 are the atlas pages which .gitignore deliberately keeps with a comment saying so; git status --porcelain assets/ returns 0 lines. LF-169 (wrap_gate.py escalating to tier 4 on any assets/ change including .import litter): tools/wrap_gate.py carries ESCALATE_IGNORE_SUFFIXES = ('.import', '.uid') with a long comment recording that WITHOUT it PRC-20 was inert \u2014 360 untracked sidecars escalated every single invocation so the fast wrap never once ran \u2014 and explicitly rejecting PRC-02's tracked-files-only reasoning for this one case, because a brand-new sim/foo.py or data/anchors/anchor-25.json is untracked at exactly the moment it most needs tier 4. THE PROCESS FINDING, which is why this is filed rather than just closed: LF-156 already recorded that items filed from a worktree go stale against a merge, and proposed that an item record the commit it was observed at so session-start can re-check anything whose observation commit is behind HEAD. That is still not implemented, and this is two more instances. A backlog that carries fixed items is not merely untidy \u2014 it costs a dispatch, because the next agent sent to fix one of these would deliver verification rather than the work asked for",
+      "kind": "chore",
+      "area": "tooling",
+      "pri": "med",
+      "status": "open",
+      "why": "",
+      "opened": "2026-08-01",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-196",
+      "title": "OWNER-FACING CONTROLS AUDIT: LF-177 (game speed-up) was filed as 'deferred to a later iteration' and is in fact SHIPPED \u2014 the owner did not know, and asked about pacing again on 2026-08-01. data/tuning.json authors speeds [1.0, 2.0, 3.0], anchor_view.gd cycle_speed() wraps through them on the lf_speed_cycle action, project.godot binds that to physical keycode 96 (the backtick key) and gamepad button 7, and hud.gd renders the current value as 'Nx SPEED' top-left. It is implemented exactly the safe way LF-177 itself demanded: _accum += delta * speed runs the SAME fixed tick more times per frame rather than scaling dt, so parity is unaffected \u2014 which is why 1440 runs still pass. THE FINDING IS NOT ABOUT SPEED, IT IS ABOUT DISCOVERABILITY. A shipped player-facing control the owner does not know exists is worth nothing, and the backlog said 'deferred' for long enough that it got quoted back as outstanding. Two things worth doing. (1) Audit every player-facing control against what the owner has actually been told \u2014 speed is unlikely to be the only one; candidates are the minimap focus key, edge scroll, the pause menu volume controls, sell and upgrade, and gamepad build. (2) Treat 'shipped but unannounced' as a distinct backlog state from 'open', because closing it silently is what let this happen. Related to LF-195 (stale items cost a dispatch) but worse: this one cost the OWNER a play session at 1x speed",
+      "kind": "chore",
+      "area": "design",
+      "pri": "med",
+      "status": "open",
+      "why": "",
+      "opened": "2026-08-01",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-197",
+      "title": "PLC-02 LANDMINES \u2014 four places still assume INTEGER slot coordinates and will bite the moment free placement's legality predicate opens up. Found deliberately during PLC-01 rather than left to surface later; all are presentation, none is in the rules. (1) LOAD-BEARING-WRONG: scripts/combat_fx.gd's _beams dictionary is keyed by Vector2i(int(x), int(y)), so two emplacements in the SAME integer cell \u2014 say (4.3, 7.0) and (4.7, 7.0) \u2014 collide, and _find_placed() returns whichever placed record it hits first for that key. A sustained-beam weapon's beam can therefore attach visually to the wrong emplacement. (2) AnchorSim.available_slots() enumerates anchor['slots'] and returns Vector2i, so it is tied to the fixed-slot CONCEPT rather than to _is_placeable(). The moment PLC-02 accepts a position outside that array this function will not reflect it at all, and every consumer needs rework rather than a signature change: _autobuild_step(), _click()'s legality gate, _draw_hover(), _draw_reach(), main.gd::_build_one(), facing.gd. (3) The entire click and select UI is Vector2i-typed \u2014 hovered_slot, selected_slot, NO_SLOT, _click(), placed_index_at(), sell_at(), upgrade_at(), toggle_at(), _step_cursor() \u2014 and hovered_slot = Vector2i(roundi(t.x), roundi(t.y)) rounds the mouse position before anything else sees it. THERE IS CURRENTLY NO WAY FOR A PLAYER TO BUILD, SELECT OR SELL AT A NON-INTEGER POSITION regardless of what the rules allow, which is exactly how PLC-02 could ship green and change nothing visible in play. That is the most important item here. (4) main.gd's scenario 'build' verb truncates with Vector2i(int(args[1]), int(args[2])), so a scenario JSON asserting a fractional build position would be silently floored. Cosmetic only and not worth blocking on: fx_additive.gd's field-pulse desync hash also rounds to Vector2i, where a collision just means two nearby supports pulse in phase. CONFIRMED ALREADY FLOAT-NATIVE and needing only the predicate body swapped: _is_placeable, _occupied, _slot_priority, _covered_by, _select_target, IsoScript.tile_to_screen. One int() cast that is CORRECT and must not be 'fixed': anchor_view.gd's _height_at(int(x), int(y)), the intended world-to-tile truncation matching sim/content.py's Anchor.height_at()",
+      "kind": "risk",
+      "area": "engine",
+      "pri": "med",
+      "status": "open",
+      "why": "",
+      "opened": "2026-08-01",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-198",
+      "title": "tools/analysis_overdraw.py and tools/analysis_shield_wall.py are dead code and are now also broken. Both call Placed(tower=..., slot=...) and self.free_slots.remove(...), neither of which exists after PLC-01 renamed the representation to x/y floats. Left untouched deliberately: both already carry a hardcoded sys.path.insert(0, '/Users/briangerhards/dev/defend-claude') pointing at a nonexistent path on this machine \u2014 an old project name and an old host \u2014 so they were non-runnable BEFORE this change, not broken by it. Neither is gate-checked, neither is imported by anything, and neither appears in any documented command. Recommend deleting both rather than repairing them; if they are worth keeping, the hardcoded macOS path has to be fixed in the same pass or they will stay dead either way. Note tools/analysis_lf014.py was in the same family but IS repaired, because it was reachable",
+      "kind": "chore",
+      "area": "tooling",
+      "pri": "med",
+      "status": "open",
+      "why": "",
+      "opened": "2026-08-01",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-199",
+      "title": "Two backlog items name a field that no longer exists after PLC-01. LF-123 and LF-126 both refer to AnchorSim.free_slots by that field name; the fixed-slot free_slots array is gone, replaced by x/y float64 positions and a single _is_placeable() predicate. LF-123's actual concern is unaffected \u2014 it is about _shed() reaching into s.placed directly rather than going through set_online(), and it never touched free_slots. LF-126 says '2 of the anchor's 12 build slots (index 2 and 3 in free_slots order) are off-screen at anchor-17's default camera framing'; the ordering is unchanged but the phrase should now read 'in anchor[slots] order'. Both are stale wording rather than stale findings. Filed rather than silently edited because the backlog is a record and LF-195 already established that quietly-wrong items cost a dispatch",
       "kind": "chore",
       "area": "tooling",
       "pri": "med",
