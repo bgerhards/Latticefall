@@ -22,6 +22,24 @@
 # of screenshots; plain blobs are the right call, and it keeps the site self-contained.
 docs/chronicle/assets/** -filter -diff -merge
 
+# --- The fonts are NOT LFS, and this one is a correctness fix (LF-162) ---
+# Four IBM Plex faces, 734 KB total. They are *source*, not build output — unlike the sprite
+# renders, nothing regenerates them, so the churn argument for LFS does not apply and the
+# whole set costs less than one atlas page.
+#
+# What made this worth doing rather than tolerating: `scripts/ui_theme.gd` (the `Ui` autoload)
+# `preload()`s all four directly. Under any checkout that has not fetched LFS — a CI job with
+# `lfs: false`, or a contributor who cloned before installing git-lfs — those `preload()`s
+# resolve against 130-byte pointer TEXT, which is a genuine resource-load failure that
+# cascades into every script reading a const off `Ui`: `hud.gd`, `menu.gd`, `pause_menu.gd`,
+# `main.gd`, `draft.gd`. Five scripts fail for one missing 169 KB file, and the error names
+# none of them.
+#
+# CI currently tolerates that by importing the project first, which makes the parse check
+# pass while the FontFile still contains junk. Plain blobs make a clean checkout actually
+# correct instead of merely parseable. Same reasoning as the chronicle images above.
+assets/fonts/** -filter -diff -merge
+
 # --- Godot / text: keep diffable ---
 *.gd     text eol=lf
 *.tscn   text eol=lf
