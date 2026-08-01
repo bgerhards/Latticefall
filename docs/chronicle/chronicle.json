@@ -2860,6 +2860,109 @@
           "text": "**This entry's numbers have a known expiry date, and saying so is the point.**"
         }
       ]
+    },
+    {
+      "id": "the-bug-that-outlived-two-workarounds",
+      "date": "2026-08-01",
+      "time": "08:12",
+      "title": "The bug that outlived two workarounds",
+      "summary": "LF-189 was filed after a bold span crossing a code span printed literal asterisks while drafting the previous entry, and it was hit again immediately, while drafting the one after that \u2014 worked around by hand both times rather than fixed. The audit written to close it found the same defect already live on two entries published earlier this session, unnoticed by anyone until it looked. Bold now pairs across code spans correctly, and three assertions per generated page mean the next occurrence is red rather than diffed by eye.",
+      "tags": [
+        "PRC"
+      ],
+      "commits": [
+        {
+          "hash": "03c05fa",
+          "subject": "fix(chronicle): pair bold across code spans, and assert the result instead of noticing it"
+        },
+        {
+          "hash": "9eb8476",
+          "subject": "docs(backlog): close LF-189 \u2014 renderer fix and audit both landed"
+        }
+      ],
+      "body": [
+        {
+          "type": "p",
+          "text": "This entry is about the tool writing it, and the chronicler is a character in the bug rather than only its reporter. Drafting `the-number-that-did-not-decide-it`, a bold span meant to wrap prose on both sides of a code reference printed its asterisks literally instead \u2014 caught only because a human thought to diff the rendered HTML before committing. That is what got LF-189 filed. Drafting the very next entry, `the-tail-that-would-not-move`, the same shape appeared again, and was worked around again: by restructuring the sentence so no bold span ever touched a backtick, rather than by fixing the renderer. Twice in a row, on two consecutive entries, the fix was to write around it \u2014 exactly the kind of rule that survives only as long as someone remembers it under pressure, the same failure this project's own working agreement already names for `git stash` and the reaper."
+        },
+        {
+          "type": "h3",
+          "text": "The renderer fix"
+        },
+        {
+          "type": "p",
+          "text": "`none-of-them-was-red`, three entries back, had already fixed one shape of this bug: `render_inline()` used to wrap code spans in `<code>` and then split the whole string on `**`, so a glob inside a code span crossed its own tags. That fix applied bold to each prose segment between backticks independently \u2014 and that is exactly what broke here. A bold span opening before a backtick and closing after it opens in one prose segment and closes in a different one, and neither half ever finds its partner: the asterisks print literally, on both sides, with a perfectly correct code element sitting between them. Strictly safer than the crossed tags it replaced, since literal text can never break a page \u2014 but still wrong output."
+        },
+        {
+          "type": "p",
+          "text": "The fix: code spans are swapped for opaque, NUL-delimited sentinels before bold gets paired, bold is paired over the whole string at once, and the sentinels are restored afterward. Code content can no longer participate in pairing; prose on either side of it still can. Every row below is live in this entry, not a description of one \u2014 the renderer that produced this page is the one being written about:"
+        },
+        {
+          "type": "table",
+          "headers": [
+            "shape",
+            "renders as"
+          ],
+          "rows": [
+            [
+              "**see `X` for why**",
+              "`<strong>see <code>X</code> for why</strong>`"
+            ],
+            [
+              "`split(\"**\")`",
+              "verbatim, unchanged"
+            ],
+            [
+              "`sim/**`",
+              "still correct, per LF-173"
+            ],
+            [
+              "a `x**y` b **z** c",
+              "`a <code>x**y</code> b <strong>z</strong> c`"
+            ]
+          ]
+        },
+        {
+          "type": "p",
+          "text": "One shape is described rather than demonstrated live, on purpose: a lone, unpaired `**` sitting in prose with no partner and no backticks around it \u2014 the kind that shows up when a path is typed without them \u2014 still resolves to literal text rather than reaching an empty `<strong></strong>` across the rest of the paragraph. It is also the one shape the audit below cannot tell apart from a real defect, so reproducing it here would trip this very entry's own check."
+        },
+        {
+          "type": "h3",
+          "text": "The audit found it live before the fix even shipped"
+        },
+        {
+          "type": "p",
+          "text": "LF-189 proposed two things: the renderer fix above, and a cheap audit that asserts no generated page carries markup that failed to render. **The order they landed in is the point.** The audit was written first, run against the whole corpus, and immediately found the defect live in two entries already published on the site that nobody \u2014 including the chronicler, twice \u2014 had noticed: `measuring-the-fifth-non-negotiable` and `the-headline-did-not-survive` were both serving literal asterisks on either side of an otherwise correctly-rendered code element. Two pages had been publishing broken markup to the live site. That is what justified fixing the renderer properly rather than leaving every future entry to keep restructuring its own sentences around the bug."
+        },
+        {
+          "type": "p",
+          "text": "`tools/chronicle.py --check` \u2014 the existing staleness check \u2014 was perfectly happy with both broken pages, because the committed HTML matched `chronicle.json` byte for byte. It was the rendering itself that was wrong, identically, in both places. Staleness and correctness are different questions, and only one of them had ever been asked. The new audit asserts three things per generated page: no literal `**` survives into prose, `<strong>`, `<code>` and `<em>` are balanced, and no crossed `<code>...<strong>...</code>` shape exists \u2014 the LF-173 defect, checked for by name in case it ever returns a different way."
+        },
+        {
+          "type": "h3",
+          "text": "The audit caught its own false positive on its first run"
+        },
+        {
+          "type": "p",
+          "text": "Before either published defect could even be reported, the audit flagged a string that was not actually broken: the code span quoting `split(\"**\")`, inside the very entry that describes the LF-173 fix \u2014 quoting the code that caused it. Asterisks inside a `<code>` element are legitimate content, not unrendered markup, so code spans are stripped before the scan runs at all. A check that cries wolf on correct output is worse than no check, and this one nearly shipped doing exactly that on its first pass."
+        },
+        {
+          "type": "p",
+          "text": "One false positive is accepted rather than fixed: a bare glob sitting directly in prose, with no backticks around it at all, still trips the `**` scan. Not worked around \u2014 every path in this journal belongs inside backticks by house style anyway, so the check nudges an author toward the convention it already expects rather than fighting it, and its failure message says which of the two causes applies."
+        },
+        {
+          "type": "h3",
+          "text": "The correction, and how it is allowed to happen"
+        },
+        {
+          "type": "p",
+          "text": "Both broken pages change by regeneration, not by edit. Neither entry's text in `chronicle.json` moved at all \u2014 a word-diff on both rendered pages shows literal asterisks becoming `<strong>` tags and nothing else. A renderer fix correcting old output on the next regeneration is exactly what the append-only rule permits, and it is the same precedent `none-of-them-was-red` set the first time this file needed correcting rather than rewriting."
+        },
+        {
+          "type": "p",
+          "text": "`none-of-them-was-red` is where this renderer's crossed tags got fixed, and \u2014 in the very same stroke \u2014 where this narrower defect got introduced. It was then hit live twice more, once while drafting each of the two entries that followed it, and closed only here, with an audit added specifically so the next occurrence does not need a human to notice stray asterisks and diff the HTML by hand. That entry also reversed its own second half \u2014 single-asterisk emphasis \u2014 after measuring a 50% false-positive rate against the real corpus rather than trusting the feature on taste. This project's founding principle for this file, written the night it was created, was that the failures stay in. It has now proven itself on this one file more than once: once by deleting a feature that failed its own measurement, and again here, in the gap between an author quietly working around a bug and a check that says so on its own."
+        }
+      ]
     }
   ]
 }
