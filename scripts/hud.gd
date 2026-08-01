@@ -179,7 +179,7 @@ func export_state() -> Dictionary:
 		# through a Node2D reference — returns a Variant and `:=` cannot infer at PARSE
 		# time. Same trap `main.gd`'s `_place_requested()`/`_run_scenario_action()` already
 		# annotate around.
-		var idx: int = view.placed_index_at(view.selected_slot)
+		var idx: int = view.placed_index_at(view.selected_at) if view.has_selection else -1
 		if idx >= 0:
 			selected = String(view.sim.placed[idx]["tower"]["id"])
 		else:
@@ -624,9 +624,13 @@ func _build_verbs(root: Control, at: Vector2) -> void:
 	## readout under a fixed footer keeps every control on screen at every scale, which is
 	## the whole of LF-045; the previous answer was to stop offering the scale.
 	##
-	## They act on `view.selected_slot`, never on the hover: reaching a button means dragging
-	## the cursor across the board, and a hover-targeted SELL sells whatever tile the cursor
-	## last crossed on its way over.
+	## They act on `view.selected_at` (only when `view.has_selection`), never on the hover:
+	## reaching a button means dragging the cursor across the board, and a hover-targeted
+	## SELL sells whatever position the cursor last crossed on its way over. The buttons are
+	## `disabled` whenever nothing is selected (`_show_build_selection()`), which already
+	## blocks a `pressed` signal from firing at all — the `has_selection` guard below is
+	## defensive on top of that, not the only thing standing between a stray press and
+	## `placed_index_at()` reading a meaningless default position.
 	##
 	## Grouped under one `_verbs_panel` Control, all three added as its children rather than
 	## `root`'s directly, so LF-057's hide-HUD toggle can hide the whole block by setting one
@@ -653,20 +657,35 @@ func _build_verbs(root: Control, at: Vector2) -> void:
 	var verb_w := (INNER_W - VERBS_GAP) / 2.0
 	_sell_button = Ui.button("", Ui.SIZE_BODY)
 	_sell_button.custom_minimum_size = Vector2(verb_w, VERB_H)
-	_sell_button.pressed.connect(func(): view.sell_at(view.selected_slot))
+	_sell_button.pressed.connect(_on_sell_pressed)
 	verbs.add_child(_sell_button)
 
 	_upgrade_button = Ui.button("", Ui.SIZE_BODY)
 	_upgrade_button.custom_minimum_size = Vector2(verb_w, VERB_H)
-	_upgrade_button.pressed.connect(func(): view.upgrade_at(view.selected_slot))
+	_upgrade_button.pressed.connect(_on_upgrade_pressed)
 	verbs.add_child(_upgrade_button)
 	y += VERB_H + VERBS_GAP
 
 	_power_button = Ui.button("", Ui.SIZE_BODY)
 	_power_button.custom_minimum_size = Vector2(INNER_W, POWER_H)
 	_power_button.position = Vector2(inner_x, y)
-	_power_button.pressed.connect(func(): view.toggle_at(view.selected_slot))
+	_power_button.pressed.connect(_on_power_pressed)
 	_verbs_panel.add_child(_power_button)
+
+
+func _on_sell_pressed() -> void:
+	if view.has_selection:
+		view.sell_at(view.selected_at)
+
+
+func _on_upgrade_pressed() -> void:
+	if view.has_selection:
+		view.upgrade_at(view.selected_at)
+
+
+func _on_power_pressed() -> void:
+	if view.has_selection:
+		view.toggle_at(view.selected_at)
 
 
 func _build_threat(root: Control, vp: Vector2, g: float) -> void:
@@ -807,7 +826,12 @@ func _build_minimap(root: Control, at: Vector2) -> void:
 	y += MINIMAP_MAP_H + 4.0
 
 	var legend := _make_label(Ui.SIZE_CAPTION, C_MUTED)
-	legend.text = "■ ONLINE   □ OFFLINE   ·   M FOCUS · ARROWS PAN"
+	# LF-200: this used to read "M FOCUS · ARROWS PAN" while arrows stepped the board cursor,
+	# never panned, outside minimap focus — a documented control that did not exist in the
+	# mode the player is usually in. WASD now pans the board camera directly, unconditionally
+	# (`_keyboard_pan()`); "M FOCUS · ARROWS PAN" stays true for what it always meant — focus
+	# the minimap, then arrows region-step the camera from there.
+	legend.text = "■ ONLINE   □ OFFLINE   ·   WASD PAN · M FOCUS · ARROWS PAN"
 	legend.position = Vector2(inner_x, y)
 	_minimap_panel.add_child(legend)
 
@@ -1125,7 +1149,7 @@ func _has_reveal() -> bool:
 
 func _refresh_inspector() -> void:
 	var sim = view.sim
-	var idx: int = view.placed_index_at(view.selected_slot)
+	var idx: int = view.placed_index_at(view.selected_at) if view.has_selection else -1
 	if idx < 0:
 		_show_build_selection()
 		return
@@ -1135,7 +1159,11 @@ func _refresh_inspector() -> void:
 	var online: bool = p["online"]
 	var up: Dictionary = t.get("upgrade", {})
 
-	_kicker.text = "EMPLACEMENT · SLOT %d,%d" % [view.selected_slot.x, view.selected_slot.y]
+	# PLC-06: was "SLOT %d,%d" — a placed emplacement's position is a continuous float now,
+	# not one of a fixed few integer slots, so the wording (and the a11y baseline it counts
+	# against) changed with it. Two decimals: SNAP_RADIUS's search runs in 0.1-tile rings, so
+	# a snapped build can land on a value one decimal alone would round ambiguously.
+	_kicker.text = "EMPLACEMENT · (%.2f, %.2f)" % [view.selected_at.x, view.selected_at.y]
 	_title.text = String(t["name"])
 	_sub.text = "ONLINE · drawing %d MW" % int(t["draw_mw"]) if online else "OFFLINE · drawing 0 MW"
 	_sub.add_theme_color_override("font_color", C_VERD if online else C_MUTED)
@@ -1196,8 +1224,18 @@ func _show_build_selection() -> void:
 	else:
 		_kicker.text = "READY TO BUILD"
 		_title.text = String(t["name"])
-		_sub.text = "$%d · %d MW continuous" % [int(t["cost"]), int(t["draw_mw"])]
-		_sub.add_theme_color_override("font_color", C_AMBER)
+		# PLC-06: live legality readout at the cursor -- "cursor over an illegal spot, the UI
+		# saying which test failed" needs no build press to surface; hud.gd's own refresh()
+		# already runs every frame, so this just asks the rule (through anchor_view's
+		# `cursor_refusal_text()`, which is the one place that translates AnchorSim's REASON_*
+		# vocabulary into a sentence) rather than waiting for a denied attempt.
+		var refusal: String = view.cursor_refusal_text()
+		if refusal != "":
+			_sub.text = "WOULD REFUSE HERE · %s" % refusal
+			_sub.add_theme_color_override("font_color", C_ALERT)
+		else:
+			_sub.text = "$%d · %d MW continuous" % [int(t["cost"]), int(t["draw_mw"])]
+			_sub.add_theme_color_override("font_color", C_AMBER)
 		_body.text = _stats_text(t, {})
 		_note.text = String(t.get("note", ""))
 

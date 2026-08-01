@@ -30,14 +30,33 @@ const ACTIONS := {
 	"lf_power":    {"keys": [KEY_F], "buttons": [JOY_BUTTON_RIGHT_STICK]},
 	"lf_next":     {"keys": [KEY_TAB], "buttons": [JOY_BUTTON_RIGHT_SHOULDER]},
 	"lf_prev":     {"keys": [KEY_SHIFT], "buttons": [JOY_BUTTON_LEFT_SHOULDER]},
-	"lf_up":       {"keys": [KEY_W, KEY_UP], "buttons": [JOY_BUTTON_DPAD_UP],
+	## LF-200/PLC-06: WASD and the arrows used to be the SAME four actions, so a keyboard "W"
+	## routed straight into board-cursor stepping. The owner played this and said WASD should
+	## pan the camera instead ("cursor selection with wasd does not feel great") — split:
+	## `lf_up`/`down`/`left`/`right` (the board cursor, and CAM-04's minimap-focused pan,
+	## which claims these same four actions while focused) keep the arrows, the d-pad and the
+	## left stick; `lf_pan_*` below is WASD's new home, keyboard-only. A gamepad already
+	## reaches camera panning through CAM-04's minimap focus (paddle3) on these same four
+	## physical inputs, so it does not need a second, duplicate set of gamepad bindings here.
+	"lf_up":       {"keys": [KEY_UP], "buttons": [JOY_BUTTON_DPAD_UP],
 					"axis": [JOY_AXIS_LEFT_Y, -1.0]},
-	"lf_down":     {"keys": [KEY_S, KEY_DOWN], "buttons": [JOY_BUTTON_DPAD_DOWN],
+	"lf_down":     {"keys": [KEY_DOWN], "buttons": [JOY_BUTTON_DPAD_DOWN],
 					"axis": [JOY_AXIS_LEFT_Y, 1.0]},
-	"lf_left":     {"keys": [KEY_A, KEY_LEFT], "buttons": [JOY_BUTTON_DPAD_LEFT],
+	"lf_left":     {"keys": [KEY_LEFT], "buttons": [JOY_BUTTON_DPAD_LEFT],
 					"axis": [JOY_AXIS_LEFT_X, -1.0]},
-	"lf_right":    {"keys": [KEY_D, KEY_RIGHT], "buttons": [JOY_BUTTON_DPAD_RIGHT],
+	"lf_right":    {"keys": [KEY_RIGHT], "buttons": [JOY_BUTTON_DPAD_RIGHT],
 					"axis": [JOY_AXIS_LEFT_X, 1.0]},
+	"lf_pan_up":    {"keys": [KEY_W]},
+	"lf_pan_down":  {"keys": [KEY_S]},
+	"lf_pan_left":  {"keys": [KEY_A]},
+	"lf_pan_right": {"keys": [KEY_D]},
+
+	## PLC-06: quarter-tile cursor step in place of the default half-tile one, held while
+	## stepping. Keyboard only — every face/shoulder/paddle/stick/trigger a gamepad has is
+	## already spoken for elsewhere in this table (see e.g. lf_hud_toggle's own note on the
+	## same shortage), so the gamepad path stays coarse-only; it is still full control, just
+	## without the precision modifier.
+	"lf_fine_step": {"keys": [KEY_ALT]},
 	## The instrument panels scroll once the interface scale shrinks the logical viewport
 	## below what they need — 150% and above. Mouse wheel reaches them for free, but a
 	## keyboard or gamepad player would otherwise be unable to read what is below the fold,

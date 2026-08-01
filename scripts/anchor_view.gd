@@ -44,16 +44,28 @@ func _validate_property(property: Dictionary) -> void:
 		property.hint = PROPERTY_HINT_ENUM
 		property.hint_string = ",".join(AnchorDataScript.anchor_ids())
 
-const NO_SLOT := Vector2i(-999, -999)
-
 var sim
 var selected_tower: String = ""
-var hovered_slot: Vector2i = NO_SLOT
-## The emplacement the inspector is pointed at. Distinct from `hovered_slot` on purpose:
+
+## PLC-06: continuous board position, replacing the old `hovered_slot: Vector2i`. That field
+## rounded the mouse position before anything else saw it (`Vector2i(roundi(t.x), roundi(t.y))`
+## at the old `_unhandled_input()` mouse-motion branch) and every keyboard/gamepad step walked
+## a fixed slot graph — between them there was NO way for a player to reach a non-integer
+## position regardless of what PLC-02's rules allowed (LF-197). `cursor_at` is always a real,
+## finite point on the board (never NaN, never off it — see `_clamp_cursor()`); it is legal to
+## build on only sometimes, which `_draw_hover()`/`_find_build_pos()` are the two places that
+## ask, never re-deriving the test themselves.
+var cursor_at: Vector2 = Vector2.ZERO
+
+## The emplacement the inspector is pointed at, as a continuous board position — meaningful
+## only when `has_selection` is true. A plain `Vector2` has no spare value to mean "nothing
+## selected" (0,0 is a legal board position), so this replaces the old `NO_SLOT` sentinel
+## explicitly rather than picking a new magic float. Distinct from `cursor_at` on purpose:
 ## sell, upgrade and the power toggle used to act on whatever the cursor was over, and
 ## reaching those buttons means dragging the cursor off the board and across every tile
 ## in between — which silently retargeted them. Decision 035.
-var selected_slot: Vector2i = NO_SLOT
+var selected_at: Vector2 = Vector2.ZERO
+var has_selection: bool = false
 
 var _accum: float = 0.0
 var _wave_index: int = -1
@@ -144,6 +156,10 @@ const ZOOM_KEY_RATE := 1.6       ## exponential per second, held lf_zoom_in/out,
 const EDGE_SCROLL_MARGIN := 48.0     ## px of the *strip's* own edge, not the window's
 const EDGE_SCROLL_MAX_SPEED := 900.0 ## board px/sec at full depth into the margin, at zoom 1
 const CURSOR_FOLLOW_INSET := 40.0    ## px kept clear of the strip edge when following the cursor
+## LF-200: WASD's own direct camera pan, held. Same board-px/sec-at-zoom-1 idiom as
+## EDGE_SCROLL_MAX_SPEED, and the same number — no reason a WASD pan should feel faster or
+## slower than pushing the pointer into the strip's edge already does.
+const PAN_KEY_SPEED := 900.0
 
 var _cam_target: Vector2 = Vector2.ZERO
 var _cam_zoom: float = 1.0
@@ -236,6 +252,14 @@ func boot(aid: String, diff: String) -> void:
 	var unlocked: Array = Content.unlocked_at(anchor_id)
 	selected_tower = String(unlocked[0]) if unlocked.size() > 0 else ""
 
+	# PLC-06: the cursor starts at the board's own centre rather than nowhere real — the old
+	# NO_SLOT-sentinel model only ever resolved a first press to `slots[0]`; a continuous
+	# cursor needs no such special case, so it can simply start somewhere visible. Runs the
+	# same `_default_target()` roughly frames to, so the cursor and the camera agree on
+	# "the middle of the board" at boot.
+	var grid: Dictionary = anchor.get("grid", {"w": 12, "h": 10})
+	cursor_at = Vector2(float(int(grid["w"])) * 0.5, float(int(grid["h"])) * 0.5)
+
 	# CAM-06/CAM-07: a fresh anchor invalidates both the tile cache (lazily, on the next
 	# _draw_board() call comparing anchor_id) and the per-frame drawables() cache. The tile
 	# cache does not need clearing here — `_tile_cache_anchor != anchor_id` already catches
@@ -290,8 +314,8 @@ func autobuild() -> void:
 func _autobuild_step() -> void:
 	var unlocked: Array = Content.unlocked_at(anchor_id)
 	while true:
-		var free: Array = sim.available_slots()   # PLC-01: computed, not sim.free_slots
-		if free.is_empty():
+		var cand = _next_autobuild_candidate()
+		if cand == null:
 			return
 		var placed_one := false
 		for tid in unlocked:
@@ -300,11 +324,50 @@ func _autobuild_step() -> void:
 				continue
 			if sim.online_draw() + float(tw["draw_mw"]) > sim.capacity():
 				continue
-			if sim.build_at(String(tid), float(free[0].x), float(free[0].y)):
+			if sim.build_at(String(tid), cand.x, cand.y):
 				placed_one = true
 				break
 		if not placed_one:
 			return
+
+
+func _next_autobuild_candidate():
+	## PLC-06: the anchor's authored slots first, in authoring order -- unchanged behaviour
+	## for all 24 anchors, none of which sets `max_emplacements` above its own slot count
+	## today (LF-202/decision 063), so `effective_cap()` is reached exactly when the authored
+	## slots run out and this fallback is never exercised by any shipped anchor. It exists so
+	## autobuild does not silently stop being a "fill every available position" smoke policy
+	## the day one anchor's cap does exceed its slot count. `PLC-04` (the grader's own
+	## candidate lattice) does not exist yet -- this is deliberately simple rather than
+	## anticipating it, and deliberately NOT a change to `AnchorSim.available_slots()`,
+	## which stays the authored-slots accessor `_on_built()`'s ward-engagement count also
+	## depends on.
+	var free: Array = sim.available_slots()
+	if not free.is_empty():
+		return Vector2(free[0].x, free[0].y)
+	if sim.placed.size() >= sim.effective_cap():
+		return null
+	return _lattice_fallback_candidate()
+
+
+func _lattice_fallback_candidate():
+	## Deterministic 1-tile scan of the board interior, first `_is_placeable()` hit wins.
+	## Coarser than the sub-tile cursor lattice on purpose: this only ever runs once the
+	## authored slots are exhausted, so it is filling space nobody designed for a build, not
+	## finding the best one.
+	var grid: Dictionary = _anchor_data().get("grid", {"w": 12, "h": 10})
+	var gw := int(grid["w"])
+	var gh := int(grid["h"])
+	const STEP := 1.0
+	var y := -0.5 + STEP * 0.5
+	while y < float(gh) - 0.5:
+		var x := -0.5 + STEP * 0.5
+		while x < float(gw) - 0.5:
+			if sim._is_placeable(x, y):
+				return Vector2(x, y)
+			x += STEP
+		y += STEP
+	return null
 
 
 func start() -> void:
@@ -542,10 +605,11 @@ func _cam_reset() -> void:
 func _follow_cursor() -> void:
 	## Keyboard/gamepad board navigation pans just enough to keep the cursor inside an inset
 	## of the strip. Deliberately not wired to the mouse — see `_unhandled_input`'s
-	## InputEventMouseMotion branch, which updates `hovered_slot` on hover but never calls
+	## InputEventMouseMotion branch, which updates `cursor_at` on hover but never calls
 	## this — panning on every hover would fight the player's own hand on the wheel or the
-	## middle-drag. This is the *only* path that gives keyboard/gamepad panning, on purpose
-	## (LF-052): it needs no separate pan control of its own.
+	## middle-drag. LF-200: WASD's own direct pan (`_keyboard_pan()`) does not call this
+	## either, for the same reason — it is the player driving the camera on purpose, not the
+	## cursor asking to stay visible.
 	if Engine.is_editor_hint():
 		return
 	var vp := get_viewport_rect().size
@@ -553,7 +617,7 @@ func _follow_cursor() -> void:
 	var inset: float = maxf(strip["g"], CURSOR_FOLLOW_INSET)
 	var rect := Rect2(strip["centre"] - Vector2(strip["w"], strip["h"]) * 0.5,
 		Vector2(strip["w"], strip["h"])).grow(-inset)
-	var pt := _board_to_screen_global(Vector2(hovered_slot))
+	var pt := _board_to_screen_global(cursor_at)
 	var shift := Vector2.ZERO
 	if pt.x < rect.position.x:
 		shift.x = pt.x - rect.position.x
@@ -605,6 +669,33 @@ func _edge_scroll(delta: float) -> void:
 	if push == Vector2.ZERO:
 		return
 	_cam_target += push * (EDGE_SCROLL_MAX_SPEED / _cam_zoom) * delta
+	_apply_camera()
+
+
+func _keyboard_pan(delta: float) -> void:
+	## LF-200: WASD pans the camera directly. The owner played this build and said cursor
+	## stepping on WASD "does not feel great" and asked for the screen to move on those keys
+	## instead — `lf_pan_up/down/left/right` (`tools/godot/setup_input.gd`) are WASD's new,
+	## keyboard-only home; the arrows/d-pad/left-stick keep `lf_up` et al. and still step the
+	## cursor (`_action_input()`'s own doc explains why arrows won the cursor rather than the
+	## other way round). Held and continuous, the same idiom `_zoom_key()`/`_edge_scroll()`
+	## already use for a key-driven camera input, and independent of CAM-04's minimap-focus
+	## pan (unaffected, still reachable on arrows/gamepad while focused) — this is the direct,
+	## no-toggle-required path the owner asked for.
+	if Engine.is_editor_hint():
+		return
+	var v := Vector2.ZERO
+	if Input.is_action_pressed("lf_pan_up"):
+		v.y -= 1.0
+	if Input.is_action_pressed("lf_pan_down"):
+		v.y += 1.0
+	if Input.is_action_pressed("lf_pan_left"):
+		v.x -= 1.0
+	if Input.is_action_pressed("lf_pan_right"):
+		v.x += 1.0
+	if v == Vector2.ZERO:
+		return
+	_cam_target += v.normalized() * (PAN_KEY_SPEED / _cam_zoom) * delta
 	_apply_camera()
 
 
@@ -679,6 +770,7 @@ func _process(delta: float) -> void:
 		_panning = false
 	if Display.edge_scroll:
 		_edge_scroll(delta)
+	_keyboard_pan(delta)
 	if Input.is_action_pressed("lf_zoom_in"):
 		_zoom_key(ZOOM_KEY_RATE * delta)
 	elif Input.is_action_pressed("lf_zoom_out"):
@@ -966,7 +1058,10 @@ func cycle_targeting() -> void:
 	## along the path — is what an untouched placed record already does (see the comment in
 	## anchor_sim.gd's _step()), so this never has to write a value for an anchor nobody has
 	## touched targeting on.
-	var i := placed_index_at(selected_slot)
+	if not has_selection:
+		Audio.sfx("ui_deny")
+		return
+	var i := placed_index_at(selected_at)
 	if i < 0:
 		Audio.sfx("ui_deny")
 		return
@@ -1045,8 +1140,8 @@ func _fire(trigger: String) -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion:
 		_mouse_seen = true
-		var t := IsoScript.screen_to_tile(to_local(get_global_mouse_position()) - _origin)
-		hovered_slot = Vector2i(roundi(t.x), roundi(t.y))
+		cursor_at = _clamp_cursor(
+			IsoScript.screen_to_tile(to_local(get_global_mouse_position()) - _origin))
 		if _panning:
 			# Board space, not screen space: at zoom != 1 a screen-pixel drag has to move the
 			# camera target by more (zoomed out) or less (zoomed in) than the mouse moved, or
@@ -1056,9 +1151,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		queue_redraw()
 	elif event is InputEventMouseButton:
 		if event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
-			_click(hovered_slot)
+			_click(cursor_at)
 		elif event.button_index == MOUSE_BUTTON_RIGHT and event.pressed:
-			toggle_at(hovered_slot)
+			toggle_at(cursor_at)
 		elif event.button_index == MOUSE_BUTTON_MIDDLE:
 			# Never left-drag: left click arms builds and selects emplacements (`_click()`
 			# below), so drag-to-pan on it would turn every slipped click into a camera move
@@ -1075,26 +1170,47 @@ func _unhandled_input(event: InputEvent) -> void:
 func _action_input(event: InputEvent) -> void:
 	## Everything the mouse can do, without a mouse. LF-010.
 	##
-	## The cursor moves between *slots* rather than sweeping pixels: a virtual pointer on a
-	## stick is slow and imprecise, and the only tiles that can be acted on are the slots
-	## anyway. Directions are judged in screen space, because the player is looking at an
-	## isometric projection and "up" has to mean up on the screen, not -y in tile space.
+	## PLC-06: the cursor sweeps a continuous sub-tile lattice now, not a fixed slot graph —
+	## see `_step_cursor()`'s own doc. Directions are still judged in screen space, because
+	## the player is looking at an isometric projection and "up" has to mean up on the
+	## screen, not -y in tile space — that reasoning survives the rewrite unchanged.
+	##
+	## LF-200: `lf_up`/`lf_down`/`lf_left`/`lf_right` (arrows, d-pad, left stick) still step
+	## this cursor. WASD moved to `lf_pan_*` and drives the camera directly instead (see
+	## `_keyboard_pan()`, called from `_process()`) — the owner played this and said cursor
+	## stepping on WASD "does not feel great" and asked for the screen to move on those keys.
+	## Arrows keep the cursor for two reasons: it is the smaller change (gamepad d-pad/stick
+	## already meant "the cursor", never "the camera", so only the keyboard side of `lf_up`
+	## et al. actually moves), and it is what makes hud.gd's minimap legend true again —
+	## CAM-04's minimap-focus mode already claims these same four actions for camera
+	## region-stepping, so "arrows pan" was already a real behaviour in one mode; this makes
+	## it the keyboard's cursor key everywhere else instead of introducing a second meaning.
+	var fine := Input.is_action_pressed("lf_fine_step")
 	if event.is_action_pressed("lf_up"):
-		_step_cursor(Vector2(0, -1))
+		_step_cursor(Vector2(0, -1), fine)
 	elif event.is_action_pressed("lf_down"):
-		_step_cursor(Vector2(0, 1))
+		_step_cursor(Vector2(0, 1), fine)
 	elif event.is_action_pressed("lf_left"):
-		_step_cursor(Vector2(-1, 0))
+		_step_cursor(Vector2(-1, 0), fine)
 	elif event.is_action_pressed("lf_right"):
-		_step_cursor(Vector2(1, 0))
+		_step_cursor(Vector2(1, 0), fine)
 	elif event.is_action_pressed("lf_build"):
-		_click(hovered_slot)
+		_click(cursor_at)
 	elif event.is_action_pressed("lf_sell"):
-		sell_at(selected_slot)
+		if has_selection:
+			sell_at(selected_at)
+		else:
+			Audio.sfx("ui_deny")
 	elif event.is_action_pressed("lf_upgrade"):
-		upgrade_at(selected_slot)
+		if has_selection:
+			upgrade_at(selected_at)
+		else:
+			Audio.sfx("ui_deny")
 	elif event.is_action_pressed("lf_power"):
-		toggle_at(selected_slot)
+		if has_selection:
+			toggle_at(selected_at)
+		else:
+			Audio.sfx("ui_deny")
 	elif event.is_action_pressed("lf_next"):
 		_cycle_tower(1)
 	elif event.is_action_pressed("lf_prev"):
@@ -1115,45 +1231,79 @@ func _action_input(event: InputEvent) -> void:
 		_cam_reset()
 
 
-func _slot_screen(slot: Vector2i) -> Vector2:
-	return IsoScript.tile_to_screen(float(slot.x), float(slot.y))
+## Half a tile per press; a quarter while `lf_fine_step` is held.
+const CURSOR_STEP_COARSE := 0.5
+const CURSOR_STEP_FINE := 0.25
 
 
-func _step_cursor(dir: Vector2) -> void:
-	## Nearest slot in `dir`, preferring straight ahead over far to the side. Weighting the
-	## across-axis distance is what stops a press of "right" jumping to something almost
-	## directly below simply because it happens to be closer.
-	var slots: Array = sim.anchor["slots"]
-	if slots.is_empty():
-		return
-	var all: Array[Vector2i] = []
-	for s in slots:
-		all.append(Vector2i(int(s[0]), int(s[1])))
-	if not all.has(hovered_slot):
-		hovered_slot = all[0]              # first press with no cursor lands somewhere real
-		queue_redraw()
-		_follow_cursor()
-		return
-	var from := _slot_screen(hovered_slot)
-	var perp := Vector2(-dir.y, dir.x)
-	var best := hovered_slot
-	var best_score := INF
-	for cand in all:
-		if cand == hovered_slot:
-			continue
-		var d := _slot_screen(cand) - from
-		var along := d.dot(dir)
-		if along <= 0.0:
-			continue                       # behind the cursor
-		var score := along + absf(d.dot(perp)) * 2.0
-		if score < best_score:
-			best_score = score
-			best = cand
-	if best != hovered_slot:
-		hovered_slot = best
+func _clamp_cursor(p: Vector2) -> Vector2:
+	## Never NaN, never off the board — PLC-06's own acceptance bar. Bounds mirror
+	## `AnchorSim._placement_reason()`'s board-interior convention (tile-CENTRE space,
+	## `[-0.5, w-0.5] x [-0.5, h-0.5]`), but the cursor itself is never gated on the rest of
+	## that predicate: moving is free, and lane/overlap/footprint legality is only ever
+	## checked at `lf_build` (`_find_build_pos()`) or read for display (`_draw_hover()`,
+	## `cursor_refusal_text()`).
+	var grid: Dictionary = _anchor_data().get("grid", {"w": 12, "h": 10})
+	var gw := int(grid["w"])
+	var gh := int(grid["h"])
+	return Vector2(clampf(p.x, -0.5, float(gw) - 0.5), clampf(p.y, -0.5, float(gh) - 0.5))
+
+
+func _step_cursor(dir: Vector2, fine: bool = false) -> void:
+	## Sub-tile lattice step, replacing the old discrete slot-graph walk (decision 042's
+	## cursor half — superseded, see docs/DECISIONS.md). `dir` is one of the four
+	## screen-cardinal unit vectors `_action_input()` passes, exactly as before; what changed
+	## is what a press of one of them now does to `cursor_at`.
+	##
+	## The actual tile-space delta is a DIAGONAL, not `dir` itself: `Iso.tile_to_screen()`'s
+	## 2:1 projection means a pure +x or +y tile move never reads as "up" or "right" on
+	## screen (a 1-tile +x step is 64px right AND 32px down). The four tile-space diagonals
+	## below are exactly what a screen-cardinal step inverts to under
+	## `Iso.screen_to_tile()`'s own linear map — moving toward screen -y (up) is moving
+	## toward tile (-1,-1), screen +x (right) is tile (+1,-1), and so on. This keeps the
+	## screen-space framing decision 042 was built on: the player is looking at an isometric
+	## projection and "up" has to mean up on the screen, never -y in tile space.
+	var diag: Vector2
+	if dir.y < 0.0:
+		diag = Vector2(-1, -1)
+	elif dir.y > 0.0:
+		diag = Vector2(1, 1)
+	elif dir.x < 0.0:
+		diag = Vector2(-1, 1)
+	else:
+		diag = Vector2(1, -1)
+	var step := CURSOR_STEP_FINE if fine else CURSOR_STEP_COARSE
+	# PLC-06: no lane magnet here. The spec asked for one ("holding a direction roughly along
+	# the lane biases the step toward tracking it"), and one was built and played -- it made
+	# the cursor actively resist leaving an axis-aligned lane rather than help follow one. The
+	# four tile-space diagonals above are each exactly 45 deg from any axis-aligned tangent, so
+	# for an axis-aligned lane (the common case; anchor-01's waypoints all run pure +x or +y)
+	# EVERY press aligns with the lane equally, regardless of which of the four screen
+	# directions was pressed. Measured: from cursor_at (7,5), sitting on anchor-01's vertical
+	# lane segment at x=7, three presses of screen-right should reach (8.06, 3.94) by the raw
+	# diagonal math -- with the magnet blending 50% toward the lane tangent every step it
+	# instead reached (7.57, 3.61), still inside the lane standoff and still REASON_LANE_
+	# STANDOFF. A magnet that pulls the player back toward the thing they are trying to get
+	# away from is worse than none; see the backlog entry this session filed for what a
+	# working version would need instead (a magnet keyed to screen direction, not raw tile
+	# tangent alignment, since the diagonal lattice is 45 deg off any axis-aligned lane by
+	# construction).
+	var delta := diag.normalized() * step
+	# `sim` is untyped (see its own declaration's doc -- a new class_name is invisible until
+	# the editor has imported once, and typing it risks the same parse-time hang), so a call
+	# through it returns a Variant and `:=` cannot infer a type at PARSE time. Explicit `bool`
+	# sidesteps that, matching the trap CLAUDE.md documents for every other `sim.`-through call.
+	var was_legal: bool = sim._is_placeable(cursor_at.x, cursor_at.y)
+	cursor_at = _clamp_cursor(cursor_at + delta)
+	var now_legal: bool = sim._is_placeable(cursor_at.x, cursor_at.y)
+	queue_redraw()
+	_follow_cursor()
+	if now_legal != was_legal:
+		# Throttled to legality transitions only: at half-tile granularity across a board up
+		# to 18x15 tiles, playing this on every single step is a machine-gun (the issue's own
+		# words) — a held direction crossing dozens of tiles would fire it dozens of times a
+		# second for no information the live hover ring/HUD text does not already carry.
 		Audio.sfx("ui_hover", -12.0)
-		queue_redraw()
-		_follow_cursor()
 
 
 func _cycle_tower(step: int) -> void:
@@ -1165,30 +1315,55 @@ func _cycle_tower(step: int) -> void:
 	state_changed.emit()
 
 
-func placed_index_at(slot: Vector2i) -> int:
-	# PLC-01: placed records carry x/y floats, not a slot -- compare against the integer
-	# slot the UI still deals in (every position this stub accepts is integer-valued).
+func placed_index_at(pos: Vector2) -> int:
+	## PLC-06: the emplacement whose footprint CONTAINS `pos`, not an exact-coordinate match
+	## — `pos` is a continuous cursor/click position now, never guaranteed to land on the
+	## exact float a placed record was built at (a snapped build can differ from where the
+	## player aimed by up to `SNAP_RADIUS`). Ties -- only reachable right at the boundary,
+	## where two footprints are equidistant from `pos` -- are broken deterministically by
+	## `(x, y)` so the same position always resolves to the same emplacement across runs.
+	var r2 := AnchorSimScript.FOOTPRINT_RADIUS * AnchorSimScript.FOOTPRINT_RADIUS
+	var best := -1
+	var best_d2 := INF
 	for i in range(sim.placed.size()):
-		if float(sim.placed[i]["x"]) == float(slot.x) and float(sim.placed[i]["y"]) == float(slot.y):
-			return i
-	return -1
+		var p: Dictionary = sim.placed[i]
+		var dx := pos.x - float(p["x"])
+		var dy := pos.y - float(p["y"])
+		var d2 := dx * dx + dy * dy
+		if d2 > r2:
+			continue
+		if best < 0 or d2 < best_d2 - 1e-9 \
+				or (is_equal_approx(d2, best_d2) and _footprint_tiebreak(p, sim.placed[best])):
+			best = i
+			best_d2 = d2
+	return best
 
 
-func sell_at(slot: Vector2i) -> void:
-	var i := placed_index_at(slot)
+func _footprint_tiebreak(a: Dictionary, b: Dictionary) -> bool:
+	## Deterministic tie-break for `placed_index_at()`: lower x first, then lower y.
+	var ax := float(a["x"])
+	var bx := float(b["x"])
+	if not is_equal_approx(ax, bx):
+		return ax < bx
+	return float(a["y"]) < float(b["y"])
+
+
+func sell_at(pos: Vector2) -> void:
+	var i := placed_index_at(pos)
 	if i < 0:
 		Audio.sfx("ui_deny")
 		return
+	var was_selected := has_selection and placed_index_at(selected_at) == i
 	sim.sell(i)
-	if selected_slot == slot:
-		selected_slot = NO_SLOT      # the inspector was pointed at something that is gone
+	if was_selected:
+		has_selection = false        # the inspector was pointed at something that is gone
 	Audio.sfx("ui_sell")
 	state_changed.emit()
 	queue_redraw()
 
 
-func upgrade_at(slot: Vector2i) -> void:
-	var i := placed_index_at(slot)
+func upgrade_at(pos: Vector2) -> void:
+	var i := placed_index_at(pos)
 	if i < 0 or not sim.upgrade(i):
 		Audio.sfx("ui_deny")
 		return
@@ -1198,44 +1373,121 @@ func upgrade_at(slot: Vector2i) -> void:
 	queue_redraw()
 
 
-func _click(slot: Vector2i) -> void:
-	## One click, three outcomes, in this order: point the inspector at an emplacement that
-	## is already there, build on a free slot, or put the inspector down. Selecting is
-	## checked first because a built slot is never a free slot, so the two can never race.
-	if placed_index_at(slot) >= 0:
-		selected_slot = slot
+## PLC-06: how far a `lf_build`/click is allowed to snap from where it was actually aimed.
+## Deliberately small — "snap to the nearest legal position", not "build somewhere else
+## entirely" — so a snap can never surprise the player with a result far from their aim.
+const SNAP_RADIUS := 0.6
+const SNAP_RING_STEP := 0.1
+
+
+func _find_build_pos(pos: Vector2) -> Dictionary:
+	## PLC-06: "snap-to-legal on BUILD, not on move" -- `pos` is legal as-is far more often
+	## than not (moving is free and the live hover ring already told the player so), so that
+	## is checked first and is the only case reached at any zoom level with reasonable
+	## precision. When `pos` itself fails, this searches concentric rings of candidates out
+	## to `SNAP_RADIUS` and takes the closest one `_is_placeable()` accepts -- never further
+	## than the player could have meant. Returns `{"ok": true, "pos": Vector2}` or
+	## `{"ok": false}`; the reason a refusal shows is read live off `pos` itself by
+	## `cursor_refusal_text()`, not carried through this dictionary.
+	if sim._is_placeable(pos.x, pos.y):
+		return {"ok": true, "pos": pos}
+	var best_pos := Vector2.ZERO
+	var best_d2 := INF
+	var r := SNAP_RING_STEP
+	while r <= SNAP_RADIUS + 1e-6:
+		var n := maxi(8, int(TAU * r / SNAP_RING_STEP))
+		for i in range(n):
+			var a := TAU * float(i) / float(n)
+			var cand := pos + Vector2(cos(a), sin(a)) * r
+			if sim._is_placeable(cand.x, cand.y):
+				var d2 := pos.distance_squared_to(cand)
+				if d2 < best_d2:
+					best_d2 = d2
+					best_pos = cand
+		r += SNAP_RING_STEP
+	if best_d2 < INF:
+		return {"ok": true, "pos": best_pos}
+	return {"ok": false}
+
+
+func cursor_legal() -> bool:
+	return sim != null and sim._is_placeable(cursor_at.x, cursor_at.y)
+
+
+func cursor_refusal_text() -> String:
+	## "" while the cursor sits somewhere legal to build. Translates AnchorSim's REASON_*
+	## strings (PLC-02) into player text -- the one place this file turns the rule's own
+	## vocabulary into a sentence, so hud.gd never has to know the enum. Live every frame
+	## (hud.gd's own `refresh()` already runs every frame), not sticky from a past attempt:
+	## the acceptance bar is "cursor over an illegal spot, the UI saying which test failed",
+	## which this satisfies just by existing rather than needing a build press first.
+	if sim == null:
+		return ""
+	match String(sim._placement_reason(cursor_at.x, cursor_at.y)):
+		AnchorSimScript.REASON_OK:
+			return ""
+		AnchorSimScript.REASON_OUT_OF_BOUNDS:
+			return "OUT OF BOUNDS"
+		AnchorSimScript.REASON_LANE_STANDOFF:
+			return "TOO CLOSE TO THE LANE"
+		AnchorSimScript.REASON_OVERLAP:
+			return "OVERLAPS ANOTHER EMPLACEMENT"
+		_:
+			return "REFUSED"
+
+
+func _click(pos: Vector2) -> void:
+	## One click/build press, three outcomes, in this order: point the inspector at an
+	## emplacement already there, build (snapping to the nearest legal spot within
+	## `SNAP_RADIUS` if `pos` itself is not legal), or put the inspector down. Selecting is
+	## checked first because a built position always fails PLC-02's own overlap test, so the
+	## two can never race.
+	var hit := placed_index_at(pos)
+	if hit >= 0:
+		selected_at = Vector2(float(sim.placed[hit]["x"]), float(sim.placed[hit]["y"]))
+		has_selection = true
 		Audio.sfx("ui_click")
 		state_changed.emit()
 		queue_redraw()
 		return
-	if not sim.available_slots().has(slot):
-		# Bare ground. Deselecting is a deliberate act, not a failed one — no deny cue.
-		selected_slot = NO_SLOT
+	if selected_tower == "":
+		# Bare ground with nothing armed to build. Deselecting is a deliberate act, not a
+		# failed one -- no deny cue. PLC-06: this used to be gated on "is pos an authored,
+		# unoccupied slot" (sim.available_slots().has(slot)); free placement has no such
+		# fixed set any more, so "nothing is armed" is the whole test now.
+		has_selection = false
 		state_changed.emit()
 		queue_redraw()
 		return
-	if selected_tower == "" or not sim.can_afford(selected_tower):
+	if not sim.can_afford(selected_tower):
 		Audio.sfx("ui_deny")
 		return
-	if sim.build_at(selected_tower, float(slot.x), float(slot.y)):
-		selected_slot = slot         # inspect and upgrade what was just built, without a hunt
+	var res := _find_build_pos(pos)
+	if not res["ok"]:
+		Audio.sfx("ui_deny")
+		return
+	var bp: Vector2 = res["pos"]
+	if sim.build_at(selected_tower, bp.x, bp.y):
+		selected_at = bp
+		has_selection = true
+		cursor_at = bp        # the position built is the position the cursor now shows
 		Audio.sfx("place_emplacement")
 		Audio.sfx("power_online")
 		state_changed.emit()
 		queue_redraw()
 
 
-func toggle_at(slot: Vector2i) -> void:
+func toggle_at(pos: Vector2) -> void:
 	## Shed an emplacement's load without losing it. Right-click does this where the cursor
 	## is; the inspector does it to the selection.
-	for i in range(sim.placed.size()):
-		if float(sim.placed[i]["x"]) == float(slot.x) and float(sim.placed[i]["y"]) == float(slot.y):
-			var now: bool = not sim.placed[i]["online"]
-			sim.set_online(i, now)
-			Audio.sfx("power_online" if now else "power_offline")
-			state_changed.emit()
-			return
-	Audio.sfx("ui_deny")
+	var i := placed_index_at(pos)
+	if i < 0:
+		Audio.sfx("ui_deny")
+		return
+	var now: bool = not sim.placed[i]["online"]
+	sim.set_online(i, now)
+	Audio.sfx("power_online" if now else "power_offline")
+	state_changed.emit()
 
 
 func select(tower_id: String) -> void:
@@ -1245,7 +1497,7 @@ func select(tower_id: String) -> void:
 	## turret on the board while the bar highlighted a different one the player was reading
 	## about, which is the panel answering a question nobody asked.
 	selected_tower = tower_id
-	selected_slot = NO_SLOT
+	has_selection = false
 	Audio.sfx("ui_click")
 	queue_redraw()
 
@@ -2031,45 +2283,45 @@ func _draw_terrain_face(t: Dictionary) -> void:
 
 
 func _draw_hover() -> void:
-	var anchor: Dictionary = sim.anchor
-	var is_slot := false
-	for slot in anchor["slots"]:
-		if Vector2i(int(slot[0]), int(slot[1])) == hovered_slot:
-			is_slot = true
-			break
-	if not is_slot or not sim.available_slots().has(hovered_slot):
-		return
-	var hz := float(_height_at(hovered_slot.x, hovered_slot.y))
-	var hc := IsoScript.tile_to_screen(float(hovered_slot.x), float(hovered_slot.y)) + _origin \
+	## Live legality readout at the cursor -- PLC-06: replaces the old "is this an authored
+	## slot" check (`sim.available_slots().has(...)`) with the real predicate, since a legal
+	## position is no longer one of a fixed few. The ring is always drawn now (never
+	## suppressed): colour alone carries the answer -- amber legal, alert red not -- and
+	## `cursor_refusal_text()` carries the reason in words for hud.gd.
+	var legal: bool = sim._is_placeable(cursor_at.x, cursor_at.y)
+	var hz := float(_height_at(int(cursor_at.x), int(cursor_at.y)))
+	var hc := IsoScript.tile_to_screen(cursor_at.x, cursor_at.y) + _origin \
 			+ IsoScript.height_offset(hz)
 	var ring := IsoScript.diamond(hc, 0.92)
-	draw_polyline(ring + PackedVector2Array([ring[0]]), C_AMBER, 2.0)
+	draw_polyline(ring + PackedVector2Array([ring[0]]), C_AMBER if legal else C_ALERT, 2.0)
 
 
 func _draw_reach() -> void:
 	## Range, drawn on the ground, because "3.2 tiles" in the inspector does not answer the
 	## only question that matters: does this gun cover that corner. Bone is what the selected
 	## emplacement covers now — red if it is offline and covering nothing. Amber is what the
-	## armed emplacement in the build bar *would* cover if it were built on the hovered slot.
-	var i := placed_index_at(selected_slot)
-	if i >= 0:
-		var p: Dictionary = sim.placed[i]
-		_draw_range(Vector2(selected_slot), float(p["tower"]["range"]),
-				Color(C_BONE if p["online"] else C_ALERT, 0.5))
-	if selected_tower != "" and sim.available_slots().has(hovered_slot) and hovered_slot != selected_slot:
+	## armed emplacement in the build bar *would* cover if it were built at the cursor.
+	if has_selection:
+		var i := placed_index_at(selected_at)
+		if i >= 0:
+			var p: Dictionary = sim.placed[i]
+			_draw_range(selected_at, float(p["tower"]["range"]),
+					Color(C_BONE if p["online"] else C_ALERT, 0.5))
+	if selected_tower != "" and sim._is_placeable(cursor_at.x, cursor_at.y) \
+			and not (has_selection and cursor_at.is_equal_approx(selected_at)):
 		var tw: Dictionary = Content.tower(selected_tower)
 		if not tw.is_empty():
-			_draw_range(Vector2(hovered_slot), float(tw["range"]), Color(C_AMBER, 0.4))
+			_draw_range(cursor_at, float(tw["range"]), Color(C_AMBER, 0.4))
 
 
 func _draw_selection() -> void:
 	## Drawn after the sprites, unlike the hover ring: the emplacement stands on its own
 	## tile and covers most of it, so a ring drawn on the ground under a 256px sprite is
 	## four white specks around its base and reads as nothing at all.
-	if placed_index_at(selected_slot) < 0:
+	if not has_selection or placed_index_at(selected_at) < 0:
 		return
-	var sz := float(_height_at(selected_slot.x, selected_slot.y))
-	var c := IsoScript.tile_to_screen(float(selected_slot.x), float(selected_slot.y)) + _origin \
+	var sz := float(_height_at(int(selected_at.x), int(selected_at.y)))
+	var c := IsoScript.tile_to_screen(selected_at.x, selected_at.y) + _origin \
 			+ IsoScript.height_offset(sz)
 	var ring := IsoScript.diamond(c, 1.0)
 	draw_polyline(ring + PackedVector2Array([ring[0]]), Color(C_BONE, 0.85), 2.0)
@@ -2384,7 +2636,12 @@ func export_state() -> Dictionary:
 		"view": {
 			"camera": {"x": cam["x"], "y": cam["y"], "zoom": cam["zoom"]},
 			"selected_tower": selected_tower,
-			"selected_slot": {"x": selected_slot.x, "y": selected_slot.y},
+			# PLC-06: renamed from "selected_slot" alongside the field rename (`selected_at`,
+			# `has_selection`) -- a scenario asserting the old key should fail loudly rather
+			# than silently reading a position that no longer means "the selected slot".
+			"has_selection": has_selection,
+			"selected_at": {"x": selected_at.x, "y": selected_at.y},
+			"cursor_at": {"x": cursor_at.x, "y": cursor_at.y},
 			"speed": speed, "phase": phase(), "wave": wave_number(),
 		},
 	}

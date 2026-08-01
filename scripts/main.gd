@@ -241,13 +241,19 @@ func _ready() -> void:
 	_place_requested()
 	view.start()
 	if _select_nth > 0 and view.sim != null and view.sim.placed.size() >= _select_nth:
-		# PLC-01: placed records carry x/y floats, not a slot.
+		# PLC-01: placed records carry x/y floats, not a slot. PLC-06: the view's own
+		# selection is `selected_at`/`has_selection` now, not a `Vector2i` slot.
 		var p0: Dictionary = view.sim.placed[_select_nth - 1]
-		view.selected_slot = Vector2i(int(p0["x"]), int(p0["y"]))
+		view.selected_at = Vector2(float(p0["x"]), float(p0["y"]))
+		view.has_selection = true
 	if _pick_tower != "":
 		view.select(_pick_tower)      # applied after --select, so it can be seen to win
 	if _scroll_steps != 0:
 		hud.scroll_panels(_scroll_steps)
+	# PLC-06: `_cursor_steps` presses `lf_right` N times, exactly as before — but a press now
+	# steps the continuous sub-tile lattice (`_step_cursor()`'s own doc) by half a tile
+	# instead of walking to the next authored slot, so N means half-tiles moved, not slots
+	# crossed.
 	for _i in range(_cursor_steps):
 		_dispatch_action_press("lf_right")
 	if _has_mouse_at:
@@ -420,27 +426,34 @@ func _place_requested() -> void:
 
 ## PRC-12: shared by `_place_requested()` (boot-time `--build`) and the scenario runner's
 ## `build` action — one place funding-grants and places a tower, so the two paths cannot
-## silently diverge on what a verification build actually does to the sim. `slot_override`
-## is `NO_SLOT` (view.NO_SLOT) for "next free slot", which is the only thing `--build` itself
-## has ever offered; the scenario `build` verb may name a specific slot instead.
-func _build_one(tid: String, slot_override: Vector2i = Vector2i(-999, -999)) -> void:
+## silently diverge on what a verification build actually does to the sim.
+##
+## PLC-06: `pos_override` used to be a `Vector2i` slot defaulting to a `(-999,-999)`
+## sentinel — "next free slot" is no longer a coherent idea under free placement (there is
+## no fixed set of slots to be "next" in), so this is now a continuous position with `NAN`
+## meaning "not given", the same unset convention `to_screen()`'s own `z` parameter uses.
+## The scenario `build` verb may pass an explicit position instead of falling through to the
+## anchor's next authored free slot.
+func _build_one(tid: String, pos_override: Vector2 = Vector2(NAN, NAN)) -> void:
 	if not Content.towers.has(tid):
 		push_warning("main: --build %s is not a tower id" % tid)
 		return
-	var slot: Vector2i
-	# PLC-01: view.sim.free_slots no longer exists -- available_slots() computes the
-	# same list (anchor's authored slots minus whatever is occupied) on demand.
-	var free: Array = view.sim.available_slots()
-	if slot_override != Vector2i(-999, -999):
-		if not Array(free).has(slot_override):
-			push_warning("main: --build %s slot (%d,%d) is not free" % [tid, slot_override.x, slot_override.y])
+	var pos: Vector2
+	if not is_nan(pos_override.x):
+		if not view.sim._is_placeable(pos_override.x, pos_override.y):
+			push_warning("main: --build %s position (%.2f,%.2f) is not legal (%s)"
+				% [tid, pos_override.x, pos_override.y,
+				   view.sim._placement_reason(pos_override.x, pos_override.y)])
 			return
-		slot = slot_override
+		pos = pos_override
 	else:
+		# PLC-01: view.sim.free_slots no longer exists -- available_slots() computes the
+		# same list (anchor's authored slots minus whatever is occupied) on demand.
+		var free: Array = view.sim.available_slots()
 		if free.is_empty():
 			push_warning("main: --build %s has no free slot left" % tid)
 			return
-		slot = free[0]
+		pos = Vector2(free[0].x, free[0].y)
 	var cost := int(Content.tower(tid)["cost"])
 	if cost > int(view.sim.funds):
 		# Annotated, not inferred: `view.sim` is an untyped var, so `view.sim.funds` is a
@@ -450,8 +463,8 @@ func _build_one(tid: String, slot_override: Vector2i = Vector2i(-999, -999)) -> 
 		var granted: int = cost - int(view.sim.funds)
 		view.sim.funds += granted
 		print("BUILD-GRANT %s +%d" % [tid, granted])
-	if view.sim.build_at(tid, float(slot.x), float(slot.y)):
-		print("BUILD %s at (%d,%d)" % [tid, slot.x, slot.y])
+	if view.sim.build_at(tid, pos.x, pos.y):
+		print("BUILD %s at (%.2f,%.2f)" % [tid, pos.x, pos.y])
 
 
 ## LF-139: `--press-at` and `--cursor` used to call `view._action_input(press)` directly,
@@ -629,10 +642,10 @@ func _process(_delta: float) -> void:
 		print("FRAME coverage=%.4f distinct=%d" % [stats["coverage"], stats["distinct"]])
 		# What the sim actually reached by this frame. A screenshot is only evidence
 		# if the state it captured is known and repeatable — see LF-028.
-		print("STATE frame=%d sim_t=%.3f wave=%d phase=%s lives=%d leaks=%d funds=%d hover=(%d,%d)"
+		print("STATE frame=%d sim_t=%.3f wave=%d phase=%s lives=%d leaks=%d funds=%d cursor=(%.2f,%.2f)"
 			% [_frame, view.sim_time(), view.wave_number(), view.phase(),
 			   view.sim.lives, view.sim.leaks, view.sim.funds,
-			   view.hovered_slot.x, view.hovered_slot.y])
+			   view.cursor_at.x, view.cursor_at.y])
 		print("BUS load=%.1f cap=%.1f draw=%.1f penalty=%.3f overcharge=%s shutter=%s shutter_queue=%d"
 			% [view.sim.bus_load(), view.sim.capacity(), view.sim.online_draw(),
 			   view.sim.penalty_now(), view.sim.overcharge_active, view.sim.shutter_active,
@@ -851,7 +864,7 @@ func _process_press_schedule() -> void:
 		entry["fired"] = true
 		var action := String(entry["action"])
 		if action == "lf_target":
-			var idx: int = view.placed_index_at(view.selected_slot)
+			var idx: int = view.placed_index_at(view.selected_at) if view.has_selection else -1
 			if idx >= 0:
 				_dump_target_state("TARGET-BEFORE", idx)
 		elif action == "lf_call_wave":
@@ -860,7 +873,7 @@ func _process_press_schedule() -> void:
 		_dispatch_action_press(action)
 		print("PRESS-AT frame=%d action=%s" % [_frame, action])
 		if action == "lf_target":
-			var idx2: int = view.placed_index_at(view.selected_slot)
+			var idx2: int = view.placed_index_at(view.selected_at) if view.has_selection else -1
 			if idx2 >= 0:
 				_dump_target_state("TARGET-AFTER", idx2)
 		elif action == "lf_call_wave":
@@ -908,7 +921,12 @@ func _run_scenario_action(verb: String, args: Array) -> void:
 		"build":
 			var tid := String(args[0])
 			if args.size() >= 3:
-				_build_one(tid, Vector2i(int(args[1]), int(args[2])))
+				# PLC-06/LF-197: this used to truncate through `Vector2i(int(args[1]),
+				# int(args[2]))`, silently flooring any fractional position a scenario
+				# authored — the schema still types these two args as whole numbers, but the
+				# position itself is a continuous float now, not a slot index, so it is read
+				# as one instead of being cast down to one.
+				_build_one(tid, Vector2(float(args[1]), float(args[2])))
 			else:
 				_build_one(tid)
 			view.queue_redraw()
@@ -916,9 +934,11 @@ func _run_scenario_action(verb: String, args: Array) -> void:
 			if view.sim != null:
 				var n := int(args[0])
 				if n > 0 and view.sim.placed.size() >= n:
-					# PLC-01: placed records carry x/y floats, not a slot.
+					# PLC-01: placed records carry x/y floats, not a slot. PLC-06: the
+					# view's own selection is `selected_at`/`has_selection`, not a Vector2i.
 					var pn: Dictionary = view.sim.placed[n - 1]
-					view.selected_slot = Vector2i(int(pn["x"]), int(pn["y"]))
+					view.selected_at = Vector2(float(pn["x"]), float(pn["y"]))
+					view.has_selection = true
 		"pick":
 			view.select(String(args[0]))
 		"press":
@@ -940,6 +960,9 @@ func _run_scenario_action(verb: String, args: Array) -> void:
 		"scroll":
 			hud.scroll_panels(int(args[0]))
 		"cursor":
+			# PLC-06: N presses of lf_right, exactly as before -- but a press now steps the
+			# continuous sub-tile lattice by half a tile rather than walking to the next
+			# authored slot, so N means half-tiles moved, not slots crossed.
 			for _i in range(int(args[0])):
 				_dispatch_action_press("lf_right")
 		"pause":
