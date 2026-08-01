@@ -6,12 +6,52 @@ them without anyone pasting. Edit here; do not duplicate into a prompt, or the t
 
 ---
 
+## The context rule — read this before anything else
+
+**Watch the `<total_tokens>N tokens left</total_tokens>` block.** It is emitted after every tool
+result because `totalTokensReminder` is set to `countdown` in `.claude/settings.json`. `N` is the
+**remaining** context, and the window is **1,000,000**.
+
+| remaining | what to do |
+|---|---|
+| **above 550,000** | work normally |
+| **550,000 – 500,000** | **finish the current PR and stop taking new work.** Do not start a workstream you cannot land. |
+| **below 500,000** | **wrap now**, before doing anything else |
+
+Below 500,000 you are past 50%, which is where the owner has seen agents start hallucinating in
+other projects. Do not negotiate with the number.
+
+**Wrapping means, in this order:**
+
+1. Land or explicitly park anything in flight — merge the open PR, or commit and say plainly
+   what is unfinished. Never leave a workstream half-edited in the tree.
+2. Run `/session-wrap`.
+3. **Write the narrative half of `docs/STATE.md` yourself** — "Where the project is", "What the
+   last session did", the priority list, new traps. The `PreCompact` hook regenerates the AUTO
+   block; **it cannot write prose**, and this is the only moment you still have the conversation
+   that makes the prose worth anything.
+4. Commit and push it.
+5. Then keep working normally. Auto-compaction fires on its own; the `PostCompact` hook injects
+   the standing orders and a resume instruction, and the loop continues with **no input from the
+   owner**.
+
+**You cannot invoke `/compact` or `/clear`** — they are built-in CLI commands, not skills, and
+there is no tool for them. You do not need to. Auto-compaction is the trigger; your job is to be
+*already wrapped* when it arrives, which is the whole point of wrapping at 50% instead of 95%.
+
+---
+
 ## How to work
 
-Run `/session-start`, then work the Theatre Scale programme until one of three things is true:
-**there is nothing left to do**, **you are 100% blocked on a decision only the owner can make**,
-or **the owner tells you to stop.** Do not stop to check in. Do not wrap early. If a workstream
-finishes and another can start, start it.
+Read `docs/STATE.md` first, then work the Theatre Scale programme until one of three things is
+true: **there is nothing left to do**, **you are 100% blocked on a decision only the owner can
+make**, or **the owner tells you to stop.** Do not stop to check in. Do not wrap early (except
+for the context rule above). If a workstream finishes and another can start, start it.
+
+**The backlog is the queue.** `docs/STATE.md`'s priority list, then
+`.venv/bin/python tools/backlog.py list`. **If the backlog is empty and nothing is in flight,
+stop and say so** — that is a legitimate outcome, and inventing work to look busy is worse than
+halting.
 
 **Delegate.** Use `/dispatch` to brief every subagent so ownership and the shared-tree rules stay
 consistent. Run at most **one or two Godot-launching workstreams** at once.
@@ -81,16 +121,41 @@ the failure mode; pick up the next game workstream instead.
 
 ---
 
-## Wrapping and compaction
+## The loop, and which parts are automatic
 
-`/session-wrap` runs before `/compact`, always, and in that order — a compaction that happens
-before the wrap loses the reasoning the wrap is supposed to record.
+```
+SessionStart hook ──► these orders injected ──► read STATE.md ──► work the backlog
+                                                       │
+                     ┌─────────────────────────────────┘
+                     ▼
+   countdown drops below 500,000 remaining
+                     │
+                     ▼
+   YOU wrap: land or park in-flight work, /session-wrap,
+   write STATE.md's narrative, commit, push          ◄── the only manual link,
+                     │                                    and the one that matters
+                     ▼
+   auto-compaction fires on its own
+                     │
+                     ├─► PreCompact hook: reap + backlog render + STATE AUTO block (81 s)
+                     ▼
+   PostCompact hook ──► re-injects these orders, reports branch / HEAD /
+                        uncommitted count / backlog size, says "resume"
+                     │
+                     └─► work continues. No input from the owner.
+```
 
-A **`PreCompact` hook** now runs the *mechanical* half automatically: `tools/reap.py`,
-`tools/backlog.py render`, and `tools/session.py --tier 2` to regenerate `docs/STATE.md`'s AUTO
-block. **It cannot write the hand-written half** — the "what the last session did", the priority
-list, and the traps are prose only the model can produce.
+**Automatic:** the orders arriving, the mechanical wrap, the resume after compaction, the
+reaper at session end.
 
-So when compaction is approaching, or when the hook has just fired: **write the narrative half of
-`docs/STATE.md` before letting the context go.** It is the file that survives, and it is written
-for someone with no memory of the conversation.
+**Yours:** noticing the countdown, and writing the prose. Nothing else can do either.
+
+**Timings, measured:** the `PreCompact` mechanical wrap is **81 s** — almost entirely the tier-2
+gate; reap and backlog-render are ~1 s combined. A tier-4 wrap was measured at **45–60 minutes**
+(it re-runs the Windows parity leg locally), which is why `--tier 2` is hardcoded in the hook and
+why decision 070 says the gate never sits on the critical path.
+
+**If auto-compaction catches you before you wrapped**, the `PreCompact` hook says so explicitly
+and the `PostCompact` hook tells the next reader to treat `STATE.md`'s prose as stale and rebuild
+from `git log`, the merged PRs and the journal. That is a safety net, not the plan. The plan is to
+wrap at 50%.
