@@ -2203,11 +2203,11 @@
       "kind": "bug",
       "area": "tooling",
       "pri": "med",
-      "status": "open",
+      "status": "done",
       "why": "",
       "opened": "2026-07-31",
-      "closed": null,
-      "note": ""
+      "closed": "2026-07-31",
+      "note": "Fixed in the same session it was filed, and the diagnosis in the original item was incomplete. It said the cause was the chronicler being dispatched before the commit exists, and proposed backfilling the hash between the code commit and the journal commit. That would NOT have worked: 'gh pr merge --squash' mints a new commit on main, so a backfilled branch hash is destroyed at merge time anyway. Measured live \u2014 after backfilling 54371d1 by hand and merging, main had 5a9fcb1 and the check reported '15 commits since the newest journalled one' on a main whose four newest commits each had an entry. The real fix is to match on the commit SUBJECT, which survives a squash (gh appends ' (#106)' and keeps the rest), rather than on a hash, which does not. Hashes stay in the match for non-squashed commits. Proved red as well as green with a probe that monkeypatches the file the check reads and restores it in a finally block, so the real journal was never edited."
     }
   ]
 }
