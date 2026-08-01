@@ -1355,6 +1355,16 @@ func _rebuild_tile_cache(anchor: Dictionary) -> void:
 	var slot_set := {}
 	for slot in anchor.get("slots", []):
 		slot_set[Vector2i(int(slot[0]), int(slot[1]))] = true
+	# TER-07: ramps are declared metadata (data/schema/anchor.schema.json's `terrain.ramps`)
+	# that `Content.resolve_terrain()` never consults — the grid still has a plain height
+	# step at a ramped boundary. Keyed canonically by the +x/+y source tile so the cliff
+	# loop below can look a boundary up regardless of which side authored the ramp (a `-x`
+	# ramp on tile (tx,ty) is the same boundary as a `+x` ramp declared on (tx-1,ty)).
+	var ramp_by_key := {}
+	for r in anchor.get("terrain", {}).get("ramps", []):
+		var key := _ramp_canonical_key(r["tile"], r["dir"])
+		if key != "":
+			ramp_by_key[key] = r
 	_tile_cache.clear()
 	# painter's order: increasing tile depth, so a nearer tile overdraws a farther one —
 	# this loop *is* the sort (see `_tile_cache`'s own doc).
@@ -1375,7 +1385,157 @@ func _rebuild_tile_cache(anchor: Dictionary) -> void:
 				"kind": kind,
 				"alt": (x + y) % 2 == 0,
 			})
+			# TER-07: cliff/ramp faces this tile fronts, in the two directions a 30°
+			# elevation camera looks down onto (BoardProps.pillar_faces()'s own
+			# comment) — +x and +y. Appended immediately after the tile's own entry, at the
+			# same painter-order position, so a face always draws after every farther tile
+			# behind it and before the (lower, therefore later in this loop) neighbour tile
+			# it fronts — that neighbour's own ground quad then clips whatever oversteps its
+			# footprint. The board edge (`nx`/`ny` off-grid) is board_props.gd's
+			# `_build_edge()` skirt, not this loop's job.
+			for dir_vec in CLIFF_DIRS:
+				var nx := x + dir_vec.x
+				var ny := y + dir_vec.y
+				if nx >= gw or ny >= gh:
+					continue
+				var nh := _height_at(nx, ny)
+				var dir_str := "+x" if dir_vec.x == 1 else "+y"
+				var ramp_key := "%d,%d,%s" % [x, y, dir_str]
+				if ramp_by_key.has(ramp_key):
+					# A ramp climbs from THIS tile toward the neighbour, so this boundary
+					# can have a ramp whichever side is higher — unlike a cliff, checking
+					# it must not be gated on `nh < h` (LF: a ramp declared on the LOW side,
+					# anchor-01's tile (8,1) climbing +x to (9,1), was silently never drawn
+					# until this was pulled out of the cliff-only branch below).
+					_tile_cache.append(_build_ramp_entry(ramp_by_key[ramp_key]))
+				elif nh < h:
+					for lvl in range(nh, h):
+						_tile_cache.append(_build_cliff_entry(x, y, lvl, dir_str == "+x"))
 	_tile_cache_anchor = anchor_id
+
+
+# ─────────────────────────────────────────────────────── terrain faces (TER-07) ──
+#
+# Cliff faces and ramps are static geometry, exactly like the ground/path/slot tiles
+# above them — computed once here and folded into the SAME painter-ordered `_tile_cache`,
+# then drawn from `_draw_board()` below. That is deliberate and not where `board_props.gd`
+# draws: that layer's own DRAW_Z docstring explains it sits above every entity, which would
+# paint a cliff face over a unit standing on the tile above it (TER-07 risk). `_draw_board()`
+# runs before `_draw_entities()` in `_draw_impl()`, so anything appended here is always
+# painted under every unit, by construction, with no extra bookkeeping.
+#
+# `BoardProps` below is the `class_name` board_props.gd declares (TER-07) — a bare preload
+# constant resolved its two constants fine but not its `static func`s, which Godot's static
+# checker only resolves through an actual class identity, so this reaches it the same way
+# `IsoScript`'s own `class_name Iso` makes `tile_to_screen()` callable as a plain static call.
+
+## Only the two directions `BoardProps.pillar_faces()` returns a visible face for —
+## the pair a 30° elevation camera looks down onto rather than edge-on. The other two
+## (-x/-y) are never visible and would either double-draw the neighbour's own +x/+y face
+## from the other side or paint a wall over nothing.
+const CLIFF_DIRS: Array[Vector2i] = [Vector2i(1, 0), Vector2i(0, 1)]
+
+## `dir` string -> which of `Iso.diamond()`'s four corners (`[top, right, bottom, left]`)
+## sit at a ramp's `to` (high) height; the other two sit at `from`. Derived from the same
+## edge-adjacency `BoardProps.pillar_faces()` measured (`+x`'s near/high edge is
+## bottom->right, the boundary with the +x neighbour; `+y`'s is left->bottom) — `-x`/`-y`
+## are the mirror image against the opposite neighbour.
+const RAMP_TO_MASK := {
+	"+x": [false, true, true, false],
+	"-x": [true, false, false, true],
+	"+y": [false, false, true, true],
+	"-y": [true, true, false, false],
+}
+
+
+func _ramp_canonical_key(tile: Array, dir: String) -> String:
+	## Normalises a declared ramp to the "+x"/"+y"-owned boundary key the cliff loop above
+	## checks, regardless of which side authored it — a `-x` ramp declared on tile (tx,ty)
+	## describes the exact same boundary as a `+x` ramp declared on (tx-1,ty).
+	var tx := int(tile[0])
+	var ty := int(tile[1])
+	match dir:
+		"+x":
+			return "%d,%d,+x" % [tx, ty]
+		"+y":
+			return "%d,%d,+y" % [tx, ty]
+		"-x":
+			return "%d,%d,+x" % [tx - 1, ty]
+		"-y":
+			return "%d,%d,+y" % [tx, ty - 1]
+	return ""
+
+
+func _build_cliff_entry(x: int, y: int, lvl: int, is_east: bool) -> Dictionary:
+	## Stack one level at a time (TER-07): a 2-level drop is two stacked 32px faces, never
+	## one 64px quad — `lvl` is the height at the BOTTOM of this one slice, so the cap this
+	## slice hangs from sits at `lvl + 1`. Matches the hard constraint TER-14's eventual
+	## rendered assets would have to obey too: a measured 256px-cell pivot at y=171.5 leaves
+	## only 84.5px below it, and a 2-level (64px) face already clips that.
+	var base := IsoScript.tile_to_screen(float(x), float(y))
+	var cap := BoardProps.pillar_cap(base, float(lvl + 1) * IsoScript.LEVEL_PX, 1.0)
+	var faces: Array = BoardProps.pillar_faces(cap, IsoScript.LEVEL_PX)
+	var poly: PackedVector2Array = faces[1] if is_east else faces[0]
+	# Same colour idiom `_draw_platform_edge()` uses for its own two skirt walls: one
+	# named palette constant, the other face the same constant at ×1.3 — never a picked
+	# literal, and never brighter than an emplacement (board_props.gd:45-50's hierarchy).
+	var col: Color = BoardProps.STONE_DARK
+	if is_east:
+		col = Color(col.r * 1.3, col.g * 1.3, col.b * 1.3)
+	return {
+		"pos": base,
+		"kind": "cliff",
+		"poly": poly,
+		"col": col,
+		"rim": PackedVector2Array([poly[0], poly[1]]),
+	}
+
+
+func _build_ramp_entry(r: Dictionary) -> Dictionary:
+	## "a quad from the low tile's surface to the high tile's surface in the declared dir,
+	## with side triangles filling the wedge" (TER-07). `quad`'s four corners are the tile's
+	## own diamond corners, each independently at `to` height if `RAMP_TO_MASK` marks it,
+	## `from` height otherwise — a slope, not a step. The two corners where the mask flips
+	## between consecutive corners are the ramp's lateral edges: its own raised corner there
+	## does not match its flat lateral neighbour's corner at that same point unless a small
+	## vertical filler triangle closes the gap, which is exactly what `tris` is for.
+	var tile: Array = r["tile"]
+	var tx := int(tile[0])
+	var ty := int(tile[1])
+	var from_h := int(r["from"])
+	var to_h := int(r["to"])
+	var dir_str: String = r["dir"]
+	var base := IsoScript.tile_to_screen(float(tx), float(ty))
+	var cap_from := IsoScript.diamond(base + IsoScript.height_offset(float(from_h)), 1.0)
+	var cap_to := IsoScript.diamond(base + IsoScript.height_offset(float(to_h)), 1.0)
+	var mask: Array = RAMP_TO_MASK[dir_str]
+	var quad := PackedVector2Array()
+	var rim_pts: Array[Vector2] = []
+	for i in range(4):
+		if mask[i]:
+			quad.append(cap_to[i])
+			rim_pts.append(cap_to[i])
+		else:
+			quad.append(cap_from[i])
+	var tris: Array = []
+	for i in range(4):
+		var j := (i + 1) % 4
+		if mask[i] != mask[j]:
+			var near_i := i if mask[i] else j
+			var far_i := j if mask[i] else i
+			tris.append(PackedVector2Array([cap_from[far_i], cap_to[near_i], cap_from[near_i]]))
+	# A ramp is one continuous slope, not two shaded walls, so one tone — pitched between
+	## the platform edge's dark/×1.3 pair rather than inventing a third literal.
+	var col := Color(BoardProps.STONE_DARK.r * 1.15, BoardProps.STONE_DARK.g * 1.15,
+			BoardProps.STONE_DARK.b * 1.15)
+	return {
+		"pos": base,
+		"kind": "ramp",
+		"poly": quad,
+		"col": col,
+		"tris": tris,
+		"rim": PackedVector2Array(rim_pts) if rim_pts.size() == 2 else PackedVector2Array(),
+	}
 const C_PATH := Color(0.30, 0.22, 0.10)
 const C_SLOT := Color(0.20, 0.34, 0.31)
 const C_VERD := Color(0.37, 0.66, 0.58)
@@ -1829,8 +1989,16 @@ func _draw_board(anchor: Dictionary) -> void:
 		var p: Vector2 = t["pos"]
 		if cull and (p.x < vmin.x or p.x > vmax.x or p.y < vmin.y or p.y > vmax.y):
 			continue
-		var c := p + _origin
 		var kind: String = t["kind"]
+		# TER-07: cliff/ramp entries carry their own already-shaped polygon (`_build_cliff_
+		# entry()`/`_build_ramp_entry()`) rather than a texture lookup — zero renders, zero
+		# atlas growth (this issue's whole premise). `_origin` is added here, not baked in,
+		# the same reason it isn't for an ordinary ground tile's `pos` (see `_tile_cache`'s
+		# own doc: it moves with the camera every frame).
+		if kind == "cliff" or kind == "ramp":
+			_draw_terrain_face(t)
+			continue
+		var c := p + _origin
 		var tex: Texture2D = lib.get_tex(kind, 45, "albedo") if (lib != null and lib.ok) else null
 		if tex != null:
 			draw_texture(tex, c - pivot)
@@ -1841,6 +2009,25 @@ func _draw_board(anchor: Dictionary) -> void:
 			elif kind == "tile_slot":
 				col = C_SLOT
 			draw_colored_polygon(IsoScript.diamond(c, 0.98), col)
+
+
+func _shift_poly(poly: PackedVector2Array, by: Vector2) -> PackedVector2Array:
+	var out := PackedVector2Array()
+	for pt in poly:
+		out.append(pt + by)
+	return out
+
+
+func _draw_terrain_face(t: Dictionary) -> void:
+	var poly: PackedVector2Array = _shift_poly(t["poly"], _origin)
+	draw_colored_polygon(poly, t["col"])
+	for tri in t.get("tris", []):
+		draw_colored_polygon(_shift_poly(tri, _origin), t["col"])
+	var rim: PackedVector2Array = t["rim"]
+	if rim.size() == 2:
+		# Same rim idiom as `_draw_platform_edge()`'s own `_edge_rim` — a thin, low-alpha
+		# highlight along the top edge, so a face reads as an edge rather than a flat block.
+		draw_line(rim[0] + _origin, rim[1] + _origin, Color(BoardProps.ALLOY_LIGHT, 0.30), 1.0)
 
 
 func _draw_hover() -> void:
