@@ -1,5 +1,5 @@
 {
-  "next_id": 182,
+  "next_id": 184,
   "items": [
     {
       "id": "LF-001",
@@ -2166,6 +2166,30 @@
       "title": "LF-176 is MEASURED and the owner was right \u2014 this item is the follow-up work, and it is BAL-04's. sim/coverage.py now reports per-emplacement uptime, damage share and a pure-geometry lane-coverage ceiling per slot. Findings, from two byte-identical 24-anchor runs with InstrumentedSim proved outcome-identical to Sim: median gun has a target in range only 28-38 percent of ticks; roughly ONE IN FIVE placed emplacements in acts 1 and 2 contributes essentially nothing (178 of 589 samples on anchor-10, 172 of 644 on anchor-13, 88 of 320 on anchor-02); median lane-coverage CEILING \u2014 the best any tower could do from the best slot \u2014 is about 40 percent, rising to 97-100 percent at 2x range on 17 of 24 anchors. So the dominant cause is (b) RANGE VALUES SHORT relative to lane length, not slot placement, and not the autobuild policy: the ceiling is a property of the level, so no build policy can beat it. Five Act 1 anchors are the exception and are (a) GEOMETRY \u2014 anchor-01, 03, 04, 05, 07 do not recover even at 2x range, their slots are simply too far from the lane, and anchor-02's p10 uptime is 0 percent. Only anchor-06 and anchor-20 grade as sited adequately. THE WORK: raising ranges changes every grade, so this is a full campaign re-grade and must go through BAL-04, not a spot fix. Do it in two separable passes \u2014 a global range pass against the (b) anchors, and a slot-geometry pass against the five (a) anchors, which is what PLC-01 free placement and PLC-04's candidate lattice exist for. Re-run sim/coverage.py after each and compare the DISTRIBUTION, not the means; the mean hides the tail and the tail is the complaint. Do NOT tune to make the ceiling number look good \u2014 the ceiling is a diagnostic, and fitting to it is the move decision 067 rejected.",
       "kind": "feature",
       "area": "design",
+      "pri": "med",
+      "status": "open",
+      "why": "",
+      "opened": "2026-07-31",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-182",
+      "title": "tools/parity_costs.json's LPT bin-packing is tuned on local 16-core timings and redistributes unevenly on hosted runners. MEASURED on the first real CI firing of parity-shard.yml (PR #104, run 30673542813): shard 0/4 7m47s, 1/4 9m05s, 2/4 5m37s, 3/4 7m42s \u2014 a 1.6x spread, all four passing. Not a problem at this scale, since the whole 1440-run matrix still finishes in ~9m13s wall clock with the shards in parallel, and the pre-merge projection of 'around 8 minutes per shard' held honestly. But the packing is doing less work than it thinks: the cost table is populated from runs on a 16-core box and hosted runners have different relative per-anchor costs, so the LPT assignment is optimising against the wrong weights. This is the first thing to look at if the matrix ever needs to be faster \u2014 better than adding shards blindly, which just multiplies the fixed per-job setup. PRC-19 (#85, right-size the parity matrix from measured discrimination) should own it, and should use hosted timings rather than local ones to rebuild the table. Note also that 288 of the 1440 runs exercise one shared dispatch mechanism across all 24 anchors, which #85 already records \u2014 cutting those is a bigger win than rebalancing what remains.",
+      "kind": "chore",
+      "area": "tooling",
+      "pri": "med",
+      "status": "open",
+      "why": "",
+      "opened": "2026-07-31",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-183",
+      "title": "AnchorView._draw_editor_overlay() (the in-editor path/IN/OUT preview) does not apply Iso.height_offset() to its waypoint polyline or markers, unlike _draw_board()/drawables()/_draw_range() which TER-01 made elevation-aware. Cosmetic only \u2014 editor authoring aid, never seen in a real playthrough \u2014 but a path crossing a raised region will preview at ground level until this is fixed.",
+      "kind": "bug",
+      "area": "engine",
       "pri": "med",
       "status": "open",
       "why": "",

@@ -188,6 +188,9 @@ func _rebuild(aid: String, origin: Vector2) -> void:
 
 
 func _build_edge(w: int, h: int, origin: Vector2) -> void:
+	# TODO TER-07: assumes a flat plate — every corner sits at level 0. TER-01 deliberately
+	# leaves this alone; a raised region now floats its sigils/edge below its own tiles
+	# until TER-07 gives the platform edge and ground sigils a height-aware treatment.
 	var n := IsoScript.tile_to_screen(-0.5, -0.5) + origin
 	var e := IsoScript.tile_to_screen(float(w) - 0.5, -0.5) + origin
 	var s := IsoScript.tile_to_screen(float(w) - 0.5, float(h) - 0.5) + origin
@@ -326,6 +329,8 @@ func _make_sigil(rng: RandomNumberGenerator, step: float) -> Array:
 
 func _build_ground_sigils(rng: RandomNumberGenerator, anchor: Dictionary, origin: Vector2,
 		path: Array) -> void:
+	# TODO TER-07: assumes a flat plate, same as _build_edge() above — a sigil on a raised
+	# region draws at level 0 until TER-07.
 	_ground_sigils.clear()
 	var grid: Dictionary = anchor.get("grid", {"w": 12, "h": 10})
 	var w := int(grid["w"])

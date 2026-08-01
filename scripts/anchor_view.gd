@@ -797,10 +797,18 @@ func _update_shake(delta: float) -> void:
 	position = Vector2(nx, ny) * shake
 
 
-func to_screen(tile: Vector2) -> Vector2:
+func to_screen(tile: Vector2, z: float = NAN) -> Vector2:
 	## Presentation helper for combat_fx/fx_additive: the same projection _draw_board() and
 	## drawables() use, exposed so the FX layer never has to duplicate or re-derive _origin.
-	return IsoScript.tile_to_screen(tile.x, tile.y) + _origin
+	##
+	## TER-01: takes an optional height in levels. `NAN` (rather than a magic negative
+	## number — heights are never negative in v1, but 0.0 is a legitimate real height and
+	## cannot double as "unset") means "use the terrain height at this tile", so every
+	## existing caller — a tracer, a burst ring, a hit-flash — inherits elevation for free
+	## without having to know its own tile's height. A caller that already knows a
+	## different z (e.g. a projectile's own arc) can still pass one explicitly.
+	var zz: float = float(_height_at(int(tile.x), int(tile.y))) if is_nan(z) else z
+	return IsoScript.tile_to_screen(tile.x, tile.y) + _origin + IsoScript.height_offset(zz)
 
 
 func drawable_texture(sprite_name: String, yaw: int, pass_name: String) -> Texture2D:
@@ -1255,6 +1263,14 @@ const C_TILE_ALT := Color(0.10, 0.15, 0.17)
 ## into the cache. The `s_`/`x` build loop in `_rebuild_tile_cache()` *is* the depth sort
 ## (increasing tx+ty, ties broken by x), so this array needs no `sort_custom` — the obvious
 ## mistake here is to add one.
+##
+## TER-01: `pos` also carries `Iso.height_offset(h)` for the tile's own terrain level —
+## baked in here rather than added at draw time in `_draw_board()`, for the same reason
+## `_origin` is not: a tile's level never changes for the life of an anchor (unlike
+## `_origin`, which moves with the camera every frame), so folding it into the one-time
+## cache build is the CAM-06-consistent place to pay for it, not a per-frame `_height_at()`
+## call per visible tile. The result is the same `Iso.tile_to_screen(x, y) + _origin +
+## Iso.height_offset(h)` the issue names, just computed once instead of every draw.
 var _tile_cache: Array[Dictionary] = []
 ## The anchor_id `_tile_cache` was built for. "" means unbuilt. `_draw_board()` compares
 ## this against the live `anchor_id` every call and rebuilds on a mismatch — lazy rather
@@ -1262,6 +1278,51 @@ var _tile_cache: Array[Dictionary] = []
 ## path that ends up drawing a different anchor, not just the ones this file remembers to
 ## invalidate from by hand (the same reasoning `drawables()`'s frame-keyed cache below uses).
 var _tile_cache_anchor: String = ""
+
+# ────────────────────────────────────────────────────────────── terrain ──
+#
+# TER-01: the elevation core. `_levels` is the dense row-major level grid TER-02's
+# `Content.resolve_terrain()` produces — cached per `anchor_id` the same way `_tile_cache`
+# is, because it is read once per drawable per frame (`drawables()`, the range ring, the
+# hover/selection rings) and re-resolving the terrain block from scratch every call would
+# undo the point of CAM-06's caching work.
+
+## The resolved level grid for the live anchor: `Array` of `grid.h` `PackedInt32Array`
+## rows, each `grid.w` long. Empty until `_height_at()` has been called once.
+var _levels: Array = []
+## The anchor_id `_levels` was resolved for. "" means unresolved — mirrors
+## `_tile_cache_anchor`'s own lazy-rebuild-on-mismatch pattern.
+var _levels_anchor: String = ""
+
+
+func _height_at(tx: int, ty: int) -> int:
+	## Terrain level at tile (tx, ty), clamped to the board edge. Mirrors
+	## `sim/content.py`'s `Anchor.height_at()` byte-for-byte in spirit (clamp, not raise —
+	## a caller working from a float position, e.g. `sim.point_at()`, can land a fraction
+	## outside the last tile by rounding), but this is a presentation-side read of the same
+	## resolved grid, not a second parser: both sides call the *same* `resolve_terrain()`
+	## this file already exposes as `Content.resolve_terrain()`/`sim/content.py`'s
+	## function, proved identical by the 'terrain parsers agree' gate check.
+	if _levels_anchor != anchor_id:
+		_levels = Content.resolve_terrain(_anchor_data())
+		_levels_anchor = anchor_id
+	var h := _levels.size()
+	if h == 0:
+		return 0
+	var w: int = (_levels[0] as PackedInt32Array).size()
+	if w == 0:
+		return 0
+	var cx := clampi(tx, 0, w - 1)
+	var cy := clampi(ty, 0, h - 1)
+	return int((_levels[cy] as PackedInt32Array)[cx])
+
+
+func height_at(tx: int, ty: int) -> int:
+	## Verification-only public accessor for main.gd's `-- --heights`. Every internal draw
+	## call site above goes through the private `_height_at()` directly; this exists only
+	## because main.gd is a different scene and enumerating the whole grid from outside
+	## needs a way in without reaching past a leading underscore.
+	return _height_at(tx, ty)
 
 ## LF-046: cached once, the highest `hp` among every enemy kind `Content` knows — -1.0 means
 ## unbuilt. `_draw_unit()`'s placeholder radius used to divide by 220 (Warden Heavy's own hp,
@@ -1302,8 +1363,9 @@ func _rebuild_tile_cache(anchor: Dictionary) -> void:
 				kind = "tile_path"
 			elif slot_set.has(cell):
 				kind = "tile_slot"
+			var h := _height_at(x, y)
 			_tile_cache.append({
-				"pos": IsoScript.tile_to_screen(float(x), float(y)),
+				"pos": IsoScript.tile_to_screen(float(x), float(y)) + IsoScript.height_offset(h),
 				"kind": kind,
 				"alt": (x + y) % 2 == 0,
 			})
@@ -1582,7 +1644,14 @@ func _build_drawables() -> Array:
 		var buckets := _face_parts(p, _tower_heading(p))
 		var base_id := String(p["tower"]["id"]).replace("-", "_")
 		var depth := IsoScript.depth(p["slot"].x, p["slot"].y)
-		var at := IsoScript.tile_to_screen(float(p["slot"].x), float(p["slot"].y)) + _origin
+		# TER-01: the surface the emplacement stands on. `at` folds the offset in so every
+		# consumer that reads "at" — glow_layer.gd, fx_additive.gd, the contact shadow, the
+		# recoiled head below — inherits elevation for free and cannot disagree with the
+		# albedo pass (the same argument the issue makes for why this is the one place to
+		# apply it, not each consumer separately).
+		var z := float(_height_at(int(p["slot"].x), int(p["slot"].y)))
+		var at := IsoScript.tile_to_screen(float(p["slot"].x), float(p["slot"].y)) + _origin \
+				+ IsoScript.height_offset(z)
 		var online := bool(p["online"])
 		out.append({
 			"depth": depth,
@@ -1594,6 +1663,7 @@ func _build_drawables() -> Array:
 			"yaw_count": BASE_YAW_COUNT,
 			"online": online,
 			"at": at,
+			"z": z,
 			"ref": p,
 			# ART-06 reload readout: fraction of `fire_interval` remaining, 0 when ready
 			# to fire (also 0, harmlessly, for a support tower -- see `_reload_frac()`'s
@@ -1616,6 +1686,7 @@ func _build_drawables() -> Array:
 			"yaw_count": HEAD_YAW_COUNT,
 			"online": online,
 			"at": head_at,
+			"z": z,
 			"ref": p,
 		}
 		var trans_from := int(p.get("view_head_trans_from", -1))
@@ -1634,6 +1705,11 @@ func _build_drawables() -> Array:
 		if not u["alive"]:
 			continue
 		var at: Vector2 = sim.point_at(int(u["lane"]), u["dist"])
+		# TER-01: the unit's own tile height, at the fractional position along its lane it
+		# currently occupies — truncated to the containing tile, matching `sim/content.py`'s
+		# `Anchor.height_at()` clamp/truncate behaviour so a unit crossing a tile boundary
+		# steps its height at the same instant the rules-side reference would.
+		var uz := float(_height_at(int(at.x), int(at.y)))
 		out.append({
 			"depth": IsoScript.depth(at.x, at.y),
 			"layer": 0,
@@ -1641,7 +1717,8 @@ func _build_drawables() -> Array:
 			"sprite": String(u["kind"]["id"]).replace("-", "_"),
 			"yaw": IsoScript.yaw_for_heading(_unit_heading(u)),
 			"online": true,
-			"at": IsoScript.tile_to_screen(at.x, at.y) + _origin,
+			"at": IsoScript.tile_to_screen(at.x, at.y) + _origin + IsoScript.height_offset(uz),
+			"z": uz,
 			# Raw tile-space point, before projection — fx_additive.gd's hit-flash pass used
 			# to recompute this itself via a fresh `sim.point_at(d["ref"]["dist"])` call.
 			# Harmless (sim state cannot change mid-render-pass, so it always recomputed the
@@ -1769,7 +1846,9 @@ func _draw_hover() -> void:
 			break
 	if not is_slot or not sim.free_slots.has(hovered_slot):
 		return
-	var hc := IsoScript.tile_to_screen(float(hovered_slot.x), float(hovered_slot.y)) + _origin
+	var hz := float(_height_at(hovered_slot.x, hovered_slot.y))
+	var hc := IsoScript.tile_to_screen(float(hovered_slot.x), float(hovered_slot.y)) + _origin \
+			+ IsoScript.height_offset(hz)
 	var ring := IsoScript.diamond(hc, 0.92)
 	draw_polyline(ring + PackedVector2Array([ring[0]]), C_AMBER, 2.0)
 
@@ -1796,7 +1875,9 @@ func _draw_selection() -> void:
 	## four white specks around its base and reads as nothing at all.
 	if placed_index_at(selected_slot) < 0:
 		return
-	var c := IsoScript.tile_to_screen(float(selected_slot.x), float(selected_slot.y)) + _origin
+	var sz := float(_height_at(selected_slot.x, selected_slot.y))
+	var c := IsoScript.tile_to_screen(float(selected_slot.x), float(selected_slot.y)) + _origin \
+			+ IsoScript.height_offset(sz)
 	var ring := IsoScript.diamond(c, 1.0)
 	draw_polyline(ring + PackedVector2Array([ring[0]]), Color(C_BONE, 0.85), 2.0)
 	# Corner ticks, so the selection is legible against a bright tile as well as a dark one.
@@ -1809,11 +1890,20 @@ func _draw_range(centre: Vector2, r: float, col: Color) -> void:
 	## and a 2:1 ellipse once projected — the same ratio as the tile, for the same reason.
 	## Sampling the tile-space circle and projecting each point draws exactly the set the
 	## weapon can reach, and stays correct if the projection ever changes.
+	##
+	## TER-01: range itself stays 2-D (`high_ground_bonus` is the tuning knob, not 3-D
+	## distance — TER-13) but the *ring* is drawn on the ground, and the ground is no
+	## longer flat, so each sampled point takes its own tile's height rather than the
+	## centre's — a ring crossing a ridge climbs it instead of floating at the emplacement's
+	## own elevation across a lower tile.
 	const SEGMENTS := 48
 	var pts := PackedVector2Array()
 	for i in range(SEGMENTS):
 		var a := TAU * float(i) / float(SEGMENTS)
-		pts.append(IsoScript.tile_to_screen(centre.x + cos(a) * r, centre.y + sin(a) * r) + _origin)
+		var px := centre.x + cos(a) * r
+		var py := centre.y + sin(a) * r
+		var pz := float(_height_at(int(px), int(py)))
+		pts.append(IsoScript.tile_to_screen(px, py) + _origin + IsoScript.height_offset(pz))
 	pts.append(pts[0])
 	draw_polyline(pts, col, 2.0)
 

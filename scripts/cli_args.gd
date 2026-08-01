@@ -27,7 +27,8 @@ extends RefCounted
 ## which is the only case that is actually a typo. Each file still only *reads* the handful
 ## of flags it cares about afterwards (its own smaller spec documents which those are).
 const ALL_FLAGS := {
-	"--shot": [1, 2], "--a11y": 1, "--facings": 0, "--lanes": 0, "--dump-placeholder": 0,
+	"--shot": [1, 2], "--a11y": 1, "--facings": 0, "--lanes": 0, "--heights": 0,
+	"--dump-placeholder": 0,
 	"--anchor": 1, "--autoplay": 0, "--paused": 0, "--select": 1, "--pick": 1,
 	"--scroll": 1, "--cursor": 1, "--build": 1, "--difficulty": 1, "--speed": 1,
 	"--ability": 1, "--ability-at": 2, "--press-at": 2, "--chain": 1, "--debrief-at": 1,
