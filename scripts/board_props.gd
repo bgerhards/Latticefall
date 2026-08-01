@@ -1,4 +1,11 @@
+class_name BoardProps
 extends Node2D
+## TER-07: `class_name` added so `anchor_view.gd` can call `pillar_cap()`/`pillar_faces()` as
+## `BoardProps.pillar_cap(...)` — Godot's static type checker would not resolve a `static
+## func` through a bare `preload()` constant (no class identity to resolve against), only
+## through an actual class name, the same way every other cross-script static call in this
+## codebase (`IsoScript.tile_to_screen()`, itself `class_name Iso`) already works.
+##
 ## Fixed set dressing that belongs to the anchor rather than to the fight: the ring at the
 ## lane exit, the bindstone at the entrance, ground sigils and platform edging.
 ##
@@ -82,9 +89,12 @@ var _cached_id: String = ""
 var _cached_origin: Vector2 = Vector2(INF, INF)
 var _act: int = 1
 
-var _edge_left: PackedVector2Array = PackedVector2Array()
-var _edge_right: PackedVector2Array = PackedVector2Array()
-var _edge_rim: PackedVector2Array = PackedVector2Array()
+## TER-07: one quad per boundary tile, not one quad for the whole side — `_build_edge()`'s
+## own doc explains why. `PackedVector2Array` per entry (a quad or a 2-point rim segment),
+## `Array` of them per side.
+var _edge_left: Array = []
+var _edge_right: Array = []
+var _edge_rim: Array = []
 
 var _ring_center: Vector2 = Vector2.ZERO
 var _ring_ground: Vector2 = Vector2.ZERO
@@ -188,28 +198,65 @@ func _rebuild(aid: String, origin: Vector2) -> void:
 
 
 func _build_edge(w: int, h: int, origin: Vector2) -> void:
-	# TODO TER-07: assumes a flat plate — every corner sits at level 0. TER-01 deliberately
-	# leaves this alone; a raised region now floats its sigils/edge below its own tiles
-	# until TER-07 gives the platform edge and ground sigils a height-aware treatment.
-	var n := IsoScript.tile_to_screen(-0.5, -0.5) + origin
-	var e := IsoScript.tile_to_screen(float(w) - 0.5, -0.5) + origin
-	var s := IsoScript.tile_to_screen(float(w) - 0.5, float(h) - 0.5) + origin
-	var wc := IsoScript.tile_to_screen(-0.5, float(h) - 0.5) + origin
-	var down := Vector2(0, EDGE_THICK)
-	_edge_left = PackedVector2Array([wc, s, s + down, wc + down])
-	_edge_right = PackedVector2Array([s, e, e + down, s + down])
-	_edge_rim = PackedVector2Array([wc, n, e])
+	## TER-07: elevation-aware. Used to be one flat quad per side assuming every boundary
+	## corner sat at level 0 (see this function's git history) — that floated the skirt
+	## below a raised region touching the plate edge (anchor-01's north row is exactly
+	## this case). Now walks each boundary tile individually and extrudes/traces from
+	## *that tile's own* resolved height, one quad (or rim segment) per tile, so a height
+	## change along an edge shows as a step — the same idiom the interior cliffs use, not a
+	## continuous ramp nobody authored.
+	##
+	## South (`y == h-1`, the +y outer face) and east (`x == w-1`, the +x outer face) are
+	## the two directions a 30° camera looks down onto (pillar_faces()'s own doc), so they
+	## get the extruded skirt wall. North and west are the hidden pair — no wall, just the
+	## thin top-of-plate rim highlight `_draw_platform_edge()` already drew, now following
+	## each boundary tile's own height instead of a single flat line.
+	_edge_left.clear()
+	_edge_right.clear()
+	_edge_rim.clear()
+	for x in range(w):
+		var hgt_s := int(view.call("height_at", x, h - 1))
+		var cap_s := pillar_cap(IsoScript.tile_to_screen(float(x), float(h - 1)) + origin,
+				float(hgt_s) * IsoScript.LEVEL_PX, 1.0)
+		_edge_left.append(pillar_faces(cap_s, EDGE_THICK)[0])
+
+		var hgt_n := int(view.call("height_at", x, 0))
+		var cap_n := pillar_cap(IsoScript.tile_to_screen(float(x), 0.0) + origin,
+				float(hgt_n) * IsoScript.LEVEL_PX, 1.0)
+		_edge_rim.append(PackedVector2Array([cap_n[0], cap_n[1]]))   # -y outer edge
+
+	for y in range(h):
+		var hgt_e := int(view.call("height_at", w - 1, y))
+		var cap_e := pillar_cap(IsoScript.tile_to_screen(float(w) - 1.0, float(y)) + origin,
+				float(hgt_e) * IsoScript.LEVEL_PX, 1.0)
+		_edge_right.append(pillar_faces(cap_e, EDGE_THICK)[1])
+
+		var hgt_w := int(view.call("height_at", 0, y))
+		var cap_w := pillar_cap(IsoScript.tile_to_screen(0.0, float(y)) + origin,
+				float(hgt_w) * IsoScript.LEVEL_PX, 1.0)
+		_edge_rim.append(PackedVector2Array([cap_w[3], cap_w[0]]))   # -x outer edge
 
 
-func _pillar_cap(base_c: Vector2, height: float, scale: float) -> PackedVector2Array:
+## TER-07: made `static` (and public — no leading underscore) so `anchor_view.gd` can reach
+## these through `preload("res://scripts/board_props.gd")`, the same way every call site in
+## this codebase already reaches a static util through `IsoScript.<name>`. Cliff faces and
+## ramps are the interior version of exactly the extrusion this file solved for the ring,
+## the bindstone and the platform edge — one shared implementation rather than a duplicate
+## copy of this geometry living in anchor_view.gd.
+static func pillar_cap(base_c: Vector2, height: float, scale: float) -> PackedVector2Array:
 	return IsoScript.diamond(base_c + Vector2(0, -height), scale)
 
 
-func _pillar_faces(cap: PackedVector2Array, height: float) -> Array:
+static func pillar_faces(cap: PackedVector2Array, height: float) -> Array:
 	## cap is [top, right, bottom, left] (Iso.diamond order). The two visible faces of an
 	## extruded diamond are left→bottom and bottom→right — the same pair the platform
 	## edge extrudes, for the same reason: those are the two edges a 30° elevation camera
-	## looks down onto rather than edge-on.
+	## looks down onto rather than edge-on. In tile space (solving Iso.diamond's four
+	## corners back into tile-centre offsets: top=(-.5,-.5), right=(+.5,-.5),
+	## bottom=(+.5,+.5), left=(-.5,+.5)) left→bottom is the boundary with the tile's +y
+	## neighbour and bottom→right is the boundary with its +x neighbour — TER-07's interior
+	## cliff faces pick left/right by which of those two neighbours is lower, using this
+	## same mapping rather than re-deriving it.
 	var down := Vector2(0, height)
 	var left := PackedVector2Array([cap[3], cap[2], cap[2] + down, cap[3] + down])
 	var right := PackedVector2Array([cap[2], cap[1], cap[1] + down, cap[2] + down])
@@ -225,8 +272,8 @@ func _ellipse_points(cx: float, cy: float, rx: float, ry: float, n: int) -> Pack
 
 
 func _build_ring() -> void:
-	var base_cap := _pillar_cap(_ring_ground, RING_BASE_H, RING_BASE_SCALE)
-	var base_faces := _pillar_faces(base_cap, RING_BASE_H)
+	var base_cap := pillar_cap(_ring_ground, RING_BASE_H, RING_BASE_SCALE)
+	var base_faces := pillar_faces(base_cap, RING_BASE_H)
 	_ring_base_cap = base_cap
 	_ring_base_left = base_faces[0]
 	_ring_base_right = base_faces[1]
@@ -270,8 +317,8 @@ func _build_ring() -> void:
 
 
 func _build_bindstone(rng: RandomNumberGenerator) -> void:
-	var cap := _pillar_cap(_bind_ground, BIND_H, BIND_SCALE)
-	var faces := _pillar_faces(cap, BIND_H)
+	var cap := pillar_cap(_bind_ground, BIND_H, BIND_SCALE)
+	var faces := pillar_faces(cap, BIND_H)
 	_bind_cap = cap
 	_bind_left = faces[0]
 	_bind_right = faces[1]
@@ -294,14 +341,19 @@ func _build_ring_ground_ticks() -> void:
 	_ring_ground_ticks.clear()
 	var origin := _cached_origin
 	var tile: Vector2 = IsoScript.screen_to_tile(_ring_ground - origin)
+	# TER-07: one added term — the ring's own footprint tile's height, applied uniformly to
+	# the whole tick ring rather than sampled per point (the ring stands on one tile; it does
+	# not need to follow terrain the way a reach ring crossing several tiles does).
+	var hz := IsoScript.height_offset(float(view.call("height_at", int(round(tile.x)),
+			int(round(tile.y)))))
 	const N := 28
 	const R0 := 2.05
 	const R1 := 2.35
 	for i in range(N):
 		var a := TAU * float(i) / float(N)
 		var dir := Vector2(cos(a), sin(a))
-		var p0 := IsoScript.tile_to_screen(tile.x + dir.x * R0, tile.y + dir.y * R0) + origin
-		var p1 := IsoScript.tile_to_screen(tile.x + dir.x * R1, tile.y + dir.y * R1) + origin
+		var p0 := IsoScript.tile_to_screen(tile.x + dir.x * R0, tile.y + dir.y * R0) + origin + hz
+		var p1 := IsoScript.tile_to_screen(tile.x + dir.x * R1, tile.y + dir.y * R1) + origin + hz
 		_ring_ground_ticks.append(PackedVector2Array([p0, p1]))
 
 
@@ -329,8 +381,8 @@ func _make_sigil(rng: RandomNumberGenerator, step: float) -> Array:
 
 func _build_ground_sigils(rng: RandomNumberGenerator, anchor: Dictionary, origin: Vector2,
 		path: Array) -> void:
-	# TODO TER-07: assumes a flat plate, same as _build_edge() above — a sigil on a raised
-	# region draws at level 0 until TER-07.
+	## TER-07: `+ IsoScript.height_offset(...)` on `c` below is the one added term — a sigil
+	## on a raised region now sits on its own tile's surface instead of at level 0 under it.
 	_ground_sigils.clear()
 	var grid: Dictionary = anchor.get("grid", {"w": 12, "h": 10})
 	var w := int(grid["w"])
@@ -349,7 +401,9 @@ func _build_ground_sigils(rng: RandomNumberGenerator, anchor: Dictionary, origin
 			var p := clampf(0.60 - d * 0.045, 0.035, 0.60)
 			if rng.randf() > p:
 				continue
-			var c := IsoScript.tile_to_screen(float(x), float(y)) + origin
+			var hgt := int(view.call("height_at", x, y))
+			var c := IsoScript.tile_to_screen(float(x), float(y)) + origin \
+					+ IsoScript.height_offset(float(hgt))
 			_ground_sigils.append({"c": c, "strokes": _make_sigil(rng, 6.0)})
 
 
@@ -373,10 +427,14 @@ func _path_and_slot_tiles(anchor: Dictionary) -> Dictionary:
 # ────────────────────────────────────────────────────────────────── draw ──
 
 func _draw_platform_edge() -> void:
-	draw_colored_polygon(_edge_left, STONE_DARK)
-	draw_colored_polygon(_edge_right, Color(STONE_DARK.r * 1.3, STONE_DARK.g * 1.3,
-		STONE_DARK.b * 1.3))
-	draw_polyline(_edge_rim, Color(ALLOY_LIGHT, 0.30), 2.0)
+	var right_col := Color(STONE_DARK.r * 1.3, STONE_DARK.g * 1.3, STONE_DARK.b * 1.3)
+	var rim_col := Color(ALLOY_LIGHT, 0.30)
+	for q in _edge_left:
+		draw_colored_polygon(q, STONE_DARK)
+	for q in _edge_right:
+		draw_colored_polygon(q, right_col)
+	for seg in _edge_rim:
+		draw_line(seg[0], seg[1], rim_col, 2.0)
 
 
 func _draw_ground_sigils() -> void:

@@ -1,5 +1,5 @@
 {
-  "next_id": 203,
+  "next_id": 205,
   "items": [
     {
       "id": "LF-001",
@@ -2418,6 +2418,30 @@
       "title": "FOOTPRINT_RADIUS is a single shared rules constant (0.45 tiles, defined in both sim/engine.py and scripts/anchor_sim.gd), NOT the per-tower footprint_radius field PLC-01's task list anticipated in data/towers.json. No such field exists yet, and data/towers.json was deliberately out of scope for PLC-02 because decision 074 had just re-tuned every range and a second edit in the same window would have made the two changes inseparable in any measurement. CONSEQUENCE TODAY: every tower gets an identical footprint, so the overlap test and the lane-standoff test treat a pulse-turret and a mortar-emplacement the same. Zero risk right now \u2014 VERIFIED, not assumed: no two authored slots in any of the 24 anchors are closer than 0.9 tiles, so the shared 0.45 can never produce a false overlap against the existing content. It becomes real the moment free placement is player-reachable, because a player will put emplacements as close together as the rule allows, and a siege battery occupying the same footprint as a scan relay is a design statement nobody made. THE WORK: author a per-tower footprint_radius in data/towers.json plus towers.schema.json, and read it in place of the constant in both _placement_reason() implementations \u2014 keeping the term order identical character-for-character, which is the discipline that made PLC-02's 48,837-position differential come out empty. Belongs with PLC-04 (candidate lattice) or PLC-07 (placement UI ghost), whichever lands first, since both need to draw or reason about real per-tower geometry",
       "kind": "chore",
       "area": "engine",
+      "pri": "med",
+      "status": "open",
+      "why": "",
+      "opened": "2026-08-01",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-203",
+      "title": "board_props.gd's ring and bindstone props (_ring_ground / _bind_ground) still project at elevation level 0 regardless of the height of the path's entrance and exit tiles. Same class of floating-prop bug TER-07 just fixed for the board itself, and explicitly outside TER-07's task list, which named only the ground sigils and the ring ticks. Harmless today because no authored anchor elevates its lane ends \u2014 but it becomes visible the moment one does, and it will read as a terrain bug rather than a prop bug, because the ground under the prop will have moved and the prop will not have. The fix is the same shape TER-07 already applied to _build_edge, _build_ground_sigils and _build_ring_ground_ticks: read the tile's own height instead of assuming 0. Worth doing alongside whichever issue first authors an anchor with raised lane ends \u2014 TER-09 (the lane climbs, waypoint z) is the obvious one, since it is the issue that makes raised lane ends exist at all",
+      "kind": "bug",
+      "area": "engine",
+      "pri": "med",
+      "status": "open",
+      "why": "",
+      "opened": "2026-08-01",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-204",
+      "title": "GUARD FALSE POSITIVE, hit live TWICE in two minutes on 2026-08-01, and it is LF-179's family rather than a new bug. Two distinct gaps, both in tools/hooks/guard.py's rule_godot_write.\n\nGAP 1 \u2014 a STDERR REDIRECT counts as a file write. The denied command was a Godot in-place import piped to tail, followed by a grep READING the global script class cache under the import-cache directory to confirm a new class_name had registered. It was denied because the rule's fallback test is literally \"or a greater-than sign appears in the text\", and the command contained 2 greater-than ampersand 1, and 2 greater-than /dev/null. Neither is a write to the guarded path; both are stderr redirections, and the first does not touch the filesystem at all.\n\nTHE IRONY THAT MAKES THIS WORTH FIXING RATHER THAN WORKING AROUND: the guard's own denial message tells the operator that the supported path is exactly the in-place import \u2014 which is precisely what the command was doing. So the rule denies the operation it recommends, whenever the operator also wants to see stderr or verify the cache afterwards. And verifying afterwards is the CORRECT habit, because a class_name that has not registered is a HANG rather than an error (CLAUDE.md), which is exactly the failure this session hit when a cherry-pick introduced a new class_name and the parse check went red.\n\nGAP 2 \u2014 a bare POSITIONAL argument is not scrubbed, only flag values are. Filing this very item was itself denied, because the backlog text quotes the cache path and contains greater-than characters in its example commands. _scrub_payload_values blanks the value after -m, --message, -F, --file, --body and --body-file; it has no notion of \"this command's positional argument is prose\". LF-179 closed the heredoc shape of the same problem and explicitly narrowed rather than closed the class. This is the remaining shape, and it will recur for every tool whose payload is positional rather than flagged: backlog.py add, issues.py close --note is fine but the note text is not, gh issue comment when the body is inline.\n\nFIXES, narrow and testable. For gap 1: when testing for a redirect, ignore any greater-than that is preceded by a file-descriptor digit or that forms greater-than ampersand, and ideally require the redirect TARGET to be the guarded path rather than merely co-occurring with it anywhere in the command. For gap 2: extend the payload scrubbing to treat the final positional argument of a known prose-taking subcommand as payload, the same way heredoc bodies are now stripped.\n\nAdd all three shapes to --selftest, since the existing suite proves the deny side well and the allow side thinly: a command that READS the cache with a stderr redirect must ALLOW; a backlog or comment command whose prose merely mentions the cache must ALLOW; and cat foo redirected into a file under the import cache must still DENY. Worked around here by writing the text to a scratch file and passing it by command substitution, which is not a fix \u2014 the next person hits it at the same moment, right after a cherry-pick introduces a class_name and the parse check goes red.",
+      "kind": "bug",
+      "area": "tooling",
       "pri": "med",
       "status": "open",
       "why": "",
