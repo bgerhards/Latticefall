@@ -560,14 +560,39 @@ def check_chronicle_current() -> Result:
     ## first run.
     cited = {c["hash"] if isinstance(c, dict) else c
              for e in entries for c in (e.get("commits") or [])}
-    if not cited:
+    ## Subjects, not just hashes — LF-184. Matching on hash alone was broken for the entire
+    ## life of this check and nobody noticed, because it can only ever succeed by accident:
+    ##
+    ##   1. The chronicler is dispatched BEFORE the coordinator commits, so it can read the
+    ##      working-tree diff it is describing. Every entry is therefore authored with no
+    ##      commit hash to cite at all.
+    ##   2. Even when the hash is backfilled afterwards, `gh pr merge --squash` mints a NEW
+    ##      commit on `main`. The branch hash the entry cites is never in `git log` of the
+    ##      merged history, so the check walks straight past it.
+    ##
+    ## Measured: with hash-only matching this reported "15 commits since the newest
+    ## journalled one" on a `main` where the newest four commits each had their own entry.
+    ## The one check meant to stop the journal going quiet was blind to every entry written
+    ## the way the ship skill tells you to write them.
+    ##
+    ## A subject survives the squash — `gh` appends " (#106)" and keeps the rest — so the
+    ## subject is the stable identity across a merge and the hash is not. Hashes stay in the
+    ## match because a non-squashed commit is still legitimate and cheap to check.
+    cited_subjects = {(c.get("subject") or "").strip()
+                      for e in entries for c in (e.get("commits") or [])
+                      if isinstance(c, dict) and (c.get("subject") or "").strip()}
+    if not cited and not cited_subjects:
         return Result(OK, f"{len(entries)} entries (none cite a commit)")
-    r = subprocess.run(["git", "log", "--format=%h", "-60"],
+    r = subprocess.run(["git", "log", "--format=%h%x00%s", "-60"],
                        capture_output=True, text=True, cwd=str(ROOT))
-    log = [h for h in r.stdout.split() if h]
+    log = [ln.split("\x00", 1) for ln in r.stdout.splitlines() if "\x00" in ln]
     behind = 0
-    for h in log:
+    for h, subj in log:
         if any(c.startswith(h) or h.startswith(c) for c in cited):
+            break
+        ## `git log` gives "<subject> (#106)" after a squash; the entry cites the bare
+        ## subject, so the log line starts with it rather than equalling it.
+        if any(subj.startswith(s) for s in cited_subjects):
             break
         behind += 1
     else:
