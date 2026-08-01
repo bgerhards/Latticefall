@@ -30,6 +30,15 @@ wall-clock cap, or too many consecutive failures.
 
 NOT A SCHEDULER. This runs in the foreground and holds a lockfile. Run it under `systemd --user`
 or `nohup` if you want to walk away; do not run two.
+
+HOW TO WATCH IT AND HOW TO STOP IT, because the first owner to run it could do neither and
+killed it mid-issue, which left a branch checked out and every later run refusing at preflight:
+
+    tools/autoloop.py --status     what it is doing right now, and the tail of the live session
+    tools/autoloop.py --stop       finish the current issue, then exit with the tree on main
+    Ctrl-C once                    the same; twice kills the running session immediately
+
+The only unsafe stop is the second Ctrl-C, and it warns before it does it.
 """
 from __future__ import annotations
 
@@ -38,6 +47,7 @@ import base64
 import json
 import os
 import re
+import signal
 import ssl
 import subprocess
 import sys
@@ -54,6 +64,7 @@ MAP = ISSUES / ".map.json"
 LOCK = ROOT / ".cache" / "autoloop.lock"
 STATEFILE = ROOT / ".cache" / "autoloop-state.json"
 STATUS = ROOT / ".cache" / "autoloop-status.json"   # live, human-readable, tail-friendly
+STOPFILE = ROOT / ".cache" / "autoloop-stop"        # touch it to stop at the next boundary
 LOGDIR = ROOT / ".cache" / "autoloop-logs"
 
 # ntfy. A self-hosted instance is usually behind auth and often behind a self-signed cert, so
@@ -144,6 +155,30 @@ def _ntfy_ssl():
 
 _ntfy_warned = False
 
+# HTTP HEADER VALUES ARE LATIN-1 ON THE WIRE, and Python enforces it. `http.client` encodes
+# every header with `latin-1`, so one em dash in a Title raises
+# `'latin-1' codec can't encode character '—'` *before* the request leaves the machine —
+# which this module then reported as "ntfy unreachable", pointing at the network for a bug that
+# was entirely local. Its own notification titles are written in this project's prose style, so
+# they are full of em dashes; every one of those pushes had been failing silently-ish since the
+# feature landed.
+#
+# The fix is to fold header values to ASCII rather than to RFC 2047 encoded-words: ntfy does
+# decode `=?UTF-8?B?...?=`, but only on recent versions, and a self-hosted box that does not
+# would show the raw gibberish as the title. A hyphen where an em dash was is a loss nobody
+# notices on a phone. The BODY is unaffected — it is UTF-8 request data, not a header.
+_ASCII_FOLD = str.maketrans({
+    "—": "-", "–": "-", "−": "-",       # em / en dash, minus
+    "‘": "'", "’": "'", "“": '"', "”": '"',
+    "…": "...", "·": "-", "→": "->", "×": "x", " ": " ",
+})
+
+
+def _header_safe(value: str) -> str:
+    """An HTTP-header-safe rendering of `value`: ASCII only, no control characters."""
+    folded = value.translate(_ASCII_FOLD).encode("ascii", "replace").decode("ascii")
+    return "".join(ch for ch in folded if 32 <= ord(ch) < 127).strip()
+
 
 def notify(title: str, body: str, priority: str = "default", tags: str = "") -> None:
     """Best-effort push. A failed notification must never stop the loop — the whole point is
@@ -157,9 +192,9 @@ def notify(title: str, body: str, priority: str = "default", tags: str = "") -> 
     print(line, flush=True)
     if not NTFY:
         return
-    headers = {"Title": title, "Priority": priority, **_ntfy_auth()}
+    headers = {"Title": _header_safe(title), "Priority": priority, **_ntfy_auth()}
     if tags:
-        headers["Tags"] = tags
+        headers["Tags"] = _header_safe(tags)
     req = urllib.request.Request(NTFY, data=body.encode("utf-8"), method="POST",
                                  headers=headers)
     try:
@@ -178,8 +213,50 @@ def notify(title: str, body: str, priority: str = "default", tags: str = "") -> 
             extra = ""
             if isinstance(exc, urllib.error.URLError) and "CERTIFICATE" in str(exc).upper():
                 extra = " — set LF_NTFY_CA to your CA bundle, or LF_NTFY_INSECURE=1 on a LAN host"
+            elif isinstance(exc, UnicodeEncodeError):
+                extra = " — this is a LOCAL header-encoding bug, not the network; see _header_safe"
             print(f"[autoloop] ntfy unreachable ({exc}){extra}. "
                   f"Continuing WITHOUT notifications.", flush=True)
+
+
+# ──────────────────────────────────────────────────────────── stopping it ──
+#
+# THERE WAS NO WAY TO STOP THIS THING SAFELY, and that is why the owner killed it mid-flight.
+# Ctrl-C into a foreground loop killed the parent and left the spawned session, the branch it
+# had checked out, and whatever it had staged; the next run's preflight then refused with
+# "on branch 'lf/...', expected main" and the owner had no idea whether stopping had been safe.
+#
+# A stop must therefore have a *boundary*: the loop finishes the issue it is on, ships or
+# reports it, and exits with the tree back on main. Two ways to ask for one, because the owner
+# may not have the terminal the loop is running in:
+#
+#   .venv/bin/python tools/autoloop.py --stop     from anywhere; drops a stopfile
+#   Ctrl-C / SIGTERM                              once = graceful, twice = kill the child now
+#
+# Only the second signal is destructive, and it says so before it does it.
+_STOP = {"requested": False, "hard": False}
+
+
+def _stop_reason() -> str:
+    if _STOP["hard"]:
+        return "second signal — child killed"
+    if _STOP["requested"]:
+        return "signal"
+    if STOPFILE.exists():
+        return "--stop requested"
+    return ""
+
+
+def _on_signal(signum, _frame) -> None:                        # noqa: ANN001
+    name = signal.Signals(signum).name
+    if _STOP["requested"]:
+        _STOP["hard"] = True
+        print(f"[autoloop] {name} again — killing the running session NOW. "
+              f"The tree may be left mid-work.", flush=True)
+    else:
+        _STOP["requested"] = True
+        print(f"[autoloop] {name} — will stop after the current issue finishes. "
+              f"Signal again to kill it immediately.", flush=True)
 
 
 def load_state() -> dict:
@@ -320,7 +397,14 @@ def preflight() -> str | None:
         return f"working tree is dirty ({len(out.splitlines())} file(s)) — refusing to start"
     code, branch = sh("git", "rev-parse", "--abbrev-ref", "HEAD")
     if branch != "main":
-        return f"on branch {branch!r}, expected main"
+        # Usually the leftover of a session that was killed mid-issue. Say how to clear it —
+        # the message alone sent the owner looking for a fault that was not there.
+        _, ahead = sh("git", "rev-list", "--count", f"origin/main..{branch}")
+        unmerged = (f"it has {ahead} commit(s) not on origin/main — inspect before discarding"
+                    if ahead.strip() not in ("0", "") else
+                    "it has no commits of its own; safe to delete: "
+                    f"git checkout main && git branch -D {branch}")
+        return f"on branch {branch!r}, expected main. {unmerged}"
     sh("git", "fetch", "origin", timeout=120)
     _, behind = sh("git", "rev-list", "--count", "HEAD..origin/main")
     if behind.strip() not in ("0", ""):
@@ -407,10 +491,16 @@ def run_one(issue: Issue, model: str, timeout_s: int, heartbeat_s: int,
         with logfile.open("w", encoding="utf-8") as fh:
             proc = subprocess.Popen(argv, cwd=str(ROOT), stdout=fh,
                                     stderr=subprocess.STDOUT, text=True)
+            print(f"[autoloop] session log: {logfile}", flush=True)
             while True:
                 if proc.poll() is not None:
                     break
                 now = time.time()
+                if _STOP["hard"]:
+                    proc.kill()
+                    proc.wait(timeout=30)
+                    write_status(state="killed", issue=issue.spec_id, log=str(logfile))
+                    return "STOPPED", f"killed on request after {int(now - t0)}s\n{logfile}"
                 if now - t0 > timeout_s:
                     proc.kill()
                     proc.wait(timeout=30)
@@ -419,8 +509,11 @@ def run_one(issue: Issue, model: str, timeout_s: int, heartbeat_s: int,
                 if now - last_beat >= heartbeat_s:
                     mins = int((now - t0) // 60)
                     ev = progress_evidence(logfile, branch_before)
+                    pending = _stop_reason()
+                    if pending:
+                        ev.append(f"stopping after this issue ({pending})")
                     write_status(state="working", issue=issue.spec_id, minutes=mins,
-                                 evidence=ev, log=str(logfile))
+                                 evidence=ev, log=str(logfile), stop_pending=pending or None)
                     notify(f"still working — {issue.spec_id} ({mins}m)",
                            "\n".join(ev) or "no output yet",
                            priority="low", tags="hourglass_flowing_sand")
@@ -452,6 +545,54 @@ def run_one(issue: Issue, model: str, timeout_s: int, heartbeat_s: int,
     return "FAILED", f"exit {code}, no verdict and no merged PR\n{tail}"
 
 
+def show_status() -> int:
+    """What is it doing RIGHT NOW — the question the owner had no way to answer.
+
+    Three sources, all already on disk: the lockfile says whether a loop is alive at all, the
+    status file says which issue and for how long, and the newest session log's tail is what
+    the agent last said. Deliberately a snapshot rather than a follower — a `tail -f` left
+    armed is its own problem, and the command to start one is printed instead.
+    """
+    alive = LOCK.exists()
+    pid = ""
+    if alive:
+        try:
+            pid = LOCK.read_text().splitlines()[0]
+            os.kill(int(pid), 0)
+        except ProcessLookupError:
+            alive = False
+            print(f"lockfile names pid {pid}, which is GONE — stale lock at {LOCK}\n"
+                  f"remove it before starting another loop.")
+        except Exception:                                      # noqa: BLE001
+            pass
+    print(f"loop     {'running, pid ' + pid if alive else 'not running'}")
+    if STOPFILE.exists():
+        print(f"stop     REQUESTED ({STOPFILE.read_text().strip()}) — will exit at the "
+              f"next issue boundary")
+    try:
+        st = json.loads(STATUS.read_text())
+        for k in sorted(st):
+            v = st[k]
+            v = "\n         ".join(v) if isinstance(v, list) else v
+            print(f"{k:<9}{v}")
+    except Exception:                                          # noqa: BLE001
+        print("status   none written yet")
+    logs = sorted(LOGDIR.glob("*.log"), key=lambda p: p.stat().st_mtime) if LOGDIR.exists() else []
+    if logs:
+        newest = logs[-1]
+        age = int(time.time() - newest.stat().st_mtime)
+        tail = [ln for ln in newest.read_text(errors="replace").splitlines() if ln.strip()][-8:]
+        print(f"\nnewest log ({age}s since last write): {newest}")
+        for ln in tail:
+            print(f"  {ln[:200]}")
+        print(f"\nfollow it with:  tail -f {newest}")
+    _, dirty = sh("git", "status", "--porcelain")
+    _, branch = sh("git", "rev-parse", "--abbrev-ref", "HEAD")
+    print(f"\ntree     {branch}, "
+          f"{len(dirty.splitlines()) if dirty else 0} uncommitted file(s)")
+    return 0
+
+
 # ───────────────────────────────────────────────────────────────────── main ──
 
 def main() -> int:
@@ -471,7 +612,25 @@ def main() -> int:
     ap.add_argument("--dry-run", action="store_true", help="show the queue and exit")
     ap.add_argument("--notify-test", action="store_true",
                     help="send one test push and exit — verify auth BEFORE trusting a night")
+    ap.add_argument("--status", action="store_true",
+                    help="print what the running loop is doing right now, and exit")
+    ap.add_argument("--stop", action="store_true",
+                    help="ask a running loop to stop after the current issue, and exit")
     args = ap.parse_args()
+
+    if args.status:
+        return show_status()
+
+    if args.stop:
+        STOPFILE.parent.mkdir(parents=True, exist_ok=True)
+        STOPFILE.write_text(time.strftime("%Y-%m-%dT%H:%M:%SZ\n", time.gmtime()))
+        if LOCK.exists():
+            print("stop requested. The loop will finish the issue it is on, then exit.\n"
+                  "Watch it with:  .venv/bin/python tools/autoloop.py --status")
+        else:
+            print("stop requested, but no loop is running (no lockfile). The next one to "
+                  "start will stop immediately — remove .cache/autoloop-stop to clear it.")
+        return 0
 
     if args.notify_test:
         # Verify the notifier end to end before a night depends on it. Discovering a 401 at
@@ -513,12 +672,25 @@ def main() -> int:
         print(f"another autoloop holds {LOCK} — refusing to start", file=sys.stderr)
         return 2
     LOCK.write_text(f"{os.getpid()}\n{time.time()}\n")
+    # A stopfile left over from a previous run would stop this one before it did anything.
+    STOPFILE.unlink(missing_ok=True)
+    signal.signal(signal.SIGINT, _on_signal)
+    signal.signal(signal.SIGTERM, _on_signal)
+    print(f"[autoloop] pid {os.getpid()} — stop it with "
+          f"'.venv/bin/python tools/autoloop.py --stop', watch it with '--status'", flush=True)
 
     began = time.time()
     shipped: list[str] = []
     consecutive_failures = 0
     try:
         for n in range(1, args.max_iterations + 1):
+            reason = _stop_reason()
+            if reason:
+                write_status(state="stopped", reason=reason, shipped=shipped)
+                notify("autoloop stopped on request",
+                       f"{reason}\n\nShipped this run: {len(shipped)}\n" + "\n".join(shipped),
+                       tags="octagonal_sign")
+                return 0
             if time.time() - began > args.max_wall_clock:
                 notify("autoloop stopped", f"wall-clock cap reached after {len(shipped)} shipped",
                        tags="hourglass")
@@ -526,6 +698,7 @@ def main() -> int:
 
             err = preflight()
             if err:
+                write_status(state="preflight-failed", reason=err, shipped=shipped)
                 notify("autoloop STOPPED — preflight", err, priority="high", tags="warning")
                 return 1
 
@@ -538,10 +711,20 @@ def main() -> int:
                        tags="white_check_mark")
                 break
 
+            write_status(state="starting", issue=issue.spec_id, iteration=n,
+                         of=args.max_iterations, title=issue.title, shipped=shipped)
             notify(f"autoloop {n}/{args.max_iterations} — starting",
                    f"{issue.spec_id} (#{issue.number}) {issue.title}", tags="hammer")
             verdict, detail = run_one(issue, args.model, args.issue_timeout,
                                       args.heartbeat, args.remote_control)
+
+            if verdict == "STOPPED":
+                write_status(state="stopped", reason="killed on request", issue=issue.spec_id,
+                             shipped=shipped)
+                notify("autoloop killed mid-issue",
+                       f"{issue.spec_id} was interrupted — CHECK THE TREE.\n\n{detail}",
+                       priority="high", tags="octagonal_sign")
+                return 1
 
             if verdict == "SHIPPED":
                 shipped.append(f"{issue.spec_id} — {detail}")
@@ -579,6 +762,7 @@ def main() -> int:
         return 0
     finally:
         LOCK.unlink(missing_ok=True)
+        STOPFILE.unlink(missing_ok=True)     # never let one run's stop request stop the next
         if PY.exists():
             sh(str(PY), "tools/reap.py", "--kill", timeout=60)
 
