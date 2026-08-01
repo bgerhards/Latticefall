@@ -184,7 +184,46 @@ jobs:
           $ErrorActionPreference = "Stop"
           python -c "import sys; sys.path.insert(0, 'tools'); import toolpaths; p = toolpaths.resolve_for_platform('windows'); print('resolved:', p); import subprocess; print(subprocess.run([p, '--version'], capture_output=True, text=True).stdout.strip())"
 
+      # TEMPORARY DIAGNOSTIC, for CI verification only — the full run above (run
+      # 30697883902) hung for the entire 1700s wedge-timeout with zero output past
+      # Godot's own startup banner. Isolate whether this is a Godot-level hang
+      # (independent of tools/test_parity.py and its ThreadPoolExecutor/lease plumbing)
+      # and whether it is specifically the default rendering driver (Vulkan — no ICD on
+      # a GPU-less hosted Windows runner is a known class of CI hang) by invoking Godot
+      # directly, bypassing test_parity.py, for a single cheap anchor. Each step is
+      # capped at 3 minutes (a healthy single-anchor run is expected to take seconds) and
+      # `continue-on-error: true` so both variants run and both logs are visible in one
+      # attempt.
+      - name: DIAGNOSTIC — direct Godot invocation, default rendering driver
+        shell: pwsh
+        timeout-minutes: 3
+        continue-on-error: true
+        run: |
+          & "$env:LF_WINDOWS_GODOT" --headless --path . --script res://scripts/test/parity.gd -- --anchor anchor-01 2>&1 | Tee-Object -FilePath diag-default.log
+          Write-Host "exit code: $LASTEXITCODE"
+
+      - name: DIAGNOSTIC — direct Godot invocation, --rendering-driver opengl3
+        shell: pwsh
+        timeout-minutes: 3
+        continue-on-error: true
+        run: |
+          & "$env:LF_WINDOWS_GODOT" --headless --rendering-driver opengl3 --path . --script res://scripts/test/parity.gd -- --anchor anchor-01 2>&1 | Tee-Object -FilePath diag-opengl3.log
+          Write-Host "exit code: $LASTEXITCODE"
+
+      - name: DIAGNOSTIC — print both logs
+        if: always()
+        shell: pwsh
+        run: |
+          Write-Host "=== default driver log ==="
+          if (Test-Path diag-default.log) { Get-Content diag-default.log } else { Write-Host "(no log — step did not run)" }
+          Write-Host "=== opengl3 driver log ==="
+          if (Test-Path diag-opengl3.log) { Get-Content diag-opengl3.log } else { Write-Host "(no log — step did not run)" }
+
       - name: Run Windows parity leg
+        # TEMPORARY: disabled for this diagnostic push only, so it doesn't re-pay the
+        # ~28min cost of the full run above while the hang above is being isolated.
+        # Restored in the follow-up commit that reverts the diagnostics.
+        if: false
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
