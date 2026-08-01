@@ -1,5 +1,5 @@
 {
-  "next_id": 210,
+  "next_id": 211,
   "items": [
     {
       "id": "LF-001",
@@ -2500,6 +2500,18 @@
     {
       "id": "LF-209",
       "title": "autoloop's spawned session dies instantly with 'Execution error' \u2014 whole log is 15 bytes. Plain 'claude -p ... --model sonnet --output-format text' works and returns; the untested difference is --dangerously-skip-permissions. Repro: .cache/autoloop-logs/PLC-07-1785615753.log from 2026-08-01. Until this is understood the loop cannot ship anything: iteration 1 produced an empty branch, iteration 2 refused at preflight.",
+      "kind": "bug",
+      "area": "tooling",
+      "pri": "med",
+      "status": "dropped",
+      "why": "",
+      "opened": "2026-08-01",
+      "closed": "2026-08-01",
+      "note": "WRONG PREMISE, corrected by reading the transcript. The spawned session was not broken: it ran for three minutes, completed /session-start, read the PLC-07 spec and was dispatching a godot-engineer subagent when it took '[Request interrupted by user for tool use]' \u2014 the owner's Ctrl-C. 'Execution error' is what 'claude -p' prints when a run is aborted, and the 15-byte log is a session that produced no final text because it never finished. Real defect found instead: Ctrl-C is delivered to the foreground PROCESS GROUP, so it reached the child directly and no parent-side graceful stop could ever have worked. Fixed with start_new_session=True + killpg; reproduced both ways before and after."
+    },
+    {
+      "id": "LF-210",
+      "title": "autoloop: if the loop is SIGKILLed, the detached session survives and bills tokens with nobody watching. Its pid is now printed and written to .cache/autoloop-status.json so it can be ended by hand, but reap.py does not know about 'claude' sessions and --status does not check whether that pid is still alive. Teach the reaper about a leased autoloop child.",
       "kind": "bug",
       "area": "tooling",
       "pri": "med",
