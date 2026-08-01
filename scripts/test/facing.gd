@@ -109,7 +109,10 @@ func _init() -> void:
 	# ── 2. emplacements — combat simulated once, headings recorded per tick ────
 	var ids: Array = towers.keys()
 	ids.sort()
-	while sim.free_slots.size() > 0:
+	while true:
+		var free: Array = sim.available_slots()   # PLC-01: computed, not sim.free_slots
+		if free.is_empty():
+			break
 		var placed_one := false
 		for tid in ids:
 			var tw: Dictionary = towers[tid]
@@ -117,7 +120,7 @@ func _init() -> void:
 				continue
 			if sim.online_draw() + float(tw["draw_mw"]) > sim.capacity():
 				continue
-			if sim.build_at(String(tid), sim.free_slots[0]):
+			if sim.build_at(String(tid), float(free[0].x), float(free[0].y)):
 				placed_one = true
 				break
 		if not placed_one:
@@ -141,8 +144,9 @@ func _init() -> void:
 			wt += AnchorSimScript.DT
 			ticks += 1
 			for p in sim.placed:
-				var key := "%d,%d" % [p["slot"].x, p["slot"].y]
-				var slot := Vector2(float(p["slot"].x), float(p["slot"].y))
+				# PLC-01: placed records carry x/y floats, not a slot.
+				var key := "%d,%d" % [int(float(p["x"])), int(float(p["y"]))]
+				var slot := Vector2(float(p["x"]), float(p["y"]))
 				var aim: Variant = p.get("aim", null)
 				var h: Vector2 = (aim as Vector2) - slot if aim != null else Vector2.ZERO
 				if not recorded.has(key):

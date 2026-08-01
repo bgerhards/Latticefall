@@ -18,8 +18,11 @@ class Fixed(Sim):
         self.placed = []
         slots = self._slot_priority()
         for i, tid in enumerate(spec):
-            self.placed.append(Placed(tower=self.towers[tid], slot=slots[i]))
-            self.free_slots.remove(slots[i])
+            # PLC-01: Placed carries x/y, not a slot tuple; there is no free_slots list
+            # to keep in sync any more (Sim._slot_priority() already computes availability
+            # fresh from self.placed each call, and this file bypasses it here anyway by
+            # overriding _try_build() to a no-op below).
+            self.placed.append(Placed(tower=self.towers[tid], x=slots[i][0], y=slots[i][1]))
             self.funds -= self.towers[tid].cost
             self.spend += self.towers[tid].cost
     def _try_build(self): return

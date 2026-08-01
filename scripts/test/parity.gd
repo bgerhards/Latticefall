@@ -302,7 +302,7 @@ func _dispatch_one(s, verb: String, args: Dictionary, charge_state: Dictionary) 
 			s.set_online(int(args["index"]), bool(args.get("on", true)))
 		"build":
 			var slot: Array = args["slot"]
-			s.build_at(String(args["tower"]), Vector2i(int(slot[0]), int(slot[1])))
+			s.build_at(String(args["tower"]), float(slot[0]), float(slot[1]))
 		_:
 			push_error("unknown scheduled verb %s" % verb)
 	return false
@@ -409,9 +409,13 @@ func _run(anchor: Dictionary, towers: Dictionary, enemies: Dictionary,
 			break
 		waves_cleared += 1
 
+	# PLC-01: fixed-precision, not `%d` — positions are floats now, and this string must
+	# match sim/engine.py's f"{p.x:.4f},{p.y:.4f}" bit-for-bit, or a formatting difference
+	# reads as an 864-run parity failure that looks like a rules divergence. See
+	# sim/engine.py's Outcome construction for the same comment.
 	var built: Array = []
 	for p in s.placed:
-		built.append("%s@%d,%d" % [p["tower"]["id"], p["slot"].x, p["slot"].y])
+		built.append("%s@%.4f,%.4f" % [p["tower"]["id"], float(p["x"]), float(p["y"])])
 
 	return {
 		"anchor": anchor["id"],
@@ -428,44 +432,66 @@ func _run(anchor: Dictionary, towers: Dictionary, enemies: Dictionary,
 	}
 
 
+func _is_occupied(s, x: float, y: float) -> bool:
+	## Mirrors sim/engine.py's Sim._occupied() / scripts/anchor_sim.gd's _occupied().
+	## PLC-01: there is no free-list on `s` any more — occupancy is derived from `s.placed`
+	## directly wherever a caller external to AnchorSim needs it, same as the rules files.
+	for p in s.placed:
+		if float(p["x"]) == x and float(p["y"]) == y:
+			return true
+	return false
+
+
 func _slot_priority(s) -> Array:
 	## Same metric as engine.py: distance from the slot to the nearest sampled point on
 	## ANY lane, sampled at the same resolution so both pick the same slot. Squared
 	## distances in float64, matching Sim._slot_priority(). Decision 030. WAR-01: every
 	## lane is sampled and the minimum kept — a slot near just one of several lanes is
 	## still worth a slot, so "nearest the path" means "nearest the nearest lane".
+	## PLC-01: no `s.free_slots` to read any more — the available positions are the
+	## anchor's authored `slots` filtered to those `_is_occupied()` says nothing already
+	## sits on, recomputed here the same way sim/engine.py's Sim._slot_priority()
+	## recomputes it from `self.a.slots` every call. Returns `[x, y]` pairs, never a
+	## Vector2/Vector2i (float32, banned in the rules).
 	var scored: Array = []
-	for slot in s.free_slots:
+	for raw in s.anchor.get("slots", []):
+		var sx: float = float(raw[0])
+		var sy: float = float(raw[1])
+		if _is_occupied(s, sx, sy):
+			continue
 		var best := 1e18
 		for lane in range(s.path_length.size()):
 			var plen: float = s.path_length[lane]
 			var steps: int = maxi(2, int(plen))
 			for i in range(steps + 1):
 				var p: PackedFloat64Array = s.point_at_xy(lane, plen * float(i) / float(steps))
-				var dx: float = p[0] - float(slot.x)
-				var dy: float = p[1] - float(slot.y)
+				var dx: float = p[0] - sx
+				var dy: float = p[1] - sy
 				best = minf(best, dx * dx + dy * dy)
-		scored.append([best, slot.x, slot.y, slot])
+		scored.append([best, sx, sy])
 	scored.sort_custom(func(a, b):
 		if a[0] != b[0]: return a[0] < b[0]
 		if a[1] != b[1]: return a[1] < b[1]
 		return a[2] < b[2])
 	var out: Array = []
 	for row in scored:
-		out.append(row[3])
+		out.append([row[1], row[2]])
 	return out
 
 
 func _try_build(s, policy: Dictionary, buildable: Array) -> void:
-	while s.free_slots.size() > 0:
+	while true:
 		# LF-152/decision 063: provably a no-op for every anchor that omits
-		# max_emplacements (all 24 today) — see effective_cap()'s own doc for the
-		# free_slots/placed invariant that makes this identical to the loop's own
-		# `while s.free_slots.size() > 0` condition in that case. Mirrors
-		# sim/engine.py's Sim._try_build()'s own early check.
+		# max_emplacements (all 24 today) — `effective_cap()` is `anchor.get("slots",
+		# []).size()` in that case (PLC-01: there is no `free_slots` list left to test
+		# directly), so this and the `if order.is_empty(): return` just below it are the
+		# same exit condition restated. Mirrors sim/engine.py's Sim._try_build()'s own
+		# early check.
 		if s.placed.size() >= s.effective_cap():
 			return
 		var order := _slot_priority(s)
+		if order.is_empty():
+			return
 		var placed_one := false
 		for tid in buildable:
 			var tw: Dictionary = s.towers[tid]
@@ -486,12 +512,13 @@ func _try_build(s, policy: Dictionary, buildable: Array) -> void:
 				continue
 			# LF-152: the trap decision 063 named — build_at() can now REFUSE (the cap
 			# check above), and this call ignored its return value entirely, setting
-			# placed_one = true unconditionally. free_slots never shrinks on a refusal,
-			# so the outer while loop would never terminate: an infinite loop, meaning
-			# the parity run HANGS rather than fails. Checking the return value is the
-			# whole fix — a refusal now falls through to the next candidate exactly
-			# like a funds/caps/budget rejection already does.
-			if s.build_at(tid, order[0]):
+			# placed_one = true unconditionally. PLC-01: `order` never shrinks on a
+			# refusal either (it is recomputed fresh next iteration from `s.placed`), so
+			# the outer while loop would never terminate: an infinite loop, meaning the
+			# parity run HANGS rather than fails. Checking the return value is the whole
+			# fix — a refusal now falls through to the next candidate exactly like a
+			# funds/caps/budget rejection already does.
+			if s.build_at(tid, order[0][0], order[0][1]):
 				placed_one = true
 				break
 		if not placed_one:

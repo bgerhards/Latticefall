@@ -3093,6 +3093,115 @@
           "text": "The third instrument this session found quietly untrustworthy, after a gate budget that had never been met and a journal renderer publishing invalid HTML — and the second where the fix was to make the measurement state its own terms, not to change the measurement."
         }
       ]
+    },
+    {
+      "id": "a-position-not-a-slot",
+      "date": "2026-08-01",
+      "time": "10:12",
+      "title": "An emplacement has a position, not a slot",
+      "summary": "PLC-01 (issue #29), the first move on Pillar 2 of the PRD: `Placed.slot: tuple[int,int]` becomes `x`/`y` float64 in both engines. Representation only — legality is a stub that accepts exactly the anchor's authored slot positions, mirrored in one function per engine, so nothing about behaviour could change and nothing did (parity: 1440 runs identical, freshly verified, not from cache). Motivated directly by decision 074's finding that no range value reaches a pad too far from the lane. The bigger find was a look-ahead: four places still assume integer slot coordinates and would silently defeat free placement when PLC-02 opens the predicate, one of them meaning a player currently has no way to build off-grid at all no matter what the rules allow.",
+      "tags": [
+        "PLC"
+      ],
+      "commits": [
+        {
+          "hash": "5e31619",
+          "subject": "feat(rules): an emplacement has a position, not a slot"
+        }
+      ],
+      "body": [
+        {
+          "type": "p",
+          "text": "**Pillar 2 of the PRD starts moving: an emplacement has a position, not a slot.** PLC-01, issue #29. `Placed.slot: tuple[int,int]` becomes `x`/`y` **float64** in both engines."
+        },
+        {
+          "type": "quote",
+          "text": "parity ok — 1440 runs identical (gdscript vs python)\n(digest 2efa855e11f7, freshly verified — not from cache)"
+        },
+        {
+          "type": "p",
+          "text": "**Why \"freshly verified\" is stated:** a cached digest pass would have proved nothing about a representation change, so it was forced."
+        },
+        {
+          "type": "h3",
+          "text": "Why this, now"
+        },
+        {
+          "type": "p",
+          "text": "The owner played the build and said most turrets could barely reach anything (`LF-176`). Decision **074**'s range pass then proved the residual is **slot geometry, not range values** — sweeping pulse-turret from 3.2 to **7.0**, more than double what shipped, leaves p10 pinned at literal **0.0%** while the median climbs sixteen points. No amount of tuning reaches a pad that is simply too far from the lane. Only moving the pad does. That is what makes this the next thing rather than a scheduled item."
+        },
+        {
+          "type": "h3",
+          "text": "The discipline that made it verifiable"
+        },
+        {
+          "type": "p",
+          "text": "The change is **representation only**. Legality goes through one stubbed function, mirrored in both engines, that accepts exactly the anchor's authored slot positions — so nothing about behaviour may change, and nothing did:"
+        },
+        {
+          "type": "table",
+          "headers": [
+            "engine",
+            "the whole seam"
+          ],
+          "rows": [
+            [
+              "`sim/engine.py`",
+              "`return (x, y) in self.a.slots`"
+            ],
+            [
+              "`scripts/anchor_sim.gd`",
+              "a loop doing the identical elementwise float comparison"
+            ]
+          ]
+        },
+        {
+          "type": "p",
+          "text": "`PLC-02` replaces exactly those two bodies. The issue's own reasoning for splitting it: doing representation and rules in one commit means having **no way to tell which one broke parity**. It held."
+        },
+        {
+          "type": "p",
+          "text": "A read-only `slot` property on `Placed` returning `(x, y)` kept `sim/coverage.py` — explicitly out of scope — reading real data unmodified, proved by its own selftest rather than assumed."
+        },
+        {
+          "type": "h3",
+          "text": "The part worth more than the diff"
+        },
+        {
+          "type": "p",
+          "text": "The agent was asked one extra question: is there anywhere left that still assumes integer slot coordinates and would silently break when PLC-02 opens the predicate up? It found **four**, all presentation, none in the rules — and finding them now is far cheaper than meeting them as a mystery later."
+        },
+        {
+          "type": "list",
+          "items": [
+            "**`combat_fx.gd`'s `_beams` is keyed by `Vector2i(int(x), int(y))`.** Two emplacements in the same integer cell — `(4.3, 7.0)` and `(4.7, 7.0)` — collide, so a sustained beam can visually attach to the **wrong gun**. Load-bearing-wrong, not merely stale.",
+            "**`available_slots()` is tied to the fixed-slot concept, not to the predicate.** The moment PLC-02 accepts a position outside `anchor[\"slots\"]`, it will not reflect it at all.",
+            "**The whole click/select UI is `Vector2i`-typed, and rounds the mouse before anything else sees it.** So there is currently **no way for a player to build at a non-integer position regardless of what the rules allow** — which is exactly how PLC-02 could ship green and change nothing visible in play. This is the important one.",
+            "`main.gd`'s scenario `build` verb truncates, so a fractional position in a scenario JSON would be silently floored."
+          ]
+        },
+        {
+          "type": "p",
+          "text": "Also worth a line: one `int()` cast was confirmed **correct and must not be \"fixed\"** — `_height_at(int(x), int(y))` is the intended world-to-tile truncation. A landmine list that flags a correct thing as wrong is worse than none."
+        },
+        {
+          "type": "p",
+          "text": "Filed as `LF-197`."
+        },
+        {
+          "type": "h3",
+          "text": "Verification, all four bars"
+        },
+        {
+          "type": "list",
+          "items": [
+            "parity 1440 identical, fresh",
+            "24 anchors × 3 difficulties, **0 field differences**, compared field-for-field against a `git worktree` baseline built from `HEAD` rather than eyeballed",
+            "tier 2: 25 passed, 0 failed, with `safe operations` and `rules autoloads` called out specifically",
+            "a real screenshot with towers built"
+          ]
+        }
+      ]
     }
   ]
 }

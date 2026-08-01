@@ -83,7 +83,14 @@ DIFFICULTIES: dict[str, tuple[float, float]] = {
 @dataclass
 class Placed:
     tower: Tower
-    slot: tuple[int, int]
+    # PLC-01: free placement. `x`/`y` are continuous float64 positions, not a slot
+    # index — plain floats, never a Vector2/Vector2i (those are float32 in Godot and
+    # banned in the rules; PRD §2.1, decision 030's supersession). The legality test is
+    # still a stub (Sim._is_placeable()) that only accepts the anchor's authored `slots`
+    # positions, so representation changed but behaviour has not: PLC-02 replaces the
+    # predicate, not this shape.
+    x: float
+    y: float
     online: bool = True
     cooldown: float = 0.0
     # BAL-01: mirrors scripts/anchor_sim.gd's placed-record keys of the same name.
@@ -91,13 +98,24 @@ class Placed:
     # build() places) reads exactly as it did before this verb existed. `kills` is
     # tracked unconditionally, independent of whether a policy opts into veterancy,
     # matching anchor_sim.gd's own comment on why annotating it here is safe (a Placed
-    # is only ever compared by `slot`, never by value, so growing this field cannot
-    # collide with the LF-055 identity trap). `upgraded`/`upgrade_paid` back the
+    # is only ever compared by position (x/y — PLC-01; formerly `slot`), never by value,
+    # so growing this field cannot collide with the LF-055 identity trap). `upgraded`/
+    # `upgrade_paid` back the
     # `upgrade` verb and sell()'s refund-on-what-was-actually-paid.
     target_mode: str = "first"
     kills: int = 0
     upgraded: bool = False
     upgrade_paid: int = 0
+
+    @property
+    def slot(self) -> tuple[float, float]:
+        """Read-only backward-compatible accessor. PLC-01 renamed the stored field from
+        `slot` to `x`/`y` (see the comment above) — every caller inside sim/engine.py
+        itself reads x/y directly. This property exists only so `sim/coverage.py`
+        (out of scope for PLC-01 — it drives an unmodified `Sim` and reads this back for
+        telemetry) keeps working unmodified; it is not read by anything that decides a
+        rule."""
+        return (self.x, self.y)
 
 
 @dataclass
@@ -317,7 +335,9 @@ class Sim:
         self.lives = anchor.lives
         self.leaks = 0
         self.placed: list[Placed] = []
-        self.free_slots = list(anchor.slots)
+        # PLC-01: no free-list state. A position's availability is derived on demand —
+        # occupied by anything in `self.placed`, or not — from `self.a.slots`, which is
+        # never mutated. See `_slot_priority()` and `_is_placeable()` below.
         self.units: list[Unit] = []
         self.t = 0.0
 
@@ -467,8 +487,28 @@ class Sim:
 
     # ────────────────────────────────────────────────────────────── build ──
 
-    def _slot_priority(self) -> list[tuple[int, int]]:
-        """Slots nearest the path first — a slot covering nothing is worth nothing.
+    def _is_placeable(self, x: float, y: float) -> bool:
+        """PLC-01's deliberately temporary legality stub. Accepts a position only
+        if it is exactly one of the anchor's authored `slots` entries, reproducing the
+        old fixed-slot legality exactly — the point of this issue is representation only,
+        not a rules change, so parity must be byte-identical with this predicate in
+        place. TODO(PLC-02): replace with the real free-placement predicate (buildable
+        area, minimum spacing, terrain). This is the ENTIRE seam — every caller above and
+        below goes through this one function, mirrored in scripts/anchor_sim.gd's
+        `_is_placeable()`."""
+        return (x, y) in self.a.slots
+
+    def _occupied(self, x: float, y: float) -> bool:
+        """Whether some placed record already sits at exactly (x, y). Free placement has
+        no free-list state to consult (PLC-01) — this is the other half of what
+        `free_slots.has(slot)` used to check in one call, alongside `_is_placeable()`."""
+        return any(p.x == x and p.y == y for p in self.placed)
+
+    def _slot_priority(self) -> list[tuple[float, float]]:
+        """Available slots nearest the path first — a slot covering nothing is worth
+        nothing. PLC-01: "available" is the anchor's authored `slots`, filtered to those
+        not already occupied — there is no stored free-list; this recomputes it, which is
+        cheap since an anchor authors a handful of slots.
 
         Ranked by *squared* distance. Every range test in both engines compares squares
         rather than calling a square root, so the two runtimes do identical IEEE-754
@@ -488,7 +528,8 @@ class Sim:
                     dx, dy = px - slot[0], py - slot[1]
                     best = min(best, dx * dx + dy * dy)
             return best
-        return sorted(self.free_slots, key=lambda s: (d2(s), s))
+        available = [s for s in self.a.slots if not self._occupied(s[0], s[1])]
+        return sorted(available, key=lambda s: (d2(s), s))
 
     def _effective_cap(self) -> int:
         """LF-152/decision 063. The board-saturation denominator: `max_emplacements` if
@@ -501,19 +542,20 @@ class Sim:
 
     def _try_build(self) -> None:
         """Spend down in preference order while funds and capacity allow."""
-        while self.free_slots:
+        while True:
             # LF-152: provably a no-op for every anchor that authors `slots` and no
-            # `max_emplacements` (all 24 today) — `len(self.placed) + len(self.free_slots)`
-            # is invariant at `len(self.a.slots)` through every build()/sell() this file
-            # has (both move a slot between the two lists in lockstep, never create or
-            # destroy one), so `len(self.placed) >= len(self.a.slots)` and
-            # `not self.free_slots` are the same condition and this `while` would have
-            # exited here anyway. Only bites once an anchor sets `max_emplacements` below
-            # its slot count, or has no `slots` at all (free placement, PLC-01 — not yet
-            # loadable end to end, see sim/content.py's load_anchor()).
+            # `max_emplacements` (all 24 today) — `_effective_cap()` is `len(self.a.slots)`
+            # in that case, so this and the `if not slot_order: return` just below it are
+            # the same exit condition restated (PLC-01: there is no `free_slots` list left
+            # to test directly). Only bites once an anchor sets `max_emplacements` below
+            # its slot count, or has no `slots` at all (free placement — not yet loadable
+            # end to end, see sim/content.py's load_anchor()).
             if len(self.placed) >= self._effective_cap():
                 return
             slot_order = self._slot_priority()
+            if not slot_order:
+                return
+            placed_one = False
             for tower in self.buildable:
                 if tower.cost > self.funds:
                     continue
@@ -526,16 +568,16 @@ class Sim:
                 if not self.policy.allow_overdraw and projected > budget:
                     continue
                 slot = slot_order[0]
-                self.placed.append(Placed(tower=tower, slot=slot))
+                self.placed.append(Placed(tower=tower, x=slot[0], y=slot[1]))
                 # Eager, not tick-gated (LF-099): capacity_now(), called again below on
                 # the very next candidate, must see a restorer placed this iteration —
                 # see the comment on _eff_slow/_rebuild_effect_lists().
                 self._rebuild_effect_lists()
-                self.free_slots.remove(slot)
                 self.funds -= tower.cost
                 self.spend += tower.cost
+                placed_one = True
                 break
-            else:
+            if not placed_one:
                 return   # nothing affordable fits
 
     def _shed_load(self) -> None:
@@ -569,7 +611,9 @@ class Sim:
         p = self.placed[index]
         paid = p.tower.cost + p.upgrade_paid
         refund = int(math.floor(paid * SELL_REFUND))
-        self.free_slots.append(p.slot)
+        # PLC-01: no free-list to hand the position back to — deleting the placed record
+        # is the whole of it; the position becomes available again the moment nothing in
+        # `self.placed` sits there (see `_occupied()`).
         del self.placed[index]
         # Eager, not tick-gated (LF-099) — see the comment on _eff_slow in __init__.
         self._rebuild_effect_lists()
@@ -624,23 +668,27 @@ class Sim:
             # Eager, not tick-gated (LF-099) — see the comment on _eff_slow in __init__.
             self._rebuild_effect_lists()
 
-    def build(self, tower_id: str, slot: tuple[int, int]) -> bool:
-        """Mirrors scripts/anchor_sim.gd:360 build_at() — an explicit build at a named
-        slot, so a scenario can express a board `_try_build()`'s own policy search would
-        never reach on its own (BAL-01's own task list).
+    def build(self, tower_id: str, x: float, y: float) -> bool:
+        """Mirrors scripts/anchor_sim.gd:406 build_at() — an explicit build at a named
+        position, so a scenario can express a board `_try_build()`'s own policy search
+        would never reach on its own (BAL-01's own task list).
+
+        PLC-01: takes a continuous (x, y), never a slot index or a Vector2/Vector2i (both
+        float32, banned in the rules). `_is_placeable()` is the legality stub — see its
+        own docstring — and `_occupied()` is the separate "something is already there"
+        check the old `slot not in self.free_slots` used to fold into one test.
 
         LF-152/decision 063: refuses at `_effective_cap()`, same as `_try_build()` above —
         a no-op for every anchor that omits `max_emplacements` (all 24 today)."""
         if len(self.placed) >= self._effective_cap():
             return False
-        if slot not in self.free_slots or tower_id not in self.towers:
+        if not self._is_placeable(x, y) or self._occupied(x, y) or tower_id not in self.towers:
             return False
         tower = self.towers[tower_id]
         if tower.cost > self.funds:
             return False
-        self.placed.append(Placed(tower=tower, slot=slot))
+        self.placed.append(Placed(tower=tower, x=x, y=y))
         self._rebuild_effect_lists()
-        self.free_slots.remove(slot)
         self.funds -= tower.cost
         self.spend += tower.cost
         return True
@@ -805,7 +853,7 @@ class Sim:
             return
         if verb == "build":
             slot = args["slot"]
-            self.build(str(args["tower"]), (int(slot[0]), int(slot[1])))
+            self.build(str(args["tower"]), float(slot[0]), float(slot[1]))
             return
         raise ValueError(f"unknown scheduled verb {verb!r}")
 
@@ -832,7 +880,7 @@ class Sim:
             return 0.0
         best = 0.0
         for p in towers:
-            dx, dy = p.slot[0] - x, p.slot[1] - y
+            dx, dy = p.x - x, p.y - y
             if dx * dx + dy * dy <= p.tower.range * p.tower.range:
                 best = max(best, p.tower.effect_value or 1.0)
         return best
@@ -944,7 +992,7 @@ class Sim:
         ENTIRE reason the indexed and exhaustive paths pick the same unit on a tie:
         this loop's own `keep` logic never changed, only which indices it is offered
         and in what order — and the order is provably identical either way."""
-        candidates = self._candidates_near(grid, p.slot[0], p.slot[1], rng)
+        candidates = self._candidates_near(grid, p.x, p.y, rng)
         target: Unit | None = None
         target_i = -1
         for i in candidates:
@@ -952,7 +1000,7 @@ class Sim:
             if not u.alive:
                 continue
             x, y = pos[i]
-            dx, dy = p.slot[0] - x, p.slot[1] - y
+            dx, dy = p.x - x, p.y - y
             if dx * dx + dy * dy > rng * rng:
                 continue
             revealed = u.kind.kind != "air" or self._covered_by("reveal", x, y) > 0
@@ -1186,7 +1234,12 @@ class Sim:
             mean_load_mw=self._load_integral / self.t if self.t else 0.0,
             capacity_mw=self.a.capacity_mw,
             brownout_fraction=self._brownout_time / self.t if self.t else 0.0,
-            built=[f"{p.tower.id}@{p.slot[0]},{p.slot[1]}" for p in self.placed],
+            # PLC-01: fixed-precision, not `%d`/int truncation — positions are floats now,
+            # and scripts/test/parity.gd's mirror must format bit-for-bit the same string
+            # or an 864-run parity failure reads as a rules divergence when it is really a
+            # formatter disagreeing with itself. `.4f` round-trips exactly for the values
+            # this issue produces (integers) and for PLC-04's binary-fraction lattice.
+            built=[f"{p.tower.id}@{p.x:.4f},{p.y:.4f}" for p in self.placed],
             spend=self.spend, sim_seconds=self.t,
         )
 

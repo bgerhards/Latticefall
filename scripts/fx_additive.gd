@@ -289,7 +289,7 @@ func _draw_beam_charges(energy: float) -> void:
 		if cd <= 0.0 or cd > BEAM_CHARGE_TIME:
 			continue
 		var frac: float = 1.0 - cd / BEAM_CHARGE_TIME
-		var pos: Vector2 = view.to_screen(Vector2(float(p["slot"].x), float(p["slot"].y))) + Vector2(0, -34)
+		var pos: Vector2 = view.to_screen(Vector2(float(p["x"]), float(p["y"]))) + Vector2(0, -34)
 		var col := Color.html(String(fxd.get("core", fxd.get("colour", "#ffffff"))))
 		col.a = frac * energy
 		draw_circle(pos, 4.0 + frac * 10.0, col)
@@ -312,9 +312,13 @@ func _draw_field_pulses(energy: float) -> void:
 		if String(fxd.get("class", "")) != "field" or not p["online"]:
 			continue
 		var col := Color.html(String(fxd.get("colour", "#ffffff")))
-		var offset: float = float(absi(hash(p["slot"])) % 1000) / 1000.0 * FIELD_PULSE_PERIOD
+		# PLC-01: placed records carry x/y floats, not a slot -- hash the equivalent
+		# Vector2i so an anchor authored with today's integer slots keeps hashing to
+		# the identical offset it always has (every position this stub accepts is one).
+		var slot_key := Vector2i(int(float(p["x"])), int(float(p["y"])))
+		var offset: float = float(absi(hash(slot_key)) % 1000) / 1000.0 * FIELD_PULSE_PERIOD
 		var phase: float = fmod(t + offset, FIELD_PULSE_PERIOD)
-		var pos: Vector2 = view.to_screen(Vector2(float(p["slot"].x), float(p["slot"].y)))
+		var pos: Vector2 = view.to_screen(Vector2(float(p["x"]), float(p["y"])))
 		if phase < FIELD_PULSE_DURATION:
 			var f: float = phase / FIELD_PULSE_DURATION
 			var rng: float = float(tw["range"])

@@ -145,7 +145,12 @@ class Anchor:
     lives: int
     grid: tuple[int, int]
     lanes: tuple[Lane, ...]
-    slots: tuple[tuple[int, int], ...]
+    # PLC-01: float64, not int — Placed.x/y (sim/engine.py) are continuous positions and
+    # the legality stub (Sim._is_placeable()) compares a build position against this tuple
+    # directly, so both sides of the comparison must be the same type. `float(x)` on an
+    # authored integer is exact (every one of today's 24 anchors), matching the loader's
+    # existing idiom for `waypoints` above.
+    slots: tuple[tuple[float, float], ...]
     waves: tuple[Wave, ...]
     tutorial: bool = False
     # Act III: MW the bus loses at the start of every wave after the first. The reactor
@@ -383,7 +388,9 @@ def load_anchor(anchor_id: str) -> Anchor:
         # missing `slots` key the same way (`anchor.get("slots", [])`); this loader was the
         # one place still requiring it, which would crash rather than degrade the moment a
         # free-placement anchor existed to load.
-        slots=tuple((int(x), int(y)) for x, y in doc.get("slots", [])),
+        #
+        # PLC-01: `float(x)`, not `int(x)` — see the field's own comment on Anchor.slots.
+        slots=tuple((float(x), float(y)) for x, y in doc.get("slots", [])),
         waves=tuple(
             Wave(
                 lead_in=w.get("lead_in", 20.0),
