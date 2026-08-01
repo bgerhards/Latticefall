@@ -52,6 +52,11 @@ const CELL_KEY_STRIDE: int = 1000000
 ## own task list.
 const USE_SPATIAL_INDEX: bool = true
 
+## PLC-02. Mirrors sim/engine.py's FOOTPRINT_RADIUS -- see its own comment for why every
+## tower shares this single radius rather than an authored per-tower value (towers.json
+## is out of scope for this change; a per-tower field is the documented follow-up).
+const FOOTPRINT_RADIUS: float = 0.45
+
 ## Added to SELL_REFUND by the caller, and left at 0.0 by anything that does not set it —
 ## which is every grading path, so this cannot move a grade. It exists because
 ## `Recoveries.sell_refund_add()` may not be read from inside this file at all: parity.gd
@@ -401,18 +406,97 @@ func effective_cap() -> int:
 	return max_emplacements if max_emplacements > 0 else anchor.get("slots", []).size()
 
 
+## PLC-02 legality reasons, in the fixed test order below. Mirrors
+## sim/engine.py's Sim.REASON_*. {{PLC-07}} shows the player whichever of these
+## _is_placeable() collapses to a bool.
+const REASON_OK: String = "ok"
+const REASON_OUT_OF_BOUNDS: String = "out_of_bounds"
+const REASON_LANE_STANDOFF: String = "too_close_to_lane"
+const REASON_OVERLAP: String = "overlap"
+
+
+func _placement_reason(x: float, y: float) -> String:
+	## The real free-placement predicate, in the ONE place both engines read a candidate
+	## position's legality from -- mirrored character-for-character (same arithmetic term
+	## order) from sim/engine.py's Sim._placement_reason(). Runs three tests in a FIXED
+	## order, returning the first that fails, or REASON_OK: bounds, lane standoff, overlap.
+	##
+	## COORDINATE CONVENTION, pinned here and in the Python mirror, never re-derived:
+	## positions are tile-CENTRE coordinates. A board `w` tiles wide, `h` tiles tall has
+	## interior [-0.5, w-0.5] x [-0.5, h-0.5] -- tile (0,0)'s centre is 0.5 tiles from the
+	## board's outer edge on every side. A footprint of radius `r` is in bounds exactly
+	## when `x - r >= -0.5` and `x + r <= w - 0.5` (and the same for y).
+	##
+	## A TOUCHING footprint is LEGAL, in both the lane and the overlap test: both use
+	## `>=`/`<` (never `>`/`<=`) so a position exactly `lane_half_width + r` from the path,
+	## or exactly `r_i + r_j` from a neighbour, passes. Getting `>=` vs `>` to differ
+	## between the two engines on that exact boundary is the one-in-a-thousand parity
+	## failure PLC-02 exists to prevent (PRD §2.1) -- the boundary is asserted by a
+	## dedicated test, not left to chance.
+	##
+	## No square root anywhere: every distance compares squared, so both runtimes do
+	## identical IEEE-754 double arithmetic instead of comparing a sqrt against a hypot
+	## and disagreeing in the last bit (decision 030). The lane test samples the path as
+	## SEGMENTS, pairwise over each lane's own waypoints (`_wx`/`_wy`, precomputed by
+	## setup() -- these ARE the authored waypoints, never resampled) -- never the
+	## `steps`-resolution point sampling _slot_priority() in scripts/test/parity.gd uses,
+	## which is a grader heuristic and is allowed to be approximate; this is a rule and
+	## must not be. Point-to-segment: `t = clamp(dot(p-a, b-a) / dot(b-a, b-a), 0, 1)`,
+	## guarded against a degenerate (duplicate-waypoint) segment by falling back to
+	## `t = 0` rather than dividing by zero -- none of the 24 anchors has one today, but
+	## content should not be able to crash this by authoring one.
+	var r: float = FOOTPRINT_RADIUS
+	var w: int = int(anchor["grid"]["w"])
+	var h: int = int(anchor["grid"]["h"])
+	if not (x - r >= -0.5 and x + r <= float(w) - 0.5 and y - r >= -0.5 and y + r <= float(h) - 0.5):
+		return REASON_OUT_OF_BOUNDS
+
+	var lane_half_width: float = float(anchor.get("lane_half_width", 0.5))
+	var standoff: float = lane_half_width + r
+	var best_d2: float = 1e18
+	for lane in range(_wx.size()):
+		var wx: PackedFloat64Array = _wx[lane]
+		var wy: PackedFloat64Array = _wy[lane]
+		for i in range(wx.size() - 1):
+			var ax: float = wx[i]
+			var ay: float = wy[i]
+			var bx: float = wx[i + 1]
+			var by: float = wy[i + 1]
+			var abx: float = bx - ax
+			var aby: float = by - ay
+			var ab2: float = abx * abx + aby * aby
+			var t: float
+			if ab2 <= 0.0:
+				t = 0.0
+			else:
+				t = ((x - ax) * abx + (y - ay) * aby) / ab2
+				t = minf(1.0, maxf(0.0, t))
+			var cx: float = ax + abx * t
+			var cy: float = ay + aby * t
+			var dx: float = x - cx
+			var dy: float = y - cy
+			var d2: float = dx * dx + dy * dy
+			best_d2 = minf(best_d2, d2)
+	if best_d2 < standoff * standoff:
+		return REASON_LANE_STANDOFF
+
+	for p in placed:
+		var pdx: float = x - float(p["x"])
+		var pdy: float = y - float(p["y"])
+		var pd2: float = pdx * pdx + pdy * pdy
+		var rr: float = r + FOOTPRINT_RADIUS   # r_i + r_j -- both FOOTPRINT_RADIUS until
+		if pd2 < rr * rr:                      # towers author their own (see the const's note)
+			return REASON_OVERLAP
+
+	return REASON_OK
+
+
 func _is_placeable(x: float, y: float) -> bool:
-	## TODO(PLC-02): deliberately temporary. PLC-01 is representation only — a continuous
-	## float position replaces the slot index — and the legality test stays a stub that
-	## accepts ONLY the anchor's existing authored `slots` positions, so behaviour is
-	## byte-identical to the fixed-slot game this replaces. PLC-02 replaces this one
-	## function with the real free-placement predicate (buildable area, minimum spacing,
-	## terrain); nothing else in this file needs to change when it does. Mirrors
-	## sim/engine.py's Sim._is_placeable().
-	for s in anchor.get("slots", []):
-		if float(s[0]) == x and float(s[1]) == y:
-			return true
-	return false
+	## Whether (x, y) is a legal build position. See _placement_reason() for the three
+	## tests this collapses, in order, and the coordinate convention they share -- this
+	## file's ONE seam for placement legality, mirrored in sim/engine.py's
+	## Sim._is_placeable()/_placement_reason().
+	return _placement_reason(x, y) == REASON_OK
 
 
 func _occupied(x: float, y: float) -> bool:
@@ -448,8 +532,8 @@ func build_at(tower_id: String, x: float, y: float) -> bool:
 	## LF-152/decision 063: refuses at effective_cap() — a no-op for every anchor that
 	## omits max_emplacements (all 24 today; see effective_cap()'s own doc). PLC-01: takes
 	## a continuous (x, y), never a slot index or a Vector2/Vector2i (both float32,
-	## banned in the rules — PRD §2.1). `_is_placeable()` is the legality stub; `_occupied()`
-	## is the separate "something is already there" check the old
+	## banned in the rules — PRD §2.1). `_is_placeable()` is PLC-02's real free-placement
+	## predicate; `_occupied()` is the separate "something is already there" check the old
 	## `free_slots.has(slot)` used to fold into one test.
 	if placed.size() >= effective_cap():
 		return false

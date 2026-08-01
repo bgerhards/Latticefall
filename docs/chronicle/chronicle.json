@@ -3202,6 +3202,88 @@
           ]
         }
       ]
+    },
+    {
+      "id": "placement-rule-both-engines",
+      "date": "2026-08-01",
+      "time": "11:01",
+      "title": "Where you may build is now a rule, in both engines — and still unreachable",
+      "summary": "PLC-02 (issue #30) replaces PLC-01's exact-match stub with the real free-placement predicate — bounds, lane standoff, overlap — mirrored character-for-character in `sim/engine.py` and `scripts/anchor_sim.gd`. Parity holds at 1440 runs, but the entry's real subject is why that number could not have caught a wrong predicate, and how the rule was proved directly instead.",
+      "tags": ["PLC"],
+      "commits": [
+        {"hash": "64c9314", "subject": "feat(rules): where you may build is a rule, in both engines"},
+        {"hash": "efdd278", "subject": "docs(backlog): per-tower footprint geometry, deferred out of PLC-02"}
+      ],
+      "body": [
+        {
+          "type": "p",
+          "text": "**PLC-02 — where you may build is now a rule, in both engines.** Bounds, lane standoff, overlap, replacing PLC-01's exact-match stub that accepted only an anchor's authored slot positions."
+        },
+        {
+          "type": "quote",
+          "text": "parity ok — 1440 runs identical (gdscript vs python)\n(digest 03a12e483b9d, freshly verified — not from cache)"
+        },
+        {
+          "type": "h3",
+          "text": "But the parity result is the weak evidence, and that is the entry"
+        },
+        {
+          "type": "p",
+          "text": "Neither engine's `_try_build()` calls `_is_placeable()` at all. Both source their candidates from `_slot_priority()`, which reads the authored slots — expanding that set is `PLC-04`'s job. So none of the 1440 parity runs ever asks the predicate about a position outside `anchor[\"slots\"]`. Identical parity therefore means *nothing regressed*. It does **not** mean the new rule is right."
+        },
+        {
+          "type": "p",
+          "text": "A green gate that cannot see the thing you changed is a shape this project keeps finding — a tier-2 budget that was never actually met, a renderer whose output matched its input while both were wrong, a ruleset exercised against zero real references. This is the same failure mode, caught before it shipped as proof of something it did not prove."
+        },
+        {
+          "type": "h3",
+          "text": "So the rule was proved directly instead"
+        },
+        {
+          "type": "list",
+          "items": [
+            "**48,837 sampled positions**, grid step 0.37, across all 24 anchors, extending one tile outside every board edge, with two emplacements pre-placed per anchor to exercise overlap. Dumped from CPython and from a headless Godot `--script` run. `diff` between the two dumps is **empty**.",
+            "**Exact-boundary cases at 1e-9 either side** — the one-in-a-thousand parity failure the spec warns about — both engines agreeing on all three rejection reasons.",
+            "**Term order is identical character-for-character**, not merely algebraically equivalent: `abx*abx + aby*aby`, `dx*dx + dy*dy`, `r + FOOTPRINT_RADIUS`. Floating-point addition is not associative, and on an exact boundary that is the difference between legal and illegal — which is the entire reason the parity gate exists."
+          ]
+        },
+        {
+          "type": "table",
+          "headers": ["position", "python", "godot"],
+          "rows": [
+            ["exactly `standoff` from the lane segment", "`ok`", "`ok`"],
+            ["one `1e-9` closer", "`too_close_to_lane`", "`too_close_to_lane`"],
+            ["exactly `r_i + r_j` from a placed emplacement", "`ok`", "`ok`"],
+            ["one `1e-9` closer", "`overlap`", "`overlap`"],
+            ["exactly on the bounds edge", "`ok`", "`ok`"],
+            ["one `1e-9` past it", "`out_of_bounds`", "`out_of_bounds`"]
+          ]
+        },
+        {
+          "type": "p",
+          "text": "Squared comparisons throughout, no square roots. The path is sampled as **segments**, pairwise over waypoints, never at `_slot_priority()`'s `steps` resolution — that sampling is a grader heuristic and is allowed to be approximate, **a rule is not**."
+        },
+        {
+          "type": "h3",
+          "text": "And the honest ending"
+        },
+        {
+          "type": "p",
+          "text": "**A player still cannot build anywhere new.** `LF-197` is confirmed blocking at every layer it named: `anchor_view.gd`'s `hovered_slot = Vector2i(roundi(t.x), roundi(t.y))` rounds the mouse before anything downstream sees it, and `available_slots()` still enumerates `anchor[\"slots\"]` rather than the predicate. The rule is correct and unreachable."
+        },
+        {
+          "type": "p",
+          "text": "That matters because of what started this: the owner said most turrets could barely reach anything (`LF-176`), decision 074 proved the residual is slot geometry, and free placement is the fix — but only once `PLC-06`/`PLC-07` land. The owner's own play feedback since, `LF-200` (WASD should pan the camera, not step the cursor), belongs in that same change, because it touches the same input path. Two rule issues landed today and neither is yet visible in play."
+        },
+        {
+          "type": "h3",
+          "text": "Also filed"
+        },
+        {
+          "type": "p",
+          "text": "`LF-202` — `FOOTPRINT_RADIUS` is one shared 0.45-tile constant, not a field per tower. Verified harmless today: no two authored slots in any anchor are closer than 0.9 tiles. Becomes real the moment a player can place emplacements as close as the rule allows."
+        }
+      ]
     }
   ]
 }

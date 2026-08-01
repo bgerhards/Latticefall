@@ -145,11 +145,12 @@ class Anchor:
     lives: int
     grid: tuple[int, int]
     lanes: tuple[Lane, ...]
-    # PLC-01: float64, not int — Placed.x/y (sim/engine.py) are continuous positions and
-    # the legality stub (Sim._is_placeable()) compares a build position against this tuple
-    # directly, so both sides of the comparison must be the same type. `float(x)` on an
-    # authored integer is exact (every one of today's 24 anchors), matching the loader's
-    # existing idiom for `waypoints` above.
+    # PLC-01: float64, not int — Placed.x/y (sim/engine.py) are continuous positions.
+    # PLC-02's `_is_placeable()` no longer reads this tuple at all (legality is now the
+    # real bounds/lane/overlap predicate); `_slot_priority()` and `_effective_cap()`'s
+    # fallback still do, so both sides of every comparison against them must stay the
+    # same type. `float(x)` on an authored integer is exact (every one of today's 24
+    # anchors), matching the loader's existing idiom for `waypoints` above.
     slots: tuple[tuple[float, float], ...]
     waves: tuple[Wave, ...]
     tutorial: bool = False
@@ -173,6 +174,12 @@ class Anchor:
     # `slots` is absent, so a None here with an empty `slots` only happens for content the
     # validator would already have rejected).
     max_emplacements: int | None = None
+    # PLC-02: half the standoff width kept between the path polyline and an emplacement's
+    # footprint — see Sim._placement_reason()'s own docstring for the full test. Defaults
+    # to 0.5 (today's single-tile lane), matching the schema default, so every one of the
+    # 24 anchors that omits this key resolves to the standoff the fixed-slot game always
+    # implied.
+    lane_half_width: float = 0.5
 
     def point_at(self, lane: int, dist: float) -> tuple[float, float]:
         return self.lanes[lane].point_at(dist)
@@ -373,6 +380,7 @@ def load_anchor(anchor_id: str) -> Anchor:
         tutorial=doc.get("tutorial", False),
         capacity_decay_mw=doc.get("capacity_decay_mw", 0.0),
         max_emplacements=doc.get("max_emplacements"),
+        lane_half_width=doc.get("lane_half_width", 0.5),
         levels=resolve_terrain(doc),
         grid=(doc["grid"]["w"], doc["grid"]["h"]),
         lanes=tuple(
