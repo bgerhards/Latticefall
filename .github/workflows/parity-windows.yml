@@ -210,14 +210,49 @@ jobs:
           & "$env:LF_WINDOWS_GODOT" --headless --rendering-driver opengl3 --path . --script res://scripts/test/parity.gd -- --anchor anchor-01 2>&1 | Tee-Object -FilePath diag-opengl3.log
           Write-Host "exit code: $LASTEXITCODE"
 
-      - name: DIAGNOSTIC — print both logs
+      # Single-anchor runs above succeeded in ~25s each on both drivers, ruling out a
+      # Godot-launch / GPU-driver hang. Next question: is the FULL (no --anchor)
+      # 1152-combination run actively computing (just slower than the ~594s local
+      # measurement) or genuinely stalled (0% CPU, waiting on something that never
+      # resolves) — a plain output-wait can't tell those apart since parity.gd prints
+      # PARITY_JSON exactly once, at the very end, never incrementally. Polling the
+      # process's own CPU time is a much sharper signal: steadily climbing CPU means
+      # it's working; flat CPU near a poll boundary means it's blocked.
+      - name: DIAGNOSTIC — direct Godot invocation, FULL suite, poll CPU for 4min
+        shell: pwsh
+        continue-on-error: true
+        run: |
+          $proc = Start-Process -FilePath "$env:LF_WINDOWS_GODOT" `
+            -ArgumentList "--headless","--path",".","--script","res://scripts/test/parity.gd" `
+            -PassThru -RedirectStandardOutput diag-full-stdout.log -RedirectStandardError diag-full-stderr.log
+          $deadline = (Get-Date).AddMinutes(4)
+          while ((Get-Date) -lt $deadline) {
+            Start-Sleep -Seconds 20
+            $proc.Refresh()
+            if ($proc.HasExited) { break }
+            $cpu = if ($proc.CPU) { [math]::Round($proc.CPU, 1) } else { 0 }
+            $ws = [math]::Round($proc.WorkingSet64 / 1MB, 1)
+            Write-Host "$(Get-Date -Format o)  cpu_seconds=$cpu  working_set_mb=$ws  exited=$($proc.HasExited)"
+          }
+          if (-not $proc.HasExited) {
+            Write-Host "still running after 4min cap — killing for diagnostic purposes only"
+            Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
+          } else {
+            Write-Host "process exited on its own, exit code $($proc.ExitCode)"
+          }
+
+      - name: DIAGNOSTIC — print all logs
         if: always()
         shell: pwsh
         run: |
-          Write-Host "=== default driver log ==="
+          Write-Host "=== default driver log (single anchor) ==="
           if (Test-Path diag-default.log) { Get-Content diag-default.log } else { Write-Host "(no log — step did not run)" }
-          Write-Host "=== opengl3 driver log ==="
+          Write-Host "=== opengl3 driver log (single anchor) ==="
           if (Test-Path diag-opengl3.log) { Get-Content diag-opengl3.log } else { Write-Host "(no log — step did not run)" }
+          Write-Host "=== full-suite stdout ==="
+          if (Test-Path diag-full-stdout.log) { Get-Content diag-full-stdout.log } else { Write-Host "(no log — step did not run)" }
+          Write-Host "=== full-suite stderr ==="
+          if (Test-Path diag-full-stderr.log) { Get-Content diag-full-stderr.log } else { Write-Host "(no log — step did not run)" }
 
       - name: Run Windows parity leg
         # TEMPORARY: disabled for this diagnostic push only, so it doesn't re-pay the
