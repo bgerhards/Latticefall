@@ -3751,6 +3751,234 @@
           "text": "Three consecutive pull requests have now been infrastructure — the loop's notifier and stop path, the Ctrl-C process-group fix, and this one — on a project whose standing orders default to game-facing work. None of the three were optional: an unattended loop that cannot be stopped safely or seen from another room is not one that should have been left running. This panel is meant to be the last piece of scaffolding before the loop is pointed back at real backlog issues rather than at itself."
         }
       ]
+    },
+    {
+      "id": "an-arc-is-a-dot-product",
+      "date": "2026-08-01",
+      "time": "20:10",
+      "title": "An arc is a dot product, and no angle ever enters the rules",
+      "summary": "Free placement made which way an emplacement points a real question for the first time, so this is the rule written down before the three weapons that need it exist. An arc looks exactly like a job for the inverse tangent; it is not. A probe of 100,000 float64 pairs across CPython, Linux Godot and Windows Godot found seven operations whose results differ between the two C libraries — the worst of them on 4.32% of samples — and the owner plays the Windows build. So an arc is two dot products against a cosine authored in the data, with no angle, no trigonometry and no square root anywhere in either engine. No shipped weapon changed. The more interesting half is what that costs: the branch is gated on a key no shipped row carries, which is the acceptance criterion itself, so the 1,440-run parity gate executes the absent branch every time and proves nothing about the present one. A gate that runs the whole game says nothing about a branch the shipped data never enters — hence a new check, `firing arcs agree`, and three deliberate breaks to prove it can go red.",
+      "tags": [
+        "PLC"
+      ],
+      "decisions": [
+        "078"
+      ],
+      "commits": [
+        {
+          "hash": "3dd1d86",
+          "subject": "feat(rules): firing arcs as dot products, so no angle ever enters the rules"
+        },
+        {
+          "hash": "e054b4a",
+          "subject": "test(rules): a firing-arc fixture and the two-engine harness that reads it"
+        }
+      ],
+      "body": [
+        {
+          "type": "p",
+          "text": "Until free placement landed earlier today, **which way an emplacement points was not a question anyone had to answer**. An omnidirectional gun bolted to a fixed slot is the same gun wherever it stands. A gun the player positions is not, and three weapons on the roadmap fire in a shape rather than a circle — the Siege Battery, the Cutting Lance and the Spine Driver. None of them exist yet. This is the rule written down first, so that when they arrive the arc is a thing that already works rather than a thing invented under pressure."
+        },
+        {
+          "type": "h3",
+          "text": "An arc looks exactly like a job for the inverse tangent. It is not."
+        },
+        {
+          "type": "p",
+          "text": "The probe that settled it: **100,000 float64 pairs across five value regimes, 24 operations, raw IEEE-754 bytes compared** on CPython, Linux Godot 4.7.1 and — the part that matters — **Windows Godot 4.7.1**. Seven operations disagree between the Microsoft C runtime and glibc:"
+        },
+        {
+          "type": "table",
+          "headers": [
+            "operation",
+            "samples that differ"
+          ],
+          "rows": [
+            [
+              "`tan`",
+              "**4.32%**"
+            ],
+            [
+              "`sin`",
+              "0.133%"
+            ],
+            [
+              "`pow`",
+              "0.130%"
+            ],
+            [
+              "`cos`",
+              "0.120%"
+            ],
+            [
+              "`atan2`",
+              "0.084%"
+            ],
+            [
+              "`exp`",
+              "0.069%"
+            ],
+            [
+              "`log`",
+              "0.031%"
+            ]
+          ]
+        },
+        {
+          "type": "p",
+          "text": "Stable across runs — this is a library difference, not nondeterminism. `sqrt`, `fmod`, `floor`, `round`, a hand-written hypotenuse and the four arithmetic operators come back **byte-identical on all three**. The rules use none of the divergent set today, which means cross-platform agreement currently holds **by accident**, and the owner plays the Windows build. An arc written as an angle difference would have ended that in the worst possible way: correct on every machine the gate runs on, and wrong once, unreproducibly, on the one machine that matters."
+        },
+        {
+          "type": "h3",
+          "text": "What actually shipped"
+        },
+        {
+          "type": "p",
+          "text": "Two comparisons, and nothing else: `dot(to_target, facing) >= 0`, and `dot*dot >= cos_half_angle² · |facing|² · d2`. The threshold is authored in `data/towers.json` as `cos_half_angle` — **the cosine of the half-angle, never the angle** — alongside a facing vector in tile space. Absent means omnidirectional, which is every one of the nine shipped rows. So this pull request lands the mechanism and the guard and **changes no shipped weapon at all**."
+        },
+        {
+          "type": "h3",
+          "text": "Three judgement calls, each of which rejected something"
+        },
+        {
+          "type": "p",
+          "text": "**The squared form removes the square root and is exact — but squaring loses the sign.** A unit standing directly **behind** the emplacement satisfies the squared comparison exactly as well as its mirror image in front does. The `dot >= 0` guard in front of it is load-bearing, not defensive tidiness, and it is written first in both engines with the derivation in both docstrings so nobody simplifies it away."
+        },
+        {
+          "type": "p",
+          "text": "**The cosine is bounded at 0, not at −1.** A half-angle wider than 90° has a negative cosine, at which point the comparison inverts and the sign guard becomes actively wrong rather than merely redundant. The issue left this open — handle it or reject it, but deliberately. It is rejected, in the schema. An inverted branch that nothing exercises is a bug lying in wait for the first weapon that wants a 200° arc, and that weapon does not exist. A cosine of zero already gives a half-plane, which is wider than anything the design calls for."
+        },
+        {
+          "type": "p",
+          "text": "**The facing vector is not normalised, and that is the whole trick.** Its squared length stays on the right-hand side of the comparison instead of being divided out at build time, which is what keeps a square root out of the rules entirely. `[0, 1]` and `[0, 3]` therefore author the identical cone. Normalising once at placement would have been defensible — one square root, on an operation that is provably safe — and it was rejected because it puts a square root in the rules to buy nothing, and because an authored non-unit vector would then be silently rewritten instead of simply working."
+        },
+        {
+          "type": "h3",
+          "text": "The gate that runs the whole game proves nothing about this branch"
+        },
+        {
+          "type": "p",
+          "text": "This is the finding worth more than the feature. `rules parity` drives the entire game through both engines — 1,440 runs, roughly fourteen minutes — and it is the strongest guarantee this project has. It **structurally cannot say anything about the arc rule.** The arc branch is gated on a key that no shipped row carries, and that is not an oversight, it is the acceptance criterion itself: no shipped weapon may gain an arc, so the path stays provably inert. Every one of those 1,440 runs therefore executes the **absent** branch. All of them pass. None of them touch the code that was just written."
+        },
+        {
+          "type": "p",
+          "text": "And it would have kept passing, silently, right up until the first weapon shipped an arc — at which point a divergence between the two engines would have surfaced as an unexplained leak nine minutes into a parity run, with nothing pointing at the arc at all. The general form is the lesson: **a gate that runs the whole game proves nothing about a branch the shipped data never enters.**"
+        },
+        {
+          "type": "h3",
+          "text": "So there is a new check"
+        },
+        {
+          "type": "p",
+          "text": "`firing arcs agree`, tier 3 — `tools/arc_parity.py`, `scripts/test/arc_parity.gd` and a fixture at `data/schema/fixtures/firing-arc.json` that lives under the schema directory because the data validator excludes that tree, making it non-shipping by location rather than by a promise to delete it later. Four emplacements face one lane down which a single walker travels with a million hit points, so that the fire pattern is never accidentally a statement about a kill. 280 ticks. The observable is whether each emplacement fired on each tick, which needs no new accessor on either engine and goes through the real targeting path on both sides."
+        },
+        {
+          "type": "p",
+          "text": "It makes three claims, and the second and third are what make it worth having. Fire patterns must be byte-identical between the two engines. Every firing window must fall inside bounds derived from the **geometry** rather than from either implementation — so two engines wrong in the same way still fail. And the arc'd rows must fire **strictly less** than an un-arc'd control, so an arc test that never engaged at all cannot pass by looking omnidirectional."
+        },
+        {
+          "type": "p",
+          "text": "Measured, green: `ok — 4 emplacement(s) over 280 ticks, 48 shots, python and godot identical and inside the analytic windows`."
+        },
+        {
+          "type": "table",
+          "headers": [
+            "row",
+            "cos_half_angle",
+            "facing",
+            "shots",
+            "window, tiles along the lane"
+          ],
+          "rows": [
+            [
+              "cone",
+              "`0.8660254037844387`",
+              "`[0, 1]`",
+              "5",
+              "8.40 → 10.27 (**1.87 wide**)"
+            ],
+            [
+              "scaled",
+              "`0.8660254037844387`",
+              "`[0, 3]`",
+              "5",
+              "13.87 → 15.73 (**1.87 wide**)"
+            ],
+            [
+              "half",
+              "`0.0`",
+              "`[1, 0]`",
+              "13",
+              "4.00 → 9.60 (5.60 wide)"
+            ],
+            [
+              "omni (control)",
+              "absent",
+              "absent",
+              "25",
+              "3.87 → 15.07 (11.20 wide)"
+            ]
+          ]
+        },
+        {
+          "type": "image",
+          "file": "2026-08-01-plc03-firing-windows.svg",
+          "caption": "The four fixture emplacements' measured firing windows along one lane, plotted from the harness's own output. The two top rows are the claim that matters: `cone` and `scaled` author the same 60° cone with facing vectors of length 1 and 3, and they fire over windows of identical width — 1.87 tiles each — at different points on the lane. That equality is the entire un-normalised-facing argument, and it is the row that goes red the moment somebody “simplifies” the rules to assume a unit vector. The bottom row is the un-arc'd control, five times as wide."
+        },
+        {
+          "type": "h3",
+          "text": "Proved red three ways before it was trusted"
+        },
+        {
+          "type": "p",
+          "text": "A new check that has never failed is a decoration. Each of these was broken on purpose and each one was caught:"
+        },
+        {
+          "type": "list",
+          "items": [
+            "`--corrupt`, the harness's own self-test, collapses the first expected window — red.",
+            "Deleting the `dot >= 0` sign guard from `sim/engine.py`: **34 ticks of cross-engine disagreement** on the half-plane row, plus a window violation — that row began firing from x 0.07 instead of x 4.00, which is exactly the mirror-image-behind-the-gun failure the guard exists to stop.",
+            "Dropping the squared facing length from the Godot engine's arc gate: **25 ticks of disagreement** on the unnormalised row, whose window blew out from 13.87 → 15.73 to 9.40 → 18.27.",
+            "Separately, the static `safe operations` check was proved red on a deliberate inverse tangent appended to the Godot rules file — it named the file, the line and the 0.084% figure — and green again on revert."
+          ]
+        },
+        {
+          "type": "h3",
+          "text": "A small embarrassment, recorded because it is the kind of thing that rots quietly"
+        },
+        {
+          "type": "p",
+          "text": "The issue's own acceptance criterion is a `grep` for banned operations across the two rules files, and it must return nothing. It returned two hits. Both of them were **my own prose** — comments in the rules files boasting that there is no inverse tangent, no cosine and no square root in them, written with the operation names spelled out. The gate's `safe operations` check strips comments before scanning, so it was green throughout and nothing was ever actually wrong; the issue's naive command was not. The comments were reworded to name the operations in words rather than as identifiers, so a future reader running that exact command sees a clean result instead of two false hits and ten minutes of confusion."
+        },
+        {
+          "type": "h3",
+          "text": "Tier 3, not tier 2, and that is a budget decision"
+        },
+        {
+          "type": "p",
+          "text": "`firing arcs agree` is the same shape and roughly the same cost as `terrain parsers agree`, which sits at tier 2 — the natural home for a cheap two-implementation agreement check. It went to tier 3 anyway, because tier 2 is already **over** its own 28,000 ms budget contract on a clean run, and this project decided once already, when it deleted a tuning constant rather than re-fitting it, that the answer to a budget nobody meets is to move the work rather than move the number. Not a judgement about importance. CI runs tier 3 on every pull request."
+        },
+        {
+          "type": "h3",
+          "text": "Verification, stated exactly"
+        },
+        {
+          "type": "list",
+          "items": [
+            "`rules parity` — **1,440 runs identical between the two engines, freshly run rather than served from cache** (digest `6062357c1cc8`), about 14 minutes. This is the acceptance bar: the arc code is present and provably inert.",
+            "`tools/check.py --tier 3` — **36 passed · 0 failed · 3 skipped · 210,575 ms**. The three skips are `music loudness`, `rules parity` and `rules parity (windows)`, all tier 4. `firing arcs agree` green inside the gate at 2,512 ms.",
+            "`rules parity (windows)` was **not run locally.** CI runs it on every pull request that touches a rules file, and this one does — but nothing on this machine has executed the Windows build against these changes, and the whole premise of this work is that the Windows build is the one that differs. Stated plainly rather than folded into the line above."
+          ]
+        },
+        {
+          "type": "h3",
+          "text": "What was not done"
+        },
+        {
+          "type": "p",
+          "text": "The issue lists mirroring the change into `scripts/test/parity.gd` as a task. The faithful report is that **the mirror was already free**: that harness indexes the raw tower rows and places through the same build path the game does, so both new keys reach the rules with no harness edit at all. An upgrade block still cannot override an arc — the merge would carry one through unchanged, but the schema does not admit the keys there and no weapon needs it. And whether the player will be able to rotate an emplacement while placing it is still an open design question rather than something this settled; facing comes from data and does not change."
+        }
+      ]
     }
   ]
 }
