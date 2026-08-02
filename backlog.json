@@ -667,11 +667,11 @@
       "kind": "chore",
       "area": "tooling",
       "pri": "med",
-      "status": "open",
+      "status": "done",
       "why": "",
       "opened": "2026-07-28",
-      "closed": null,
-      "note": ""
+      "closed": "2026-08-01",
+      "note": "closed at 0bf1fbc"
     },
     {
       "id": "LF-057",
@@ -1255,11 +1255,11 @@
       "kind": "risk",
       "area": "tooling",
       "pri": "blocker",
-      "status": "open",
+      "status": "done",
       "why": "The build that ships is never compared against the reference",
       "opened": "2026-07-30",
-      "closed": null,
-      "note": ""
+      "closed": "2026-08-01",
+      "note": "closed at 0bf1fbc"
     },
     {
       "id": "LF-106",
@@ -1387,11 +1387,11 @@
       "kind": "risk",
       "area": "tooling",
       "pri": "med",
-      "status": "open",
+      "status": "done",
       "why": "",
       "opened": "2026-07-30",
-      "closed": null,
-      "note": ""
+      "closed": "2026-08-01",
+      "note": "closed at 0bf1fbc"
     },
     {
       "id": "LF-117",
@@ -1467,7 +1467,7 @@
     },
     {
       "id": "LF-123",
-      "title": "scripts/test/parity.gd's _shed() reaches into AnchorSim.placed and free_slots directly rather than going through the class's own methods. One instance of this was a real bug, found by the first WAR-05 parity run: _shed() wrote s.placed[worst]['online'] = false instead of calling s.set_online(), which bypassed the per-effect list rebuild and left capacity() reading a stale restorer set -- 7 differences across anchor-23/burst at all three difficulties. Fixed for .online; the rest of the function still indexes s.placed and s.free_slots directly, so the next field that needs a hook on write reintroduces the same class of bug silently. Worth a convention note, or making the mutation points the only public way in.",
+      "title": "scripts/test/parity.gd's _shed() reaches into AnchorSim.placed directly (and, before PLC-01, free_slots \u2014 that array no longer exists) rather than going through the class's own methods. One instance of this was a real bug, found by the first WAR-05 parity run: _shed() wrote s.placed[worst]['online'] = false instead of calling s.set_online(), which bypassed the per-effect list rebuild and left capacity() reading a stale restorer set -- 7 differences across anchor-23/burst at all three difficulties. Fixed for .online; the rest of the function still indexes s.placed and s.free_slots directly, so the next field that needs a hook on write reintroduces the same class of bug silently. Worth a convention note, or making the mutation points the only public way in.",
       "kind": "chore",
       "area": "design",
       "pri": "med",
@@ -1503,7 +1503,7 @@
     },
     {
       "id": "LF-126",
-      "title": "Anchor-17's default camera framing (8.5,7.5,1.0) puts 2 of the anchor's 12 build slots (index 2 and 3 in free_slots order) off-screen or behind the INCOMING panel \u2014 discovered while placing towers via --build for LF-117 verification. Not a bug (players use camera pan/zoom), but worth a note in shot.py's docs so the next session doesn't re-derive which slots are visible by trial and error.",
+      "title": "Anchor-17's default camera framing (8.5,7.5,1.0) puts 2 of the anchor's 12 build slots (index 2 and 3 in anchor[slots] order) off-screen or behind the INCOMING panel \u2014 discovered while placing towers via --build for LF-117 verification. Not a bug (players use camera pan/zoom), but worth a note in shot.py's docs so the next session doesn't re-derive which slots are visible by trial and error.",
       "kind": "chore",
       "area": "tooling",
       "pri": "med",
@@ -1531,11 +1531,11 @@
       "kind": "chore",
       "area": "tooling",
       "pri": "med",
-      "status": "open",
+      "status": "done",
       "why": "",
       "opened": "2026-07-31",
-      "closed": null,
-      "note": ""
+      "closed": "2026-08-01",
+      "note": "closed at 0bf1fbc"
     },
     {
       "id": "LF-129",
@@ -2095,11 +2095,11 @@
       "kind": "bug",
       "area": "tooling",
       "pri": "med",
-      "status": "open",
+      "status": "done",
       "why": "",
       "opened": "2026-07-31",
-      "closed": null,
-      "note": ""
+      "closed": "2026-08-01",
+      "note": "closed at 0bf1fbc"
     },
     {
       "id": "LF-176",
@@ -2155,11 +2155,11 @@
       "kind": "chore",
       "area": "tooling",
       "pri": "med",
-      "status": "open",
+      "status": "done",
       "why": "",
       "opened": "2026-07-31",
-      "closed": null,
-      "note": ""
+      "closed": "2026-08-01",
+      "note": "closed at 0bf1fbc"
     },
     {
       "id": "LF-181",
@@ -2323,11 +2323,11 @@
       "kind": "chore",
       "area": "tooling",
       "pri": "med",
-      "status": "open",
+      "status": "done",
       "why": "",
       "opened": "2026-08-01",
-      "closed": null,
-      "note": ""
+      "closed": "2026-08-01",
+      "note": "closed at 0bf1fbc"
     },
     {
       "id": "LF-195",
@@ -2335,11 +2335,11 @@
       "kind": "chore",
       "area": "tooling",
       "pri": "med",
-      "status": "open",
+      "status": "done",
       "why": "",
       "opened": "2026-08-01",
-      "closed": null,
-      "note": ""
+      "closed": "2026-08-01",
+      "note": "closed at 0bf1fbc"
     },
     {
       "id": "LF-196",
@@ -2371,11 +2371,11 @@
       "kind": "chore",
       "area": "tooling",
       "pri": "med",
-      "status": "open",
+      "status": "done",
       "why": "",
       "opened": "2026-08-01",
-      "closed": null,
-      "note": ""
+      "closed": "2026-08-01",
+      "note": "closed at 0bf1fbc"
     },
     {
       "id": "LF-199",
@@ -2383,11 +2383,11 @@
       "kind": "chore",
       "area": "tooling",
       "pri": "med",
-      "status": "open",
+      "status": "done",
       "why": "",
       "opened": "2026-08-01",
-      "closed": null,
-      "note": ""
+      "closed": "2026-08-01",
+      "note": "closed at 0bf1fbc"
     },
     {
       "id": "LF-200",
