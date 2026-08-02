@@ -3979,6 +3979,139 @@
           "text": "The issue lists mirroring the change into `scripts/test/parity.gd` as a task. The faithful report is that **the mirror was already free**: that harness indexes the raw tower rows and places through the same build path the game does, so both new keys reach the rules with no harness edit at all. An upgrade block still cannot override an arc — the merge would carry one through unchanged, but the schema does not admit the keys there and no weapon needs it. And whether the player will be able to rotate an emplacement while placing it is still an open design question rather than something this settled; facing comes from data and does not change."
         }
       ]
+    },
+    {
+      "id": "two-machines-two-answers",
+      "date": "2026-08-01",
+      "time": "20:45",
+      "title": "Two machines, two different answers about how this project is built",
+      "summary": "The owner ran /insights on both computers that have been building Latticefall and asked whether they would say different things. They do, and the interesting part is why. One report covers four days and one project and ranks stolen desktop focus as the top friction; the other covers thirteen active days and five projects and ranks buggy code. Neither is wrong about its own data and both are wrong as a description of the whole — each ranking is an artefact of its own sampling window. Worse, both lag the repository: this machine's headline recommendation was to make every engine run headless, which decision 052 closed weeks ago and guard.py already enforces. So the recommendations are worth little and the cross-validation is worth a lot: only five signals appear on both machines independently. The finding neither report could see, because neither reads the backlog, is the uncomfortable one — 32 of 72 open items are tooling, against a standing order that says default to game-facing work.",
+      "tags": [
+        "PRC"
+      ],
+      "decisions": [],
+      "commits": [
+        {
+          "hash": "9295d0f",
+          "subject": "docs(process): what two machines' insights reports actually said, and the seven changes worth making"
+        }
+      ],
+      "body": [
+        {
+          "type": "p",
+          "text": "Latticefall is built from two computers. The owner ran `/insights` — the usage-analysis report that reads your own session transcripts back to you — on both of them within a minute of each other, and asked a good question: **would two machines that have been building at different times give different information?**"
+        },
+        {
+          "type": "p",
+          "text": "They give *very* different information. The reports do not disagree about any fact. They disagree about what the problem is."
+        },
+        {
+          "type": "table",
+          "headers": [
+            "",
+            "this machine (WSL2)",
+            "the origin machine"
+          ],
+          "rows": [
+            [
+              "window",
+              "4 days",
+              "13 active days"
+            ],
+            [
+              "sessions analysed",
+              "10",
+              "49 graded, of 56"
+            ],
+            [
+              "messages",
+              "171",
+              "964"
+            ],
+            [
+              "projects",
+              "Latticefall only",
+              "five — Latticefall, a product factory, a finance app, ~20 sessions of vintage recipe-card transcription, local infra"
+            ],
+            [
+              "**top friction**",
+              "**stolen desktop focus**",
+              "**buggy code (24 instances)**"
+            ],
+            [
+              "headline advice",
+              "\"make every run headless\"",
+              "\"give one recommendation\", \"deploy after merging\", \"worktree per agent\""
+            ]
+          ]
+        },
+        {
+          "type": "h3",
+          "text": "Both rankings are artefacts of their own sampling window"
+        },
+        {
+          "type": "p",
+          "text": "The origin machine ranks buggy code first because it spans thirteen days and five codebases, most of them without a gate like this project's. This machine ranks desktop focus theft first because its four-day window happens to straddle **the single session where that happened** — one event, in a ten-session sample, becomes a headline. Read either report alone and you would go and fix the wrong thing."
+        },
+        {
+          "type": "h3",
+          "text": "And the reports lag the repository, which is the sharper trap"
+        },
+        {
+          "type": "p",
+          "text": "This machine's number-one recommendation is a `PreToolUse` hook that blocks any Godot or Blender command lacking `--headless` or `xvfb-run`. That work is **already done and has been for weeks**: decision 052 put every engine launch through `toolpaths.godot_argv(..., want_window=False)`, which runs the native Linux build under an `Xvfb` virtual framebuffer, and `guard.py`'s `rule_raw_engine` already denies the bypass. The report's closing anecdote is about a failure mode that no longer exists."
+        },
+        {
+          "type": "p",
+          "text": "That is not a criticism of the tool — it reads transcripts, and the transcripts *do* contain that session. It is a rule about how to use it: **treat every recommendation in an insights report as a hypothesis to check against the gate, never as a backlog item.** One of two headline recommendations this round was already implemented."
+        },
+        {
+          "type": "h3",
+          "text": "What survives: five signals, both machines, independently"
+        },
+        {
+          "type": "list",
+          "items": [
+            "High-autonomy delegation is the working mode and it ships — 391 commits combined; individual sessions merged nine, ten and fifteen PRs unattended.",
+            "**Agents collide in a shared working tree.** The origin machine had two agents contaminate one branch; here, the entire `git stash` / `git add` denial apparatus exists because a stash once swept eleven files across five workstreams.",
+            "**Interrupts happen when a run loops without converging** — not when it is slow. The owner tolerates long silence and does not tolerate visible grinding with no verdict.",
+            "Verbose output is friction, and it is distinct from verbose work.",
+            "**Claims outrun verification** — a wrong root cause filed as a bug, an overstated capability a screenshot contradicted, a \"not installed\" that was installed."
+          ]
+        },
+        {
+          "type": "h3",
+          "text": "The finding neither report could see"
+        },
+        {
+          "type": "p",
+          "text": "Both tools read transcripts. Neither reads the backlog. Counting it directly: **of 72 open items, 32 are `tooling` and 35 are `chore`** — against a standing order whose exact words are *default to game-facing work*."
+        },
+        {
+          "type": "p",
+          "text": "That order is true of how sessions are run and false of the queue they run against. The correction is being applied one session at a time to a problem that regenerates faster than it is applied. It is filed as `LF-212`, with a tier-1 check that goes red when non-game-facing work passes 40% of the queue."
+        },
+        {
+          "type": "p",
+          "text": "With one deliberate wrinkle. The five issues this plan filed are themselves process work, so filing them as `meta` rather than `tooling` would have deflated the very ratio the check measures without a single item changing. So the check counts `tooling` + `meta` + `build` together. **A metric that can be moved by relabelling measures the labels, not the queue.**"
+        },
+        {
+          "type": "h3",
+          "text": "The small failure, recorded because they go in"
+        },
+        {
+          "type": "p",
+          "text": "A commit landed earlier the same evening adding `report-202*-*` to `.gitignore` — sensible, since `/insights` drops its HTML into whatever directory it is run from. But a gitignore pattern with no slash in it matches **at any depth**, so archiving the two reports under `docs/insights/` for the next comparison silently produced nothing: `git status` showed a clean tree and the files were simply invisible. The fix is a negation line, and the lesson is that `git check-ignore -v` is the right tool because it names *which line won* rather than answering yes or no."
+        },
+        {
+          "type": "h3",
+          "text": "Nothing here is implemented"
+        },
+        {
+          "type": "p",
+          "text": "Seven changes are proposed and none is built. The first is the existing `PRC-15` — a git worktree per subagent — which `guard.py`'s own docstring already calls *\"the real fix\"*, and which would dissolve the git denials, the coordinator-only commit path and `LF-133` all at once. The rest are `LF-212` through `LF-216`. The plan is committed as `docs/insights/PROCESS-PLAN.md`, with both source reports archived beside it so the next cross-machine comparison has a baseline to diff against instead of two files in a downloads folder."
+        }
+      ]
     }
   ]
 }
