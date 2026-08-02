@@ -1,5 +1,5 @@
 {
-  "next_id": 211,
+  "next_id": 212,
   "items": [
     {
       "id": "LF-001",
@@ -2512,6 +2512,18 @@
     {
       "id": "LF-210",
       "title": "autoloop: if the loop is SIGKILLed, the detached session survives and bills tokens with nobody watching. Its pid is now printed and written to .cache/autoloop-status.json so it can be ended by hand, but reap.py does not know about 'claude' sessions and --status does not check whether that pid is still alive. Teach the reaper about a leased autoloop child.",
+      "kind": "bug",
+      "area": "tooling",
+      "pri": "med",
+      "status": "open",
+      "why": "",
+      "opened": "2026-08-01",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-211",
+      "title": "tools/chronicle.py's esc() is called with quote=False, so a straight double quote in an image caption terminates the alt attribute early and the rest of the caption leaks into the tag as bogus attributes. Found by the chronicler while writing PLC-03's entry, worked around by using curly quotes -- but relying on every author remembering that is exactly the shape of latent bug this project keeps finding in its own instruments. esc() should escape quotes in attribute contexts. Two related generator limits found at the same time and NOT bugs, just undocumented: **bold** in an entry's summary or an image caption renders literally, because both go through esc() rather than render_inline() (the summary becomes meta description, the caption becomes alt); and single-asterisk *emphasis* is unsupported and renders as bare asterisks, which prior published entries contain and are presumably showing live on the site.",
       "kind": "bug",
       "area": "tooling",
       "pri": "med",
