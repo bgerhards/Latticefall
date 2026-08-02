@@ -242,6 +242,83 @@ def _is_inspector_segment(tokens: list[str]) -> bool:
 
 _PAYLOAD_VALUE_FLAGS = {"-m", "--message", "-F", "--file", "--body", "--body-file"}
 
+## Subcommands whose PROSE arrives as a bare positional rather than behind a flag, so
+## payload-flag scrubbing above cannot see it (LF-204 gap 2). Keyed by the script basename
+## the segment invokes and the subcommand token that follows it; the value is how many
+## non-flag positionals after that subcommand are prose.
+##
+## Filing LF-204 was itself denied by this gap — the issue text quoted the import-cache path
+## and contained redirect characters in its example commands, and the rule read that prose as
+## a command. LF-179 closed the heredoc shape of the same class and deliberately narrowed
+## rather than closed it; this is the remaining shape, and it recurs for every tool whose
+## payload is positional. Kept as an explicit table rather than a heuristic, because
+## "the last positional is probably prose" would silently un-guard `rm`.
+_PROSE_POSITIONALS = {
+    ("backlog.py", "add"): 1,
+    ("issues.py", "close"): 0,      # ids are positional; the prose is behind --note
+}
+
+
+def _scrub_prose_positionals(tokens: list[str]) -> list[str]:
+    """Blank the positional prose argument of a known prose-taking subcommand (LF-204 gap 2).
+
+    Structural tokens are untouched, so `rm`, a real path argument and every flag still
+    reach the pattern match. Only the documented prose slot is blanked.
+    """
+    for i, tok in enumerate(tokens):
+        base = tok.rsplit("/", 1)[-1]
+        if i + 1 >= len(tokens):
+            break
+        n = _PROSE_POSITIONALS.get((base, tokens[i + 1]))
+        if not n:
+            continue
+        out, blanked, j = tokens[: i + 2], 0, i + 2
+        while j < len(tokens):
+            t = tokens[j]
+            if blanked < n and not t.startswith("-"):
+                out.append("\0")
+                blanked += 1
+            else:
+                out.append(t)
+            j += 1
+        return out
+    return tokens
+
+
+## A shell redirect token, as `shlex` leaves it: an optional file-descriptor digit, `>` or
+## `>>`, and optionally the target fused on (`2>/dev/null`) rather than as the next token
+## (`> out.txt`). `>&` and `>&1` duplicate a descriptor and never touch the filesystem.
+_REDIRECT_RE = re.compile(r"^(?P<fd>\d*)(?P<op>>>?)(?P<target>.*)$")
+
+
+def _redirect_targets(tokens: list[str]) -> list[str]:
+    """Every path this segment redirects OUTPUT to. Empty when it redirects nowhere.
+
+    LF-204 gap 1: the old test was `">" in text` — literally "a greater-than sign appears
+    anywhere" — so `2>&1` and `2>/dev/null` read as writes to whatever path the command also
+    mentioned. The denied command was an in-place reimport piped to `tail`, followed by a
+    grep READING the global class cache to confirm a `class_name` had registered: neither
+    redirect touches the guarded path and the first touches no file at all.
+
+    That made the rule deny **the exact operation its own denial message recommends**,
+    whenever the operator also wanted to see stderr or verify afterwards — and verifying
+    afterwards is the correct habit, because an unregistered `class_name` is a hang rather
+    than an error.
+    """
+    targets: list[str] = []
+    for i, tok in enumerate(tokens):
+        m = _REDIRECT_RE.match(tok)
+        if not m:
+            continue
+        target = m.group("target")
+        if target.startswith("&"):
+            continue                      # `2>&1` — a descriptor, not a file
+        if target:
+            targets.append(target)
+        elif i + 1 < len(tokens):
+            targets.append(tokens[i + 1])  # `> out.txt`
+    return targets
+
 
 def _scrub_payload_values(tokens: list[str]) -> str:
     """Re-join a segment's tokens for TEXT pattern matching, blanking the value of any
@@ -301,10 +378,16 @@ def rule_godot_write(payload: dict) -> Decision | None:
         # mention lived inside a `-m` commit message, which is prose, not a path argument).
         cmd = _command(payload)
         for tokens in _segments(cmd):
+            tokens = _scrub_prose_positionals(tokens)
             text = _scrub_payload_values(tokens)
             if not _GODOT_PATH_RE.search(text):
                 continue
-            if _GODOT_WRITE_VERB_RE.search(text) or ">" in text:
+            ## A redirect is a write only when the guarded path is what it redirects TO.
+            ## `cat foo > .godot/x` is a real overwrite performed by the shell even though
+            ## `cat` only reads, so the redirect test cannot simply be dropped — but
+            ## `du -sh .godot 2>/dev/null` writes nothing anywhere (LF-204 gap 1).
+            redirects_here = any(_GODOT_PATH_RE.search(t) for t in _redirect_targets(tokens))
+            if _GODOT_WRITE_VERB_RE.search(text) or redirects_here:
                 return Decision("deny", MSG_GODOT_WRITE, "godot-write")
         return None
     return None
@@ -652,6 +735,24 @@ def _selftest() -> int:
         ("godot-write: sanctioned reimport allowed (raw-engine exception)",
          bash("/Applications/Godot.app/Contents/MacOS/Godot --headless --path . --import"),
          "allow"),
+
+        ## LF-204/LF-213. The deny side of this rule was already proven well and the ALLOW
+        ## side thinly, which is how three false positives reached a live session in one
+        ## day. Each case below is a command that was actually denied, verbatim in shape.
+        ("godot-write: reading the cache with a stderr redirect allowed (LF-204 gap 1)",
+         bash("du -sh .godot 2>/dev/null"), "allow"),
+        ("godot-write: verifying class_name registration after a reimport allowed "
+         "(LF-204 gap 1 — the rule used to deny the operation its own message recommends)",
+         bash("grep -c class_name .godot/global_script_class_cache.cfg 2>&1"), "allow"),
+        ("godot-write: prose positional merely naming the cache allowed (LF-204 gap 2)",
+         bash("tools/backlog.py add 'rebuilding .godot/ blanks the level, and cat x > "
+              ".godot/y is the shape that must stay denied' --kind bug"), "allow"),
+        ("godot-write: a redirect INTO the cache is still denied",
+         bash("cat foo > .godot/imported/y.ctex"), "deny"),
+        ("godot-write: an appending redirect into the cache is still denied",
+         bash("echo x >> .godot/uid_cache.bin"), "deny"),
+        ("godot-write: a redirect elsewhere while naming the cache is allowed",
+         bash("ls .godot > /tmp/listing.txt"), "allow"),
 
         ("background: run_in_background on check.py denied",
          bash("tools/check.py", run_in_background=True), "deny"),
