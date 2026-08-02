@@ -3238,3 +3238,96 @@ standing rule that a version written into prose rots within a day.
 
 **Revisit when.** The owner says so, or a month of loop runs shows the cost is not buying
 better outcomes. The one-line change is `AGENT_MODEL` plus the `--model` default.
+
+---
+
+## 078 — A firing arc is a dot product against an authored cosine, and no angle ever enters the rules
+
+**Date.** 2026-08-01. **Status.** Adopted. **Issue.** `PLC-03`. **Builds on.** Decision 030
+(the rules do double arithmetic and compare squared distances) and `PLC-01`'s supersession of it
+for free placement; decision 049 (facing and yaw are presentation); decision 061 (`safe
+operations`, the static ban).
+
+**Decided.** An emplacement may carry an optional firing arc, authored in `data/towers.json` as
+`cos_half_angle` — **the cosine of the half-angle, never the angle** — plus a `facing` vector in
+tile space. The rules test
+
+```
+dot(to_target, facing) >= 0   AND   dot*dot >= cos_half_angle² · |facing|² · d2
+```
+
+and nothing else. No `atan2`, no `deg_to_rad`, no cosine, no square root, in either engine. Absent
+`cos_half_angle` means omnidirectional, which is every one of the nine shipped rows.
+
+**Why not an angle.** `PLC-03`'s probe — 100,000 float64 pairs across five value regimes, 24
+operations, raw IEEE-754 bytes compared on CPython, Linux Godot 4.7.1 and **Windows Godot
+4.7.1** — found seven operations that diverge between MSVC's UCRT and glibc: `atan2` 0.084%,
+`sin` 0.133%, `cos` 0.120%, `pow` 0.130%, `log` 0.031%, `exp` 0.069%, and **`tan` 4.32%**. Stable
+across runs; a library difference, not nondeterminism. `sqrt`, `fmod`, `floor`, `round`, manual
+hypot and the four arithmetic operators are byte-identical on all three. The rules use none of
+the divergent set today, so cross-platform parity holds **by accident**. An arc written as an
+angle difference would end that, and end it in the worst possible way: correct on every machine
+the gate runs on and wrong, once, unreproducibly, on the machine the owner plays.
+
+**Why the squared form, and what it costs.** `dot >= cos_half_angle · sqrt(d2)` is the honest
+rearrangement and it needs a square root. Squaring both sides removes it and is exact — but it
+loses the sign, so a unit directly *behind* the emplacement satisfies it exactly as well as its
+mirror image in front. The `dot >= 0` guard is therefore load-bearing, not defensive, and it is
+written first in both engines with the derivation in both docstrings.
+
+**`cos_half_angle` is bounded at 0, not −1 — a half-angle over 90° is rejected, not handled.**
+The issue left this open ("handle or reject it in the schema, deliberately"). Rejected: a
+negative cosine inverts the test, the sign guard becomes wrong rather than redundant, and an
+inverted branch nothing exercises is a bug waiting for the first weapon that wants a 200° arc.
+That weapon does not exist and is not on the roadmap; `cos_half_angle: 0.0` already gives a
+half-plane, which is wider than anything PRD §E6 describes.
+
+**`facing` is not normalised, and that is what keeps the square root out.** `|facing|²` stays on
+the right-hand side instead of being divided out at build time. So `[0, 1]` and `[0, 3]` author
+the identical cone — a claim the fixture makes explicitly, with a probe row of each — and the
+rules contain no normalisation step at all. The alternative, normalising once at build time, is
+one `sqrt` per placement on a safe operation and would have been defensible; it was rejected
+because it puts a square root in the rules to buy nothing, and because an authored non-unit
+vector would then be silently rewritten rather than simply working.
+
+**Facing is stored on the placed record, and there are now two facings on it.** Two float64s
+(`facing_x`/`facing_y`, `Placed.facing_x`/`facing_y`), copied off the tower definition at build
+time and never written again — never a `Vector2`, which is float32. `scripts/anchor_view.gd`'s
+`_face()` already writes a presentation `view_yaw` onto the same dictionary (decision 049). The
+`facing_`/`view_` prefixes are the whole of what keeps them apart; nothing in the rules may read
+`view_yaw`, and nothing in presentation should treat `facing_x` as a drawn angle.
+
+**This lands the mechanism and the guard, not a weapon.** No shipped tower row gained
+`cos_half_angle`, and the parity run is byte-identical with the code in place — the arc path is
+provably inert until data asks for it. The consumers are the Siege Battery, the Cutting Lance and
+the Spine Driver (PRD §E6, `LF-087`/`LF-088`/`LF-089`).
+
+**Which makes `rules parity` structurally unable to prove it, which is why there is a new check.**
+Parity runs the whole game through both engines, but the arc branch is gated on a key no shipped
+row carries — so all 1,440 runs execute the *absent* branch. `firing arcs agree` (tier 3,
+`tools/arc_parity.py`, `data/schema/fixtures/firing-arc.json`) fills exactly that hole, in the
+shape decision 057 established for the two terrain resolvers: four emplacements and one walker
+driven through both engines for 280 ticks, fire patterns diffed tick for tick. It also checks
+each firing window against bounds derived from the **geometry** rather than from either
+implementation, so two engines wrong the same way still fail — and asserts the arc'd rows fire
+strictly less than an un-arc'd control, so an arc test that never engaged cannot pass by looking
+omnidirectional. Both deliberate breaks were proved red before the check was trusted: deleting
+the `dot >= 0` guard (34 ticks of disagreement on the half-plane row, plus a window violation),
+and assuming `facing` is a unit vector (25 ticks on the unnormalised row).
+
+**Tier 3, not tier 2, and the reason is a budget rather than a judgement about importance.** It
+is the same shape and cost as `terrain parsers agree`, which sits at tier 2 — but tier 2 is
+already *over* its own 28,000 ms `--budget` contract on a clean run (`LF-178`), and this project
+has already decided once (decision 067) that the answer to a budget nobody meets is to move the
+work, not the number. CI runs tier 3 on every pull request.
+
+**Rejected — an `arc_degrees` field converted at load time.** Author-friendly and it puts the
+banned operation exactly where it is hardest to see: inside a loader, run once, invisible to a
+grep of the fire loop. If a designer wants to think in degrees, the conversion belongs in a tool
+that *writes* the JSON, never at runtime in the rules.
+
+**Rejected — a public `in_arc()` predicate for the harness to call.** It would make the test
+directly observable, and it would either put the rule in the file twice or add a method call per
+candidate per tick to the hottest loop in the sim. The fire pattern is the observable the arc
+decides, it is an integer signal that compares exactly across two languages, and it goes through
+the real `_select_target()` on both sides.

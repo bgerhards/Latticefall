@@ -349,6 +349,36 @@ def check_terrain(doc: dict, rep: Report) -> None:
                 break
 
 
+def check_firing_arc(tid: str, t: dict, rep: Report) -> None:
+    """PLC-03. `cos_half_angle` and `facing` are only meaningful together, and a zero
+    `facing` is a weapon that never fires.
+
+    The schema can say each key's own type and bounds; it cannot say that one implies
+    the other, nor that a two-number array is not (0, 0). Both failures are silent in
+    exactly the way this project keeps getting bitten by: an arc with no facing gives a
+    gate of `cos² * 0 = 0` against a `dot` of 0, so `0 >= 0` is true only at zero
+    distance and the emplacement stands there drawing power and hitting nothing. Nothing
+    is red; the sweep just grades it as a bad tower. A `facing` with no `cos_half_angle`
+    is the milder half — inert, but it means somebody authored an arc and it is not
+    being applied.
+
+    Runs over `data/towers.json`'s rows as loaded, so it covers every tower including any
+    a future issue adds; the nine shipped rows carry neither key and pass trivially.
+    """
+    where = f"towers/{tid}"
+    has_c = "cos_half_angle" in t
+    face = t.get("facing")
+    if has_c and face is None:
+        rep.err(where, "cos_half_angle without facing — the arc has no direction to be "
+                       "measured from, and the emplacement would never fire")
+    if face is not None and not has_c:
+        rep.err(where, "facing without cos_half_angle — the rules only ever read facing "
+                       "through the arc test, so this arc is authored and not applied")
+    if face is not None and float(face[0]) == 0.0 and float(face[1]) == 0.0:
+        rep.err(where, "facing is (0, 0) — zero length, so no unit is ever inside the "
+                       "arc and the emplacement never fires")
+
+
 def check_anchor(doc: dict, towers: dict, enemies: dict, rep: Report) -> None:
     # TER-08: must run before the "no emplacement unlocked" early return below, or
     # terrain checks silently never run on such an anchor.
@@ -670,6 +700,9 @@ def main() -> int:
     for coll, label in ((towers, "tower"), (enemies, "enemy")):
         if len(coll) != len({k for k in coll}):
             rep.err(f"{label}s", "duplicate ids")
+
+    for tid, t in sorted(towers.items()):
+        check_firing_arc(tid, t, rep)
 
     for doc in anchors.values():
         check_anchor(doc, towers, enemies, rep)

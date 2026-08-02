@@ -542,7 +542,18 @@ func build_at(tower_id: String, x: float, y: float) -> bool:
 	var tw: Dictionary = towers[tower_id]
 	if int(tw["cost"]) > funds:
 		return false
-	placed.append({"tower": tw, "x": x, "y": y, "online": true, "cooldown": 0.0})
+	# PLC-03: `facing_x`/`facing_y` are the RULES facing — two float64s copied off the
+	# tower definition here, at build time, and never written again. Absent `facing`
+	# gives (0, 0), which is only ever read when the tower also carries a
+	# `cos_half_angle` (see _arc_gate), and validate_data.py refuses that pair. Never a
+	# Vector2: float32, banned in the rules. Distinct from the PRESENTATION facing —
+	# scripts/anchor_view.gd's _face() writes `view_yaw` onto this same dictionary for
+	# sprite selection (decision 049). Two facings, one record, different meanings; the
+	# `view_` and `facing_` prefixes are what keep them apart, and nothing in this file
+	# may read `view_yaw`.
+	var face: Array = tw.get("facing", [0.0, 0.0])
+	placed.append({"tower": tw, "x": x, "y": y, "online": true, "cooldown": 0.0,
+		"facing_x": float(face[0]), "facing_y": float(face[1])})
 	# Eager, not tick-gated (LF-099): capacity()/_covered_by(), possibly called again
 	# before the next tick() by whatever placed this, must see it. See _eff_slow.
 	_rebuild_effect_lists()
@@ -689,6 +700,58 @@ func _can_target(tw: Dictionary, u: Dictionary, revealed: bool) -> bool:
 	return targets.has("ground")
 
 
+func _arc_gate(p: Dictionary) -> float:
+	## PLC-03. The right-hand constant of one emplacement's firing-arc test, or -1.0
+	## when it has no arc at all (every shipped tower row today).
+	##
+	## Hoisted out of _select_target()'s candidate loop deliberately: this is one
+	## dictionary lookup and two multiplies per emplacement per tick, not per *unit*
+	## per tick, and an emplacement with no arc pays a single `has()` and nothing else.
+	##
+	## THE DERIVATION, so nobody "simplifies" the squared form away.
+	##
+	## A unit at `u` is inside the cone of half-angle θ around `facing` when the angle
+	## between `to = u - p` and `facing` is at most θ, i.e.
+	##
+	##     dot(to, facing) / (|to| * |facing|)  >=  cos θ
+	##
+	## The naive rearrangement needs a square root (|to| = sqrt(d2)). Squaring both
+	## sides removes it:
+	##
+	##     dot*dot  >=  cos²θ * |facing|² * d2                  [the test we run]
+	##
+	## Two things that squaring costs, both handled:
+	##
+	## 1. It is only valid when `dot >= 0`. Squaring loses the sign, so a unit directly
+	##    BEHIND the emplacement satisfies `dot*dot >= ...` exactly as well as the
+	##    mirror-image unit in front of it. _select_target() writes that sign guard
+	##    explicitly, before the squared compare. This is why the schema bounds
+	##    `cos_half_angle` at minimum 0 — a half-angle over 90° has a negative cosine,
+	##    the test inverts, and the guard would be wrong rather than merely redundant.
+	##    Rejected in data/schema/towers.schema.json on purpose, not handled.
+	## 2. `facing` is not required to be a unit vector, so |facing|² stays on the
+	##    right-hand side rather than being divided out by normalising at build time.
+	##    That is what keeps a square root out of the rules entirely. A zero `facing`
+	##    gives a gate of 0 with `dot` also 0, so nothing is ever in arc — which is why
+	##    tools/validate/validate_data.py refuses the pair rather than leaving it to be
+	##    discovered as a weapon that never fires.
+	##
+	## Everything here is `*` and `+` on float64: both are byte-identical across
+	## CPython, Linux Godot and Windows Godot (LF-105's 100,000-sample probe). No
+	## inverse tangent, no cosine, no square root — those seven operations diverge on
+	## 0.03–4.32% of samples between MSVC UCRT and glibc, and the owner plays the
+	## Windows build. Mirrors
+	## sim/engine.py's Sim._arc_gate(), expression for expression: the association of
+	## the three multiplies matters and must not be re-bracketed on one side only.
+	var tw: Dictionary = p["tower"]
+	if not tw.has("cos_half_angle"):
+		return -1.0
+	var c: float = float(tw["cos_half_angle"])
+	var fx: float = float(p["facing_x"])
+	var fy: float = float(p["facing_y"])
+	return c * c * (fx * fx + fy * fy)
+
+
 func _shield_scale(tw: Dictionary, u: Dictionary) -> float:
 	## Mirrors Sim._shield_scale(): a weapon not rated for shielding still lands a
 	## quarter of its damage.
@@ -788,6 +851,13 @@ func _select_target(p: Dictionary, pos: PackedFloat64Array, grid, rng: float,
 	var tw: Dictionary = p["tower"]
 	var target: Dictionary = {}
 	var target_i := -1
+	# PLC-03: -1.0 for an emplacement with no `cos_half_angle`, which is every shipped
+	# tower row — the whole arc branch below is then skipped on a float compare and
+	# costs nothing per candidate. See _arc_gate() for the derivation of the squared
+	# form and of the `dot >= 0` guard.
+	var arc_gate: float = _arc_gate(p)
+	var fx: float = float(p.get("facing_x", 0.0))
+	var fy: float = float(p.get("facing_y", 0.0))
 	for i in candidates:
 		var u: Dictionary = units[i]
 		if not u["alive"]:
@@ -796,8 +866,19 @@ func _select_target(p: Dictionary, pos: PackedFloat64Array, grid, rng: float,
 		var uy: float = pos[2 * i + 1]
 		var dx: float = sx - ux
 		var dy: float = sy - uy
-		if dx * dx + dy * dy > rng * rng:
+		var d2: float = dx * dx + dy * dy
+		if d2 > rng * rng:
 			continue
+		if arc_gate >= 0.0:
+			# `dx`/`dy` are emplacement-minus-unit; the to-target vector is its
+			# negation, and negating an IEEE-754 double is exact, so `-(dx*fx +
+			# dy*fy)` is bit-for-bit the dot product of (ux-sx, uy-sy) with facing.
+			var dot: float = -(dx * fx + dy * fy)
+			# Sign guard FIRST — squaring below cannot tell front from behind.
+			if dot < 0.0:
+				continue
+			if dot * dot < arc_gate * d2:
+				continue
 		var revealed: bool = String(u["kind"].get("kind", "ground")) != "air" \
 			or _covered_by("reveal", ux, uy) > 0.0
 		if not _can_target(tw, u, revealed):

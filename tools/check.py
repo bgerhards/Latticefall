@@ -80,7 +80,7 @@ silent drift. See that check's own docstring for what it caught before it existe
   trustworthy, and `--budget` turns the figures above into assertions, so an instrument that
   can run backwards is the wrong one to be judging a 0.8% margin with. Only `started_at`
   stays on the wall clock, because a timestamp is not a duration.
-- **tier 3 (PR), 35 checks:** tier 2 + `facing harness` (moved here from tier 2, above) +
+- **tier 3 (PR), 36 checks:** tier 2 + `facing harness` (moved here from tier 2, above) +
   `game renders`, `menu renders`, `accessibility`,
   `scenario smoke`, `scenario abilities`, `scenario a11y-worst`, `scenario lf161-scroll`,
   `scenario gamepad` (PRC-18 split what used to be one `scenarios pass` check hardcoding
@@ -90,8 +90,11 @@ silent drift. See that check's own docstring for what it caught before it existe
   genuine two-process save/load round trip and the recovery draft, neither reachable through
   a scenario file at all). PR tier is meant to be where a coverage regression is caught
   before merge, and every one of these nine launches Godot exactly like the three that were
-  here before PRC-18.
-- **tier 4 (nightly/release), 38 checks — the default:** tier 3 + `music loudness` (see
+  here before PRC-18. PLC-03 added `firing arcs agree` here too — a headless, windowless
+  Godot like `terrain parsers agree`, put at this tier rather than at tier 2 because tier 2
+  is already over its own budget (LF-178) and the branch it covers is inert in shipped data;
+  see `check_firing_arcs`'s own docstring.
+- **tier 4 (nightly/release), 39 checks — the default:** tier 3 + `music loudness` (see
   `_run_loudness_check`'s own comment for why it did not join `sfx loudness` at tier 3) +
   `rules parity` (grows with every policy/anchor) + `rules parity (windows)` (BAL-06 — the
   same runs again, against the Windows binary the owner actually plays rather than the Linux
@@ -961,7 +964,14 @@ SAFE_OPS_VECTOR_DIVERGENCE = "10.2%"
 ## list both engines and their harness are built from. `anchor_view.gd`, `iso.gd` and
 ## `fx_additive.gd` are deliberately excluded: facing and yaw are presentation-only
 ## (decision 049) and legitimately use trigonometry.
-SAFE_OPS_SCOPE: list[str] = ["scripts/anchor_sim.gd", "sim/engine.py", "scripts/test/parity.gd"]
+## PLC-03 added `scripts/test/arc_parity.gd` for the same reason `parity.gd` is already
+## here and `iso.gd` is not: it runs the rules inside Godot, so a divergent operation
+## introduced there would move a result the gate then reports as agreement. The issue's
+## own task list says this check must scan "only anchor_sim.gd and engine.py"; what that
+## bullet is protecting against is `iso.gd`'s legitimate trigonometry being flagged, and
+## a rules HARNESS is on the rules side of that line.
+SAFE_OPS_SCOPE: list[str] = ["scripts/anchor_sim.gd", "sim/engine.py",
+                             "scripts/test/parity.gd", "scripts/test/arc_parity.gd"]
 
 SAFE_OPS_EXEMPT_MARKER = "safe-ops-exempt"
 
@@ -1594,6 +1604,48 @@ def check_terrain_parity() -> Result:
     return Result(OK, r.stdout.strip())
 
 
+def check_firing_arcs() -> Result:
+    """PLC-03. `sim/engine.py`'s firing-arc test against `scripts/anchor_sim.gd`'s, on a
+    fixture weapon that carries an arc — because no shipped weapon does.
+
+    This is the check that covers the hole `rules parity` structurally cannot. Parity
+    runs the whole game through both engines, but the arc branch is gated on a
+    `cos_half_angle` key that **no row in `data/towers.json` carries**, deliberately: the
+    acceptance bar for PLC-03 is that all 1,440 parity runs stay byte-identical, which is
+    only true because the arc path is inert. So parity proves the *absent* branch and
+    says nothing about the present one, and would keep saying nothing right up until the
+    Siege Battery, Cutting Lance or Spine Driver (PRD §E6) shipped an arc — at which
+    point a divergence would surface as an unexplained leak nine minutes into a run.
+
+    `tools/arc_parity.py` drives both engines over
+    `data/schema/fixtures/firing-arc.json` — four emplacements, one walker, 280 ticks —
+    and makes three claims: the fire patterns are byte-identical between engines, every
+    firing window falls inside bounds derived from the *geometry* rather than from either
+    implementation (so two engines wrong the same way still fail), and the arc'd rows
+    fire strictly less than an un-arc'd control (so an arc test that never engaged cannot
+    pass by looking omnidirectional). Both deliberate breaks were proved red before this
+    check was trusted: dropping the `dot >= 0` sign guard, and assuming `facing` is a
+    unit vector.
+
+    Tier 3, not tier 2, and that is a deliberate cost decision rather than an oversight.
+    It is the same shape and roughly the same cost as `terrain parsers agree` (one
+    headless Godot, no window), which sits at tier 2 — but tier 2 is already *over* its
+    own 28,000 ms `--budget` contract on a clean run (LF-178), and this file's own note
+    on that says the answer is to move a check out, not to move the number again. Adding
+    one here would have made it worse for a check whose subject is provably inert in
+    shipped data. It joins the PR tier, where CI runs it on every pull request.
+    """
+    script = ROOT / "tools" / "arc_parity.py"
+    if not script.exists():
+        return Result(SKIP, "firing-arc parity harness missing")
+    if toolpaths.godot() is None:
+        return Result(SKIP, "godot not installed")
+    r = run(PY, str(script))
+    if r.returncode != 0:
+        return Result(FAIL, (r.stderr + r.stdout).strip()[-1200:])
+    return Result(OK, r.stdout.strip())
+
+
 def check_rules_parity(force: bool = False, no_cache: bool = False) -> Result:
     """The rules exist twice, in Python and GDScript. Prove they agree.
 
@@ -1825,6 +1877,10 @@ CHECKS = [
     # Deliberately the fast-tier sibling of `rules parity`, and placed next to it so the
     # relationship is visible: same class of risk, a fraction of the cost.
     Check("terrain parsers agree", 2, check_terrain_parity),
+    # PLC-03. The arc-branch sibling of the two above: same "one rule, two
+    # implementations" risk, on the one branch `rules parity` structurally cannot reach.
+    # Tier 3 rather than tier 2 — see the function's own docstring for why.
+    Check("firing arcs agree", 3, check_firing_arcs),
     Check("rules parity",      4, check_rules_parity),
     # BAL-06 / LF-105 (PRD risk 2, blocker): the check above proves parity against
     # whichever Godot toolpaths.godot() prefers (Linux on this machine) — this is the
