@@ -4447,6 +4447,114 @@
           "text": "All ten closed through `Closes:` trailers on the commit — the convention landed a few hours earlier, when it turned out that across 51 merged pull requests **not one** had ever auto-closed anything. The tier-1 check reported `10 close(s) declared and backed` before the commit was allowed to stand. A cull is a one-time cleanup of a queue that regenerates; the mechanism is what keeps it drained. Doing them in that order was deliberate."
         }
       ]
+    },
+    {
+      "id": "the-gate-was-exempt-from-its-own-rule",
+      "date": "2026-08-02",
+      "time": "00:20",
+      "title": "The gate wrote its evidence into the cache it forbids everyone else to touch",
+      "summary": "A hook rule denies every writer access to the engine's import cache, because rebuilding it blanks the level for whoever is playing out of the same tree. The gate wrote three of its own scratch files straight into that directory — it was the one writer exempt from the rule it enforces, by being the thing that wrote the rule. The paths were also fixed rather than per-run, so two concurrent gate runs deleted each other's evidence while the accessibility analyser was still reading it. Fixing it also answered the question PRC-15 calls the single biggest reason worktrees are not free here, and the answer turned out to be that they are.",
+      "tags": [
+        "PRC"
+      ],
+      "decisions": [],
+      "commits": [
+        {
+          "hash": "a3f9411",
+          "subject": "fix(gate): the gate wrote its evidence into the cache it forbids everyone else to touch"
+        }
+      ],
+      "body": [
+        {
+          "type": "p",
+          "text": "Three rendering checks each wrote to a **fixed** path inside `.godot/`, the engine's import cache: a game frame, a menu frame, and four accessibility captures with their JSON reports."
+        },
+        {
+          "type": "h3",
+          "text": "Two things wrong with that, and the second one is funnier"
+        },
+        {
+          "type": "p",
+          "text": "**Fixed paths mean two concurrent gate runs delete each other's evidence.** The accessibility analyser samples its background colours *out of those PNGs*, so it could read a frame another process had already unlinked. “Two agents ran the gate at once” had no defence at all — and that has to be true before parallel agents are safe at all."
+        },
+        {
+          "type": "p",
+          "text": "**And `.godot/` is the directory the owner's running game reads from.** `guard.py`'s `rule_godot_write` denies every writer access to it, for exactly the reason LF-075 records: rebuilding or moving that cache pulls every texture out from under a live session, the menu still draws, the level comes up blank, and it reads precisely like a code regression. It cost a full diagnosis pass once."
+        },
+        {
+          "type": "p",
+          "text": "So the gate was **the one writer exempt from the rule it enforces**, by being the thing that wrote the rule. Scratch files now go to `.cache/gate/`, alongside the leases and the parity digests."
+        },
+        {
+          "type": "h3",
+          "text": "One deliberate deviation from the spec"
+        },
+        {
+          "type": "p",
+          "text": "`PRC-15` asks for the temp directory to be removed in a `finally`. It is not, and that is on purpose."
+        },
+        {
+          "type": "p",
+          "text": "The old code unlinked its frame **after** the assertions passed, and returned early on failure — so a failing rendering check left its frame on disk to be looked at. That is the entire value of a rendering check that failed. A blanket `finally: rmtree` would have been tidier and would have destroyed the evidence every time it mattered. Cleanup happens on **success** only; a failure keeps the directory, and the failure message now says where it is."
+        },
+        {
+          "type": "p",
+          "text": "Both paths were driven directly rather than reasoned about — a synthetic passing check leaves nothing behind, a synthetic failing one keeps its file and reports the path, with the pid in the directory name so a hard-killed run leaves a trail rather than a mystery."
+        },
+        {
+          "type": "h3",
+          "text": "And the question that had been sitting under all of this"
+        },
+        {
+          "type": "p",
+          "text": "`PRC-15` calls one of its tasks *“the single biggest reason worktrees are not free here”*: does each worktree need its own import cache, and can it have one? Worktree isolation is the top item on the process backlog, so this is the number that gates it."
+        },
+        {
+          "type": "table",
+          "headers": [
+            "",
+            "main tree",
+            "agent worktree"
+          ],
+          "rows": [
+            [
+              "import cache",
+              "59 MB",
+              "**52 MB — its own**"
+            ],
+            [
+              "imported files",
+              "1,418",
+              "1,378"
+            ],
+            [
+              "total on disk",
+              "—",
+              "128 MB"
+            ]
+          ]
+        },
+        {
+          "type": "p",
+          "text": "It gets one automatically. Godot has **no** cache-location flag — checked against `--help` on the real binary, where the only relevant flags are `--path` and `--import` — and `--path <dir>` implies the cache inside that directory. **Isolation is by construction rather than by configuration**, which removes the whole LF-075 class of risk from worktree agents instead of mitigating it. The residual cost is one import and about 128 MB."
+        },
+        {
+          "type": "h3",
+          "text": "A requirement withdrawn"
+        },
+        {
+          "type": "p",
+          "text": "The same spec requires worktrees to live **outside** the main checkout, citing LF-051 — six false nomenclature hits off an agent worktree under `.claude/`. But LF-051 was fixed differently and better: the gate enumerates with `git ls-files`, so an untracked worktree is *structurally* invisible to it, and `.claude/worktrees/` is gitignored besides. Both verified directly."
+        },
+        {
+          "type": "p",
+          "text": "So the requirement's reason is gone, and the `Agent` tool's native worktree isolation — which puts them exactly there — is fine. Withdrawn in place, with the reasoning recorded, because a spec is not append-only and a stale requirement is worse than a corrected one."
+        },
+        {
+          "type": "p",
+          "text": "`PRC-15` stays open. The ownership manifest, its hook rule and the `ownership sane` check remain — though worktree isolation may make the manifest unnecessary, since its entire purpose was to referee a **shared** tree."
+        }
+      ]
     }
   ]
 }

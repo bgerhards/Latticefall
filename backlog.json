@@ -2575,11 +2575,11 @@
       "kind": "chore",
       "area": "tooling",
       "pri": "med",
-      "status": "open",
+      "status": "done",
       "why": "PRC-15 is the top process item and its stated blocker turns out to be measurable and bounded",
       "opened": "2026-08-01",
-      "closed": null,
-      "note": ""
+      "closed": "2026-08-01",
+      "note": "closed at 2fbfc79"
     }
   ]
 }
