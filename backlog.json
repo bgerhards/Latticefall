@@ -1,5 +1,5 @@
 {
-  "next_id": 214,
+  "next_id": 215,
   "items": [
     {
       "id": "LF-001",
@@ -2407,11 +2407,11 @@
       "kind": "risk",
       "area": "tooling",
       "pri": "med",
-      "status": "open",
+      "status": "done",
       "why": "",
       "opened": "2026-08-01",
-      "closed": null,
-      "note": ""
+      "closed": "2026-08-01",
+      "note": "closed at c8d9599"
     },
     {
       "id": "LF-202",
@@ -2556,6 +2556,18 @@
       "opened": "2026-08-01",
       "closed": null,
       "note": ""
+    },
+    {
+      "id": "LF-214",
+      "title": "gc.py reported a destruction it could not perform, and counted failures as successes. SUPERSEDES THE ORIGINAL LF-201 TEXT, WHICH WAS WRONG ABOUT THE MECHANISM. Filed as a blocker claiming gc.py --apply would delete a live agent's branch. Reproduced deliberately with a --no-checkout worktree and it does not, for TWO independent reasons: (1) git branch -d '+ lf/repro-201' fails with 'branch not found' because the malformed name was never a real ref, and (2) even parsed correctly git refuses on its own - 'cannot delete branch used by worktree at ...'. What was actually broken. Plain 'git branch --merged' decorates its output with '* ' for the current branch and '+ ' for a branch checked out in ANOTHER WORKTREE. The parser stripped '* ' and not '+ ', so a live agent's branch came back as the literal string '+ lf/thing', matched nothing in the checked-out exclusion set, and printed 'would delete + lf/thing (merged into main)'. The tool was lying about what it would do rather than doing it - which still cost a blocker-priority issue and a session spent believing agent branches were being deleted, and it stayed safe only by accident of a malformed name. THE SECOND, REAL DEFECT, FOUND WHILE FIXING THE FIRST: subprocess.run for both the branch delete and the worktree remove used capture_output with NO return-code check, and incremented the swept counter unconditionally. Every failed removal was silent and still counted toward 'swept N item(s)' - the same class of instrument as the retry loop that committed nothing twelve times without failing. FIXED: --format=%(refname:short) so no decoration ever reaches the delete path; %(worktreepath) from for-each-ref as the authoritative checked-out set rather than parsing worktree list; branches considered BEFORE worktree prune, because pruning de-registers a vanished worktree and that is exactly what disarms git's own refusal; return codes checked, failures printed, exit 1 when any removal failed; and gc.py --selftest asserting both invariants against the repo's real refs rather than a fixture, since the bug was a parsing bug against real git output and a fixture of what someone believes that output looks like is what let it through",
+      "kind": "bug",
+      "area": "tooling",
+      "pri": "med",
+      "status": "done",
+      "why": "Supersedes LF-201, whose filed mechanism was wrong; the real defect is a lying dry run plus silently-counted failures",
+      "opened": "2026-08-01",
+      "closed": "2026-08-01",
+      "note": "closed at c8d9599"
     }
   ]
 }
