@@ -54,3 +54,5 @@ assets/audio/_loop_checks/
 # The atlas pages' sidecars ARE kept: those two PNGs are what the engine actually imports.
 assets/renders/**/*.png.import
 !assets/renders/atlas/*.png.import
+
+report-202*-*
