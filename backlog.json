@@ -1,5 +1,5 @@
 {
-  "next_id": 215,
+  "next_id": 216,
   "items": [
     {
       "id": "LF-001",
@@ -2443,11 +2443,11 @@
       "kind": "bug",
       "area": "tooling",
       "pri": "med",
-      "status": "open",
+      "status": "done",
       "why": "",
       "opened": "2026-08-01",
-      "closed": null,
-      "note": ""
+      "closed": "2026-08-01",
+      "note": "closed at 6d2b2f4"
     },
     {
       "id": "LF-205",
@@ -2551,11 +2551,11 @@
       "kind": "bug",
       "area": "tooling",
       "pri": "med",
-      "status": "open",
+      "status": "done",
       "why": "A guard that denies harmless reads and its own documentation teaches agents to route around it",
       "opened": "2026-08-01",
-      "closed": null,
-      "note": ""
+      "closed": "2026-08-01",
+      "note": "closed at 6d2b2f4"
     },
     {
       "id": "LF-214",
@@ -2568,6 +2568,18 @@
       "opened": "2026-08-01",
       "closed": "2026-08-01",
       "note": "closed at c8d9599"
+    },
+    {
+      "id": "LF-215",
+      "title": "PRC-15 DE-RISKED BY MEASUREMENT: a git worktree DOES get its own fully-populated Godot import cache, so the concern PRC-15 itself calls \"the single biggest reason worktrees are not free here\" is answered and is not a blocker. MEASURED 2026-08-01 against the live agent worktree at .claude/worktrees/agent-a7712cc56b9f06fe1: 128 MB total, of which 52 MB is its own import cache holding 1378 imported files, against the main tree's 59 MB cache and 1418 files. Two consequences. FIRST, isolation is by construction rather than by configuration: Godot has NO cache-location flag - verified against --help on the real binary, where the only relevant flags are --path <directory> and --import - and --path implies the cache inside that directory, so each worktree is automatically isolated from the tree the owner plays out of. That removes the LF-075 class of risk from worktree agents entirely rather than mitigating it. SECOND, the cost is a one-time import per worktree plus about 128 MB of disk, which is a real cost but a bounded and predictable one, not the open question PRC-15 treats it as. STILL OPEN AND UNMEASURED: the wall-clock of that first import in a fresh worktree, which is the number that decides whether a short-lived agent should get a worktree at all - time it before making isolation the default. ALSO NOTE, and this contradicts PRC-15's spec: the Agent tool's native isolation:\"worktree\" places worktrees at .claude/worktrees/ INSIDE the main checkout, whereas PRC-15's tasks require them outside it, citing LF-051 (six false nomenclature hits off an agent worktree under .claude/). The gate enumerates with git ls-files rather than rglob now, which is what actually fixed LF-051, so the inside/outside requirement should be re-derived rather than inherited - it may no longer be needed. FOUND WHILE FIXING LF-204: the question was asked once already and the answer was hidden by a guard false positive that denied the read",
+      "kind": "chore",
+      "area": "tooling",
+      "pri": "med",
+      "status": "open",
+      "why": "PRC-15 is the top process item and its stated blocker turns out to be measurable and bounded",
+      "opened": "2026-08-01",
+      "closed": null,
+      "note": ""
     }
   ]
 }
