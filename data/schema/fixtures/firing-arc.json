@@ -1,0 +1,126 @@
+{
+  "description": "PLC-03's firing-arc probe. Not validated by tools/validate/validate_data.py -- it lives under data/schema/, which discover_documents() excludes, the same way the schema files and the TER-02/TER-08 fixtures are excluded. That is the whole reason the probe TOWER ROW lives here rather than in data/towers.json: the issue asks for a throwaway 60-degree weapon driven through both engines, and no shipped row may gain `cos_half_angle` or the arc path stops being provably inert. tools/arc_parity.py drives sim/engine.py over this document; scripts/test/arc_parity.gd drives scripts/anchor_sim.gd over the identical document; the two fire patterns are diffed tick for tick, and each is also checked against the analytic window below, which is derived from the geometry rather than from either implementation.",
+
+  "difficulty": "standard",
+  "ticks": 280,
+
+  "anchor": {
+    "id": "arc-probe",
+    "act": 1,
+    "title": "Firing-arc probe",
+    "capacity_mw": 400.0,
+    "starting_funds": 100000,
+    "lives": 100,
+    "max_emplacements": 8,
+    "grid": { "w": 20, "h": 9 },
+    "paths": [
+      { "id": "main", "waypoints": [[0, 4], [19, 4]] }
+    ],
+    "slots": [],
+    "waves": []
+  },
+
+  "towers": [
+    {
+      "id": "arc-probe-cone",
+      "name": "Probe Cone",
+      "cost": 0,
+      "draw_mw": 0.0,
+      "damage": 1.0,
+      "range": 6.0,
+      "fire_interval": 0.2,
+      "targets": ["ground"],
+      "cos_half_angle": 0.8660254037844387,
+      "facing": [0, 1],
+      "note": "cos 30 degrees -- a 60-degree cone pointing +y, straight at the lane. Range 6.0 reaches 5.657 tiles of lane either side of the emplacement; the cone reaches 1.155. The arc is what decides, not the range, which is the entire point of the fixture."
+    },
+    {
+      "id": "arc-probe-scaled",
+      "name": "Probe Cone, unnormalised",
+      "cost": 0,
+      "draw_mw": 0.0,
+      "damage": 1.0,
+      "range": 6.0,
+      "fire_interval": 0.2,
+      "targets": ["ground"],
+      "cos_half_angle": 0.8660254037844387,
+      "facing": [0, 3],
+      "note": "The same cone with a facing three times as long. |facing|^2 is folded into the right-hand side of the test rather than divided out by normalising, so this must produce a window of the identical WIDTH as arc-probe-cone, just centred on its own position. If anyone 'simplifies' the test to assume a unit vector, this row is the one that goes red."
+    },
+    {
+      "id": "arc-probe-half",
+      "name": "Probe Half-plane",
+      "cost": 0,
+      "draw_mw": 0.0,
+      "damage": 1.0,
+      "range": 6.0,
+      "fire_interval": 0.2,
+      "targets": ["ground"],
+      "cos_half_angle": 0.0,
+      "facing": [1, 0],
+      "note": "cos_half_angle 0 is a half-angle of exactly 90 degrees, so the squared compare `dot*dot >= 0 * d2` is vacuously true and the ONLY thing deciding this row is the `dot >= 0` sign guard. It fires down-lane and never up-lane. Delete the sign guard and this row's window doubles: it is the fixture's whole defence of the guard the squared form makes necessary."
+    },
+    {
+      "id": "arc-probe-omni",
+      "name": "Probe Omni",
+      "cost": 0,
+      "draw_mw": 0.0,
+      "damage": 1.0,
+      "range": 6.0,
+      "fire_interval": 0.2,
+      "targets": ["ground"],
+      "note": "The control: identical stats, no `cos_half_angle` and no `facing` at all. Proves the absent-key path is the omnidirectional one, and gives the arc'd rows something to be strictly narrower than -- an arc test that silently never engaged would make every row's window look like this one's."
+    }
+  ],
+
+  "enemies": [
+    {
+      "id": "arc-probe-walker",
+      "name": "Probe Walker",
+      "faction": "swarm",
+      "hp": 1000000.0,
+      "speed": 2.0,
+      "bounty": 0,
+      "kind": "ground",
+      "note": "A million hit points on purpose: it must survive every shot and walk the whole lane, so the fire pattern is a statement about the ARC and never about a kill. Speed 2.0 at DT=1/30 covers 0.0667 tiles per tick, so 280 ticks walks 18.67 of the lane's 19 tiles and it never leaks either."
+    }
+  ],
+
+  "builds": [
+    { "tower": "arc-probe-cone",   "x": 9.5,  "y": 2.0 },
+    { "tower": "arc-probe-scaled", "x": 15.0, "y": 2.0 },
+    { "tower": "arc-probe-half",   "x": 4.0,  "y": 2.0 },
+    { "tower": "arc-probe-omni",   "x": 9.5,  "y": 6.0 }
+  ],
+
+  "spawns": [
+    { "enemy": "arc-probe-walker", "lane": 0 }
+  ],
+
+  "expected": [
+    {
+      "build": 0,
+      "window": [8.3452994616207485, 10.654700538379252],
+      "min_shots": 3,
+      "note": "dot = 2 (the 2-tile standoff), gate = cos^2 * |facing|^2 = 0.75. In arc when 4 >= 0.75 * (dx^2 + 4), i.e. dx^2 <= 4/3, i.e. |dx| <= 1.1547005383792515 about x=9.5. Derived from the geometry, not read off either engine."
+    },
+    {
+      "build": 1,
+      "window": [13.845299461620748, 16.154700538379252],
+      "min_shots": 3,
+      "note": "The same +-1.1547005383792515 half-width about x=15.0. Identical width to build 0 despite |facing| = 3 -- that equality is the claim."
+    },
+    {
+      "build": 2,
+      "window": [4.0, 19.0],
+      "min_shots": 10,
+      "note": "The half-plane: everything from its own x onward that is also inside range 6.0 of (4, 2), which is x <= 9.657. The lower bound is the sign guard and it is the bound under test; the upper is just the range circle, so the window is stated as the half-plane and the shot count carries the rest."
+    },
+    {
+      "build": 3,
+      "window": [3.8431677175926496, 15.15683228240735],
+      "min_shots": 20,
+      "note": "No arc: purely the range circle, x = 9.5 +- sqrt(6^2 - 4^2) = 9.5 +- 5.656854249492381. The standoff here is 4.0 tiles, not 2.0, because the control sits on the far side of the lane at y=6."
+    }
+  ]
+}
