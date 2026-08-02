@@ -39,11 +39,12 @@ opposite case — they live in `CHECKS`, so they cost nothing to assert — and 
 check below does exactly that on every tier-1 run: a stale count here is a red run, not a
 silent drift. See that check's own docstring for what it caught before it existed.
 
-- **tier 1 (pre-commit), 16 checks:** `python syntax`, `json parses`, `gdscript parses`,
+- **tier 1 (pre-commit), 17 checks:** `python syntax`, `json parses`, `gdscript parses`,
   `game data`, `wave density`, `dialog capacity`, `backlog rendered`, `chronicle current`,
-  `agent models`, `leases wired`, `banned terms`, `tier counts`, `safe operations`,
-  `rules autoloads`, `yaw hysteresis`, `asset coverage`. No Godot window opens.
-- **tier 2 (pre-push), 25 checks:** tier 1 + `sim determinism`, `sprite atlas`,
+  `agent models`, `leases wired`, `issue traceability`, `banned terms`, `tier counts`,
+  `safe operations`, `rules autoloads`, `yaw hysteresis`, `asset coverage`. No Godot window
+  opens.
+- **tier 2 (pre-push), 26 checks:** tier 1 + `sim determinism`, `sprite atlas`,
   `sprite coverage`, `music manifest`, `sfx determinism`, `sfx loudness` (PRC-18 — see
   `_run_loudness_check`'s own comment for why it is `sfx loudness` and not `music loudness`
   that landed here), `godot boots`, `terrain parsers agree`, `hooks configured`.
@@ -80,7 +81,7 @@ silent drift. See that check's own docstring for what it caught before it existe
   trustworthy, and `--budget` turns the figures above into assertions, so an instrument that
   can run backwards is the wrong one to be judging a 0.8% margin with. Only `started_at`
   stays on the wall clock, because a timestamp is not a duration.
-- **tier 3 (PR), 36 checks:** tier 2 + `facing harness` (moved here from tier 2, above) +
+- **tier 3 (PR), 37 checks:** tier 2 + `facing harness` (moved here from tier 2, above) +
   `game renders`, `menu renders`, `accessibility`,
   `scenario smoke`, `scenario abilities`, `scenario a11y-worst`, `scenario lf161-scroll`,
   `scenario gamepad` (PRC-18 split what used to be one `scenarios pass` check hardcoding
@@ -94,7 +95,7 @@ silent drift. See that check's own docstring for what it caught before it existe
   Godot like `terrain parsers agree`, put at this tier rather than at tier 2 because tier 2
   is already over its own budget (LF-178) and the branch it covers is inert in shipped data;
   see `check_firing_arcs`'s own docstring.
-- **tier 4 (nightly/release), 39 checks — the default:** tier 3 + `music loudness` (see
+- **tier 4 (nightly/release), 40 checks — the default:** tier 3 + `music loudness` (see
   `_run_loudness_check`'s own comment for why it did not join `sfx loudness` at tier 3) +
   `rules parity` (grows with every policy/anchor) + `rules parity (windows)` (BAL-06 — the
   same runs again, against the Windows binary the owner actually plays rather than the Linux
@@ -897,6 +898,39 @@ def check_leases_wired() -> Result:
         return Result(FAIL, f"no lease.acquire()/acquire_capture() found: "
                             f"{', '.join(missing)}")
     return Result(OK, f"{len(LEASE_SITES)} launch sites leased")
+
+
+def check_issue_traceability() -> Result:
+    """Every `Closes:` trailer on this branch is backed by the repository (LF-212).
+
+    Proven live rather than argued: pull request #130 merged with the body line
+    ``Closes `PLC-03` `` and issue #31 was still OPEN thirty-seven minutes later, because
+    GitHub acts only on `Closes #<number>` and reads a backticked spec id as prose. Across
+    the 51 merged pull requests available at the time, *zero* carried a closing keyword
+    GitHub could resolve.
+
+    This is the half of the fix that can be checked offline, and it covers the half that
+    lives in this repository. A `Closes: LF-nnn` trailer asserts that `backlog.json` marks
+    that item done **in this branch**, so merging the pull request is what lands the close
+    and there is no second step for anyone to forget. A `Closes: PLC-03` trailer asserts
+    only that the spec has a GitHub issue to close; whether the pull request *body* carries
+    the resolved `Closes #31` is a fact about GitHub, not about the working tree, so it is
+    enforced by `tools/traceability.py check-pr` in `gate.yml` where the body is readable.
+
+    Tier 1: it is a `git log` and two JSON reads. A branch with no trailer passes — plenty
+    of pull requests close nothing — and a shallow clone with no reachable merge base
+    reports what it could not determine rather than a pass.
+    """
+    tool = ROOT / "tools" / "traceability.py"
+    if not tool.exists():
+        return Result(SKIP, "tools/traceability.py missing")
+    r = run(sys.executable, str(tool), "check", timeout=60)
+    out = ((r.stdout or "") + (r.stderr or "")).strip()
+    if r.returncode != 0:
+        return Result(FAIL, out or "traceability check failed")
+    ## The tool prints its own one-line verdict; the gate shows it verbatim rather than
+    ## re-summarising, so a "skip: no merge base" cannot be mistaken for a pass.
+    return Result(OK, out.splitlines()[-1] if out else "no close declared")
 
 
 def _strip_gd_comment(line: str) -> str:
@@ -1855,6 +1889,7 @@ CHECKS = [
     Check("chronicle current", 1, check_chronicle_current),
     Check("agent models",      1, check_agent_models),
     Check("leases wired",      1, check_leases_wired),
+    Check("issue traceability", 1, check_issue_traceability),
     Check("sim determinism",   2, check_sim),
     Check("gdscript parses",   1, check_gdscript_parses),
     Check("godot boots",       2, check_godot_boots),

@@ -109,6 +109,12 @@ jobs:
         uses: actions/checkout@v4
         with:
           lfs: false
+          # Full history, because tier 1's `issue traceability` check reads the `Closes:`
+          # trailers this branch ADDS, which needs a merge base against main. At depth 1
+          # there is none, and the check would report "skip: no merge base" — green, and
+          # useless, which is the exact shape of partial-run-that-reads-as-full this gate
+          # is built to refuse. The pack is ~7 MiB with LFS excluded, so this is cheap.
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -164,6 +170,21 @@ jobs:
           n_errors="$(grep -c '^ERROR' import.log || true)"
           echo "import ok: $n_lines log lines, $n_errors recoverable LFS-pointer resource errors (expected, see step comment)"
           tail -n 20 import.log
+
+      # The half of LF-212 the gate cannot see. `issue traceability` (tier 1) verifies the
+      # `Closes:` trailers on this branch against the repository; whether the pull request
+      # BODY carries the resolved `Closes #31` GitHub actually acts on is a fact about
+      # GitHub, readable only here. PR #130 merged with ``Closes `PLC-03` `` in its body and
+      # issue #31 stayed OPEN — that is the case this step fails.
+      #
+      # The body goes through the environment, never through the command line: it is
+      # attacker-controllable text on a fork PR and interpolating `${{ ... }}` into a `run:`
+      # block is script injection by construction.
+      - name: Pull request body closes what this branch declares
+        if: github.event_name == 'pull_request'
+        env:
+          LF_PR_BODY: ${{ github.event.pull_request.body }}
+        run: .venv/bin/python -u tools/traceability.py check-pr --body-env LF_PR_BODY
 
       - name: Run tier-1 gate
         id: gate
@@ -308,6 +329,9 @@ jobs:
         uses: actions/checkout@v4
         with:
           lfs: true
+          # Same reason as the tier-1 job: `issue traceability` needs a merge base, and at
+          # depth 1 it would report "skip: no merge base" instead of checking anything.
+          fetch-depth: 0
 
       - name: Import project (populates the class_name cache — see the gate job's header comment)
         run: |

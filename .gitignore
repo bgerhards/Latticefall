@@ -56,3 +56,10 @@ assets/renders/**/*.png.import
 !assets/renders/atlas/*.png.import
 
 report-202*-*
+
+# /insights output and anything written to reason about it. The owner's call, 2026-08-01: the
+# reports are a snapshot of a sampling window and go stale, whereas the commits are the
+# permanent record — so they stay on disk for local review and out of the repository. Ignoring
+# the directory (not just the reports) also keeps it out of every agent's `git status`, the
+# same litter problem the `.import` block above exists for.
+docs/insights/
