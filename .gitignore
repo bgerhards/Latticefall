@@ -55,4 +55,9 @@ assets/audio/_loop_checks/
 assets/renders/**/*.png.import
 !assets/renders/atlas/*.png.import
 
+# /insights drops these in whatever directory it is run from, and they are scratch there. The
+# copies under docs/insights/ are the opposite: a tracked baseline, so the next cross-machine
+# comparison has something to diff against instead of two files in a download folder. The
+# pattern above is unanchored, so it matches at any depth and the negation is required.
 report-202*-*
+!docs/insights/report-202*-*

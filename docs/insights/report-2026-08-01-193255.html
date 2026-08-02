@@ -1,0 +1,952 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Claude Code Insights</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; background: #f8fafc; color: #334155; line-height: 1.65; padding: 48px 24px; }
+    .container { max-width: 800px; margin: 0 auto; }
+    h1 { font-size: 32px; font-weight: 700; color: #0f172a; margin-bottom: 8px; }
+    h2 { font-size: 20px; font-weight: 600; color: #0f172a; margin-top: 48px; margin-bottom: 16px; }
+    .subtitle { color: #64748b; font-size: 15px; margin-bottom: 32px; }
+    .nav-toc { display: flex; flex-wrap: wrap; gap: 8px; margin: 24px 0 32px 0; padding: 16px; background: white; border-radius: 8px; border: 1px solid #e2e8f0; }
+    .nav-toc a { font-size: 12px; color: #64748b; text-decoration: none; padding: 6px 12px; border-radius: 6px; background: #f1f5f9; transition: all 0.15s; }
+    .nav-toc a:hover { background: #e2e8f0; color: #334155; }
+    .stats-row { display: flex; gap: 24px; margin-bottom: 40px; padding: 20px 0; border-top: 1px solid #e2e8f0; border-bottom: 1px solid #e2e8f0; flex-wrap: wrap; }
+    .stat { text-align: center; }
+    .stat-value { font-size: 24px; font-weight: 700; color: #0f172a; }
+    .stat-label { font-size: 11px; color: #64748b; text-transform: uppercase; }
+    .at-a-glance { background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); border: 1px solid #f59e0b; border-radius: 12px; padding: 20px 24px; margin-bottom: 32px; }
+    .glance-title { font-size: 16px; font-weight: 700; color: #92400e; margin-bottom: 16px; }
+    .glance-sections { display: flex; flex-direction: column; gap: 12px; }
+    .glance-section { font-size: 14px; color: #78350f; line-height: 1.6; }
+    .glance-section strong { color: #92400e; }
+    .see-more { color: #b45309; text-decoration: none; font-size: 13px; white-space: nowrap; }
+    .see-more:hover { text-decoration: underline; }
+    .project-areas { display: flex; flex-direction: column; gap: 12px; margin-bottom: 32px; }
+    .project-area { background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; }
+    .area-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+    .area-name { font-weight: 600; font-size: 15px; color: #0f172a; }
+    .area-count { font-size: 12px; color: #64748b; background: #f1f5f9; padding: 2px 8px; border-radius: 4px; }
+    .area-desc { font-size: 14px; color: #475569; line-height: 1.5; }
+    .narrative { background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; margin-bottom: 24px; }
+    .narrative p { margin-bottom: 12px; font-size: 14px; color: #475569; line-height: 1.7; }
+    .key-insight { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 12px 16px; margin-top: 12px; font-size: 14px; color: #166534; }
+    .section-intro { font-size: 14px; color: #64748b; margin-bottom: 16px; }
+    .big-wins { display: flex; flex-direction: column; gap: 12px; margin-bottom: 24px; }
+    .big-win { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 16px; }
+    .big-win-title { font-weight: 600; font-size: 15px; color: #166534; margin-bottom: 8px; }
+    .big-win-desc { font-size: 14px; color: #15803d; line-height: 1.5; }
+    .friction-categories { display: flex; flex-direction: column; gap: 16px; margin-bottom: 24px; }
+    .friction-category { background: #fef2f2; border: 1px solid #fca5a5; border-radius: 8px; padding: 16px; }
+    .friction-title { font-weight: 600; font-size: 15px; color: #991b1b; margin-bottom: 6px; }
+    .friction-desc { font-size: 13px; color: #7f1d1d; margin-bottom: 10px; }
+    .friction-examples { margin: 0 0 0 20px; font-size: 13px; color: #334155; }
+    .friction-examples li { margin-bottom: 4px; }
+    .claude-md-section { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 16px; margin-bottom: 20px; }
+    .claude-md-section h3 { font-size: 14px; font-weight: 600; color: #1e40af; margin: 0 0 12px 0; }
+    .claude-md-actions { margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid #dbeafe; }
+    .copy-all-btn { background: #2563eb; color: white; border: none; border-radius: 4px; padding: 6px 12px; font-size: 12px; cursor: pointer; font-weight: 500; transition: all 0.2s; }
+    .copy-all-btn:hover { background: #1d4ed8; }
+    .copy-all-btn.copied { background: #16a34a; }
+    .claude-md-item { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 8px; padding: 10px 0; border-bottom: 1px solid #dbeafe; }
+    .claude-md-item:last-child { border-bottom: none; }
+    .cmd-checkbox { margin-top: 2px; }
+    .cmd-code { background: white; padding: 8px 12px; border-radius: 4px; font-size: 12px; color: #1e40af; border: 1px solid #bfdbfe; font-family: monospace; display: block; white-space: pre-wrap; word-break: break-word; flex: 1; }
+    .cmd-why { font-size: 12px; color: #64748b; width: 100%; padding-left: 24px; margin-top: 4px; }
+    .features-section, .patterns-section { display: flex; flex-direction: column; gap: 12px; margin: 16px 0; }
+    .feature-card { background: #f0fdf4; border: 1px solid #86efac; border-radius: 8px; padding: 16px; }
+    .pattern-card { background: #f0f9ff; border: 1px solid #7dd3fc; border-radius: 8px; padding: 16px; }
+    .feature-title, .pattern-title { font-weight: 600; font-size: 15px; color: #0f172a; margin-bottom: 6px; }
+    .feature-oneliner { font-size: 14px; color: #475569; margin-bottom: 8px; }
+    .pattern-summary { font-size: 14px; color: #475569; margin-bottom: 8px; }
+    .feature-why, .pattern-detail { font-size: 13px; color: #334155; line-height: 1.5; }
+    .feature-examples { margin-top: 12px; }
+    .feature-example { padding: 8px 0; border-top: 1px solid #d1fae5; }
+    .feature-example:first-child { border-top: none; }
+    .example-desc { font-size: 13px; color: #334155; margin-bottom: 6px; }
+    .example-code-row { display: flex; align-items: flex-start; gap: 8px; }
+    .example-code { flex: 1; background: #f1f5f9; padding: 8px 12px; border-radius: 4px; font-family: monospace; font-size: 12px; color: #334155; overflow-x: auto; white-space: pre-wrap; }
+    .copyable-prompt-section { margin-top: 12px; padding-top: 12px; border-top: 1px solid #e2e8f0; }
+    .copyable-prompt-row { display: flex; align-items: flex-start; gap: 8px; }
+    .copyable-prompt { flex: 1; background: #f8fafc; padding: 10px 12px; border-radius: 4px; font-family: monospace; font-size: 12px; color: #334155; border: 1px solid #e2e8f0; white-space: pre-wrap; line-height: 1.5; }
+    .feature-code { background: #f8fafc; padding: 12px; border-radius: 6px; margin-top: 12px; border: 1px solid #e2e8f0; display: flex; align-items: flex-start; gap: 8px; }
+    .feature-code code { flex: 1; font-family: monospace; font-size: 12px; color: #334155; white-space: pre-wrap; }
+    .pattern-prompt { background: #f8fafc; padding: 12px; border-radius: 6px; margin-top: 12px; border: 1px solid #e2e8f0; }
+    .pattern-prompt code { font-family: monospace; font-size: 12px; color: #334155; display: block; white-space: pre-wrap; margin-bottom: 8px; }
+    .prompt-label { font-size: 11px; font-weight: 600; text-transform: uppercase; color: #64748b; margin-bottom: 6px; }
+    .copy-btn { background: #e2e8f0; border: none; border-radius: 4px; padding: 4px 8px; font-size: 11px; cursor: pointer; color: #475569; flex-shrink: 0; }
+    .copy-btn:hover { background: #cbd5e1; }
+    .charts-row { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin: 24px 0; }
+    .chart-card { background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; }
+    .chart-title { font-size: 12px; font-weight: 600; color: #64748b; text-transform: uppercase; margin-bottom: 12px; }
+    .bar-row { display: flex; align-items: center; margin-bottom: 6px; }
+    .bar-label { width: 100px; font-size: 11px; color: #475569; flex-shrink: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .bar-track { flex: 1; height: 6px; background: #f1f5f9; border-radius: 3px; margin: 0 8px; }
+    .bar-fill { height: 100%; border-radius: 3px; }
+    .bar-value { width: 28px; font-size: 11px; font-weight: 500; color: #64748b; text-align: right; }
+    .empty { color: #94a3b8; font-size: 13px; }
+    .horizon-section { display: flex; flex-direction: column; gap: 16px; }
+    .horizon-card { background: linear-gradient(135deg, #faf5ff 0%, #f5f3ff 100%); border: 1px solid #c4b5fd; border-radius: 8px; padding: 16px; }
+    .horizon-title { font-weight: 600; font-size: 15px; color: #5b21b6; margin-bottom: 8px; }
+    .horizon-possible { font-size: 14px; color: #334155; margin-bottom: 10px; line-height: 1.5; }
+    .horizon-tip { font-size: 13px; color: #6b21a8; background: rgba(255,255,255,0.6); padding: 8px 12px; border-radius: 4px; }
+    .feedback-header { margin-top: 48px; color: #64748b; font-size: 16px; }
+    .feedback-intro { font-size: 13px; color: #94a3b8; margin-bottom: 16px; }
+    .feedback-section { margin-top: 16px; }
+    .feedback-section h3 { font-size: 14px; font-weight: 600; color: #475569; margin-bottom: 12px; }
+    .feedback-card { background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin-bottom: 12px; }
+    .feedback-card.team-card { background: #eff6ff; border-color: #bfdbfe; }
+    .feedback-card.model-card { background: #faf5ff; border-color: #e9d5ff; }
+    .feedback-title { font-weight: 600; font-size: 14px; color: #0f172a; margin-bottom: 6px; }
+    .feedback-detail { font-size: 13px; color: #475569; line-height: 1.5; }
+    .feedback-evidence { font-size: 12px; color: #64748b; margin-top: 8px; }
+    .fun-ending { background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); border: 1px solid #fbbf24; border-radius: 12px; padding: 24px; margin-top: 40px; text-align: center; }
+    .fun-headline { font-size: 18px; font-weight: 600; color: #78350f; margin-bottom: 8px; }
+    .fun-detail { font-size: 14px; color: #92400e; }
+    .collapsible-section { margin-top: 16px; }
+    .collapsible-header { display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 12px 0; border-bottom: 1px solid #e2e8f0; }
+    .collapsible-header h3 { margin: 0; font-size: 14px; font-weight: 600; color: #475569; }
+    .collapsible-arrow { font-size: 12px; color: #94a3b8; transition: transform 0.2s; }
+    .collapsible-content { display: none; padding-top: 16px; }
+    .collapsible-content.open { display: block; }
+    .collapsible-header.open .collapsible-arrow { transform: rotate(90deg); }
+    @media (max-width: 640px) { .charts-row { grid-template-columns: 1fr; } .stats-row { justify-content: center; } }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Claude Code Insights</h1>
+    <p class="subtitle">171 messages across 10 sessions (17 total) | 2026-07-30 to 2026-08-02</p>
+
+    
+    <div class="at-a-glance">
+      <div class="glance-title">At a Glance</div>
+      <div class="glance-sections">
+        <div class="glance-section"><strong>What's working:</strong> You operate Claude less like an assistant and more like a program manager — handing off entire multi-workstream backlogs, letting subagents fan out, and returning to find batches of PRs merged. What makes that work is your insistence on machine-checkable proof: headless screenshot capture for gameplay changes, green-gate checks before anything counts as done, and a CI pipeline you drove from 27 minutes down to under 6. You&apos;re also quick to kill a bad run, which is exactly the reflex that makes unattended sessions worth attempting. <a href="#section-wins" class="see-more">Impressive Things You Did →</a></div>
+        <div class="glance-section"><strong>What's hindering you:</strong> On Claude&apos;s side: it asserted things about your environment it hadn&apos;t tested — a wrong root cause for an execution error, an overstated capability claim a screenshot later contradicted, an assumption a tool wasn&apos;t installed — and it treated session-wrap as a finish line while workstreams sat idle on completed background runs. On your side: several sessions were interrupted during subagent dispatch, before a single line of code had landed, so the run produced nothing judgeable; and the rule that all automated runs must be headless lived in your head rather than anywhere Claude could read it. <a href="#section-friction" class="see-more">Where Things Go Wrong →</a></div>
+        <div class="glance-section"><strong>Quick wins to try:</strong> Put your non-negotiables in CLAUDE.md — headless-only runs, no foreground windows, one journal entry per PR, a 15-line cap on end-of-session reports — so you stop re-litigating them mid-session. Add a Hook that fails any run attempting to grab a display, and turn your session-start ritual into a Custom Skill that requires a written dispatch plan plus one concrete edit before any subagent fan-out. <a href="#section-features" class="see-more">Features to Try →</a></div>
+        <div class="glance-section"><strong>Ambitious workflows:</strong> Start designing for agent fleets that are structurally incapable of touching your desktop: each subagent in its own git worktree with a virtual display, streaming to one dashboard, with blocked work parking itself as a visible ticket instead of silently stalling. Push your gate discipline further into a closed loop — agent picks the top backlog item, writes the failing acceptance test first, iterates until green, opens the PR, moves on — running until the backlog is empty or every remainder needs a human decision. And formalize evidence-or-it-didn&apos;t-happen: no runtime claim without an attached artifact, so PR descriptions become chains of proof rather than assertions you have to disprove yourself. <a href="#section-horizon" class="see-more">On the Horizon →</a></div>
+      </div>
+    </div>
+    
+
+    <nav class="nav-toc">
+      <a href="#section-work">What You Work On</a>
+      <a href="#section-usage">How You Use CC</a>
+      <a href="#section-wins">Impressive Things</a>
+      <a href="#section-friction">Where Things Go Wrong</a>
+      <a href="#section-features">Features to Try</a>
+      <a href="#section-patterns">New Usage Patterns</a>
+      <a href="#section-horizon">On the Horizon</a>
+      <a href="#section-feedback">Team Feedback</a>
+    </nav>
+
+    <div class="stats-row">
+      <div class="stat"><div class="stat-value">171</div><div class="stat-label">Messages</div></div>
+      <div class="stat"><div class="stat-value">+8,891/-239</div><div class="stat-label">Lines</div></div>
+      <div class="stat"><div class="stat-value">91</div><div class="stat-label">Files</div></div>
+      <div class="stat"><div class="stat-value">4</div><div class="stat-label">Days</div></div>
+      <div class="stat"><div class="stat-value">42.8</div><div class="stat-label">Msgs/Day</div></div>
+    </div>
+
+    
+    <h2 id="section-work">What You Work On</h2>
+    <div class="project-areas">
+      
+        <div class="project-area">
+          <div class="area-header">
+            <span class="area-name">Autonomous Backlog Programme Execution</span>
+            <span class="area-count">~4 sessions</span>
+          </div>
+          <div class="area-desc">Claude was handed long-running autonomous programmes and asked to grind through backlog issues while the user was away, delegating heavily to subagents. Across these sessions it merged dozens of PRs, added gate checks and process tooling, and kept a green build. Friction came from premature stops, stalled parallel workstreams, and walls of verbose status output.</div>
+        </div>
+      
+        <div class="project-area">
+          <div class="area-header">
+            <span class="area-name">Autoloop Orchestration &amp; Control Tooling</span>
+            <span class="area-count">~2 sessions</span>
+          </div>
+          <div class="area-desc">Work focused on making the self-driving autoloop safe and observable, including graceful shutdown, stop/status commands, and process-group isolation. Claude fixed a latin-1 encoding bug in the notifier and built a local web control panel that was delivered and merged. One misdiagnosis of a child-session execution error led to an incorrectly filed bug that the user disproved.</div>
+        </div>
+      
+        <div class="project-area">
+          <div class="area-header">
+            <span class="area-name">Godot Game Feel &amp; Combat Overhaul</span>
+            <span class="area-count">~2 sessions</span>
+          </div>
+          <div class="area-desc">The user wanted a more exciting, Stargate-inspired game with visible projectiles and faster pacing. Claude set up headless screenshot capture and shipped combat and visual changes verified by an automated gate in one session, but in another the user interrupted and killed four background agents after automated Godot runs stole desktop focus.</div>
+        </div>
+      
+        <div class="project-area">
+          <div class="area-header">
+            <span class="area-name">CI Pipeline Performance &amp; Debugging</span>
+            <span class="area-count">~1 sessions</span>
+          </div>
+          <div class="area-desc">Claude drove the Theatre Scale programme with delegated subagents, focusing on continuous integration health. It cut CI runtime from 27 minutes to 5.7 minutes and reduced failures from twelve to a single timeout while merging ten PRs, relying heavily on Bash for test runs and diagnosis.</div>
+        </div>
+      
+        <div class="project-area">
+          <div class="area-header">
+            <span class="area-name">Spec-Driven Feature Shipping</span>
+            <span class="area-count">~2 sessions</span>
+          </div>
+          <div class="area-desc">Sessions began with a session-start ritual and context gathering before implementing a specific tracked issue such as the PLC-07 placement UI. Claude read specs and dispatched engineering subagents, but both sessions were cut short during dispatch so no implementation code landed.</div>
+        </div>
+      
+    </div>
+    
+
+    <div class="charts-row">
+      <div class="chart-card">
+        <div class="chart-title">What You Wanted</div>
+        <div class="bar-row">
+        <div class="bar-label">Feature Implementation</div>
+        <div class="bar-track"><div class="bar-fill" style="width:100%;background:#2563eb"></div></div>
+        <div class="bar-value">5</div>
+      </div>
+<div class="bar-row">
+        <div class="bar-label">Workflow Automation</div>
+        <div class="bar-track"><div class="bar-fill" style="width:40%;background:#2563eb"></div></div>
+        <div class="bar-value">2</div>
+      </div>
+<div class="bar-row">
+        <div class="bar-label">Bug Fixing</div>
+        <div class="bar-track"><div class="bar-fill" style="width:20%;background:#2563eb"></div></div>
+        <div class="bar-value">1</div>
+      </div>
+<div class="bar-row">
+        <div class="bar-label">Tooling Setup</div>
+        <div class="bar-track"><div class="bar-fill" style="width:20%;background:#2563eb"></div></div>
+        <div class="bar-value">1</div>
+      </div>
+<div class="bar-row">
+        <div class="bar-label">Project Management Automation</div>
+        <div class="bar-track"><div class="bar-fill" style="width:20%;background:#2563eb"></div></div>
+        <div class="bar-value">1</div>
+      </div>
+<div class="bar-row">
+        <div class="bar-label">Code Quality Review</div>
+        <div class="bar-track"><div class="bar-fill" style="width:20%;background:#2563eb"></div></div>
+        <div class="bar-value">1</div>
+      </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Top Tools Used</div>
+        <div class="bar-row">
+        <div class="bar-label">Bash</div>
+        <div class="bar-track"><div class="bar-fill" style="width:100%;background:#0891b2"></div></div>
+        <div class="bar-value">1296</div>
+      </div>
+<div class="bar-row">
+        <div class="bar-label">Edit</div>
+        <div class="bar-track"><div class="bar-fill" style="width:10.493827160493826%;background:#0891b2"></div></div>
+        <div class="bar-value">136</div>
+      </div>
+<div class="bar-row">
+        <div class="bar-label">Agent</div>
+        <div class="bar-track"><div class="bar-fill" style="width:8.873456790123457%;background:#0891b2"></div></div>
+        <div class="bar-value">115</div>
+      </div>
+<div class="bar-row">
+        <div class="bar-label">Read</div>
+        <div class="bar-track"><div class="bar-fill" style="width:7.638888888888889%;background:#0891b2"></div></div>
+        <div class="bar-value">99</div>
+      </div>
+<div class="bar-row">
+        <div class="bar-label">Write</div>
+        <div class="bar-track"><div class="bar-fill" style="width:5.169753086419753%;background:#0891b2"></div></div>
+        <div class="bar-value">67</div>
+      </div>
+<div class="bar-row">
+        <div class="bar-label">SendMessage</div>
+        <div class="bar-track"><div class="bar-fill" style="width:3.2407407407407405%;background:#0891b2"></div></div>
+        <div class="bar-value">42</div>
+      </div>
+      </div>
+    </div>
+
+    <div class="charts-row">
+      <div class="chart-card">
+        <div class="chart-title">Languages</div>
+        <div class="bar-row">
+        <div class="bar-label">Markdown</div>
+        <div class="bar-track"><div class="bar-fill" style="width:100%;background:#10b981"></div></div>
+        <div class="bar-value">100</div>
+      </div>
+<div class="bar-row">
+        <div class="bar-label">Python</div>
+        <div class="bar-track"><div class="bar-fill" style="width:97%;background:#10b981"></div></div>
+        <div class="bar-value">97</div>
+      </div>
+<div class="bar-row">
+        <div class="bar-label">HTML</div>
+        <div class="bar-track"><div class="bar-fill" style="width:14.000000000000002%;background:#10b981"></div></div>
+        <div class="bar-value">14</div>
+      </div>
+<div class="bar-row">
+        <div class="bar-label">JSON</div>
+        <div class="bar-track"><div class="bar-fill" style="width:11%;background:#10b981"></div></div>
+        <div class="bar-value">11</div>
+      </div>
+<div class="bar-row">
+        <div class="bar-label">YAML</div>
+        <div class="bar-track"><div class="bar-fill" style="width:1%;background:#10b981"></div></div>
+        <div class="bar-value">1</div>
+      </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Session Types</div>
+        <div class="bar-row">
+        <div class="bar-label">Multi Task</div>
+        <div class="bar-track"><div class="bar-fill" style="width:100%;background:#8b5cf6"></div></div>
+        <div class="bar-value">6</div>
+      </div>
+<div class="bar-row">
+        <div class="bar-label">Single Task</div>
+        <div class="bar-track"><div class="bar-fill" style="width:66.66666666666666%;background:#8b5cf6"></div></div>
+        <div class="bar-value">4</div>
+      </div>
+      </div>
+    </div>
+
+    
+    <h2 id="section-usage">How You Use Claude Code</h2>
+    <div class="narrative">
+      <p>You operate Claude Code as an <strong>autonomous programme manager, not a pair programmer</strong>. Your sessions are long (53 hours across only 10 sessions, 171 messages, 177 commits) and your typical opening move is a high-level handoff — &quot;run session-start and fully implement/ship issue #31&quot; or &quot;drive the Theatre Scale programme&quot; — followed by long stretches where you let Claude dispatch subagents, merge PRs, and grind a backlog unattended. The tool distribution tells the same story: 1296 Bash calls against only 136 Edits, with 115 Agent invocations. You aren&apos;t reviewing diffs line by line; you&apos;re delegating whole workstreams and judging the result by whether the gate is green and the PRs landed.</p>
+<p>The flip side is that <strong>your interventions are rare but decisive — you interrupt to kill, not to redirect</strong>. Four of your friction events are outright rejections: you stopped a godot-engineer subagent dispatch mid-flight before any code was written, and in another session you interrupted twice and killed all four background agents when automated Godot runs started stealing your desktop focus. That session ended with nothing delivered. You clearly treat your local environment as sacred — foreground window grabs and popped-up game launches provoke immediate termination — and you&apos;d rather burn a session than let a runaway agent swarm keep going. You also fact-check tersely and effectively: when Claude misdiagnosed a child-session &apos;Execution error&apos; and filed a bug blaming `--dangerously-skip-permissions`, you disproved it with a one-line test rather than a paragraph of argument.</p>
+<p>Your tolerance for Claude&apos;s *output* is much lower than your tolerance for its *runtime*. Verbose session-wrap walls of text and premature stops registered as friction, as did stalled parallel workstreams — you notice when two branches are parked on finished background runs even after hours away. The work itself is infrastructure-heavy: Markdown and Python dominate, with autoloop shutdown handling, CI time cut from 27 to 5.7 minutes, web control panels, and gate checks. Your smaller sessions (the `/statusline` invocations) are pure one-shot slash commands with zero follow-up, confirming the pattern: <strong>you either want a single deterministic action or an entire unsupervised programme, with very little in between.</strong></p>
+      <div class="key-insight"><strong>Key pattern:</strong> You hand off entire multi-PR programmes to autonomous agent swarms and stay silent until something touches your desktop or violates your process — then you interrupt and kill everything rather than course-correct.</div>
+    </div>
+    
+
+    <!-- Response Time Distribution -->
+    <div class="chart-card" style="margin: 24px 0;">
+      <div class="chart-title">User Response Time Distribution</div>
+      <div class="bar-row">
+        <div class="bar-label">2-10s</div>
+        <div class="bar-track"><div class="bar-fill" style="width:7.8431372549019605%;background:#6366f1"></div></div>
+        <div class="bar-value">4</div>
+      </div>
+<div class="bar-row">
+        <div class="bar-label">10-30s</div>
+        <div class="bar-track"><div class="bar-fill" style="width:9.803921568627452%;background:#6366f1"></div></div>
+        <div class="bar-value">5</div>
+      </div>
+<div class="bar-row">
+        <div class="bar-label">30s-1m</div>
+        <div class="bar-track"><div class="bar-fill" style="width:21.568627450980394%;background:#6366f1"></div></div>
+        <div class="bar-value">11</div>
+      </div>
+<div class="bar-row">
+        <div class="bar-label">1-2m</div>
+        <div class="bar-track"><div class="bar-fill" style="width:29.411764705882355%;background:#6366f1"></div></div>
+        <div class="bar-value">15</div>
+      </div>
+<div class="bar-row">
+        <div class="bar-label">2-5m</div>
+        <div class="bar-track"><div class="bar-fill" style="width:58.82352941176471%;background:#6366f1"></div></div>
+        <div class="bar-value">30</div>
+      </div>
+<div class="bar-row">
+        <div class="bar-label">5-15m</div>
+        <div class="bar-track"><div class="bar-fill" style="width:100%;background:#6366f1"></div></div>
+        <div class="bar-value">51</div>
+      </div>
+<div class="bar-row">
+        <div class="bar-label">>15m</div>
+        <div class="bar-track"><div class="bar-fill" style="width:29.411764705882355%;background:#6366f1"></div></div>
+        <div class="bar-value">15</div>
+      </div>
+      <div style="font-size: 12px; color: #64748b; margin-top: 8px;">
+        Median: 303.5s &bull; Average: 468.0s
+      </div>
+    </div>
+
+    <!-- Multi-clauding Section (matching Python reference) -->
+    <div class="chart-card" style="margin: 24px 0;">
+      <div class="chart-title">Multi-Clauding (Parallel Sessions)</div>
+      
+        <div style="display: flex; gap: 24px; margin: 12px 0;">
+          <div style="text-align: center;">
+            <div style="font-size: 24px; font-weight: 700; color: #7c3aed;">1</div>
+            <div style="font-size: 11px; color: #64748b; text-transform: uppercase;">Overlap Events</div>
+          </div>
+          <div style="text-align: center;">
+            <div style="font-size: 24px; font-weight: 700; color: #7c3aed;">2</div>
+            <div style="font-size: 11px; color: #64748b; text-transform: uppercase;">Sessions Involved</div>
+          </div>
+          <div style="text-align: center;">
+            <div style="font-size: 24px; font-weight: 700; color: #7c3aed;">2%</div>
+            <div style="font-size: 11px; color: #64748b; text-transform: uppercase;">Of Messages</div>
+          </div>
+        </div>
+        <p style="font-size: 13px; color: #475569; margin-top: 12px;">
+          You run multiple Claude Code sessions simultaneously. Multi-clauding is detected when sessions
+          overlap in time, suggesting parallel workflows.
+        </p>
+      
+    </div>
+
+    <!-- Time of Day & Tool Errors -->
+    <div class="charts-row">
+      <div class="chart-card">
+        <div class="chart-title" style="display: flex; align-items: center; gap: 12px;">
+          User Messages by Time of Day
+          <select id="timezone-select" style="font-size: 12px; padding: 4px 8px; border-radius: 4px; border: 1px solid #e2e8f0;">
+            <option value="0">PT (UTC-8)</option>
+            <option value="3">ET (UTC-5)</option>
+            <option value="8">London (UTC)</option>
+            <option value="9">CET (UTC+1)</option>
+            <option value="17">Tokyo (UTC+9)</option>
+            <option value="custom">Custom offset...</option>
+          </select>
+          <input type="number" id="custom-offset" placeholder="UTC offset" style="display: none; width: 80px; font-size: 12px; padding: 4px; border-radius: 4px; border: 1px solid #e2e8f0;">
+        </div>
+        <div id="hour-histogram">
+      <div class="bar-row">
+        <div class="bar-label">Morning (6-12)</div>
+        <div class="bar-track"><div class="bar-fill" style="width:76.5625%;background:#8b5cf6"></div></div>
+        <div class="bar-value">49</div>
+      </div>
+
+      <div class="bar-row">
+        <div class="bar-label">Afternoon (12-18)</div>
+        <div class="bar-track"><div class="bar-fill" style="width:100%;background:#8b5cf6"></div></div>
+        <div class="bar-value">64</div>
+      </div>
+
+      <div class="bar-row">
+        <div class="bar-label">Evening (18-24)</div>
+        <div class="bar-track"><div class="bar-fill" style="width:70.3125%;background:#8b5cf6"></div></div>
+        <div class="bar-value">45</div>
+      </div>
+
+      <div class="bar-row">
+        <div class="bar-label">Night (0-6)</div>
+        <div class="bar-track"><div class="bar-fill" style="width:20.3125%;background:#8b5cf6"></div></div>
+        <div class="bar-value">13</div>
+      </div></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Tool Errors Encountered</div>
+        <div class="bar-row">
+        <div class="bar-label">Command Failed</div>
+        <div class="bar-track"><div class="bar-fill" style="width:100%;background:#dc2626"></div></div>
+        <div class="bar-value">29</div>
+      </div>
+<div class="bar-row">
+        <div class="bar-label">Other</div>
+        <div class="bar-track"><div class="bar-fill" style="width:75.86206896551724%;background:#dc2626"></div></div>
+        <div class="bar-value">22</div>
+      </div>
+<div class="bar-row">
+        <div class="bar-label">User Rejected</div>
+        <div class="bar-track"><div class="bar-fill" style="width:10.344827586206897%;background:#dc2626"></div></div>
+        <div class="bar-value">3</div>
+      </div>
+<div class="bar-row">
+        <div class="bar-label">Edit Failed</div>
+        <div class="bar-track"><div class="bar-fill" style="width:3.4482758620689653%;background:#dc2626"></div></div>
+        <div class="bar-value">1</div>
+      </div>
+      </div>
+    </div>
+
+    
+    <h2 id="section-wins">Impressive Things You Did</h2>
+    <p class="section-intro">Over four days you ran 10 sessions totaling 53 hours and 177 commits, largely handing Claude long autonomous backlog programmes across Python and Godot game work.</p>
+    <div class="big-wins">
+      
+        <div class="big-win">
+          <div class="big-win-title">Delegated autonomous backlog programmes</div>
+          <div class="big-win-desc">You hand Claude entire multi-workstream programmes and let it dispatch subagents to grind through them while you&apos;re away. This produced runs where nine and ten PRs merged in a single session, with Claude coordinating parallel workstreams rather than waiting on you for each step. Your heavy use of the Agent tool (115 calls) shows you&apos;ve internalized delegation as the default, not the exception.</div>
+        </div>
+      
+        <div class="big-win">
+          <div class="big-win-title">Automated verification gates</div>
+          <div class="big-win-desc">You don&apos;t just ask for features shipped — you insist on an automated gate that proves they work. That discipline turned into headless screenshot capture for Godot gameplay changes and a green-gate check before work counted as done, which caught Claude overstating a claim about HUD abilities when a screenshot contradicted it. Verification-first pays off exactly when the agent is running unsupervised.</div>
+        </div>
+      
+        <div class="big-win">
+          <div class="big-win-title">Fast, decisive course correction</div>
+          <div class="big-win-desc">When Claude misdiagnosed an &apos;Execution error&apos; as a permissions flag issue and filed a bug, you disproved it with a one-line test. You also interrupted background agents the moment they grabbed desktop focus rather than letting a bad run burn hours. Knowing exactly when to stop an autonomous run is what makes long unattended sessions safe to attempt at all.</div>
+        </div>
+      
+    </div>
+    
+
+    <div class="charts-row">
+      <div class="chart-card">
+        <div class="chart-title">What Helped Most (Claude's Capabilities)</div>
+        <div class="bar-row">
+        <div class="bar-label">Multi-file Changes</div>
+        <div class="bar-track"><div class="bar-fill" style="width:100%;background:#16a34a"></div></div>
+        <div class="bar-value">3</div>
+      </div>
+<div class="bar-row">
+        <div class="bar-label">Good Debugging</div>
+        <div class="bar-track"><div class="bar-fill" style="width:66.66666666666666%;background:#16a34a"></div></div>
+        <div class="bar-value">2</div>
+      </div>
+<div class="bar-row">
+        <div class="bar-label">Fast/Accurate Search</div>
+        <div class="bar-track"><div class="bar-fill" style="width:66.66666666666666%;background:#16a34a"></div></div>
+        <div class="bar-value">2</div>
+      </div>
+<div class="bar-row">
+        <div class="bar-label">Proactive Help</div>
+        <div class="bar-track"><div class="bar-fill" style="width:33.33333333333333%;background:#16a34a"></div></div>
+        <div class="bar-value">1</div>
+      </div>
+<div class="bar-row">
+        <div class="bar-label">Correct Code Edits</div>
+        <div class="bar-track"><div class="bar-fill" style="width:33.33333333333333%;background:#16a34a"></div></div>
+        <div class="bar-value">1</div>
+      </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Outcomes</div>
+        <div class="bar-row">
+        <div class="bar-label">Not Achieved</div>
+        <div class="bar-track"><div class="bar-fill" style="width:50%;background:#8b5cf6"></div></div>
+        <div class="bar-value">2</div>
+      </div>
+<div class="bar-row">
+        <div class="bar-label">Mostly Achieved</div>
+        <div class="bar-track"><div class="bar-fill" style="width:100%;background:#8b5cf6"></div></div>
+        <div class="bar-value">4</div>
+      </div>
+<div class="bar-row">
+        <div class="bar-label">Fully Achieved</div>
+        <div class="bar-track"><div class="bar-fill" style="width:75%;background:#8b5cf6"></div></div>
+        <div class="bar-value">3</div>
+      </div>
+<div class="bar-row">
+        <div class="bar-label">Unclear</div>
+        <div class="bar-track"><div class="bar-fill" style="width:25%;background:#8b5cf6"></div></div>
+        <div class="bar-value">1</div>
+      </div>
+      </div>
+    </div>
+
+    
+    <h2 id="section-friction">Where Things Go Wrong</h2>
+    <p class="section-intro">Across 10 sessions you shipped a lot of autonomous work, but friction clustered around agents grabbing your machine&apos;s focus, long-running delegations that you interrupted before anything landed, and Claude drawing confident conclusions before verifying them.</p>
+    <div class="friction-categories">
+      
+        <div class="friction-category">
+          <div class="friction-title">Background agents hijacking your desktop</div>
+          <div class="friction-desc">Automated Godot/Blender runs and parallel background agents repeatedly stole foreground focus on your machine, forcing you to interrupt and kill work in progress. Stating up front that all runs must be headless/invisible — or putting that rule in CLAUDE.md — would prevent the repeat.</div>
+          <ul class="friction-examples"><li>Claude launched the game so it popped into the foreground and wrongly assumed Blender wasn&apos;t installed; you interrupted to correct both, costing the session momentum</li><li>Four parallel background agents plus automated Godot runs grabbed your desktop focus, and you interrupted twice and killed all four before any gameplay changes were delivered (session outcome: not achieved)</li></ul>
+        </div>
+      
+        <div class="friction-category">
+          <div class="friction-title">Interrupting long delegation chains before code lands</div>
+          <div class="friction-desc">Several sessions spent their entire visible span on context-gathering and subagent dispatch, so when you stepped in nothing had been written yet. Asking for a short plan plus one concrete edit before any subagent fan-out would give you something to judge earlier.</div>
+          <ul class="friction-examples"><li>On PLC-07 placement UI, Claude finished spec reading and was dispatching a godot-engineer subagent when you interrupted — nothing shipped</li><li>In the issue #31 session, the entire captured transcript was context-gathering, leaving the outcome unclear even to you</li></ul>
+        </div>
+      
+        <div class="friction-category">
+          <div class="friction-title">Confident claims made before verification</div>
+          <div class="friction-desc">Claude asserted diagnoses and completion states that turned out to be wrong, and you had to disprove them yourself. Asking it to state evidence alongside every claim — and to treat &apos;gate green&apos; as a checkpoint rather than a finish line — would cut the rework.</div>
+          <ul class="friction-examples"><li>Claude misdiagnosed a child session&apos;s &apos;Execution error&apos; as caused by --dangerously-skip-permissions and filed an incorrect bug, which your one-line test disproved</li><li>Claude stopped early treating a session-wrap as the finish line, buried you in a wall of text, then admitted it had left two workstreams parked and batched journal entries against its own skill rules</li></ul>
+        </div>
+      
+    </div>
+    
+
+    <div class="charts-row">
+      <div class="chart-card">
+        <div class="chart-title">Primary Friction Types</div>
+        <div class="bar-row">
+        <div class="bar-label">User Rejected Action</div>
+        <div class="bar-track"><div class="bar-fill" style="width:100%;background:#dc2626"></div></div>
+        <div class="bar-value">4</div>
+      </div>
+<div class="bar-row">
+        <div class="bar-label">Wrong Approach</div>
+        <div class="bar-track"><div class="bar-fill" style="width:75%;background:#dc2626"></div></div>
+        <div class="bar-value">3</div>
+      </div>
+<div class="bar-row">
+        <div class="bar-label">Stalled Workstreams</div>
+        <div class="bar-track"><div class="bar-fill" style="width:50%;background:#dc2626"></div></div>
+        <div class="bar-value">2</div>
+      </div>
+<div class="bar-row">
+        <div class="bar-label">Buggy Code</div>
+        <div class="bar-track"><div class="bar-fill" style="width:25%;background:#dc2626"></div></div>
+        <div class="bar-value">1</div>
+      </div>
+<div class="bar-row">
+        <div class="bar-label">Premature Stop</div>
+        <div class="bar-track"><div class="bar-fill" style="width:25%;background:#dc2626"></div></div>
+        <div class="bar-value">1</div>
+      </div>
+<div class="bar-row">
+        <div class="bar-label">Verbose Output</div>
+        <div class="bar-track"><div class="bar-fill" style="width:25%;background:#dc2626"></div></div>
+        <div class="bar-value">1</div>
+      </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Inferred Satisfaction (model-estimated)</div>
+        <div class="bar-row">
+        <div class="bar-label">Dissatisfied</div>
+        <div class="bar-track"><div class="bar-fill" style="width:60%;background:#eab308"></div></div>
+        <div class="bar-value">3</div>
+      </div>
+<div class="bar-row">
+        <div class="bar-label">Likely Satisfied</div>
+        <div class="bar-track"><div class="bar-fill" style="width:100%;background:#eab308"></div></div>
+        <div class="bar-value">5</div>
+      </div>
+      </div>
+    </div>
+
+    
+    
+    <h2 id="section-features">Existing CC Features to Try</h2>
+    <div class="claude-md-section">
+      <h3>Suggested CLAUDE.md Additions</h3>
+      <p style="font-size: 12px; color: #64748b; margin-bottom: 12px;">Just copy this into Claude Code to add it to your CLAUDE.md.</p>
+      <div class="claude-md-actions">
+        <button class="copy-all-btn" onclick="copyAllCheckedClaudeMd()">Copy All Checked</button>
+      </div>
+      
+        <div class="claude-md-item">
+          <input type="checkbox" id="cmd-0" class="cmd-checkbox" checked data-text="Add as a new top-level `## Headless / Background Execution` section near the top of CLAUDE.md so it is read before any run commands.\n\n## Headless / Background Execution
+Never let a spawned process steal desktop focus. All Godot, Blender, and game launches must run headless or on an offscreen display (e.g. `godot --headless`, `xvfb-run -a &lt;cmd&gt;`, or `--rendering-driver dummy`). If a visual check is needed, capture a screenshot to a file and read it — do not pop a window into the foreground.">
+          <label for="cmd-0">
+            <code class="cmd-code">## Headless / Background Execution
+Never let a spawned process steal desktop focus. All Godot, Blender, and game launches must run headless or on an offscreen display (e.g. `godot --headless`, `xvfb-run -a &lt;cmd&gt;`, or `--rendering-driver dummy`). If a visual check is needed, capture a screenshot to a file and read it — do not pop a window into the foreground.</code>
+            <button class="copy-btn" onclick="copyCmdItem(0)">Copy</button>
+          </label>
+          <div class="cmd-why">Two separate sessions ended with the user interrupting and killing agents because launched games/renders grabbed their desktop focus.</div>
+        </div>
+      
+        <div class="claude-md-item">
+          <input type="checkbox" id="cmd-1" class="cmd-checkbox" checked data-text="Add as a `## Verify Before Claiming` section under any existing debugging/QA guidance.\n\n## Verify Before Claiming
+Before filing a bug, asserting a tool is missing, or claiming a feature exists, run the smallest possible test that proves it (e.g. `which blender`, a one-line repro). State the command and its output in the claim. Never diagnose from inference alone.">
+          <label for="cmd-1">
+            <code class="cmd-code">## Verify Before Claiming
+Before filing a bug, asserting a tool is missing, or claiming a feature exists, run the smallest possible test that proves it (e.g. `which blender`, a one-line repro). State the command and its output in the claim. Never diagnose from inference alone.</code>
+            <button class="copy-btn" onclick="copyCmdItem(1)">Copy</button>
+          </label>
+          <div class="cmd-why">Claude misdiagnosed an &apos;Execution error&apos; as a permissions flag (disproved by a one-line user test), wrongly assumed Blender wasn&apos;t installed, and overstated HUD abilities until a screenshot contradicted it.</div>
+        </div>
+      
+        <div class="claude-md-item">
+          <input type="checkbox" id="cmd-2" class="cmd-checkbox" checked data-text="Add as a `## Autonomous Backlog Rules` section next to the existing session-start/session-wrap documentation.\n\n## Autonomous Backlog Rules
+- A session-wrap is NOT the finish line: after wrapping, re-check every dispatched background agent and either land or explicitly park it with a reason.
+- Never leave a workstream on a finished background run without reporting its state.
+- Write one journal/chronicle entry per PR at merge time — do not batch entries at the end.
+- End-of-session reports must be a bullet summary under 15 lines, with detail linked, not pasted.">
+          <label for="cmd-2">
+            <code class="cmd-code">## Autonomous Backlog Rules
+- A session-wrap is NOT the finish line: after wrapping, re-check every dispatched background agent and either land or explicitly park it with a reason.
+- Never leave a workstream on a finished background run without reporting its state.
+- Write one journal/chronicle entry per PR at merge time — do not batch entries at the end.
+- End-of-session reports must be a bullet summary under 15 lines, with detail linked, not pasted.</code>
+            <button class="copy-btn" onclick="copyCmdItem(2)">Copy</button>
+          </label>
+          <div class="cmd-why">In the long autonomous backlog sessions Claude stopped prematurely, left two workstreams stalled on completed background runs, batched journal entries against its own skill rules, and buried the user in a wall of text.</div>
+        </div>
+      
+        <div class="claude-md-item">
+          <input type="checkbox" id="cmd-3" class="cmd-checkbox" checked data-text="Add under the `## Autonomous Backlog Rules` section.\n\n## Subagent Dispatch
+Before dispatching subagents, post a one-line plan: how many agents, what each owns, and how their output lands. Cap concurrent background agents at 2 unless the user explicitly approves more.">
+          <label for="cmd-3">
+            <code class="cmd-code">## Subagent Dispatch
+Before dispatching subagents, post a one-line plan: how many agents, what each owns, and how their output lands. Cap concurrent background agents at 2 unless the user explicitly approves more.</code>
+            <button class="copy-btn" onclick="copyCmdItem(3)">Copy</button>
+          </label>
+          <div class="cmd-why">Sessions were killed by the user immediately after Claude dispatched a godot-engineer subagent and, separately, four parallel background agents without a stated plan.</div>
+        </div>
+      
+    </div>
+    
+    
+    <p style="font-size: 13px; color: #64748b; margin-bottom: 12px;">Just copy this into Claude Code and it'll set it up for you.</p>
+    <div class="features-section">
+      
+        <div class="feature-card">
+          <div class="feature-title">Hooks</div>
+          <div class="feature-oneliner">Shell commands that auto-run at specific lifecycle events.</div>
+          <div class="feature-why"><strong>Why for you:</strong> Bash dominates your usage (1296 calls) and two sessions were derailed by processes grabbing desktop focus — a PreToolUse hook can force headless flags or block foreground launches before they happen.</div>
+          
+          <div class="feature-examples">
+            <div class="feature-example">
+              <div class="example-code-row">
+                <code class="example-code">// .claude/settings.json
+{
+  &quot;hooks&quot;: {
+    &quot;PreToolUse&quot;: [{
+      &quot;matcher&quot;: &quot;Bash&quot;,
+      &quot;hooks&quot;: [{
+        &quot;type&quot;: &quot;command&quot;,
+        &quot;command&quot;: &quot;grep -Eq &apos;(^|[[:space:]])(godot|blender)([[:space:]]|$)&apos; &lt;&lt;&lt; \&quot;$CLAUDE_TOOL_INPUT\&quot; &amp;&amp; ! grep -q -- &apos;--headless\\|xvfb-run&apos; &lt;&lt;&lt; \&quot;$CLAUDE_TOOL_INPUT\&quot; &amp;&amp; { echo &apos;Blocked: launch godot/blender headless or via xvfb-run&apos;; exit 2; }; exit 0&quot;
+      }]
+    }]
+  }
+}</code>
+                <button class="copy-btn" onclick="copyText(this)">Copy</button>
+              </div>
+            </div>
+          </div>
+          
+        </div>
+      
+        <div class="feature-card">
+          <div class="feature-title">Custom Skills</div>
+          <div class="feature-oneliner">Reusable prompts defined as markdown files that run with a single /command.</div>
+          <div class="feature-why"><strong>Why for you:</strong> You already run /session-start and /statusline repeatedly; a /wrap skill would enforce the checks you kept missing — draining background agents, one journal entry per PR, and a short report.</div>
+          
+          <div class="feature-examples">
+            <div class="feature-example">
+              <div class="example-code-row">
+                <code class="example-code"># .claude/skills/wrap/SKILL.md
+---
+name: wrap
+description: End-of-session wrap with background-agent drain and journal check
+---
+1. List every subagent/background run dispatched this session. For each: land it, or park it with an explicit reason.
+2. Verify one journal/chronicle entry exists per merged PR. Backfill any missing; never batch.
+3. Run the gate check and paste only pass/fail plus failing test names.
+4. Output a report of at most 15 bullet lines. Link to detail, do not paste it.
+5. Do NOT declare done until steps 1-3 all report clean.</code>
+                <button class="copy-btn" onclick="copyText(this)">Copy</button>
+              </div>
+            </div>
+          </div>
+          
+        </div>
+      
+        <div class="feature-card">
+          <div class="feature-title">Headless Mode</div>
+          <div class="feature-oneliner">Run Claude non-interactively from scripts and CI/CD.</div>
+          <div class="feature-why"><strong>Why for you:</strong> You cut CI from 27min to 5.7min and run long autonomous backlog programmes — headless mode lets those grinds run from a script with a fixed tool allowlist instead of an interactive session you have to babysit and interrupt.</div>
+          
+          <div class="feature-examples">
+            <div class="feature-example">
+              <div class="example-code-row">
+                <code class="example-code">claude -p &quot;Pick the top unblocked issue from the backlog, implement it, open a PR, and write one journal entry. Run all game/render commands headless.&quot; --allowedTools &quot;Edit,Read,Write,Bash,Grep,Glob&quot; --output-format stream-json</code>
+                <button class="copy-btn" onclick="copyText(this)">Copy</button>
+              </div>
+            </div>
+          </div>
+          
+        </div>
+      
+    </div>
+    
+    
+    <h2 id="section-patterns">New Ways to Use Claude Code</h2>
+    <p style="font-size: 13px; color: #64748b; margin-bottom: 12px;">Just copy this into Claude Code and it'll walk you through it.</p>
+    <div class="patterns-section">
+      
+        <div class="pattern-card">
+          <div class="pattern-title">Cap parallel agents and announce the plan first</div>
+          <div class="pattern-summary">You interrupted Claude twice mid-dispatch. Ask for the dispatch plan before any agents spawn.</div>
+          <div class="pattern-detail">Two of your three failed sessions ended the moment Claude started fanning out subagents — once on a godot-engineer, once on four parallel background agents. Your successful autonomous sessions (nine and ten PRs merged) had the same delegation but you weren&apos;t watching in real time. Making Claude state the plan and wait for a nod costs one turn and prevents killing a whole session&apos;s work.</div>
+          
+          <div class="copyable-prompt-section">
+            <div class="prompt-label">Paste into Claude Code:</div>
+            <div class="copyable-prompt-row">
+              <code class="copyable-prompt">Before dispatching any subagents, show me a one-line plan: how many agents, what each owns, what lands where. Max 2 concurrent unless I say otherwise. Wait for my go-ahead.</code>
+              <button class="copy-btn" onclick="copyText(this)">Copy</button>
+            </div>
+          </div>
+          
+        </div>
+      
+        <div class="pattern-card">
+          <div class="pattern-title">Make &apos;done&apos; mean drained, not wrapped</div>
+          <div class="pattern-summary">Claude treated session-wrap as the finish line while two workstreams sat idle on completed background runs.</div>
+          <div class="pattern-detail">Across your long backlog programmes, work stalled not because agents failed but because nobody harvested their finished output. Add an explicit drain step to every wrap: enumerate dispatched runs, check status, land or park each with a reason. Pair this with the /wrap skill above so it&apos;s mechanical rather than remembered.</div>
+          
+          <div class="copyable-prompt-section">
+            <div class="prompt-label">Paste into Claude Code:</div>
+            <div class="copyable-prompt-row">
+              <code class="copyable-prompt">Before you say you&apos;re done: list every background run and subagent you dispatched this session with its current status. For each finished one, land the work now. For each unfinished one, tell me what it&apos;s blocked on. Do not summarize until that list is clean.</code>
+              <button class="copy-btn" onclick="copyText(this)">Copy</button>
+            </div>
+          </div>
+          
+        </div>
+      
+        <div class="pattern-card">
+          <div class="pattern-title">Prove environment claims with a command</div>
+          <div class="pattern-summary">Three friction events came from Claude asserting something about the environment without testing it.</div>
+          <div class="pattern-detail">Claude filed a bug blaming --dangerously-skip-permissions (your one-line test disproved it), assumed Blender wasn&apos;t installed, and overstated HUD abilities until a screenshot contradicted it. Each of these was one `which`, one repro, or one screenshot away from being correct. Requiring the check inline turns guesses into facts and stops you having to be the debugger.</div>
+          
+          <div class="copyable-prompt-section">
+            <div class="prompt-label">Paste into Claude Code:</div>
+            <div class="copyable-prompt-row">
+              <code class="copyable-prompt">Rule for this session: any claim about what&apos;s installed, what&apos;s broken, or what a feature does must be backed by a command you ran and its actual output, quoted inline. If you haven&apos;t run it, say &apos;unverified&apos; instead of asserting.</code>
+              <button class="copy-btn" onclick="copyText(this)">Copy</button>
+            </div>
+          </div>
+          
+        </div>
+      
+        <div class="pattern-card">
+          <div class="pattern-title">Trade the wall of text for a 15-line report</div>
+          <div class="pattern-summary">Verbose end-of-session output was flagged as friction; cap the report and link the detail.</div>
+          <div class="pattern-detail">You&apos;re running 5+ hour autonomous sessions with 177 commits — the output volume is naturally huge, but you don&apos;t need it all inline. Ask for a fixed-length bullet report of merged PRs, gate status, and open blockers, with everything else written to a file you can open on demand. This also makes the difference between &apos;mostly achieved&apos; and &apos;achieved&apos; visible at a glance.</div>
+          
+          <div class="copyable-prompt-section">
+            <div class="prompt-label">Paste into Claude Code:</div>
+            <div class="copyable-prompt-row">
+              <code class="copyable-prompt">For the final report: max 15 bullets. Merged PRs (one line each), gate status pass/fail, open blockers, anything I need to decide. Write the full detail to reports/session-$(date +%F).md and just give me the path.</code>
+              <button class="copy-btn" onclick="copyText(this)">Copy</button>
+            </div>
+          </div>
+          
+        </div>
+      
+    </div>
+    
+    
+
+    
+    <h2 id="section-horizon">On the Horizon</h2>
+    <p class="section-intro">Your usage has already crossed from assisted coding into autonomous programme management — 177 commits across 53 hours with 115 subagent dispatches — so the frontier now is making that autonomy reliable, observable, and non-intrusive rather than merely ambitious.</p>
+    <div class="horizon-section">
+      
+        <div class="horizon-card">
+          <div class="horizon-title">Headless-by-default parallel agent fleets</div>
+          <div class="horizon-possible">Your biggest losses came from parallel agents stealing desktop focus and being killed mid-flight — imagine a fleet of 4-8 subagents that provably cannot touch your screen, each in its own git worktree with a virtual display, streaming progress to a single dashboard you can watch or ignore. Agents that block on human input park themselves into a queue instead of stalling, so a &apos;stalled workstream&apos; becomes a visible ticket rather than silent dead air. You return hours later to N merged PRs and a ranked list of the three decisions only you can make.</div>
+          <div class="horizon-tip"><strong>Getting started:</strong> Use the Task/Agent tool with explicit worktree isolation, xvfb-run or an offscreen renderer for any Godot/Blender invocation, and a Bash-driven status file that each agent appends to. Add a CLAUDE.md rule forbidding foreground process launches.</div>
+          <div class="pattern-prompt"><div class="prompt-label">Paste into Claude Code:</div><code>Build me a hardened parallel-agent harness for this repo, then use it. Requirements: (1) Write a `scripts/agent-run.sh` that creates an isolated git worktree per workstream under .worktrees/&lt;name&gt;, sets DISPLAY to an xvfb virtual display, and guarantees no launched process can grab desktop focus — verify this by launching the game headlessly and confirming no window appears. (2) Add a CLAUDE.md section: &apos;NEVER launch a GUI process in the foreground; always use scripts/agent-run.sh.&apos; (3) Create a JSONL status log at .agents/status.jsonl that every agent appends to with {workstream, phase, blocked_on, last_commit, timestamp}, plus a `scripts/agent-status.sh` that renders it as a one-screen table. (4) Any agent that needs a human decision must write a BLOCKED entry with a concrete question and then exit cleanly rather than waiting. Once the harness passes a smoke test, dispatch 4 subagents against the top 4 open backlog items using it, and report back only the status table plus the blocked-questions list — no walls of text.</code><button class="copy-btn" onclick="copyText(this)">Copy</button></div>
+        </div>
+      
+        <div class="horizon-card">
+          <div class="horizon-title">Gate-driven autonomous backlog grinding</div>
+          <div class="horizon-possible">You already cut CI from 27 to 5.7 minutes and built gate checks — the next step is a closed loop where the definition of done is a machine-checkable gate, not your judgment call. An agent picks the top backlog issue, writes the failing acceptance test first, iterates against the gate until green, opens the PR, and only then moves to the next issue — never stopping early because a session-wrap felt like a finish line. The loop runs until the backlog is empty or every remaining item is blocked on a human decision.</div>
+          <div class="horizon-tip"><strong>Getting started:</strong> Encode the gate as a single `make gate` command covering lint, tests, screenshots and process rules, then have the agent loop on it via Bash with a hard rule that session-wrap is not a terminal state.</div>
+          <div class="pattern-prompt"><div class="prompt-label">Paste into Claude Code:</div><code>Set up a self-terminating autonomous backlog loop. Step 1: consolidate every quality check into a single `make gate` target (lint, unit tests, integration, headless visual capture diff, and a process-rule check that verifies one journal entry exists per merged PR). Make it exit non-zero on any violation and print a machine-parseable failure summary. Step 2: write `scripts/grind.sh` that repeats: select highest-priority open issue -&gt; write a failing acceptance test that encodes its done-criteria -&gt; implement -&gt; run `make gate` in a loop until green (max 6 attempts, then mark BLOCKED with the failure summary) -&gt; open a PR -&gt; append a journal entry -&gt; next issue. Step 3: run it. Critical rules: a session-wrap, a summary, or a green gate on one issue is NOT a stopping point — only an empty backlog or all-remaining-items-BLOCKED is. When you finish, give me exactly: issues shipped, issues blocked with one-line reasons, and gate runtime trend.</code><button class="copy-btn" onclick="copyText(this)">Copy</button></div>
+        </div>
+      
+        <div class="horizon-card">
+          <div class="horizon-title">Self-verifying claims with evidence artifacts</div>
+          <div class="horizon-possible">Three separate sessions show misdiagnosis — a wrong root-cause bug filed, an overstated HUD claim contradicted by a screenshot, a wrong assumption that Blender wasn&apos;t installed. Imagine an agent that is structurally forbidden from asserting anything about runtime behavior without attaching an artifact: a screenshot, a command exit code, a log excerpt. Every PR description becomes a chain of evidence, and any claim without a linked artifact fails the gate automatically.</div>
+          <div class="horizon-tip"><strong>Getting started:</strong> Add an evidence-artifacts directory plus a gate check that greps PR bodies and journal entries for unsupported claims, and require a one-line reproduction command before any bug is filed.</div>
+          <div class="pattern-prompt"><div class="prompt-label">Paste into Claude Code:</div><code>Introduce an evidence-first discipline in this repo and retrofit it. (1) Create .evidence/&lt;pr-or-issue-id&gt;/ where every runtime claim must deposit an artifact: screenshot PNG, command transcript with exit code, or log excerpt. (2) Add a `make evidence-check` gate step that fails if a PR description or journal entry contains behavioral claims (words like &apos;works&apos;, &apos;fixed&apos;, &apos;not installed&apos;, &apos;caused by&apos;) without a relative link to a file under .evidence/. (3) Add a CLAUDE.md rule: before filing any bug or root-cause claim, first write and run the smallest possible one-line reproduction command and record its output as evidence; if the repro does not reproduce, the diagnosis is wrong. (4) Retroactively audit the last 20 merged PRs and the chronicle.json for claims lacking evidence, and produce a table of unverified assertions ranked by risk. Then re-verify the top 5 by actually running them, and correct the record where you were wrong.</code><button class="copy-btn" onclick="copyText(this)">Copy</button></div>
+        </div>
+      
+    </div>
+    
+
+    
+    <div class="fun-ending">
+      <div class="fun-headline">"Claude kept stealing the user&apos;s desktop — launching a Godot game window into the foreground mid-session — until the user killed all four background agents in frustration"</div>
+      <div class="fun-detail">During the Stargate-inspired gameplay overhaul, Claude&apos;s automated Godot runs popped the game into the foreground and grabbed focus. The user interrupted twice and stopped all four parallel agents before any code landed. The follow-up session opened with Claude setting up invisible headless capture instead — and this time it shipped.</div>
+    </div>
+    
+
+    
+  </div>
+  <script>
+    function toggleCollapsible(header) {
+      header.classList.toggle('open');
+      const content = header.nextElementSibling;
+      content.classList.toggle('open');
+    }
+    function copyText(btn) {
+      const code = btn.previousElementSibling;
+      navigator.clipboard.writeText(code.textContent).then(() => {
+        btn.textContent = 'Copied!';
+        setTimeout(() => { btn.textContent = 'Copy'; }, 2000);
+      });
+    }
+    function copyCmdItem(idx) {
+      const checkbox = document.getElementById('cmd-' + idx);
+      if (checkbox) {
+        const text = checkbox.dataset.text;
+        navigator.clipboard.writeText(text).then(() => {
+          const btn = checkbox.nextElementSibling.querySelector('.copy-btn');
+          if (btn) { btn.textContent = 'Copied!'; setTimeout(() => { btn.textContent = 'Copy'; }, 2000); }
+        });
+      }
+    }
+    function copyAllCheckedClaudeMd() {
+      const checkboxes = document.querySelectorAll('.cmd-checkbox:checked');
+      const texts = [];
+      checkboxes.forEach(cb => {
+        if (cb.dataset.text) { texts.push(cb.dataset.text); }
+      });
+      const combined = texts.join('\n');
+      const btn = document.querySelector('.copy-all-btn');
+      if (btn) {
+        navigator.clipboard.writeText(combined).then(() => {
+          btn.textContent = 'Copied ' + texts.length + ' items!';
+          btn.classList.add('copied');
+          setTimeout(() => { btn.textContent = 'Copy All Checked'; btn.classList.remove('copied'); }, 2000);
+        });
+      }
+    }
+    // Timezone selector for time of day chart (data is from our own analytics, not user input)
+    const rawHourCounts = {"0":5,"1":6,"5":2,"6":10,"7":8,"8":5,"9":10,"10":6,"11":10,"12":12,"13":14,"14":11,"15":20,"16":1,"17":6,"18":8,"19":10,"20":3,"21":5,"22":13,"23":6};
+    function updateHourHistogram(offsetFromPT) {
+      const periods = [
+        { label: "Morning (6-12)", range: [6,7,8,9,10,11] },
+        { label: "Afternoon (12-18)", range: [12,13,14,15,16,17] },
+        { label: "Evening (18-24)", range: [18,19,20,21,22,23] },
+        { label: "Night (0-6)", range: [0,1,2,3,4,5] }
+      ];
+      const adjustedCounts = {};
+      for (const [hour, count] of Object.entries(rawHourCounts)) {
+        const newHour = (parseInt(hour) + offsetFromPT + 24) % 24;
+        adjustedCounts[newHour] = (adjustedCounts[newHour] || 0) + count;
+      }
+      const periodCounts = periods.map(p => ({
+        label: p.label,
+        count: p.range.reduce((sum, h) => sum + (adjustedCounts[h] || 0), 0)
+      }));
+      const maxCount = Math.max(...periodCounts.map(p => p.count)) || 1;
+      const container = document.getElementById('hour-histogram');
+      container.textContent = '';
+      periodCounts.forEach(p => {
+        const row = document.createElement('div');
+        row.className = 'bar-row';
+        const label = document.createElement('div');
+        label.className = 'bar-label';
+        label.textContent = p.label;
+        const track = document.createElement('div');
+        track.className = 'bar-track';
+        const fill = document.createElement('div');
+        fill.className = 'bar-fill';
+        fill.style.width = (p.count / maxCount) * 100 + '%';
+        fill.style.background = '#8b5cf6';
+        track.appendChild(fill);
+        const value = document.createElement('div');
+        value.className = 'bar-value';
+        value.textContent = p.count;
+        row.appendChild(label);
+        row.appendChild(track);
+        row.appendChild(value);
+        container.appendChild(row);
+      });
+    }
+    document.getElementById('timezone-select').addEventListener('change', function() {
+      const customInput = document.getElementById('custom-offset');
+      if (this.value === 'custom') {
+        customInput.style.display = 'inline-block';
+        customInput.focus();
+      } else {
+        customInput.style.display = 'none';
+        updateHourHistogram(parseInt(this.value));
+      }
+    });
+    document.getElementById('custom-offset').addEventListener('change', function() {
+      const parsed = parseInt(this.value, 10);
+      if (isNaN(parsed)) return;
+      updateHourHistogram(parsed + 8);
+    });
+  </script>
+</body>
+</html>

@@ -1,5 +1,5 @@
 {
-  "next_id": 212,
+  "next_id": 217,
   "items": [
     {
       "id": "LF-001",
@@ -2529,6 +2529,66 @@
       "pri": "med",
       "status": "open",
       "why": "",
+      "opened": "2026-08-01",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-212",
+      "title": "Cull the tooling backlog, then gate against starvation. MEASURED 2026-08-01: of 72 open items, 32 are area=tooling and 35 are kind=chore, against a standing order that says 'default to game-facing work'. The instruction is true of how sessions are run and false of the queue they run against, so the correction is being reapplied one session at a time to a problem that regenerates. Neither /insights report could see this - they read transcripts, not the backlog. THREE PARTS. (1) One triage pass over all 32 tooling items: each must name the game work it unblocks, or be closed wont-do with a stated reason. Expect roughly 20 closures. (2) tools/backlog.py list defaults to game-facing areas; --all shows the rest. (3) New tier-1 check 'backlog composition' fails when non-game-facing work exceeds 40 percent of open items. NON-GAME-FACING MEANS tooling+meta+build TOGETHER, deliberately - filing process issues as meta rather than tooling would otherwise deflate the number without a single item changing, and a metric that can be moved by relabelling measures the labels rather than the queue. See docs/insights/PROCESS-PLAN.md section 2",
+      "kind": "chore",
+      "area": "meta",
+      "pri": "high",
+      "status": "open",
+      "why": "The standing correction to prefer game-facing work is applied per-session to a queue that regenerates tooling debt; nothing makes the drift visible",
+      "opened": "2026-08-01",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-213",
+      "title": "A convergence budget on investigative work. The origin machine's /insights report shows six sessions interrupted mid-loop with twenty-plus image crops loaded and no verdict ever delivered - they graded not_achieved purely because nothing was emitted before the owner's patience ran out. Cross-validated against this machine's report, which independently found that interrupts happen when a run loops without converging, NOT when it is slow: the owner tolerates long silence and does not tolerate visible grinding with no partial answer. This project's analogue is a balance sweep or a blank-screen diagnosis - the same shape, a loop that consumes budget without producing an interim result. TWO PARTS, both in the dispatch skill. (1) The verification bar gains a budget line: state the maximum number of sweeps, captures or renders up front, and emit an interim verdict at the halfway mark rather than batching everything to the end. (2) An investigative agent must return a verdict WITH A CONFIDENCE even when its budget is exhausted - 'still looking' is a failed return, not a partial one. See docs/insights/PROCESS-PLAN.md section 3",
+      "kind": "chore",
+      "area": "meta",
+      "pri": "med",
+      "status": "open",
+      "why": "Six sessions on the other machine produced nothing because a loop never emitted a partial answer before being killed",
+      "opened": "2026-08-01",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-214",
+      "title": "Evidence, or it did not happen: make a behavioural claim resolve to an artefact. Both /insights machines independently flag claims outrunning verification - a wrong root cause filed as a bug, an overstated capability a screenshot later contradicted, a 'not installed' that was installed. tools/issues.py close already requires --note, but the note is prose and nothing checks that it points at anything, so the evidence discipline this whole project rests on stops exactly where it is easiest to skip. THREE PARTS. (1) docs/evidence/<ID>/ holds the artefact: a screenshot, a command transcript with its exit code, or a gate JSON. (2) tools/issues.py close requires --evidence <path> when the note contains a behavioural claim - works, fixed, verified, renders, passes. (3) New tier-1 check 'evidence present': every issue closed within the last 20 commits resolves to an artefact that exists. Scope note - this is deliberately narrower than the report's suggestion of grepping PR bodies, because a check that hard-fails on a judgement gets satisfied with an empty artefact, the same failure mode 'chronicle current' already had to design around. See docs/insights/PROCESS-PLAN.md section 4",
+      "kind": "chore",
+      "area": "meta",
+      "pri": "med",
+      "status": "open",
+      "why": "The one discipline this project's method depends on is the one with no check behind it",
+      "opened": "2026-08-01",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-215",
+      "title": "Merged is not visible to the owner: flag a PR that needs a Windows re-import. The origin machine's report records five PRs merged and never deployed, so the feature stayed invisible to the owner until they asked. This project has an exact analogue already documented at length in CLAUDE.md: a merged asset or rules change is invisible until the WINDOWS editor re-imports, an import run by the Linux Godot is not enough, and the symptom is a blank level that reads exactly like a code regression. It has already cost one full diagnosis pass in which the Windows build was made to load main.tscn for 300 frames, four interface scales were checked and the save was ruled out before the cause turned out to be the import cache. TWO PARTS. (1) The ship skill gains a step: if the PR touched assets/renders/**, any *.import, or the atlas, both the PR body and the merge report carry a RE-IMPORT REQUIRED line. (2) The sprite atlas check extends to assert that flag is present on such a branch. See docs/insights/PROCESS-PLAN.md section 5",
+      "kind": "chore",
+      "area": "meta",
+      "pri": "med",
+      "status": "open",
+      "why": "A merged art or rules change the owner cannot see reads as a code regression and has already cost a full diagnosis pass",
+      "opened": "2026-08-01",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-216",
+      "title": "Drain before wrap, and cap the wrap report at 15 bullets. This machine's /insights report records a session that reported itself wrapped while two workstreams sat parked on background runs that had ALREADY FINISHED - nothing failed, nobody harvested - and separately flags the end-of-session wall of text as friction in its own right. TWO PARTS, both in the session-wrap skill. (1) A new FIRST step: enumerate every subagent and background run dispatched this session with its status, land each finished one, park each unfinished one with an explicit blocker. No summary is written until that list is clean. This is mechanically checkable against tools/reap.py --json plus the lease directory, so it need not rely on memory. (2) The wrap report is capped at 15 bullets; detail goes to docs/sessions/session-<date>.md and the report links it rather than pasting it. See docs/insights/PROCESS-PLAN.md section 6",
+      "kind": "chore",
+      "area": "meta",
+      "pri": "med",
+      "status": "open",
+      "why": "A wrap that reports itself done while finished background work sits unharvested is the failure the wrap exists to prevent",
       "opened": "2026-08-01",
       "closed": null,
       "note": ""

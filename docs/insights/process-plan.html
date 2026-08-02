@@ -1,0 +1,348 @@
+<title>LATTICEFALL — Process Plan from Two Insights Reports</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<style>
+:root {
+  --ground:#0E1417; --ground-2:#121B1F; --panel:#162126; --line:#24343A; --line-soft:#1C282D;
+  --bone:#DCE4E1; --muted:#7E9091; --verd:#5FA894; --verd-dim:#2E5A50;
+  --amber:#E8A33D; --amber-dim:#6B4A18; --alert:#D2543F;
+  --shadow:0 1px 0 rgba(255,255,255,.03), 0 18px 40px -24px rgba(0,0,0,.9);
+  --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  --serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
+  --sans: system-ui, "Avenir Next", "Segoe UI", Roboto, sans-serif;
+  --s1:.35rem; --s2:.7rem; --s3:1.1rem; --s4:1.8rem; --s5:2.8rem; --s6:4.4rem; --s7:7rem;
+  --col:68ch;
+}
+@media (prefers-color-scheme: light) {
+  :root { --ground:#E3E8E5; --ground-2:#DADFDC; --panel:#F5F8F6; --line:#BAC6C2; --line-soft:#CCD6D2;
+    --bone:#111C1A; --muted:#5A6B69; --verd:#2A6E5D; --verd-dim:#A8C9BF; --amber:#9A6410;
+    --amber-dim:#E4CFA4; --alert:#A93520; --shadow:0 1px 0 rgba(255,255,255,.7), 0 14px 30px -22px rgba(20,40,36,.5); }
+}
+:root[data-theme="light"] { --ground:#E3E8E5; --ground-2:#DADFDC; --panel:#F5F8F6; --line:#BAC6C2;
+  --line-soft:#CCD6D2; --bone:#111C1A; --muted:#5A6B69; --verd:#2A6E5D; --verd-dim:#A8C9BF;
+  --amber:#9A6410; --amber-dim:#E4CFA4; --alert:#A93520; --shadow:0 1px 0 rgba(255,255,255,.7), 0 14px 30px -22px rgba(20,40,36,.5); }
+:root[data-theme="dark"] { --ground:#0E1417; --ground-2:#121B1F; --panel:#162126; --line:#24343A;
+  --line-soft:#1C282D; --bone:#DCE4E1; --muted:#7E9091; --verd:#5FA894; --verd-dim:#2E5A50;
+  --amber:#E8A33D; --amber-dim:#6B4A18; --alert:#D2543F; --shadow:0 1px 0 rgba(255,255,255,.03), 0 18px 40px -24px rgba(0,0,0,.9); }
+
+* { box-sizing:border-box; margin:0; padding:0; }
+body { background:var(--ground); color:var(--bone); font-family:var(--sans); font-size:16px; line-height:1.65; -webkit-font-smoothing:antialiased; }
+.doc { max-width:1080px; margin:0 auto; padding:var(--s5) var(--s3) var(--s7); display:flex; flex-direction:column; gap:var(--s6); }
+h1,h2,h3 { text-wrap:balance; margin:0; }
+p { margin:0; }
+code { font-family:var(--mono); font-size:.88em; color:var(--amber); }
+a { color:var(--verd); text-underline-offset:3px; }
+:focus-visible { outline:2px solid var(--amber); outline-offset:3px; }
+.tag { font-family:var(--mono); font-size:.69rem; letter-spacing:.16em; text-transform:uppercase; color:var(--muted); }
+
+.mast { display:grid; grid-template-columns:auto 1fr auto; gap:var(--s3) var(--s4); align-items:center; border-bottom:1px solid var(--line); padding-bottom:var(--s4); }
+.emblem { width:76px; height:76px; display:block; }
+.wordmark { font-family:var(--mono); font-weight:700; font-size:clamp(1.5rem,4.8vw,2.6rem); letter-spacing:.12em; line-height:1; color:var(--bone); }
+.wordmark span { color:var(--verd); }
+.mast-sub { font-family:var(--mono); font-size:.72rem; letter-spacing:.2em; text-transform:uppercase; color:var(--muted); margin-top:var(--s2); }
+.tt { font-family:var(--mono); font-size:.62rem; letter-spacing:.14em; text-transform:uppercase; background:var(--panel); color:var(--verd); border:1px solid var(--verd-dim); padding:.35rem .6rem; cursor:pointer; align-self:start; }
+.tt:hover { background:var(--verd-dim); color:var(--bone); }
+@media (max-width:720px){ .mast{grid-template-columns:auto 1fr} .tt{grid-column:1/-1} }
+
+.sec { display:grid; grid-template-columns:8.5rem 1fr; gap:var(--s4); align-items:start; }
+.sec > .rail { position:sticky; top:var(--s3); font-family:var(--mono); font-size:.68rem; letter-spacing:.16em; text-transform:uppercase; color:var(--muted); border-top:2px solid var(--verd); padding-top:var(--s2); display:flex; flex-direction:column; gap:var(--s1); }
+.rail b { color:var(--verd); font-weight:600; }
+.body-col { display:flex; flex-direction:column; gap:var(--s3); min-width:0; }
+.sec h2 { font-family:var(--mono); font-size:1.42rem; letter-spacing:.06em; font-weight:600; text-transform:uppercase; }
+.lede { font-size:1.1rem; max-width:var(--col); }
+.body-col > p { max-width:var(--col); color:var(--muted); }
+.body-col > p strong { color:var(--bone); font-weight:600; }
+@media (max-width:720px){ .sec{grid-template-columns:1fr;gap:var(--s3)} .sec>.rail{position:static;flex-direction:row;gap:var(--s3)} }
+
+.spine { background:var(--panel); border:1px solid var(--line); border-left:3px solid var(--amber); padding:var(--s3); display:flex; flex-direction:column; gap:var(--s2); box-shadow:var(--shadow); }
+.spine dl { display:grid; grid-template-columns:11rem 1fr; gap:var(--s1) var(--s3); margin:0; font-size:.9rem; }
+.spine dt { font-family:var(--mono); font-size:.68rem; letter-spacing:.13em; text-transform:uppercase; color:var(--verd); padding-top:.25rem; }
+.spine dd { margin:0; color:var(--muted); }
+@media (max-width:620px){ .spine dl{grid-template-columns:1fr;gap:0 0} .spine dd{margin-bottom:.6rem} }
+
+.note { font-family:var(--mono); font-size:.73rem; line-height:1.6; letter-spacing:.03em; color:var(--muted); border-left:2px solid var(--amber); padding:var(--s1) 0 var(--s1) var(--s2); max-width:var(--col); }
+.note b { color:var(--amber); letter-spacing:.1em; }
+.note.bad { border-left-color:var(--alert); }
+.note.bad b { color:var(--alert); }
+.note.good { border-left-color:var(--verd); }
+.note.good b { color:var(--verd); }
+
+.tw { overflow-x:auto; border:1px solid var(--line); }
+table { border-collapse:collapse; width:100%; font-size:.86rem; min-width:560px; }
+th,td { text-align:left; padding:.6rem .8rem; border-bottom:1px solid var(--line-soft); vertical-align:top; }
+th { font-family:var(--mono); font-size:.66rem; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); background:var(--ground-2); font-weight:600; }
+td { color:var(--muted); }
+td:first-child { font-family:var(--mono); color:var(--bone); font-size:.8rem; }
+tr:last-child td { border-bottom:0; }
+.num { font-family:var(--mono); color:var(--bone); }
+
+.signals { display:flex; flex-direction:column; gap:var(--s2); counter-reset:sig; }
+.sig { background:var(--panel); border:1px solid var(--line); border-left:3px solid var(--verd); padding:var(--s3); display:flex; gap:var(--s3); align-items:baseline; }
+.sig::before { counter-increment:sig; content:counter(sig,decimal-leading-zero); font-family:var(--mono); font-size:.72rem; letter-spacing:.12em; color:var(--verd); }
+.sig p { font-size:.92rem; color:var(--muted); }
+.sig p b { color:var(--bone); font-weight:600; }
+
+.chg { background:var(--panel); border:1px solid var(--line); border-left:3px solid var(--amber); padding:var(--s3); display:flex; flex-direction:column; gap:var(--s2); box-shadow:var(--shadow); }
+.chg.top { border-left-color:var(--alert); }
+.chg-top { display:grid; grid-template-columns:auto 1fr auto; gap:var(--s2) var(--s3); align-items:baseline; }
+.chg-id { font-family:var(--mono); font-size:.7rem; letter-spacing:.13em; color:var(--amber); border:1px solid var(--amber-dim); padding:.1rem .45rem; white-space:nowrap; }
+.chg.top .chg-id { color:var(--alert); border-color:var(--alert); }
+.chg-name { font-family:var(--serif); font-size:1.22rem; font-style:italic; color:var(--bone); }
+.chg-meta { font-family:var(--mono); font-size:.66rem; letter-spacing:.1em; color:var(--muted); text-transform:uppercase; white-space:nowrap; }
+.chg p { font-size:.92rem; color:var(--muted); max-width:64ch; }
+.chg p b { color:var(--bone); font-weight:600; }
+.chg ul { margin:0; padding-left:1.1rem; display:flex; flex-direction:column; gap:.35rem; font-size:.9rem; color:var(--muted); }
+.chg ul b { color:var(--bone); font-weight:600; }
+@media (max-width:620px){ .chg-top{grid-template-columns:1fr} }
+
+.foot { border-top:1px solid var(--line); padding-top:var(--s3); display:flex; flex-wrap:wrap; justify-content:space-between; gap:var(--s2); font-family:var(--mono); font-size:.68rem; letter-spacing:.12em; text-transform:uppercase; color:var(--muted); }
+.foot a { color:var(--verd); }
+</style>
+
+<div class="doc">
+
+  <header class="mast">
+    <svg class="emblem" viewBox="0 0 100 100" role="img" aria-label="Lattice anchor emblem">
+      <g fill="none" stroke="currentColor" stroke-width="1.5" style="color:var(--verd)">
+        <path d="M50 6 L88 28 L88 72 L50 94 L12 72 L12 28 Z" opacity=".45"/>
+        <circle cx="50" cy="50" r="26"/><circle cx="50" cy="50" r="17" opacity=".5"/>
+      </g>
+      <g fill="var(--amber)">
+        <path d="M50 18 l4.5 7 h-9 Z"/><path d="M50 82 l4.5 -7 h-9 Z"/>
+        <path d="M18 50 l7 -4.5 v9 Z"/><path d="M82 50 l-7 -4.5 v9 Z"/>
+      </g>
+      <circle cx="50" cy="50" r="4.5" fill="var(--verd)"/>
+    </svg>
+    <div>
+      <h1 class="wordmark">PROCESS PLAN <span>· TWO MACHINES</span></h1>
+      <div class="mast-sub">Latticefall · from two /insights reports · 2026-08-01 · proposals, not landed work</div>
+    </div>
+    <button class="tt" id="tt" type="button">Theme</button>
+  </header>
+
+  <!-- ══════ WHY ══════ -->
+  <section class="sec">
+    <div class="rail"><b>00</b><span>Why</span></div>
+    <div class="body-col">
+      <h2>Two machines, two different answers</h2>
+      <p class="lede">The owner ran <code>/insights</code> on two machines that have been building this project at different times, and asked whether they would give different information. They do — substantially — and the more useful finding is <strong>why</strong>.</p>
+      <p>Each report can only see its own machine's transcripts. So each one's ranked friction list is an artefact of its own sampling window rather than a property of how the work actually goes. Read either one alone and you would act on the wrong thing.</p>
+      <div class="note bad">
+        <b>Read this before acting on either report →</b> the recommendations lag the repository. This machine's headline advice — a hook that blocks any Godot or Blender command lacking <code>--headless</code> — describes work <b>decision 052 already closed</b>. <code>toolpaths.godot_argv()</code> runs the native Linux build under Xvfb, and <code>guard.py:rule_raw_engine</code> already denies the bypass. Treat every recommendation as a hypothesis to check against the gate, never as a backlog item.
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════ COMPARISON ══════ -->
+  <section class="sec">
+    <div class="rail"><b>01</b><span>Comparison</span></div>
+    <div class="body-col">
+      <h2>The two reports, side by side</h2>
+      <div class="tw">
+        <table>
+          <thead>
+            <tr><th></th><th>This machine · WSL2 / Windows</th><th>The origin machine</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Report</td><td><code>…-193255</code></td><td><code>…-193354</code></td></tr>
+            <tr><td>Window</td><td>2026-07-30 → 08-02 · <span class="num">4 days</span></td><td>2026-05-26 → 08-01 · <span class="num">13 active days</span></td></tr>
+            <tr><td>Sessions</td><td><span class="num">17</span> total, <span class="num">10</span> analysed</td><td><span class="num">179</span> total, <span class="num">56</span> analysed, <span class="num">49</span> graded</td></tr>
+            <tr><td>Messages</td><td><span class="num">171</span></td><td><span class="num">964</span></td></tr>
+            <tr><td>Commits</td><td><span class="num">177</span></td><td><span class="num">214</span></td></tr>
+            <tr><td>Lines</td><td>—</td><td><span class="num">+74,918 / −2,980</span> across <span class="num">704</span> files</td></tr>
+            <tr><td>Projects</td><td>Latticefall only</td><td>five — Latticefall (~8), product factory (~12), recipe cards (~20), finance app (~5), local infra (~6)</td></tr>
+            <tr><td>Tool mix</td><td>Bash <span class="num">1296</span> · Edit <span class="num">136</span> · Agent <span class="num">115</span></td><td>Bash <span class="num">4083</span> · Edit <span class="num">1140</span> · Read <span class="num">922</span> · Write <span class="num">560</span></td></tr>
+            <tr><td>Top friction</td><td>desktop focus theft · interrupts during dispatch · unverified claims</td><td>buggy code (24) · wrong approach (14) · verbose menus · unbounded loops</td></tr>
+            <tr><td>Headline advice</td><td>"make every run headless"</td><td>"one recommendation" · "deploy after merging" · "worktree per agent"</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>The origin machine ranks <strong>buggy code</strong> first because it spans thirteen days and five codebases, most without a gate like this project's. This machine ranks <strong>desktop focus theft</strong> first because its four-day window happens to straddle the single session where that occurred — one event, in a ten-session sample, becomes a headline.</p>
+      <p>Neither is wrong about its own data. Both are wrong as a description of the whole.</p>
+    </div>
+  </section>
+
+  <!-- ══════ SIGNALS ══════ -->
+  <section class="sec">
+    <div class="rail"><b>02</b><span>Signals</span></div>
+    <div class="body-col">
+      <h2>What survives cross-validation</h2>
+      <p>Only what appears independently on <strong>both</strong> machines survives the sampling problem. Five things do — and these, not the reports' own recommendations, are what the changes below are built on.</p>
+      <div class="signals">
+        <div class="sig"><p><b>High-autonomy delegation is the working mode, and it ships.</b> 391 commits combined; individual sessions merged nine, ten and fifteen PRs unattended.</p></div>
+        <div class="sig"><p><b>Agents collide in a shared working tree.</b> Origin machine: two agents contaminated one branch. This machine: the entire <code>git stash</code> / <code>git add</code> rule apparatus exists because of a stash that swept eleven files across five workstreams.</p></div>
+        <div class="sig"><p><b>Interrupts happen when a run loops without converging</b> — not when it is slow. The owner tolerates long silence; they do not tolerate visible grinding with no verdict.</p></div>
+        <div class="sig"><p><b>Verbose output is friction, and it is distinct from verbose work.</b> Walls of text and option menus were flagged on both machines.</p></div>
+        <div class="sig"><p><b>Claims outrun verification.</b> A wrong root cause filed as a bug, an overstated capability a screenshot contradicted, a "not installed" that was installed, five PRs merged and never deployed.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════ ALREADY DONE ══════ -->
+  <section class="sec">
+    <div class="rail"><b>03</b><span>Already done</span></div>
+    <div class="body-col">
+      <h2>Do not build these twice</h2>
+      <p>Verified in-repo while writing this, so that everything proposed below is a delta rather than a second implementation of something that exists.</p>
+      <div class="tw">
+        <table>
+          <thead><tr><th>Report recommendation</th><th>Already covered by</th></tr></thead>
+          <tbody>
+            <tr><td>Headless / no foreground windows</td><td>Decision 052 · <code>tools/toolpaths.py</code> · <code>guard.py:rule_raw_engine</code></td></tr>
+            <tr><td>Timeouts on long subprocesses</td><td><code>guard.py:rule_background</code></td></tr>
+            <tr><td>No <code>git stash</code> / <code>reset</code> / wide <code>git add</code></td><td><code>guard.py:rule_git_safety</code></td></tr>
+            <tr><td>Kill orphaned child processes</td><td><code>tools/reap.py</code> + leases · <code>SessionEnd</code> hook</td></tr>
+            <tr><td>One recommendation, no walls of text</td><td><code>CLAUDE.md</code> Output Rules</td></tr>
+            <tr><td>One journal entry per PR, never batched</td><td><code>ship</code> skill step 4 · <code>check.py</code> <code>chronicle current</code></td></tr>
+            <tr><td>Pin subagent models</td><td><code>check.py</code> <code>agent models</code></td></tr>
+            <tr><td>Brief subagents with file ownership</td><td><code>dispatch</code> skill</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════ CHANGES ══════ -->
+  <section class="sec">
+    <div class="rail"><b>04</b><span>Changes</span></div>
+    <div class="body-col">
+      <h2>The seven worth making</h2>
+      <p>Ranked by leverage. These land as <strong>harness enforcement</strong> — <code>guard.py</code> rules, gate checks and skill steps, not prose — because this project's own history is that a rule written only in prose gets violated, and a rule with a check behind it does not.</p>
+
+      <div class="chg top">
+        <div class="chg-top">
+          <span class="chg-id">PRC-15</span>
+          <span class="chg-name">Worktree isolation per subagent</span>
+          <span class="chg-meta">highest leverage · both machines</span>
+        </div>
+        <p><code>tools/hooks/guard.py</code>'s own docstring already names it: <em>"PRC-15 (a worktree per workstream) is the real fix."</em> Every shared-tree rule in this repository is compensation for a missing isolation primitive — the git denials, the coordinator-only commit path, the <code>index.lock</code> retry loop, and <b>LF-133</b>'s unresolvable "is this my sibling's Godot or mine?" ambiguity that makes <code>reap.py --kill</code> unsafe for any agent to run. Isolate the trees and all four dissolve at once.</p>
+        <p>The <code>Agent</code> tool now takes <code>isolation: "worktree"</code> natively, so this is mostly a briefing change plus a sweep, not new infrastructure.</p>
+        <ul>
+          <li><b>dispatch skill</b> gains a worktree section: every <b>code-writing</b> subagent launches with <code>isolation: "worktree"</code>; read-only agents stay in-tree, where a worktree costs ~150 MB and buys nothing.</li>
+          <li><b>guard.py</b> gains <code>rule_worktree_expected</code> — <b>warn, not deny</b> — when an <code>Edit</code>/<code>Write</code> lands outside the caller's worktree while more than one agent lease is live.</li>
+          <li>The existing git-denial rules <b>stay</b> until this is proven in a real fan-out. Retiring them is a separate change, after evidence.</li>
+        </ul>
+        <div class="note"><b>Note →</b> supersedes LF-133 rather than fixing it.</div>
+      </div>
+
+      <div class="chg">
+        <div class="chg-top">
+          <span class="chg-id">LF-212</span>
+          <span class="chg-name">Cull the tooling backlog, then gate against starvation</span>
+          <span class="chg-meta">neither report could see this</span>
+        </div>
+        <p>Neither report can read the backlog. Of <b>72 open items, 32 are <code>tooling</code> and 35 are <code>chore</code></b>. The standing order says "default to game-facing work" — which is true of how sessions are run and false of the queue they run against. The correction is being applied one session at a time to a problem that regenerates.</p>
+        <ul>
+          <li>One triage pass over all 32 tooling items. Each must <b>name the game work it unblocks</b>, or be closed won't-do with a stated reason. Expect roughly 20 closures.</li>
+          <li><code>tools/backlog.py list</code> defaults to game-facing areas; <code>--all</code> shows the rest.</li>
+          <li>New tier-1 check <code>backlog composition</code>: fails when non-game-facing work exceeds 40% of open items. The drift becomes red rather than invisible.</li>
+        </ul>
+        <div class="note"><b>Un-gameable on purpose →</b> "non-game-facing" means <code>tooling</code> + <code>meta</code> + <code>build</code> together. Filing this plan's own proposals as <code>meta</code> rather than <code>tooling</code> would otherwise deflate the number without a single item changing. Items 3–6 are filed as <code>meta</code> and <b>do</b> count against the 40%.</div>
+      </div>
+
+      <div class="chg">
+        <div class="chg-top">
+          <span class="chg-id">LF-213</span>
+          <span class="chg-name">A convergence budget on investigative work</span>
+          <span class="chg-meta">origin machine · six lost sessions</span>
+        </div>
+        <p>Six sessions were interrupted mid-loop, twenty-plus image crops loaded and no verdict ever delivered. They graded <code>not_achieved</code> purely because nothing was emitted before patience ran out. This project's analogue is a balance sweep or a blank-screen diagnosis — the same shape, a loop that consumes budget without producing a partial answer.</p>
+        <ul>
+          <li><b>dispatch skill</b>'s verification bar gains a <b>budget line</b>: state the maximum number of sweeps, captures or renders up front, and emit an interim verdict at the halfway mark rather than batching to the end.</li>
+          <li>An investigative agent must return a verdict <b>with a confidence</b> even when its budget is exhausted. "Still looking" is a failed return, not a partial one.</li>
+        </ul>
+      </div>
+
+      <div class="chg">
+        <div class="chg-top">
+          <span class="chg-id">LF-214</span>
+          <span class="chg-name">Evidence, or it did not happen</span>
+          <span class="chg-meta">both machines</span>
+        </div>
+        <p>The class of error the owner has had to personally disprove more than once. <code>tools/issues.py close --note</code> already requires a note — but the note is prose, and nothing checks that it points at anything.</p>
+        <ul>
+          <li><code>docs/evidence/&lt;ID&gt;/</code> holds the artefact: a screenshot, a command transcript with its exit code, or a gate JSON.</li>
+          <li><code>tools/issues.py close</code> requires <code>--evidence &lt;path&gt;</code> when the note contains a behavioural claim — <code>works</code>, <code>fixed</code>, <code>verified</code>, <code>renders</code>, <code>passes</code>.</li>
+          <li>New tier-1 check <code>evidence present</code>: every issue closed within the last 20 commits resolves to an artefact that exists.</li>
+        </ul>
+      </div>
+
+      <div class="chg">
+        <div class="chg-top">
+          <span class="chg-id">LF-215</span>
+          <span class="chg-name">Merged ≠ visible to the owner</span>
+          <span class="chg-meta">origin machine · exact analogue here</span>
+        </div>
+        <p>The origin machine's "merged five PRs, deployed none, and the feature stayed invisible." This project has an exact analogue already documented at length in <code>CLAUDE.md</code>: a merged asset or rules change is invisible until the <b>Windows</b> editor re-imports, and the symptom is a blank level that reads exactly like a code regression. It has already cost one full diagnosis pass.</p>
+        <ul>
+          <li><b>ship skill</b> gains a step: if the PR touched <code>assets/renders/**</code>, any <code>*.import</code>, or the atlas, both the PR body and the merge report carry a <b>RE-IMPORT REQUIRED</b> line.</li>
+          <li>The <code>sprite atlas</code> check extends to assert that flag is present on such a branch.</li>
+        </ul>
+      </div>
+
+      <div class="chg">
+        <div class="chg-top">
+          <span class="chg-id">LF-216</span>
+          <span class="chg-name">Drain before wrap</span>
+          <span class="chg-meta">this machine</span>
+        </div>
+        <p>A session reported itself wrapped while two workstreams sat parked on background runs that had already finished. Nothing failed; nobody harvested.</p>
+        <ul>
+          <li><b>session-wrap skill</b> gains a first step: enumerate every subagent and background run dispatched this session with its status. Land each finished one. Park each unfinished one with an explicit blocker. <b>No summary is written until that list is clean.</b></li>
+          <li>The wrap report is capped at <b>15 bullets</b>; detail goes to <code>docs/sessions/session-&lt;date&gt;.md</code> and the report links it rather than pasting it.</li>
+        </ul>
+      </div>
+
+      <div class="chg">
+        <div class="chg-top">
+          <span class="chg-id">practice</span>
+          <span class="chg-name">Keep the insights honest</span>
+          <span class="chg-meta">meta</span>
+        </div>
+        <ul>
+          <li>Run <code>/insights</code> on <b>both</b> machines each time, and archive both reports into <code>docs/insights/</code> so the next comparison has a tracked baseline rather than two files in a download folder.</li>
+          <li>Check every recommendation against the repository before it becomes a backlog item. This round, one headline recommendation was already implemented and another was half-implemented.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════ SCOPE ══════ -->
+  <section class="sec">
+    <div class="rail"><b>05</b><span>Scope</span></div>
+    <div class="body-col">
+      <h2>What this document is not</h2>
+      <div class="note good">
+        <b>Nothing here is implemented →</b> this is the analysis and the proposal. The changes land after review. Item 1 is the existing <b>PRC-15</b>; items 2–6 are filed as <b>LF-212</b> … <b>LF-216</b>, so they are queued rather than remembered.
+      </div>
+      <div class="spine">
+        <div class="tag">Sources — archived alongside this file</div>
+        <dl>
+          <dt>This machine</dt><dd><a href="report-2026-08-01-193255.html">report-2026-08-01-193255.html</a> — 4-day window, Latticefall only</dd>
+          <dt>Origin machine</dt><dd><a href="report-2026-08-01-193354.html">report-2026-08-01-193354.html</a> — 13-day window, five projects</dd>
+          <dt>Markdown source</dt><dd><a href="PROCESS-PLAN.md">PROCESS-PLAN.md</a> — the source of truth for this page</dd>
+        </dl>
+      </div>
+    </div>
+  </section>
+
+  <footer class="foot">
+    <span>Latticefall · docs/insights</span>
+    <span>Written 2026-08-01 · proposals only</span>
+  </footer>
+
+</div>
+
+<script>
+(function () {
+  var root = document.documentElement;
+  var btn = document.getElementById('tt');
+  btn.addEventListener('click', function () {
+    var cur = root.getAttribute('data-theme');
+    if (!cur) {
+      cur = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    }
+    root.setAttribute('data-theme', cur === 'dark' ? 'light' : 'dark');
+  });
+})();
+</script>
