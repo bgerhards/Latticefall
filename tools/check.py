@@ -156,12 +156,16 @@ neither flag changes what any other check does.
 from __future__ import annotations
 
 import argparse
+import functools
 import hashlib
 import json
+import os
 import py_compile
 import re
+import shutil
 import subprocess
 import sys
+import tempfile
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -230,6 +234,54 @@ def tracked(*globs: str) -> list[Path]:
                        capture_output=True, text=True, cwd=str(ROOT))
     paths = (ROOT / p for p in r.stdout.split("\0") if p)
     return sorted(p for p in paths if p.exists())
+
+
+## Where a check's throwaway evidence goes. NOT `.godot/` — PRC-15 task 2.
+##
+## Every rendering check used to write a FIXED path under the engine's import cache:
+## `.godot/gate-frame.png`, `.godot/gate-menu.png`, `.godot/gate-a11y-<case>.{png,json}`.
+## Two consequences, both real.
+##
+## Two concurrent gate runs deleted each other's evidence — the accessibility analyser
+## samples background colours out of those PNGs, so it could read a frame another process
+## had already unlinked, and "two agents ran the gate at once" had no defence at all.
+##
+## And it put the gate's scratch files inside the directory the owner's running game reads
+## from, which `guard.py:rule_godot_write` forbids every other writer from touching for
+## exactly the reason LF-075 records. The gate was the one writer exempt from the rule it
+## enforces, by being the thing that wrote the rule.
+##
+## `.cache/` is already gitignored and already holds the lease directory and the parity
+## digests, so it is the established home for state that is real but not content.
+ARTIFACT_ROOT = ROOT / ".cache" / "gate"
+
+
+def with_artifacts(name: str):
+    """Give a check its own per-run artefact directory, and clean it up ONLY on success.
+
+    The pid is in the directory name so a hard-killed run leaves an inspectable trail
+    rather than a mystery (PRC-15 task 1).
+
+    **Cleaning up only on success is deliberate and preserves the existing behaviour.**
+    The old code called `shot.unlink()` *after* its assertions passed and returned early on
+    failure, which leaves the failing frame on disk to be looked at — that is the whole
+    value of a rendering check that failed. A blanket `finally: rmtree` would have been
+    tidier and would have destroyed the evidence, so the failure path keeps the directory
+    and the failure message says where it is.
+    """
+    def decorate(fn):
+        @functools.wraps(fn)
+        def wrapper(*a, **kw):
+            ARTIFACT_ROOT.mkdir(parents=True, exist_ok=True)
+            out = Path(tempfile.mkdtemp(prefix=f"{name}-{os.getpid()}-", dir=ARTIFACT_ROOT))
+            result = fn(out, *a, **kw)
+            if result.status == OK:
+                shutil.rmtree(out, ignore_errors=True)
+            elif result.status == FAIL:
+                result.detail = f"{result.detail}\n    artefacts kept: {out}"
+            return result
+        return wrapper
+    return decorate
 
 
 def run(*args: str, timeout: float = DEFAULT_TIMEOUT) -> subprocess.CompletedProcess:
@@ -1443,7 +1495,8 @@ def check_godot_boots() -> Result:
     return Result(OK, "main scene loads clean")
 
 
-def check_game_renders() -> Result:
+@with_artifacts("game-renders")
+def check_game_renders(out: Path) -> Result:
     """Run the real renderer and assert the frame is not blank.
 
     `check_godot_boots` runs headless and only greps for script errors, so it passes
@@ -1464,8 +1517,7 @@ def check_game_renders() -> Result:
         return Result(SKIP, "godot not installed")
 
     MIN_COVERAGE, MIN_DISTINCT = 0.15, 12
-    shot = ROOT / ".godot" / "gate-frame.png"
-    shot.parent.mkdir(parents=True, exist_ok=True)
+    shot = out / "gate-frame.png"
     argv = toolpaths.godot_argv(ROOT, ["--fixed-fps", "60", "--", "--display-defaults",
                                       "--shot", str(shot), "120"], want_window=False)
     r = run(*argv)
@@ -1489,7 +1541,8 @@ def check_game_renders() -> Result:
     return Result(OK, f"coverage {coverage:.2f}, {distinct} tones")
 
 
-def check_menu_renders() -> Result:
+@with_artifacts("menu-renders")
+def check_menu_renders(out: Path) -> Result:
     """The boot scene is the menu now, and it is built entirely in code.
 
     `game renders` passes `--shot`, which the menu treats as "go straight to the game" —
@@ -1502,8 +1555,7 @@ def check_menu_renders() -> Result:
         return Result(SKIP, "godot not installed")
 
     MIN_COVERAGE, WANT_BUTTONS = 0.015, 8
-    shot = ROOT / ".godot" / "gate-menu.png"
-    shot.parent.mkdir(parents=True, exist_ok=True)
+    shot = out / "gate-menu.png"
     argv = toolpaths.godot_argv(ROOT, ["--fixed-fps", "60", "--", "--display-defaults",
                                       "--shot-menu", str(shot), "40"], want_window=False)
     r = run(*argv)
@@ -1528,7 +1580,8 @@ def check_menu_renders() -> Result:
     return Result(OK, f"coverage {coverage:.3f}, {buttons} anchors listed")
 
 
-def check_accessibility() -> Result:
+@with_artifacts("accessibility")
+def check_accessibility(out: Path) -> Result:
     """Every piece of text on screen must clear WCAG 2.1 AA and the size floor.
 
     Runs the game and the menu with `--a11y`, which dumps the live UI tree, and pairs each
@@ -1563,8 +1616,6 @@ def check_accessibility() -> Result:
     sys.path.insert(0, str(ROOT / "tools" / "validate"))
     import a11y                                          # noqa: E402
 
-    out = ROOT / ".godot"
-    out.mkdir(parents=True, exist_ok=True)
     cases = [
         ("game-100", ["--autoplay", "--anchor", "anchor-24", "--select", "1",
                       "--ui-scale", "1.0"], "--shot", "300"),

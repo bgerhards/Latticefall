@@ -38,14 +38,24 @@ Add `.godot/` being the shared import cache the owner's running game reads from 
 
 ## Tasks
 
-- [ ] Convert the gate's fixed artefact paths to a per-run `tempfile.mkdtemp()` directory,
-      removed in a `finally`. One directory per gate run, named with the pid, so a crashed run
-      leaves an inspectable trail rather than a mystery.
-- [ ] Move the temp directory **out of `.godot/`** entirely. Nothing the gate writes belongs in
-      the engine's import cache; that is what makes a gate run and a running game share state.
-- [ ] Audit every other tool for fixed output paths under `.godot/` or the repo root
-      (`tools/shot.py`'s `--out` is caller-supplied and fine; check `tools/sweep.py --apply`,
-      `tools/session.py`, `tools/say_capacity.py`, `tools/blender/*`).
+- [x] Convert the gate's fixed artefact paths to a per-run `tempfile.mkdtemp()` directory,
+      named with the pid, so a crashed run leaves an inspectable trail rather than a mystery.
+      **Done as `with_artifacts()` in `tools/check.py`, cleaning up on SUCCESS rather than in
+      a `finally`** — the deviation is deliberate. The old code unlinked *after* its assertions
+      passed and returned early on failure, which leaves the failing frame on disk to be looked
+      at, and that is the entire value of a rendering check that failed. A blanket
+      `finally: rmtree` would have been tidier and would have destroyed the evidence. The
+      failure path keeps the directory and the failure message now says where it is.
+- [x] Move the temp directory **out of `.godot/`** entirely. Now `.cache/gate/`, which is
+      already gitignored and already holds the lease directory and the parity digests. Worth
+      naming the irony that made this urgent: `guard.py:rule_godot_write` forbids every writer
+      from touching the import cache, and the gate was the one writer exempt from the rule it
+      enforces, by being the thing that wrote it.
+- [x] Audit every other tool for fixed output paths under `.godot/` or the repo root.
+      **Clean — `tools/check.py` was the only offender.** `tools/sweep.py`, `tools/session.py`,
+      `tools/say_capacity.py` and `tools/blender/*` write no scratch artefact to a fixed path
+      (`session.py`'s `backlog.json` is content, not scratch), and `tools/shot.py`'s `--out` is
+      caller-supplied as the spec expected.
 - [ ] Define `.claude/ownership.json`: a list of `{workstream, epic, globs, agent, branch,
       worktree}` entries. Globs, not directories — `scripts/` is shared by five epics and
       directory-level ownership would serialise the whole programme.
@@ -59,13 +69,27 @@ Add `.godot/` being the shared import cache the owner's running game reads from 
       the refusal.
 - [ ] Make the hook read the current workstream from an environment variable or from the
       worktree path, so the same rules file works for every agent without editing.
-- [ ] Add `tools/worktree.py`: create a worktree per workstream under a path **outside** the
-      main checkout (not `.claude/worktrees/` — see the gotchas), install the hooks
+- [ ] Add `tools/worktree.py`: create a worktree per workstream, install the hooks
       ({{PRC-08}}), and print the ownership entry it will enforce.
-- [ ] Solve the `.godot/` sharing problem for worktrees explicitly. Each worktree needs its own
-      import cache, and importing from one must not disturb the main tree the owner plays from
-      (LF-075). Probe whether Godot supports a per-invocation cache location; if not, document
-      the constraint loudly — it is the single biggest reason worktrees are not free here.
+      **The "outside the main checkout" requirement is WITHDRAWN.** It existed to avoid LF-051
+      (six false nomenclature hits off an agent worktree under `.claude/`), and LF-051 was
+      fixed differently and better: the gate enumerates with `git ls-files`, so an untracked
+      worktree is structurally invisible to it, and `.claude/worktrees/` is gitignored
+      (`.gitignore:40`) besides. Verified both directly. The `Agent` tool's native
+      `isolation: "worktree"` places worktrees at `.claude/worktrees/` and that is now fine,
+      which removes most of this task — re-scope before building `tools/worktree.py` rather
+      than inheriting a requirement whose reason is gone.
+- [x] Solve the `.godot/` sharing problem for worktrees explicitly. **Measured, and it is not a
+      problem: a worktree gets its own fully-populated import cache automatically.** Against the
+      live agent worktree — 128 MB total, of which 52 MB is its own cache holding 1,378 imported
+      files, against the main tree's 59 MB and 1,418. Godot has **no** cache-location flag
+      (checked against `--help` on the real binary: the only relevant flags are `--path` and
+      `--import`), and `--path <dir>` implies the cache inside that directory — so isolation is
+      **by construction rather than by configuration**, which removes the LF-075 class of risk
+      from worktree agents entirely rather than mitigating it. The residual cost is one import
+      per worktree plus ~128 MB of disk. **Still unmeasured:** the wall-clock of that first
+      import, which is the number that decides whether a short-lived agent should get a worktree
+      at all. Filed as LF-215.
 - [ ] Add a gate check `ownership sane` (tier 1): `.claude/ownership.json` parses, no two
       workstreams claim the same glob, every claimed glob matches at least one tracked file,
       and every tracked file under `scripts/`, `sim/`, `tools/` and `data/` is claimed or
