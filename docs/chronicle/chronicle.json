@@ -4340,6 +4340,113 @@
           "text": "That question had been asked once already, hours earlier, and the answer was sitting behind a denial. The rule was fixed for its own sake; the finding was the interest on it."
         }
       ]
+    },
+    {
+      "id": "the-blocker-was-already-fixed",
+      "date": "2026-08-01",
+      "time": "23:45",
+      "title": "The one blocker on the queue had already been fixed",
+      "summary": "Forty-five percent of the open backlog was tooling, against a standing order that says default to game-facing work. That order is true of how sessions are run and false of the queue they run against, so the correction was being reapplied one session at a time to a problem that regenerates. Applying it once properly meant checking every item against the tree instead of reading its title — and the very first thing checked was the single blocker, which asked for two fixes that both shipped weeks ago. Ten items closed on evidence, two dead tools deleted, and the queue went from 82 open at 45% tooling to 72 at 38%, with no blockers left.",
+      "tags": [
+        "PRC"
+      ],
+      "decisions": [],
+      "commits": [
+        {
+          "hash": "92f33b7",
+          "subject": "chore(backlog): close ten items that were already done, delete two dead tools"
+        }
+      ],
+      "body": [
+        {
+          "type": "p",
+          "text": "Two `/insights` reports had just been read and neither could see this, because both read session transcripts and neither reads the backlog. Counted directly from `backlog.json`: **37 of 82 open items were `tooling`**, 45% of the queue, against a standing order whose exact words are *default to game-facing work*."
+        },
+        {
+          "type": "p",
+          "text": "The order is true of how sessions are run and **false of the queue they run against**. So the correction was being applied one session at a time to a problem that regenerated faster than it was applied."
+        },
+        {
+          "type": "h3",
+          "text": "The blocker was not a blocker"
+        },
+        {
+          "type": "p",
+          "text": "There was exactly one item at `blocker` priority: `LF-105`, *“the gate never tests the build the owner plays”*. It names its own acceptance criteria — two fixes, both cheap:"
+        },
+        {
+          "type": "list",
+          "items": [
+            "**Run parity against the Windows build at least once per release.** `parity-windows.yml` runs on every pull request touching `sim/engine.py`, `scripts/anchor_sim.gd` or `scripts/test/parity.gd`, plus a weekly cron, plus manual dispatch — and `rules parity (windows)` sits at tier 4. That is considerably more than once per release.",
+            "**A gate check greping the rules for the unsafe operation set.** `safe operations`, tier 1, with a documented `# safe-ops-exempt:` marker mechanism."
+          ]
+        },
+        {
+          "type": "p",
+          "text": "Both shipped. The highest-priority item on the board, the one that ranks above everything, had been **done for weeks and simply never closed.** It was steering work by sitting at the top of a list."
+        },
+        {
+          "type": "h3",
+          "text": "Nine more, all verified rather than assumed"
+        },
+        {
+          "type": "p",
+          "text": "`LF-056` (`.editorconfig` carries `indent_style = tab`), `LF-116` (`MAX_CONCURRENT_CAPTURES = 2`, live), `LF-128` (the backgrounding rule is enforced by the guard, not just written down), `LF-175` (`XDG_DATA_HOME` isolation with an mtime assertion), `LF-180`, and `LF-194` — where the branch-protection ruleset was confirmed **active against the live API**, not taken from the item's own claim that it had been applied."
+        },
+        {
+          "type": "p",
+          "text": "`LF-195` was closed as a duplicate rather than as done: its audit was finished, but its residual — *record the commit an item was observed at, so a stale item can be detected* — is `LF-156`, which stays open and carries it. One mechanism, one issue."
+        },
+        {
+          "type": "h3",
+          "text": "Two dead tools, and an honest note about deleting them"
+        },
+        {
+          "type": "p",
+          "text": "`tools/analysis_overdraw.py` and `tools/analysis_shield_wall.py` were verified dead three ways: nothing in the tree references them, both fail on import, and both hardcode a `sys.path.insert` pointing at `/Users/briangerhards/dev/defend-claude` — an old host **and** an old project name. They were non-runnable long before `PLC-01` renamed the data representation out from under them."
+        },
+        {
+          "type": "p",
+          "text": "The part worth recording: **`docs/DECISIONS.md` cites both as “reproduce with …” for two decisions, and that file is append-only.** Deleting the scripts leaves two citations pointing at nothing, and the rule forbids quietly correcting them. They were *already* dead citations — the scripts could not run — so the deletion makes an existing loss visible rather than creating a new one. It is called out in the commit so a reader of those decisions can find it."
+        },
+        {
+          "type": "h3",
+          "text": "What it moved"
+        },
+        {
+          "type": "table",
+          "headers": [
+            "",
+            "before",
+            "after"
+          ],
+          "rows": [
+            [
+              "open items",
+              "82",
+              "**72**"
+            ],
+            [
+              "non-game-facing",
+              "37 (45%)",
+              "**27 (38%)**"
+            ],
+            [
+              "blockers",
+              "1",
+              "**0**"
+            ]
+          ]
+        },
+        {
+          "type": "h3",
+          "text": "The mechanism did the closing, which was the point"
+        },
+        {
+          "type": "p",
+          "text": "All ten closed through `Closes:` trailers on the commit — the convention landed a few hours earlier, when it turned out that across 51 merged pull requests **not one** had ever auto-closed anything. The tier-1 check reported `10 close(s) declared and backed` before the commit was allowed to stand. A cull is a one-time cleanup of a queue that regenerates; the mechanism is what keeps it drained. Doing them in that order was deliberate."
+        }
+      ]
     }
   ]
 }
