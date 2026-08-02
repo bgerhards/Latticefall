@@ -4224,6 +4224,122 @@
           "text": "The issue text was written from the dry-run output, which is the most reasonable thing to write it from, and it was **wrong about the mechanism** — it described data loss that could not occur. Reproducing before fixing cost about ten minutes and changed both the severity and the fix. The backlog entry has been superseded rather than edited, the same rule the decisions log follows, so the record still shows what was believed on the day."
         }
       ]
+    },
+    {
+      "id": "the-guard-denied-its-own-advice",
+      "date": "2026-08-01",
+      "time": "23:05",
+      "title": "The guard denied the operation its own message recommends",
+      "summary": "Three false positives from one hook rule reached a live session in a single day, and the funniest of them denied an in-place reimport — the exact operation the denial message tells you to use instead. The test for “does this command write to the import cache” was, literally, whether a greater-than sign appeared anywhere in it, so `2>/dev/null` counted. The second gap denied the filing of the issue about the first gap, because the issue text quoted the path. The real cost was not the blocked commands: an over-broad rule does not just block, it hides, and one of the denied reads turned out to answer the open question at the top of the process backlog.",
+      "tags": [
+        "PRC"
+      ],
+      "decisions": [],
+      "commits": [
+        {
+          "hash": "dcb42ca",
+          "subject": "fix(tooling): the guard denied the operation its own message recommends"
+        }
+      ],
+      "body": [
+        {
+          "type": "p",
+          "text": "`tools/hooks/guard.py` is the file that turns this project's working agreement into something the harness enforces rather than something an agent has to remember. It is a good idea and this is the entry about it being wrong three times in one day, all in the same rule, all on the **allow** side — which its selftest covered thinly while covering the deny side well."
+        },
+        {
+          "type": "h3",
+          "text": "Gap 1: a greater-than sign, anywhere"
+        },
+        {
+          "type": "p",
+          "text": "The rule for “does this command write to the engine's import cache” was two tests: does a write verb appear, **or** does the command contain `>`. Not *a redirect to the guarded path* — just the character."
+        },
+        {
+          "type": "p",
+          "text": "So this was denied:"
+        },
+        {
+          "type": "quote",
+          "text": "du -sh .godot 2>/dev/null"
+        },
+        {
+          "type": "p",
+          "text": "And so was an in-place reimport piped to `tail`, followed by a `grep` **reading** the global class cache to confirm a new `class_name` had registered. Neither redirect touches the guarded path; `2>&1` touches no file at all."
+        },
+        {
+          "type": "p",
+          "text": "**The irony is what made it worth fixing rather than working around.** The denial message tells the operator that the supported path is exactly the in-place reimport — which is what the command was doing. The rule denied the operation it recommends, whenever the operator also wanted to see stderr or verify afterwards. And verifying afterwards is the *correct* habit here, because a `class_name` that has not registered is a **hang**, not an error."
+        },
+        {
+          "type": "h3",
+          "text": "Gap 2: it denied the filing of the bug report about gap 1"
+        },
+        {
+          "type": "p",
+          "text": "Payload scrubbing existed — a path named inside a `-m` commit message is prose, not a filesystem write — but it only understood **flags**. A bare positional argument was still read as a command."
+        },
+        {
+          "type": "p",
+          "text": "So `tools/backlog.py add \"<text quoting the cache path and some example redirects>\"` was denied. The issue about the guard's false positives could not be filed because of a guard false positive. It happened again twenty minutes later while filing a second report of the same thing, and was worked around by writing the prose to a scratch file and passing it by command substitution — which is not a fix, it is the next person hitting it."
+        },
+        {
+          "type": "h3",
+          "text": "The fix, and what was deliberately not done"
+        },
+        {
+          "type": "list",
+          "items": [
+            "A redirect is a write only when the guarded path is what it redirects **to**. `cat foo > <cache>/x` stays denied — the shell performs that write even though `cat` only reads — but `du -sh <cache> 2>/dev/null` writes nothing.",
+            "Prose positionals are scrubbed from an **explicit table** of `(script, subcommand)`, not a heuristic. “The last positional is probably prose” would silently un-guard `rm`.",
+            "Six selftest cases added, every one a command that was actually denied. 52 → 58, all green."
+          ]
+        },
+        {
+          "type": "h3",
+          "text": "The part that actually mattered"
+        },
+        {
+          "type": "p",
+          "text": "The blocked commands cost minutes. What cost more is that **an over-broad rule does not just block, it hides.** One of the denied reads was asking whether a git worktree gets its own Godot import cache — the open question that `PRC-15` calls *“the single biggest reason worktrees are not free here”*, and worktree isolation is the top item on the process backlog."
+        },
+        {
+          "type": "p",
+          "text": "With the false positive gone, the answer took one command:"
+        },
+        {
+          "type": "table",
+          "headers": [
+            "",
+            "main tree",
+            "agent worktree"
+          ],
+          "rows": [
+            [
+              "import cache",
+              "59 MB",
+              "**52 MB — its own**"
+            ],
+            [
+              "imported files",
+              "1,418",
+              "1,378"
+            ],
+            [
+              "total on disk",
+              "—",
+              "128 MB"
+            ]
+          ]
+        },
+        {
+          "type": "p",
+          "text": "A worktree gets a **fully populated, fully separate** cache. Godot has no cache-location flag — checked against `--help` on the real binary, where the only relevant flags are `--path` and `--import` — and `--path` implies the cache inside that directory. So the isolation is **by construction, not by configuration**, which removes the whole LF-075 class of risk from worktree agents rather than mitigating it. The cost is one import and about 128 MB."
+        },
+        {
+          "type": "p",
+          "text": "That question had been asked once already, hours earlier, and the answer was sitting behind a denial. The rule was fixed for its own sake; the finding was the interest on it."
+        }
+      ]
     }
   ]
 }
