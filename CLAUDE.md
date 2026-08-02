@@ -71,6 +71,9 @@ docs/            STATE, BACKLOG, DECISIONS, NOMENCLATURE, STORY
                                                    # expensive starts
 .venv/bin/python tools/validate/gdscript.py        # parse every .gd, without the full gate
 .venv/bin/python tools/backlog.py add "..." --kind bug --area audio
+.venv/bin/python tools/autoloop.py --status        # what the unattended loop is doing now
+.venv/bin/python tools/autoloop.py --stop          # finish this issue, then exit on main
+.venv/bin/python tools/autoloop_web.py             # the same, as a page at localhost:8732
 .venv/bin/python tools/validate/validate_data.py   # schemas + cross-references
 .venv/bin/python tools/density.py                  # units, leak, hp, drain and screen
                                                    # presence per anchor and per act
@@ -416,15 +419,24 @@ something *is* backgrounded, it is finished when its exit has been seen and `rea
 clean. Never leave a `Monitor`, a `/loop`, a `tail -f` or a poll loop running past the task
 that needed it; each wake-up is a billed turn.
 
-**Subagents run on Sonnet 5.** Every definition in `.claude/agents/` carries
-`model: sonnet` in its frontmatter, and it stays there — an agent with no `model:` key
-silently inherits the parent, which is Opus, and a fan-out of five Opus agents is the most
-expensive thing this project can do by accident. The **built-in** agents (`Explore`, `Plan`,
-`general-purpose`) have no frontmatter to carry the key, so pass `model: "sonnet"` in the
-`Agent` call itself. Verify with:
-`awk 'FNR==1{n=0} /^---$/{n++;next} n==1' .claude/agents/*.md | grep -c '^model: sonnet'` → 5.
+**Subagents run on Opus 5, and the autoloop's own sessions do too.** Decision **077**, at the
+owner's instruction, superseding the model half of decision 051 — the rest of 051 (the reaper,
+bounded subprocesses) is untouched. Every definition in `.claude/agents/` carries
+`model: opus` in its frontmatter, and **the pin is what matters, not the value**: an agent with
+no `model:` key silently inherits whatever the parent happens to be, which is a cost surprise
+in either direction and the only failure the gate can catch. `tools/check.py`'s `AGENT_MODEL`
+is the single place the value lives; `agent models` fails on an unpinned agent and on one that
+has drifted off the pin. The **built-in** agents (`Explore`, `Plan`, `general-purpose`) have no
+frontmatter to carry the key, so pass `model: "opus"` in the `Agent` call itself. Verify with:
+`awk 'FNR==1{n=0} /^---$/{n++;next} n==1' .claude/agents/*.md | grep -c '^model: opus'` — it
+should equal the number of files in `.claude/agents/`, which is the live count, not a number
+written here (this sentence said "5" while there were already six agents).
 The `FNR==1{n=0}` is load-bearing: awk's counter persists across files, so without it only
 the first agent is ever inspected and the check reports 1 no matter what the others say.
+
+**This makes a fan-out expensive on purpose, so fan out narrowly.** The old rule made five
+concurrent agents cheap; it no longer is. Dispatch the agent the work actually needs rather
+than a panel of them, and prefer one well-briefed agent over three speculative ones.
 
 **`scripts/anchor_sim.gd` may never reference an autoload, and the symptom is not an error.**
 `scripts/test/parity.gd` `preload`s the rules and runs them as a `--script` MainLoop, where

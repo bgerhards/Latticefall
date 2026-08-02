@@ -643,13 +643,24 @@ def check_backlog_rendered() -> Result:
     return Result(OK, f"{n} open")
 
 
-def check_agent_models() -> Result:
-    """Every subagent definition pins its model, because the default is the expensive one.
+## The model every subagent definition must name. THE PIN IS THE INVARIANT, NOT THE VALUE:
+## an agent with no `model:` key silently inherits the parent, so the failure this check
+## exists to prevent is an *unstated* model, not an expensive one. Decision 077 moved the
+## value from `sonnet` to `opus` at the owner's instruction; decision 051's reasoning for
+## having a pin at all is untouched by that. One constant, so the value is changed here.
+AGENT_MODEL = "opus"
 
-    An agent file with no `model:` key in its frontmatter inherits the parent model, which is
-    Opus — so a five-way fan-out silently costs five Opus contexts. That is not a
-    theoretical: it spilled the owner's subscription usage into paid credits, which is why
-    this is a gate check and not a note. The pin is `sonnet` for all of them.
+
+def check_agent_models() -> Result:
+    """Every subagent definition pins its model, because an unpinned one is a silent default.
+
+    An agent file with no `model:` key in its frontmatter inherits the parent model — so a
+    five-way fan-out silently costs five parent-model contexts. That is not a theoretical: it
+    spilled the owner's subscription usage into paid credits, which is why this is a gate
+    check and not a note. The pin is `AGENT_MODEL` for all of them, and it is now `opus`
+    (decision 077) — which makes the pin *more* load-bearing, not less: with the expensive
+    model chosen deliberately, an agent that drifts off the pin is a cost surprise in either
+    direction, and the gate is the only thing that would notice.
 
     Parsed rather than grepped: awk's record counter persists across files, so the obvious
     one-liner inspects only the first agent and passes no matter what the rest say.
@@ -675,13 +686,14 @@ def check_agent_models() -> Result:
                 break
         if model is None:
             unpinned.append(path.stem)
-        elif model != "sonnet":
+        elif model != AGENT_MODEL:
             wrong.append(f"{path.stem}={model}")
     if unpinned:
-        return Result(FAIL, f"no model pinned (inherits Opus): {', '.join(unpinned)}")
+        return Result(FAIL, f"no model pinned (silently inherits the parent): "
+                            f"{', '.join(unpinned)}")
     if wrong:
-        return Result(FAIL, f"model is not sonnet: {', '.join(wrong)}")
-    return Result(OK, f"{len(agents)} agents pinned to sonnet")
+        return Result(FAIL, f"model is not {AGENT_MODEL}: {', '.join(wrong)}")
+    return Result(OK, f"{len(agents)} agents pinned to {AGENT_MODEL}")
 
 
 HOOK_EVENTS: tuple[str, ...] = ("PreToolUse", "PostToolUse", "SubagentStop", "SessionEnd")
@@ -849,6 +861,11 @@ LEASE_SITES: dict[str, str] = {
     "tools/test_parity.py": "test-parity",
     "tools/blender/build.py": "blender-build",
     "tools/audio/serve.py": "audio-serve",
+    # The autoloop control panel: a second long-lived HTTP server, and the reason its lease
+    # matters is that everything the loop spawns underneath it walks the ppid chain looking
+    # for one. It is bounded by --idle rather than by the reaper — see its module docstring
+    # for why it is deliberately absent from reap.py's OUR_TOOLS.
+    "tools/autoloop_web.py": "autoloop-web",
     "sim/run.py": "sim-run",
     "tools/sweep.py": "sweep",
 }

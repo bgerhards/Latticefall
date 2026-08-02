@@ -3194,3 +3194,47 @@ and lands at (7.95, 4.65), asserted as bounds plus `has_selection`.
 
 **`scripts/anchor_sim.gd` is untouched**, so no rule changed and no parity risk was introduced by
 a presentation change — which is the distinction decision 054 exists to keep sharp.
+
+---
+
+## 077 — The main development line runs on Opus 5, and so do the subagents
+
+**Date.** 2026-08-01. **Status.** Adopted. **Supersedes.** The model half of decision 051 only;
+051's reaper, bounded subprocesses and `SessionEnd` hook are untouched and still bind.
+
+**Decided.** `tools/autoloop.py --model` defaults to `opus`, and all six definitions in
+`.claude/agents/` are pinned to `model: opus`. The pin remains a gate check
+(`agent models`), with the value now living in one constant, `tools/check.py`'s `AGENT_MODEL`.
+
+**Context.** The owner's instruction, given while the autoloop was being repaired: the loop
+works one backlog issue per session unattended, and that session is the project's main
+development line. Model quality there converts directly into shipped game work, and a badly
+worked issue is not cheaper than a well worked one — it costs a wrong pull request, a review
+that catches it, and a redo, plus the credibility of an unattended loop nobody wants to audit.
+Subagents follow for now, explicitly marked as revisitable.
+
+**What 051 actually established, and what changes.** 051 pinned the agents to `sonnet` because
+all five carried *no* `model:` key at all and silently inherited Opus, which spilled the
+owner's subscription into paid credits. Re-read in that light, the invariant 051 bought was
+**"every agent states its model"**, not "every agent is cheap" — an unstated model is a cost
+surprise in either direction, and the gate is the only thing positioned to notice. So the check
+survives verbatim in intent and gets *more* load-bearing, not less: with the expensive model
+chosen deliberately, drift off the pin is the thing that would quietly change the bill.
+
+**Consequence, stated because it inverts existing guidance.** A five-way fan-out used to be the
+cheap move and is now the expensive one. `CLAUDE.md` gains the corollary: dispatch the agent the
+work needs rather than a panel, and prefer one well-briefed agent to three speculative ones. The
+old advice to fan out freely was written when the fan was Sonnet; it does not survive this.
+
+**Rejected — pin the agents to `sonnet` and only raise the main session.** It is the cheaper
+half-measure and it is the one that fails quietly: the main session's job is largely to
+*delegate*, so most of the real work would still land on the smaller model while the bill and
+the expectations moved. Splitting the pin also puts two model policies in the tree, and the
+project has already been bitten by a value living in prose in more than one place.
+
+**Rejected — pin to an exact model id (`claude-opus-5`).** More precise and worse: the alias
+tracks the current Opus without a tree-wide edit on every release, and this project has a
+standing rule that a version written into prose rots within a day.
+
+**Revisit when.** The owner says so, or a month of loop runs shows the cost is not buying
+better outcomes. The one-line change is `AGENT_MODEL` plus the `--model` default.
