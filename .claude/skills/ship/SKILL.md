@@ -111,8 +111,18 @@ and the one the owner cares most about, so it is step 4 of 8 rather than an afte
 
 ## Then
 
-`.venv/bin/python tools/gc.py --apply` sweeps merged branches, stale remote refs and any
-throwaway worktree an agent left behind. A worktree of this repo is ~150 MB.
+```bash
+.venv/bin/python tools/gc.py --selftest && .venv/bin/python tools/gc.py --apply
+```
+
+Sweeps merged branches, stale remote refs and any throwaway worktree an agent left behind. A
+worktree of this repo is ~150 MB.
+
+**Run the selftest first, every time** — it is not in the gate on purpose (1.45 s to guard a
+tool used once per session is the wrong trade, and tier 2 is already over budget). It asserts
+the two invariants `LF-201` violated: no decorated branch name reaches the delete path, and no
+branch a worktree has checked out is ever offered for deletion. `gc.py` now also **exits 1 if
+any removal failed** — it used to count failures toward "swept N item(s)" in silence.
 
 ## Rules that make this work
 
