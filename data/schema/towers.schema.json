@@ -72,6 +72,21 @@
             "type": "number",
             "minimum": 0
           },
+          "cos_half_angle": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1,
+            "description": "PLC-03. Optional firing arc, authored as the COSINE of the half-angle, never as an angle. Absent means omnidirectional, which is every shipped row. The rules test dot(to_target, facing) against this and never call atan2/sin/cos/deg_to_rad: those seven operations diverge between Windows Godot (MSVC UCRT) and CPython/Linux Godot on 0.03-4.32% of float64 samples, and the owner plays the Windows build. Bounded at 0 rather than -1 on purpose: the squared-form test the rules use (see scripts/anchor_sim.gd's _arc_gate) is exact only for a half-angle at or under 90 degrees, so a wider arc is rejected here rather than handled by an inverted branch nobody would exercise. Requires `facing`, and `facing` requires this — validate_data.py enforces the pair. 1.0 is a pencil beam, 0.5 a 120-degree cone, 0.0 a half-plane."
+          },
+          "facing": {
+            "type": "array",
+            "minItems": 2,
+            "maxItems": 2,
+            "items": {
+              "type": "number"
+            },
+            "description": "PLC-03. Which way the emplacement points, in tile space, as [x, y]. Need not be a unit vector: the arc test folds |facing|^2 into both sides rather than normalising, so no square root is taken and any non-zero magnitude authors the same cone. Must be non-zero and must accompany `cos_half_angle` (validate_data.py enforces both). Copied onto the placed record as two float64s at build time and never changed after; it is the RULES facing, distinct from the presentation `view_yaw` scripts/anchor_view.gd writes onto the same record."
+          },
           "unlocked_at": {
             "type": "string",
             "pattern": "^anchor-\\d{2}$"

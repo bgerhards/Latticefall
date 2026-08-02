@@ -106,6 +106,23 @@ class Placed:
     kills: int = 0
     upgraded: bool = False
     upgrade_paid: int = 0
+    # PLC-03: the RULES facing, two float64s copied off the tower definition at build
+    # time and never written again — the issue's "facing comes from data and does not
+    # change". `init=False` on purpose: every construction site gets it from the tower
+    # via __post_init__, so a new caller cannot forget to pass it and silently place an
+    # arc'd emplacement pointing at (0, 0). Not a tuple and never a Vector2 (float32,
+    # banned in the rules): two plain floats, mirroring the `facing_x`/`facing_y` keys
+    # scripts/anchor_sim.gd's build_at() writes onto its own placed dictionary.
+    #
+    # Distinct from the PRESENTATION facing: scripts/anchor_view.gd's _face() writes a
+    # `view_yaw` onto the same record for sprite selection (decision 049). Two facings,
+    # one record, different meanings — the `view_` prefix and the `facing_` prefix are
+    # what keep them apart. Nothing in the rules may read `view_yaw`.
+    facing_x: float = field(init=False, default=0.0)
+    facing_y: float = field(init=False, default=0.0)
+
+    def __post_init__(self) -> None:
+        self.facing_x, self.facing_y = self.tower.facing
 
     @property
     def slot(self) -> tuple[float, float]:
@@ -971,6 +988,58 @@ class Sim:
             return "air" in tower.targets and revealed
         return "ground" in tower.targets
 
+    @staticmethod
+    def _arc_gate(p: Placed) -> float:
+        """PLC-03. The right-hand constant of one emplacement's firing-arc test, or
+        `-1.0` when it has no arc at all (every shipped tower row today).
+
+        Hoisted out of `_select_target`'s candidate loop deliberately: this is one
+        attribute read and two multiplies per emplacement per tick, not per *unit* per
+        tick, and an emplacement with no arc pays a single `is None` and nothing else.
+
+        THE DERIVATION, so nobody "simplifies" the squared form away.
+
+        A unit at `u` is inside the cone of half-angle θ around `facing` when the angle
+        between `to = u - p` and `facing` is at most θ, i.e.
+
+            dot(to, facing) / (|to| · |facing|)  >=  cos θ
+
+        The naive rearrangement needs a square root (`|to| = sqrt(d2)`). Squaring both
+        sides removes it:
+
+            dot²  >=  cos²θ · |facing|² · d2                       [the test we run]
+
+        Two things that squaring costs, both handled:
+
+        1. **It is only valid when `dot >= 0`.** Squaring loses the sign, so a unit
+           directly BEHIND the emplacement (`dot < 0`) satisfies `dot² >= …` exactly as
+           well as the mirror-image unit in front of it. `_select_target` writes that
+           sign guard explicitly, before the squared compare. This is why the schema
+           bounds `cos_half_angle` at `minimum: 0` — a half-angle over 90° has a
+           negative cosine, the test inverts, and the guard would be wrong rather than
+           merely redundant. Rejected in `data/schema/towers.schema.json` on purpose,
+           not handled: an inverted branch nothing exercises is a bug waiting for the
+           first weapon that wants a 200° arc, and that weapon does not exist.
+
+        2. **`facing` is not required to be a unit vector**, so `|facing|²` stays on the
+           right-hand side rather than being divided out by normalising at build time.
+           That is what keeps a square root out of the rules entirely, and it means an
+           author can write `[1, 0]` or `[3, 0]` and get the same cone. A zero `facing`
+           gives a gate of 0 with `dot` also 0, so nothing is ever in arc — which is why
+           `validate_data.py` refuses the pair rather than leaving it to be discovered as
+           a weapon that never fires.
+
+        Everything here is `*` and `+` on float64: both are byte-identical across
+        CPython, Linux Godot and Windows Godot (LF-105's 100,000-sample probe). No
+        inverse tangent, no cosine, no square root. Mirrors scripts/anchor_sim.gd's
+        `_arc_gate()`, expression for expression — the association of the three
+        multiplies matters and must not be re-bracketed on one side only."""
+        c = p.tower.cos_half_angle
+        if c is None:
+            return -1.0
+        fx, fy = p.facing_x, p.facing_y
+        return c * c * (fx * fx + fy * fy)
+
     def _progress(self, u: Unit) -> float:
         """Fraction of `u`'s own lane it has covered, in [0, 1+]. LF-145: the fire
         loop's targeting priority has to compare progress on a common 0..1 scale, not
@@ -1076,14 +1145,31 @@ class Sim:
         candidates = self._candidates_near(grid, p.x, p.y, rng)
         target: Unit | None = None
         target_i = -1
+        # PLC-03: `-1.0` for an emplacement with no `cos_half_angle`, which is every
+        # shipped tower row — the whole arc branch below is then skipped on a float
+        # compare and costs nothing per candidate. See _arc_gate() for the derivation
+        # of the squared form and of the `dot >= 0` guard.
+        arc_gate = self._arc_gate(p)
+        fx, fy = p.facing_x, p.facing_y
         for i in candidates:
             u = self.units[i]
             if not u.alive:
                 continue
             x, y = pos[i]
             dx, dy = p.x - x, p.y - y
-            if dx * dx + dy * dy > rng * rng:
+            d2 = dx * dx + dy * dy
+            if d2 > rng * rng:
                 continue
+            if arc_gate >= 0.0:
+                # `dx`/`dy` are emplacement-minus-unit; the to-target vector is its
+                # negation, and negating an IEEE-754 double is exact, so `-(dx*fx +
+                # dy*fy)` is bit-for-bit the dot product of (x-p.x, y-p.y) with facing.
+                dot = -(dx * fx + dy * fy)
+                # Sign guard FIRST — squaring below cannot tell front from behind.
+                if dot < 0.0:
+                    continue
+                if dot * dot < arc_gate * d2:
+                    continue
             revealed = u.kind.kind != "air" or self._covered_by("reveal", x, y) > 0
             if not self._can_target(p.tower, u, revealed):
                 continue

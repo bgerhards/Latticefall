@@ -29,6 +29,8 @@ how to work; that file says where we are.
 | Verify against the installed tool, never from memory | Blender 5.2 removed `scene.node_tree` and turned Glare's settings into sockets. And the iso camera angle in this file was wrong for six sessions because it was derived from memory rather than measured (decision 017). Probe first, every time. |
 | Every asset is reproducible from a script | `.blend` files and render scripts are the source. Rendered PNGs are build output that happens to be committed. |
 | Loudness-match audio, never peak-normalize | Peak normalization is why programmer audio sounds flat. |
+| The rules use only operations that are byte-identical on all three runtimes | `atan2 sin cos tan pow log exp` diverge between Windows Godot (MSVC UCRT) and CPython/Linux Godot on 0.03–4.32% of float64 samples, and **the owner plays the Windows build**. `+ - * /`, `sqrt`, `fmod`, `floor`, `round` and manual hypot are safe. The `safe operations` gate check (tier 1) enforces it over the rules and their harnesses. Decision 078. |
+| A firing arc is a dot product, never an angle | `dot >= 0` and `dot*dot >= cos_half_angle² · \|facing\|² · d2`, with `cos_half_angle` authored in `data/towers.json`. No angle difference, no `deg_to_rad`. Facing and yaw stay presentation-only, where decision 049 put them. Decision 078. |
 
 ---
 
@@ -207,6 +209,17 @@ treated as stale until checked.
 for that reason: the same class of risk — two implementations of one rule drifting — at a
 fraction of the cost. `rules parity` would surface a one-tile terrain drift nine minutes in,
 as an unexplained leak with no pointer to terrain at all. Decision 057.
+
+**`firing arcs agree` covers the one branch `rules parity` structurally cannot.** PLC-03 put an
+optional firing arc in both rule implementations, and the acceptance bar was that no shipped
+tower row gains `cos_half_angle` — so every one of the 1,440 parity runs executes the *absent*
+branch and says nothing at all about the present one. `tools/arc_parity.py` drives both engines
+over `data/schema/fixtures/firing-arc.json` (four emplacements, one million-hit-point walker, 280
+ticks) and diffs the fire patterns tick for tick, checks each firing window against bounds
+derived from the geometry rather than from either engine, and asserts the arc'd rows fire
+strictly less than an un-arc'd control. Tier 3, because tier 2 is already over budget (`LF-178`).
+Decision 078. **The general lesson is worth more than the check: a gate that runs the whole game
+proves nothing about a branch the shipped data never enters.**
 
 **`--json [PATH]` makes the gate machine-readable.** `tools/gate_report.py` renders it as a
 table for a PR comment, and `tools/session.py` prefers the JSON artefact over scraping the

@@ -43,6 +43,17 @@ class Tower:
     # rather than pre-split into typed fields because the override set genuinely varies by
     # tower (see the `upgrade()` verb in engine.py, which is the one and only consumer).
     upgrade: dict | None = None
+    # PLC-03: an optional firing arc, authored as the COSINE of the half-angle and a
+    # facing vector in tile space. `None` means omnidirectional, which is every one of
+    # the nine shipped rows — the arc path is inert until data asks for it. Never an
+    # angle: `atan2`/`sin`/`cos`/`tan`/`pow`/`log`/`exp` all diverge between Windows
+    # Godot (MSVC UCRT) and CPython/Linux Godot on 0.03–4.32% of float64 samples
+    # (LF-105), and the owner plays the Windows build. See Sim._arc_gate() for the test.
+    # `facing` need not be normalised; the test folds |facing|² in rather than taking a
+    # square root. Mirrors the raw keys of the same names in data/towers.json, which is
+    # also what scripts/anchor_sim.gd reads (its tower defs are the JSON rows verbatim).
+    cos_half_angle: float | None = None
+    facing: tuple[float, float] = (0.0, 0.0)
 
     @property
     def is_weapon(self) -> bool:
@@ -210,10 +221,21 @@ class Anchor:
 
 
 def load_towers(path: Path | None = None) -> dict[str, Tower]:
-    doc = json.loads((path or DATA / "towers.json").read_text())
+    return towers_from_rows(json.loads((path or DATA / "towers.json").read_text())["towers"])
+
+
+def towers_from_rows(rows: list[dict]) -> dict[str, Tower]:
+    """Typed `Tower`s from already-parsed `towers.json` rows. Split out of
+    `load_towers()` by PLC-03 for the same reason as `anchor_from_doc()`: the firing-arc
+    fixture authors a probe row that must never ship in `data/towers.json`, and it has to
+    reach the engine through this loader rather than a hand-built `Tower` that could
+    drift from it."""
     out = {}
-    for t in doc["towers"]:
+    for t in rows:
         eff = t.get("effect") or {}
+        # PLC-03: absent stays absent — `cos_half_angle=None` is what makes the arc test
+        # skip entirely, so a missing key must never become 1.0 or 0.0 here.
+        face = t.get("facing") or (0.0, 0.0)
         out[t["id"]] = Tower(
             id=t["id"], name=t["name"], cost=t["cost"], draw_mw=t["draw_mw"],
             damage=t["damage"], range=t["range"], fire_interval=t["fire_interval"],
@@ -221,6 +243,8 @@ def load_towers(path: Path | None = None) -> dict[str, Tower]:
             unlocked_at=t.get("unlocked_at", "anchor-01"),
             effect_type=eff.get("type"), effect_value=eff.get("value", 0.0),
             upgrade=t.get("upgrade"),
+            cos_half_angle=t.get("cos_half_angle"),
+            facing=(float(face[0]), float(face[1])),
         )
     return out
 
@@ -308,7 +332,12 @@ def load_tuning(path: Path | None = None) -> Tuning:
 
 
 def load_enemies(path: Path | None = None) -> dict[str, Enemy]:
-    doc = json.loads((path or DATA / "enemies.json").read_text())
+    return enemies_from_rows(json.loads((path or DATA / "enemies.json").read_text())["enemies"])
+
+
+def enemies_from_rows(rows: list[dict]) -> dict[str, Enemy]:
+    """Typed `Enemy`s from already-parsed `enemies.json` rows — see
+    `towers_from_rows()` for why this split exists (PLC-03)."""
     return {
         e["id"]: Enemy(
             id=e["id"], name=e["name"], faction=e["faction"], hp=e["hp"],
@@ -317,7 +346,7 @@ def load_enemies(path: Path | None = None) -> dict[str, Enemy]:
             drains_mw=e.get("drains_mw", 0.0),
             leak_cost=int(e.get("leak_cost", 1)),
         )
-        for e in doc["enemies"]
+        for e in rows
     }
 
 
@@ -372,7 +401,18 @@ def resolve_terrain(doc: dict) -> tuple[tuple[int, ...], ...]:
 
 
 def load_anchor(anchor_id: str) -> Anchor:
-    doc = json.loads((DATA / "anchors" / f"{anchor_id}.json").read_text())
+    return anchor_from_doc(json.loads((DATA / "anchors" / f"{anchor_id}.json").read_text()))
+
+
+def anchor_from_doc(doc: dict) -> Anchor:
+    """Build an `Anchor` from an already-parsed anchor document.
+
+    Split out of `load_anchor()` by PLC-03 so a *fixture* anchor — one that lives under
+    `data/schema/fixtures/` and is deliberately not tracked content — reaches the engine
+    through the identical loader the 24 real anchors do, rather than through a
+    second, drifting construction in a test harness. `load_anchor()` is now this plus
+    the read.
+    """
     return Anchor(
         id=doc["id"], act=doc["act"], title=doc["title"],
         capacity_mw=doc["capacity_mw"], starting_funds=doc["starting_funds"],
