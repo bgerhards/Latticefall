@@ -3657,6 +3657,100 @@
           "text": "The bug it described does not exist. The cheaper lesson is the one worth keeping: the transcript under `~/.claude/projects/` answers “what did the spawned session actually do” in seconds, and guessing from a 15-byte log instead produced a wrong diagnosis that survived a merge and into a published journal entry."
         }
       ]
+    },
+    {
+      "id": "a-panel-that-cannot-lie",
+      "date": "2026-08-01",
+      "time": "19:15",
+      "title": "A panel that cannot lie about a dead loop, and Opus on the main line",
+      "summary": "`--status` and `--stop` answered the right questions and were reachable only from the terminal that started the loop, which is not where the owner was the night they needed to stop one. `tools/autoloop_web.py` is one stdlib server and one self-contained page at localhost:8732 — state, live session log, and three buttons — that invents no state of its own and reuses the CLI's own stop, kill and preflight mechanisms rather than reimplementing them. It was nearly this project's second known leak after `tools/audio/serve.py`, and the fix is the same shape: a lease, and an idle shutdown verified live rather than assumed. In the same commit, decision 077 moves the main development line and all six subagents onto Opus, at the owner's instruction — re-reading decision 051 in that light, what it actually bought was every agent stating its model, not every agent being cheap. Three consecutive pull requests have now been infrastructure, on a project whose standing orders default to game-facing work; this panel is meant to be the last piece before the loop points back at real game issues.",
+      "tags": [
+        "PRC"
+      ],
+      "decisions": [
+        "077"
+      ],
+      "commits": [
+        {
+          "hash": "8c7907c",
+          "subject": "feat(tooling): a control panel for the unattended loop, and Opus on the main development line"
+        }
+      ],
+      "body": [
+        {
+          "type": "p",
+          "text": "Two changes landed in one pull request because they are the same subject — how the unattended loop runs — not because unrelated work got batched: a web control panel for the loop, and decision 077, which moves that loop's model."
+        },
+        {
+          "type": "h3",
+          "text": "The lever within reach was Ctrl-C"
+        },
+        {
+          "type": "p",
+          "text": "`--status` and `--stop`, from the two entries earlier today, answer the right questions — but only from the terminal the loop was started from. The owner was not there: they started a night run, saw something they disliked, and Ctrl-C was the only lever within reach. `tools/autoloop_web.py` is one stdlib HTTP server and one self-contained page at `localhost:8732` — state, a live session log, and three buttons: Stop after this issue, Kill now, Start."
+        },
+        {
+          "type": "p",
+          "text": "It invents no state of its own. It renders `.cache/autoloop.lock`, `.cache/autoloop-status.json` and the newest session log — the same files `--status` reads — so the page cannot disagree with the CLI, and every button reuses the CLI's own mechanism: the stopfile, two SIGINTs, spawning only after preflight passes. Two design points worth naming. Preflight now runs in the server *before* it spawns, so a refusal reaches the page instead of dying four seconds later in a log nobody opened. And a stale lockfile — what a `kill -9` leaves behind — reports as STALE LOCK rather than “running”, because a panel telling the owner a dead loop is alive is the one lie that would cost them a night."
+        },
+        {
+          "type": "h3",
+          "text": "Nearly the second known leak"
+        },
+        {
+          "type": "p",
+          "text": "`tools/audio/serve.py` is named in `reap.py`'s own docstring as a leak, because `serve_forever()` has no exit condition at all, and on this project a forgotten background process is a money bug, not housekeeping. The panel holds a lease and shuts itself down after `--idle` seconds with no request — the page polls every 2 s, so no requests means no browser has it open, which is exactly when it should stop. Verified live rather than assumed: it printed `no request in 60s — shutting down`, released its lease, and `reap.py` reported clean."
+        },
+        {
+          "type": "h3",
+          "text": "The obvious fix to that leak was considered and rejected"
+        },
+        {
+          "type": "p",
+          "text": "Adding the panel — and `autoloop.py` itself — to `reap.py`'s `OUR_TOOLS` looked like the tidy move and was wrong twice over. `reap.py --kill` runs from the `SessionEnd` hook, so an overnight loop would be killed by an unrelated session ending somewhere else entirely. And `autoloop.py`'s own preflight refuses to start unless the reaper reports clean — it would see the loop, then the panel, and refuse to start either. An unattended loop that runs all night is not a stray process; the reasoning lives in the module's own docstring, not only here."
+        },
+        {
+          "type": "list",
+          "items": [
+            "Page loads 200, `/api/state` correct against both a running and a stopped loop.",
+            "Stop from the page is graceful — the loop logs `SIGINT — will stop after the current issue finishes`, ships its issue, exits 0.",
+            "Kill and Start both refuse correctly with no loop running and on a dirty tree.",
+            "An unknown route returns 404."
+          ]
+        },
+        {
+          "type": "h3",
+          "text": "Decision 077 — the main line runs on Opus"
+        },
+        {
+          "type": "p",
+          "text": "At the owner's instruction: `autoloop.py --model` now defaults to `opus`, and all six subagent definitions in `.claude/agents/` are repinned from `sonnet`. This supersedes only the model half of decision 051 — its reaper and bounded-subprocess halves are untouched."
+        },
+        {
+          "type": "p",
+          "text": "The insight worth keeping is what re-reading 051 turned up: the invariant it actually bought was that every agent *states* its model, not that every agent is cheap. All five agents 051 addressed had carried no `model:` key at all and silently inherited Opus, which is what had spilled the owner's subscription into paid credits in the first place. Read that way, the gate check (`agent models`) survives 077 intact and becomes *more* load-bearing, not less — with an expensive model chosen deliberately, drift off the pin is what would quietly change the bill. The value now lives in one constant, `AGENT_MODEL`, rather than a literal comparison."
+        },
+        {
+          "type": "p",
+          "text": "The corollary inverts guidance this file has carried for a while: a five-way fan-out used to be the cheap move and no longer is. `CLAUDE.md` now says to dispatch the agent the work needs, not a panel of them."
+        },
+        {
+          "type": "h3",
+          "text": "A count that had already rotted, in the file that warns about it"
+        },
+        {
+          "type": "p",
+          "text": "`CLAUDE.md`'s own verification line for the agent pin said “→ 5” while six agent definitions already existed — a number written into prose, in the same file that names that exact failure mode and tells the reader not to trust a count without a check behind it. It now names the live count instead of a fixed one."
+        },
+        {
+          "type": "h3",
+          "text": "Said plainly, because the house style is not to round it up"
+        },
+        {
+          "type": "p",
+          "text": "Three consecutive pull requests have now been infrastructure — the loop's notifier and stop path, the Ctrl-C process-group fix, and this one — on a project whose standing orders default to game-facing work. None of the three were optional: an unattended loop that cannot be stopped safely or seen from another room is not one that should have been left running. This panel is meant to be the last piece of scaffolding before the loop is pointed back at real backlog issues rather than at itself."
+        }
+      ]
     }
   ]
 }

@@ -635,7 +635,10 @@ def main() -> int:
     ap.add_argument("--issue-timeout", type=int, default=5400, help="seconds per issue")
     ap.add_argument("--max-wall-clock", type=int, default=28800, help="seconds, whole loop")
     ap.add_argument("--max-failures", type=int, default=2, help="per issue, before skipping")
-    ap.add_argument("--model", default="sonnet")
+    # Opus by decision 077, at the owner's instruction. The main development line is the one
+    # place where model quality converts directly into shipped game work, and an issue worked
+    # badly costs more than the model difference — it costs a wrong PR, a review, and a redo.
+    ap.add_argument("--model", default="opus")
     ap.add_argument("--heartbeat", type=int, default=600,
                     help="seconds between progress pings while an issue is being worked")
     ap.add_argument("--remote-control", action="store_true",
