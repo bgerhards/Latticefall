@@ -3979,6 +3979,134 @@
           "text": "The issue lists mirroring the change into `scripts/test/parity.gd` as a task. The faithful report is that **the mirror was already free**: that harness indexes the raw tower rows and places through the same build path the game does, so both new keys reach the rules with no harness edit at all. An upgrade block still cannot override an arc — the merge would carry one through unchanged, but the schema does not admit the keys there and no weapon needs it. And whether the player will be able to rotate an emplacement while placing it is still an open design question rather than something this settled; facing comes from data and does not change."
         }
       ]
+    },
+    {
+      "id": "merging-closed-nothing",
+      "date": "2026-08-01",
+      "time": "21:30",
+      "title": "For fifty-one pull requests, merging closed nothing at all",
+      "summary": "The owner noticed something small: the loop ships a pull request, the pull request merges, and the issue is still sitting in the backlog. It turned out to have never worked once. PR #130 had merged thirty-seven minutes earlier carrying the line “Closes `PLC-03`”, and issue #31 was still open with closedAt null — because GitHub acts only on `Closes #31`, and a spec id in backticks is prose it reads straight past. Across all fifty-one merged pull requests in the repository, zero carried a closing keyword GitHub could resolve. The fix is not a script that closes things; it is making the merge itself the close, which is the only version that works when the owner merges by hand — and hand-merging is precisely the case every previous mechanism missed.",
+      "tags": [
+        "PRC"
+      ],
+      "decisions": [],
+      "commits": [
+        {
+          "hash": "ea5a382",
+          "subject": "fix(tooling): a merged pull request now closes its issue, in both tracking systems"
+        }
+      ],
+      "body": [
+        {
+          "type": "p",
+          "text": "The report was one sentence: *the Python script runs, the task completes, it creates the pull request, I merge it — and the issue still sits in the backlog. Is that behaviour we anticipate?*"
+        },
+        {
+          "type": "p",
+          "text": "It is not. And the thing that made it worth stopping for was how recently it had failed. **Pull request #130 had merged thirty-seven minutes earlier**, closing the firing-arc work, with this line at the top of its body:"
+        },
+        {
+          "type": "quote",
+          "text": "Closes `PLC-03`. Decision 078."
+        },
+        {
+          "type": "p",
+          "text": "GitHub issue #31 was still `OPEN`, `closedAt: null`. **GitHub acts only on `Closes #<number>`.** A spec id in backticks is prose, and it reads straight past it. The line looked exactly like a closing keyword, was written in good faith, and did nothing whatsoever."
+        },
+        {
+          "type": "h3",
+          "text": "It had never worked, not once"
+        },
+        {
+          "type": "table",
+          "headers": [
+            "measured over 51 merged pull requests",
+            "count"
+          ],
+          "rows": [
+            [
+              "carrying a closing keyword GitHub can resolve",
+              "**0**"
+            ],
+            [
+              "attempting a `Closes <SPEC-ID>` phrasing at all",
+              "3"
+            ],
+            [
+              "GitHub issues open",
+              "30"
+            ],
+            [
+              "open backlog items named by an already-merged PR",
+              "40"
+            ]
+          ]
+        },
+        {
+          "type": "p",
+          "text": "That last number needs a caveat, and the caveat is the actual finding. **Forty is not forty stale items.** A pull request naming `LF-211` may have *filed* it rather than fixed it — which is exactly what #130 did. Nothing in the repository distinguishes “this PR fixed it” from “this PR mentioned it,” and *that indistinguishability is the defect*, not a footnote on it."
+        },
+        {
+          "type": "h3",
+          "text": "Three holes, none of them the one that was obvious"
+        },
+        {
+          "type": "list",
+          "items": [
+            "**No workflow observes a merge.** `gate.yml`, `parity-shard.yml` and `parity-windows.yml` all trigger on open and synchronize only. Nothing runs on `pull_request: closed`.",
+            "**`tools/issues.py close` is a line in a prompt.** It is a good tool, and it lives in the autoloop's brief and in step 8 of the ship skill — which means when the **owner** merges by hand, no code runs at all. Decision 051 exists because remembered rules fail. This was a remembered rule wearing a tool's clothes.",
+            "**Two tracking systems that had never been introduced.** `backlog.json` holds `LF-nnn` and closes with `backlog.py done`; `docs/issues/*.md` projects to GitHub and closes with `issues.py close`. The ship loop touched the second and never the first."
+          ]
+        },
+        {
+          "type": "h3",
+          "text": "The fix is not a closing script"
+        },
+        {
+          "type": "p",
+          "text": "The temptation was a workflow on `pull_request: closed` that goes and closes things. That is another mechanism to forget, and it does nothing about the backlog file. The better answer was to ask what each system actually *is*."
+        },
+        {
+          "type": "p",
+          "text": "A `docs/issues/` spec is projected to something **outside** the repository, so the close has to happen outside too — and GitHub already does it, atomically, on merge, **no matter who presses the button**. So the pull request body carries a *resolved* `Closes #31`, looked up from the id map rather than typed by hand."
+        },
+        {
+          "type": "p",
+          "text": "A `backlog.json` item is a file **inside** the repository. Nothing external needs telling. It is marked done in the pull request's own commit, so merging is what lands the close and there is no second step at all."
+        },
+        {
+          "type": "p",
+          "text": "Both halves read one declaration — a `Closes:` trailer in a commit message. **The colon is load-bearing.** It is git's own trailer syntax, so a sentence like “this closes the gap LF-105 describes” cannot be mistaken for a declaration. Both shapes were tested."
+        },
+        {
+          "type": "h3",
+          "text": "Proven red, then green, then red again"
+        },
+        {
+          "type": "p",
+          "text": "A check nobody has watched fail is a check nobody should trust. The new tier-1 `issue traceability` check was driven through both states on the real branch: green with `LF-212` marked done, then **red** after reopening it — naming the commit, the id and the exact command to fix it — then green again. The CI-side half was driven with the **literal body of PR #130**, which it correctly refuses, and with a body containing shell-injection-shaped text, which passes through the environment untouched because the workflow never puts a pull request body on a command line."
+        },
+        {
+          "type": "h3",
+          "text": "What this cost, said plainly"
+        },
+        {
+          "type": "p",
+          "text": "Tier 1 went from about 7.8 s to 8.3 s against a 10 s budget. **Tier 2 is at 33,386 ms against a 28,000 ms budget — over, and it was already over before this landed** (`LF-178`). This added roughly 370 ms to that. The budget did not move, because moving it is the thing decision 067 refused to do when it deleted `PRESSURE_FLOOR` rather than raising it. The honest state is: tier 2 needs a check taken out, not a bigger number."
+        },
+        {
+          "type": "h3",
+          "text": "Two traps found on the way"
+        },
+        {
+          "type": "p",
+          "text": "`actions/checkout` defaults to depth 1, so `git merge-base origin/main HEAD` finds nothing — and the new check would have reported *“skip: no merge base”*: green, and useless. That is the exact partial-run-that-reads-as-full this gate is built to refuse, so both jobs now fetch full history. The pack is about 7 MiB with LFS excluded."
+        },
+        {
+          "type": "p",
+          "text": "And the `tier counts` check caught the docstring drift this change introduced on the very first run, which is precisely what it is for."
+        }
+      ]
     }
   ]
 }

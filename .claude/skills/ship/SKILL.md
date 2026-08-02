@@ -39,6 +39,21 @@ and the one the owner cares most about, so it is step 4 of 8 rather than an afte
    The message says *why*, names the measurement, and records what was **not** done. A
    commit body is the chronicler's primary source — write it for that reader.
 
+   **A commit that finishes an issue carries a `Closes:` trailer**, one id per line, and the
+   colon is load-bearing — it is git's own trailer syntax, so prose like "this closes the gap
+   LF-105 describes" cannot be mistaken for a declaration.
+
+   ```
+   Closes: LF-212
+   Closes: PLC-03
+   ```
+
+   A `LF-nnn` trailer asserts `backlog.json` marks that item **done in this branch** — run
+   `tools/backlog.py done LF-212` and include it in the commit, because the backlog is a file
+   in this repo and merging must be what lands the close. The tier-1 `issue traceability`
+   check fails the gate if the trailer is not backed. `tools/traceability.py check` runs it
+   alone.
+
 4. **Journal it — now, in this PR, not in a batch later.** Invoke the `chronicler` agent
    with what landed.
 
@@ -59,17 +74,40 @@ and the one the owner cares most about, so it is step 4 of 8 rather than an afte
 5. **Push and open the PR.** The body carries the same substance as the commit — what broke,
    what was measured, what is still red. Say plainly if something is knowingly failing.
 
+   **The body must carry `Closes #<number>` for every `docs/issues/` spec this branch
+   finishes.** Get the lines from `tools/traceability.py pr-lines`; never type the number.
+
+   GitHub acts *only* on `Closes #31`. ``Closes `PLC-03` `` is prose it reads past — which is
+   how PR #130 squash-merged while issue #31 stayed `OPEN` with `closedAt: null` for the next
+   thirty-seven minutes, and why across 51 merged PRs **zero** had ever auto-closed anything
+   (LF-212). The `Pull request body closes what this branch declares` job in `gate.yml` fails
+   the PR when a trailer declares a spec closed and the body cannot back it.
+
+   Backlog `LF-nnn` items need nothing in the body — they close through the commit that marks
+   them done.
+
 6. **Watch CI, do not poll it.** `gh run watch <id> --exit-status --compact` blocks properly.
 
 7. **Merge.** `gh pr merge <n> --squash --delete-branch`, then `git checkout main &&
    git pull --ff-only`.
 
-8. **Close the issue with evidence.**
+8. **Add the evidence to the issue GitHub just closed.**
+
+   With step 5 done, the merge closes it — that is the point, and it works when the *owner*
+   merges by hand, which no tooling step ever could. What is still missing is the *note*, so
+   add it as a comment rather than re-closing:
    ```bash
-   .venv/bin/python tools/issues.py close PRC-04 --note "<what landed and how it was proved>"
+   gh issue comment 31 --body "<what landed and how it was proved>"
    ```
-   The note is required. A bare close leaves the evidence in a commit message nobody will
-   find from the issue, and this project's whole method is that a claim is falsifiable.
+   Use `tools/issues.py close <ID> --note "..."` only for an issue the merge did **not**
+   close — a spec finished across several PRs, or one closed after the fact. The note is
+   never optional: a bare close leaves the evidence in a commit message nobody will find from
+   the issue, and this project's whole method is that a claim is falsifiable.
+
+   Then verify, because the failure mode here is silent:
+   ```bash
+   gh issue view <n> --json state,closedAt
+   ```
 
 ## Then
 

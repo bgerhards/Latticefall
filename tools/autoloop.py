@@ -356,8 +356,15 @@ Read `docs/issues/{spec_id}-*.md` — it is the source of truth and it is detail
 
 Ship it with /ship: branch `lf/<epic>-<slug>`, gate it, invoke the `chronicler` agent for the
 journal entry (every PR updates the journal — copy any images into `docs/chronicle/assets/`,
-never link a scratch path), push, wait for CI, squash-merge when green, and close the issue
-with `tools/issues.py close {spec_id} --note "<what landed and how it was proved>"`.
+never link a scratch path), push, wait for CI, squash-merge when green.
+
+**The merge is what closes the issue, and only if you set it up.** The finishing commit
+carries a `Closes: {spec_id}` trailer, and the pull request body carries the resolved
+`Closes #{number}` — get it from `tools/traceability.py pr-lines`, never type the number.
+GitHub acts only on `Closes #<n>`; a spec id in backticks is prose it reads past, which is how
+PR #130 merged while its issue stayed open (LF-212). Then add the evidence as a comment:
+`gh issue comment {number} --body "<what landed and how it was proved>"`, and verify with
+`gh issue view {number} --json state,closedAt` — the failure mode here is silent.
 
 Rules for this run:
 

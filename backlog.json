@@ -1,5 +1,5 @@
 {
-  "next_id": 212,
+  "next_id": 214,
   "items": [
     {
       "id": "LF-001",
@@ -2529,6 +2529,30 @@
       "pri": "med",
       "status": "open",
       "why": "",
+      "opened": "2026-08-01",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-212",
+      "title": "MERGING A PULL REQUEST CLOSES NOTHING. PROVEN LIVE 2026-08-01: PR #130 merged with the body line 'Closes PLC-03' and GitHub issue #31 is still OPEN with closedAt=null 37 minutes later. GitHub only acts on 'Closes #<number>' - a spec id in backticks is prose it ignores. MEASURED across 51 merged PRs: 0 contain a resolvable closing keyword; only 3 attempt a 'Closes <SPEC-ID>' phrasing at all; 30 GitHub issues are open; 40 open backlog items are referenced by a PR that already merged (referencing is not fixing - LF-211 was FILED by PR #130 - and the fact that nothing distinguishes the two IS the defect). THREE INDEPENDENT HOLES. (1) No workflow triggers on pull_request closed; gate.yml, parity-shard.yml and parity-windows.yml are open/sync only. (2) tools/issues.py close exists and is good but is a LINE IN A PROMPT (autoloop.py:360) and step 8 of the ship skill, not a mechanism - when the OWNER merges by hand, no code runs at all. (3) There are TWO tracking systems that do not know about each other: backlog.json LF-nnn closed with backlog.py done, and docs/issues/*.md projected to GitHub closed with issues.py close. The ship loop touches the second and never the first. THE FIX, two halves matching the two systems. For docs/issues specs: the PR body carries a resolved 'Closes #N' from the issue id map, so GitHub closes natively and atomically on merge no matter who merges - enforced by a pull_request CI check that fails when a PR names a spec id without a resolvable Closes #N. For backlog LF-nnn: the item is marked done IN THE PR'S OWN COMMIT, since backlog.json is a file in the repo rather than an external system, so merging is what lands it - enforced by a tier-1 gate check. Reported by the owner, who noticed the loop ships a PR and the issue stays in the backlog",
+      "kind": "bug",
+      "area": "tooling",
+      "pri": "high",
+      "status": "done",
+      "why": "Every merged PR leaves its issue open, so the backlog records what was started and never what is done",
+      "opened": "2026-08-01",
+      "closed": "2026-08-01",
+      "note": "closed at 47b2a76"
+    },
+    {
+      "id": "LF-213",
+      "title": "guard.py's engine-cache rule denies READS and even PROSE, not just writes. Hit twice live 2026-08-01. First: a command containing 'du -sh' and 'ls -d' against the cache directory was denied with the LF-075 write/move/delete message, though neither touches a byte. Second and worse: a tools/backlog.py add command was denied because the ISSUE TEXT BEING FILED mentioned the directory by name - the rule matches the literal string anywhere on the command line, including inside a single-quoted argument that is documentation. The rule exists to stop the import cache being rebuilt or moved out from under the owner's running game, and that reason is entirely about MUTATION, so refusing inspection and refusing to let the directory be NAMED are pure false positives. The cost is not the denial itself but that the agent then routes around the guard, which is how a guard stops being trusted. FIX: match on mutating verbs and shell redirections targeting the path, not on the substring. Note the first denial also masked the real question being asked (whether a git worktree gets its own import cache), which is the second-order cost of an over-broad rule - it does not just block, it hides. Verify with guard.py --selftest extended by both of these command shapes as must-allow cases",
+      "kind": "bug",
+      "area": "tooling",
+      "pri": "med",
+      "status": "open",
+      "why": "A guard that denies harmless reads and its own documentation teaches agents to route around it",
       "opened": "2026-08-01",
       "closed": null,
       "note": ""
