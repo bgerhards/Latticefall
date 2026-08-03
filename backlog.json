@@ -1,5 +1,5 @@
 {
-  "next_id": 232,
+  "next_id": 234,
   "items": [
     {
       "id": "LF-001",
@@ -2731,11 +2731,11 @@
       "kind": "bug",
       "area": "engine",
       "pri": "med",
-      "status": "open",
+      "status": "done",
       "why": "",
       "opened": "2026-08-03",
-      "closed": null,
-      "note": ""
+      "closed": "2026-08-03",
+      "note": "closed at d814b27"
     },
     {
       "id": "LF-229",
@@ -2766,6 +2766,30 @@
       "title": "chronicle.py's <meta name=description> uses esc(entry['summary']) with no render_inline, so any markup in an entry summary ships LITERALLY into the page description - a summary containing double-asterisk bold renders as double-asterisk bold in the meta tag, which is what search engines and link unfurls read. Found writing entry 56; worked around by removing the bold from that summary rather than fixing it, because the fix rewrites the meta tag of all 56 published pages and a tier-4 gate was in flight. RELATED AND SEPARATE from LF-211 (esc() called with quote=False, so a straight double quote in an image caption terminates the alt attribute early) - same function, different call site, and both are the shape of latent bug this project keeps finding in its own instruments. SECOND HALF OF THIS ITEM, and arguably the bigger one: single-asterisk emphasis prints literally BY DESIGN (LF-173's measured reversal) and NOTHING CHECKS FOR IT. audit_markup scans only for the double asterisk. Six single-asterisk spans got through one draft and were promoted by hand. THE WORK: run render_inline over the summary before escaping it into the meta tag, and widen audit_markup to catch a lone asterisk pair the same way it catches a double",
       "kind": "bug",
       "area": "tooling",
+      "pri": "med",
+      "status": "open",
+      "why": "",
+      "opened": "2026-08-03",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-232",
+      "title": "anchor_view.gd::_on_built() plays ward_engage_%d with clampi(n, 1, 6), so on any anchor with more than six emplacements builds 7 through N all replay ward_engage_6 - the counted audio cue stops counting exactly where the stale 'six of six' dialog text came from. FOUND while fixing LF-228, which restored the wards-half/wards-full dialog triggers; the SFX side was not part of that fix and is a separate defect. anchor-01 has 8 slots and anchor-24 has 12, so both shipped anchors carrying ward cues hit it. THE WORK is a design call before it is a code change: either author ward_engage_7..N (a bank change, and N is unbounded now that PLC-05 permits max_emplacements above the authored slot count and the LF-080 generator derives 78 on a 48x48 board), or make the cue proportional rather than counted - one sound at each of a fixed number of engagement fractions - or accept the clamp and say so in a comment so the next reader does not read it as a bug. Prefer proportional: it is the only option that survives theatre scale, where a counted cue per emplacement is meaningless at 78",
+      "kind": "bug",
+      "area": "audio",
+      "pri": "med",
+      "status": "open",
+      "why": "",
+      "opened": "2026-08-03",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-233",
+      "title": "AnchorSim.available_slots() should be renamed unoccupied_authored_slots(). It now has exactly three callers left in the running game - anchor_view.gd::_next_autobuild_candidate(), main.gd::_build_one()'s no-position fallback, and scripts/test/facing.gd - and all three mean 'an authored position nobody has taken yet', which is a debug and verification convenience rather than a rule. LF-228 was the last place it was standing in for a real quantity (the board's capacity) and the mistake it caused was SILENT FOR TWO MILESTONES: _on_built() computed ward engagement as placed + available_slots(), which grows with every build under free placement, so the wards-full dialog cue could never fire in ordinary play. The name is what made that read as correct. Low risk - three call sites, no rules file involved, and anchor_sim.gd's own callers are unaffected because the method is not used by the sim itself. Worth doing while the reason is fresh",
+      "kind": "chore",
+      "area": "engine",
       "pri": "med",
       "status": "open",
       "why": "",
