@@ -1,5 +1,5 @@
 {
-  "next_id": 216,
+  "next_id": 217,
   "items": [
     {
       "id": "LF-001",
@@ -2580,6 +2580,18 @@
       "opened": "2026-08-01",
       "closed": "2026-08-01",
       "note": "closed at 2fbfc79"
+    },
+    {
+      "id": "LF-216",
+      "title": "PLC-07 FOLLOW-UP: remove the tile_slot render asset, which is now drawn by nothing. PLC-07 retired tile_slot from the board -- free placement means legality is a predicate over a continuous position, so there is no set of allowed tiles to paint -- and DECIDED against the alternative the spec named, repurposing it as the buildable-area wash. The reason is the sprite itself: it is a raised bevelled pad with a teal ring and four corner bolts, discrete geometry with real height, and tiled across a region it reads as a field of hardpoints, which reinstates the exact \"these are the slots\" language PLC-07 exists to remove. A wash has to be a tint, not an object, and it is now a tint over the ground. WHAT IS LEFT is purely mechanical and was deliberately NOT bundled into PLC-07's pull request, because it triggers the art pipeline and a re-import and that is the step which blanks the owner's running game if mishandled (LF-075) -- tangling it with UI work would have made a red sprite atlas check look like a UI regression. THE STEPS, in the order CLAUDE.md fixes: drop tile_slot from render.py's ASSETS dict, drop it from gen_assets.py's PROP_ALLOWLIST (it is a prop, not a data id, which is why asset coverage rather than sprite coverage governs it -- PLC-07's own spec had this backwards and said sprite coverage would fall to 21 of 26; it would not, that check compares enemy and tower ids only), delete the eight PNGs (4 yaws x albedo/glow), re-run pack_atlas.py, re-import, and confirm the sprite atlas check goes green on the new page hash. EXPECT the atlas cell count to fall from 568. ALSO NOTE the C_SLOT constant in anchor_view.gd is now referenced only by the no-atlas fallback path in _draw_board and can go at the same time. Say so before re-importing -- the owner plays out of this same tree",
+      "kind": "chore",
+      "area": "art",
+      "pri": "med",
+      "status": "open",
+      "why": "A render asset nothing draws is a dead atlas cell, and the removal needs an atlas repack the UI work must not be tangled with",
+      "opened": "2026-08-03",
+      "closed": null,
+      "note": ""
     }
   ]
 }
