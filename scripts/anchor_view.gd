@@ -1604,9 +1604,9 @@ func _rebuild_tile_cache(anchor: Dictionary) -> void:
 	var gw := int(grid["w"])
 	var gh := int(grid["h"])
 	var path_tiles := _path_tiles(anchor)
-	var slot_set := {}
-	for slot in anchor.get("slots", []):
-		slot_set[Vector2i(int(slot[0]), int(slot[1]))] = true
+	# PLC-07: the `slot_set` that used to be built here is gone with the `tile_slot` tile it
+	# fed. `anchor["slots"]` itself stays in the data and is still read by the balance
+	# grader's slot-priority heuristic — this only stops the BOARD painting it.
 	# TER-07: ramps are declared metadata (data/schema/anchor.schema.json's `terrain.ramps`)
 	# that `Content.resolve_terrain()` never consults — the grid still has a plain height
 	# step at a ramped boundary. Keyed canonically by the +x/+y source tile so the cliff
@@ -1629,13 +1629,28 @@ func _rebuild_tile_cache(anchor: Dictionary) -> void:
 			var kind := "tile_ground"
 			if path_tiles.has(cell):
 				kind = "tile_path"
-			elif slot_set.has(cell):
-				kind = "tile_slot"
+			# PLC-07: `tile_slot` is RETIRED here, and this is the whole of that change.
+			# The board no longer paints a distinct tile where a build is allowed, because
+			# with free placement (PLC-01/PLC-06) there is no longer a *set* of allowed
+			# tiles to paint — legality is a predicate over a continuous position. What
+			# replaces it is `_draw_buildable_wash()`, a tint over the ground for the armed
+			# tower's own footprint, plus the ghost at the cursor.
+			#
+			# The sprite is not repurposed as that wash, which was the alternative the issue
+			# named. It is a raised, bevelled pad with a teal ring and four corner bolts —
+			# discrete geometry with real height. Tiled across a region it reads as a field
+			# of hardpoints, which reinstates exactly the "these are the slots" language
+			# this issue exists to remove. A wash has to be a tint, not an object.
 			var h := _height_at(x, y)
 			_tile_cache.append({
 				"pos": IsoScript.tile_to_screen(float(x), float(y)) + IsoScript.height_offset(h),
 				"kind": kind,
 				"alt": (x + y) % 2 == 0,
+				# PLC-07: which cell this entry IS, so `_draw_buildable_wash()` can test it
+				# against the cached buildable set without inverting the projection back out
+				# of `pos`. Cliff and ramp entries (appended below) carry no `cell` and are
+				# skipped by kind there.
+				"cell": cell,
 			})
 			# TER-07: cliff/ramp faces this tile fronts, in the two directions a 30°
 			# elevation camera looks down onto (BoardProps.pillar_faces()'s own
@@ -1795,6 +1810,16 @@ const C_AMBER := Color(0.91, 0.64, 0.24)
 const C_ALERT := Color(0.82, 0.33, 0.25)
 const C_SHADOW := Color(0.0, 0.0, 0.0, 0.34)
 const C_BONE := Color(0.86, 0.89, 0.88)
+## PLC-07. The buildable wash, and the ghost's opacity.
+##
+## Board colours, so they live here with `C_TILE`/`C_PATH` rather than in `Ui` — `Ui` is the
+## accessibility ladder for TEXT, solved against the composited panel (decisions 045/046),
+## and neither of these carries a glyph. The wash is deliberately weak: it sits under every
+## sprite on the board and has to read as "this ground is available" without competing with
+## the emplacements standing on it. `C_SLOT` above is what the retired `tile_slot` fell back
+## to when the atlas was missing, and is kept for that fallback path alone.
+const C_WASH := Color(0.37, 0.66, 0.58, 0.10)
+const GHOST_ALPHA := 0.45
 
 ## LF-046: faction id -> the sprite-missing placeholder's colour, mirroring combat_fx.gd's
 ## FACTION_SHARD identity (amber/bronze, pale steel, desaturated violet) so a unit with no
@@ -2200,9 +2225,16 @@ func _draw_impl() -> void:
 	if sim == null:
 		_draw_editor_overlay(anchor)     # no sim means we are previewing, not playing
 		return
+	# PLC-07 order, and it is load-bearing. The wash goes on the ground UNDER everything,
+	# because it is terrain information. The ghost goes on TOP of the real emplacements
+	# rather than depth-sorted among them: a ghost that disappeared behind a turret it
+	# overlaps would hide the answer at exactly the moment the player is asking the
+	# question, and "overlaps another emplacement" is one of the three refusals.
+	_draw_buildable_wash()
 	_draw_reach()
 	_draw_hover()
 	_draw_entities()
+	_draw_ghost()
 	_draw_selection()
 
 
@@ -2223,19 +2255,10 @@ func _draw_board(anchor: Dictionary) -> void:
 	# viewport, not this board's, and every shipped anchor is small enough (max 18x15) that
 	# culling buys nothing an editor artist would notice. The synthetic 64x64 board this
 	# issue exists for is a play-mode verification fixture, not something previewed.
-	var cull: bool = not Engine.is_editor_hint()
-	var vmin := Vector2.ZERO
-	var vmax := Vector2.ZERO
-	if cull:
-		var vp := get_viewport_rect().size
-		# `pos` in the cache is board-projected, pre-`_origin` (see its own doc); screen =
-		# (pos + origin) * zoom, ignoring shake's `position` (absorbed into the margin — see
-		# TILE_CULL_MARGIN_PX). Solving that for `pos` against the viewport rect, expanded by
-		# the margin on the screen-space side (hence dividing the margin by zoom too), gives
-		# the visible band in cache space.
-		var margin: float = TILE_CULL_MARGIN_PX / _cam_zoom
-		vmin = -_origin - Vector2(margin, margin)
-		vmax = vp / _cam_zoom - _origin + Vector2(margin, margin)
+	var band := _cull_band()
+	var cull: bool = band["cull"]
+	var vmin: Vector2 = band["vmin"]
+	var vmax: Vector2 = band["vmax"]
 
 	for t in _tile_cache:
 		var p: Vector2 = t["pos"]
@@ -2288,12 +2311,269 @@ func _draw_hover() -> void:
 	## position is no longer one of a fixed few. The ring is always drawn now (never
 	## suppressed): colour alone carries the answer -- amber legal, alert red not -- and
 	## `cursor_refusal_text()` carries the reason in words for hud.gd.
+	##
+	## PLC-07 keeps the ring exactly as it was and adds the *reason* on top of it, in
+	## `_draw_ghost()` -- three refusals that look identical are one refusal the player
+	## cannot learn from, and colour alone can only say yes or no.
 	var legal: bool = sim._is_placeable(cursor_at.x, cursor_at.y)
 	var hz := float(_height_at(int(cursor_at.x), int(cursor_at.y)))
 	var hc := IsoScript.tile_to_screen(cursor_at.x, cursor_at.y) + _origin \
 			+ IsoScript.height_offset(hz)
 	var ring := IsoScript.diamond(hc, 0.92)
 	draw_polyline(ring + PackedVector2Array([ring[0]]), C_AMBER if legal else C_ALERT, 2.0)
+
+
+## PLC-07. The buildable region for one armed tower, as a set of tile cells whose CENTRE
+## satisfies bounds and lane standoff. Keyed by tower id and cached, because it is
+## geometry rather than state: `FOOTPRINT_RADIUS` and the lane waypoints do not change
+## while an anchor is loaded.
+##
+## Deliberately NOT including the overlap test, which is the third thing
+## `_placement_reason()` checks. Overlap depends on what is currently built, so folding it
+## in would make this cache wrong the moment anything is placed — and it would also be the
+## wrong picture: the wash answers "where does this weapon fit on this board at all",
+## which is a property of the level. What is already in the way is answered at the cursor,
+## by the ghost.
+var _wash_cache: Dictionary = {}          # tower id -> {Vector2i: true}
+var _wash_cache_anchor: String = ""
+
+
+func _buildable_tiles(tower_id: String) -> Dictionary:
+	if _wash_cache_anchor != anchor_id:
+		_wash_cache.clear()
+		_wash_cache_anchor = anchor_id
+	if _wash_cache.has(tower_id):
+		return _wash_cache[tower_id]
+	var out := {}
+	var grid: Dictionary = _anchor_data().get("grid", {"w": 12, "h": 10})
+	for x in range(int(grid["w"])):
+		for y in range(int(grid["h"])):
+			# OK or OVERLAP both mean bounds and standoff passed -- `_placement_reason()`
+			# runs its three tests in a fixed order and returns the FIRST failure, so
+			# reaching the overlap test at all is proof the first two were satisfied.
+			# Reading the order rather than re-deriving the two tests here keeps this from
+			# becoming a second, drifting copy of a rule (the thing PLC-02 exists to avoid).
+			var why := String(sim._placement_reason(float(x), float(y)))
+			if why == AnchorSimScript.REASON_OK or why == AnchorSimScript.REASON_OVERLAP:
+				out[Vector2i(x, y)] = true
+	_wash_cache[tower_id] = out
+	return out
+
+
+func _cull_band() -> Dictionary:
+	## The visible band of `_tile_cache`, in cache space. Extracted from `_draw_board()` so
+	## PLC-07's wash culls with exactly the same arithmetic rather than a second copy of it —
+	## two passes over the same list disagreeing about what is on screen is the kind of drift
+	## that shows up as a strip of tint hanging off the edge of the board at one zoom level.
+	##
+	## `pos` in the cache is board-projected, pre-`_origin` (see its own doc); screen =
+	## (pos + origin) * zoom, ignoring shake's `position` (absorbed into the margin — see
+	## TILE_CULL_MARGIN_PX). Solving that for `pos` against the viewport rect, expanded by
+	## the margin on the screen-space side (hence dividing the margin by zoom too), gives
+	## the visible band in cache space.
+	##
+	## No culling in the editor preview: `get_viewport_rect()` there is the editor's own
+	## viewport, not this board's, and every shipped anchor is small enough (max 18x15) that
+	## culling buys nothing an editor artist would notice.
+	var cull: bool = not Engine.is_editor_hint()
+	if not cull:
+		return {"cull": false, "vmin": Vector2.ZERO, "vmax": Vector2.ZERO}
+	var vp := get_viewport_rect().size
+	var margin: float = TILE_CULL_MARGIN_PX / _cam_zoom
+	return {
+		"cull": true,
+		"vmin": -_origin - Vector2(margin, margin),
+		"vmax": vp / _cam_zoom - _origin + Vector2(margin, margin),
+	}
+
+
+func _draw_buildable_wash() -> void:
+	## What replaces the slot tiles: a wash over every tile this weapon could stand on.
+	##
+	## Only while something is armed. Painting it always would put a permanent second
+	## colour on the board and undo the thing free placement bought -- a board that reads
+	## as terrain rather than as a grid of sockets.
+	if selected_tower == "" or sim == null:
+		return
+	var tiles := _buildable_tiles(selected_tower)
+	var band := _cull_band()
+	var cull: bool = band["cull"]
+	var vmin: Vector2 = band["vmin"]
+	var vmax: Vector2 = band["vmax"]
+	for t in _tile_cache:
+		var p: Vector2 = t["pos"]
+		if cull and (p.x < vmin.x or p.x > vmax.x or p.y < vmin.y or p.y > vmax.y):
+			continue
+		var cell: Variant = t.get("cell", null)   # cliff/ramp entries carry none
+		if cell == null or not tiles.has(cell):
+			continue
+		draw_colored_polygon(IsoScript.diamond(p + _origin, 0.98), C_WASH)
+
+
+func _nearest_lane_heading(at: Vector2) -> Vector2:
+	## The geometry half of `_idle_heading()`, without its cache. Split out for the ghost:
+	## `_idle_facing` is keyed by position and was safe when positions were a fixed handful
+	## of authored slots, but the cursor is continuous now (PLC-06) and caching one entry
+	## per sub-tile position it visits would grow without bound for a value that costs a
+	## few dozen dot products to recompute.
+	var best := Vector2.ZERO
+	var best_d := INF
+	for lane_doc in _anchor_data().get("paths", []):
+		var pts: Array = lane_doc.get("waypoints", [])
+		for i in range(pts.size() - 1):
+			var a := Vector2(float(pts[i][0]), float(pts[i][1]))
+			var b := Vector2(float(pts[i + 1][0]), float(pts[i + 1][1]))
+			var ab := b - a
+			var t := 0.0
+			if ab.length_squared() > 0.0:
+				t = clampf((at - a).dot(ab) / ab.length_squared(), 0.0, 1.0)
+			var q := a + ab * t
+			var d := at.distance_squared_to(q)
+			if d < best_d:
+				best_d = d
+				best = q - at
+	return best
+
+
+func _draw_ghost() -> void:
+	## The armed emplacement, drawn where it would stand, at the yaw it would watch the lane
+	## from -- and, when it would be refused, saying WHICH of the three tests refused it.
+	##
+	## Facing is `_nearest_lane_heading()`, the same rule a real emplacement idles at, so
+	## the ghost is not a generic silhouette: move the cursor across the lane and it turns
+	## to keep watching it, which is information about the placement rather than decoration.
+	## Bucketed without hysteresis -- hysteresis exists to stop a *firing* turret jittering
+	## between two buckets while tracking a target (LF-142), and a ghost has no target and
+	## no history to be sticky about.
+	if selected_tower == "" or sim == null:
+		return
+	var reason := String(sim._placement_reason(cursor_at.x, cursor_at.y))
+	var legal := reason == AnchorSimScript.REASON_OK
+	var z := float(_height_at(int(cursor_at.x), int(cursor_at.y)))
+	var at := IsoScript.tile_to_screen(cursor_at.x, cursor_at.y) + _origin \
+			+ IsoScript.height_offset(z)
+
+	# The footprint, as a projected ellipse rather than a circle -- 2:1, exactly as
+	# `_draw_contact_shadow()` does and for the same reason (decision 017). This is the
+	# real `FOOTPRINT_RADIUS` the rules test against, not an artistic radius: the whole
+	# point is that the player can see the shape the refusal is about.
+	var r_px := AnchorSimScript.FOOTPRINT_RADIUS * IsoScript.TILE_W * 0.5
+	var foot := PackedVector2Array()
+	for i in range(24):
+		var a := TAU * float(i) / 24.0
+		foot.append(at + Vector2(cos(a) * r_px, sin(a) * r_px * 0.5))
+	draw_colored_polygon(foot, Color(C_AMBER if legal else C_ALERT, 0.16))
+	draw_polyline(foot + PackedVector2Array([foot[0]]),
+			Color(C_AMBER if legal else C_ALERT, 0.8), 1.5)
+
+	var lib := _sprite_lib()
+	if lib != null and lib.ok:
+		var base_id := selected_tower.replace("-", "_")
+		var bucket := IsoScript.bucket_index_for_heading(
+				_nearest_lane_heading(cursor_at), BASE_YAW_COUNT, -1, 0.0)
+		for part in ["_base", "_head"]:
+			var count := BASE_YAW_COUNT if part == "_base" else HEAD_YAW_COUNT
+			var b := bucket if part == "_base" else IsoScript.bucket_index_for_heading(
+					_nearest_lane_heading(cursor_at), HEAD_YAW_COUNT, -1, 0.0)
+			var tex: Texture2D = lib.get_bucket_tex(base_id + part, b, "albedo")
+			if tex != null:
+				draw_texture(tex, at - lib.pivot, Color(1, 1, 1, GHOST_ALPHA) if legal
+						else Color(C_ALERT.r, C_ALERT.g, C_ALERT.b, GHOST_ALPHA))
+	if not legal:
+		_draw_refusal(reason, at, r_px)
+
+
+func _draw_refusal(reason: String, at: Vector2, r_px: float) -> void:
+	## Three refusals, three different pictures. The words are already in the HUD
+	## (`cursor_refusal_text()`, PLC-06); this is the half that points at the thing on the
+	## board that is actually in the way, because reading "TOO CLOSE TO THE LANE" does not
+	## tell you which lane or how much too close.
+	match reason:
+		AnchorSimScript.REASON_OUT_OF_BOUNDS:
+			# The board edge the footprint crosses. Drawn as the outer boundary of the
+			# playfield so the refusal has a visible thing behind it rather than being an
+			# assertion about coordinates.
+			var grid: Dictionary = _anchor_data().get("grid", {"w": 12, "h": 10})
+			var gw := float(grid["w"])
+			var gh := float(grid["h"])
+			var corners := PackedVector2Array()
+			for c in [Vector2(-0.5, -0.5), Vector2(gw - 0.5, -0.5),
+					Vector2(gw - 0.5, gh - 0.5), Vector2(-0.5, gh - 0.5)]:
+				corners.append(IsoScript.tile_to_screen(c.x, c.y) + _origin)
+			corners.append(corners[0])
+			draw_polyline(corners, Color(C_ALERT, 0.9), 3.0)
+		AnchorSimScript.REASON_LANE_STANDOFF:
+			# The band the footprint is inside. Sampled along the offending lane so the
+			# player sees the KEEP-OUT corridor, not just a red ring on their cursor.
+			_draw_lane_standoff_band()
+		AnchorSimScript.REASON_OVERLAP:
+			# The emplacement actually collided with -- outlined at ITS footprint, so the
+			# two circles that are too close are both on screen at once.
+			var rr := AnchorSimScript.FOOTPRINT_RADIUS * 2.0
+			for p in sim.placed:
+				var d := Vector2(float(p["x"]), float(p["y"])) - cursor_at
+				if d.length_squared() >= rr * rr:
+					continue
+				var pz := float(_height_at(int(p["x"]), int(p["y"])))
+				var pc := IsoScript.tile_to_screen(float(p["x"]), float(p["y"])) + _origin \
+						+ IsoScript.height_offset(pz)
+				var ring := PackedVector2Array()
+				for i in range(24):
+					var a := TAU * float(i) / 24.0
+					ring.append(pc + Vector2(cos(a) * r_px, sin(a) * r_px * 0.5))
+				ring.append(ring[0])
+				draw_polyline(ring, Color(C_ALERT, 0.95), 2.5)
+
+
+func _draw_lane_standoff_band() -> void:
+	## The keep-out corridor for the ONE lane segment that is actually refusing this
+	## position -- not every segment of every lane.
+	##
+	## It drew all of them first, and the capture was the argument against it: a 12x10
+	## anchor with one lane produced about forty full-length offset lines webbed across the
+	## whole board, crossing tiles nowhere near the lane and reading as scratches rather
+	## than as a corridor. The information the player needs is *which* piece of lane is too
+	## close and by how much, and that is local. So this finds the nearest segment, draws
+	## its two offset edges over that segment alone, and runs a connector from the ghost to
+	## the nearest point on it -- three lines instead of forty, and they point at the answer.
+	##
+	## `standoff` is `lane_half_width + FOOTPRINT_RADIUS`, read from the anchor and the
+	## rules constant rather than guessed, so the band and the refusal cannot disagree.
+	var lane_half: float = float(_anchor_data().get("lane_half_width", 0.5))
+	var standoff := lane_half + AnchorSimScript.FOOTPRINT_RADIUS
+	var best_a := Vector2.ZERO
+	var best_b := Vector2.ZERO
+	var best_q := Vector2.ZERO
+	var best_d := INF
+	for lane_doc in _anchor_data().get("paths", []):
+		var pts: Array = lane_doc.get("waypoints", [])
+		for i in range(pts.size() - 1):
+			var a := Vector2(float(pts[i][0]), float(pts[i][1]))
+			var b := Vector2(float(pts[i + 1][0]), float(pts[i + 1][1]))
+			var ab := b - a
+			if ab.length_squared() <= 0.0:
+				continue
+			var t := clampf((cursor_at - a).dot(ab) / ab.length_squared(), 0.0, 1.0)
+			var q := a + ab * t
+			var d := cursor_at.distance_squared_to(q)
+			if d < best_d:
+				best_d = d
+				best_a = a
+				best_b = b
+				best_q = q
+	if best_d == INF:
+		return
+	var ab2 := best_b - best_a
+	var n := Vector2(-ab2.y, ab2.x).normalized() * standoff
+	for side in [1.0, -1.0]:
+		var p0 := IsoScript.tile_to_screen(best_a.x + n.x * side, best_a.y + n.y * side) + _origin
+		var p1 := IsoScript.tile_to_screen(best_b.x + n.x * side, best_b.y + n.y * side) + _origin
+		draw_line(p0, p1, Color(C_ALERT, 0.65), 2.0)
+	# The connector: from where the emplacement would stand to the closest point of lane.
+	# This is the measurement the rule actually made, drawn.
+	draw_line(IsoScript.tile_to_screen(cursor_at.x, cursor_at.y) + _origin,
+			IsoScript.tile_to_screen(best_q.x, best_q.y) + _origin,
+			Color(C_ALERT, 0.85), 1.5)
 
 
 func _draw_reach() -> void:
