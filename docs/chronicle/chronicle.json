@@ -5298,6 +5298,206 @@
           "text": "The work sits on `lf/bal-presence-coverage` and was not yet committed when this entry was written, so no commit hash is listed — the same call as last time, and for the same reason: a hash written before the commit exists is a claim this journal has no business making."
         }
       ]
+    },
+    {
+      "id": "the-acceptance-criterion-was-not-a-selector",
+      "date": "2026-08-03",
+      "time": "13:40",
+      "title": "The acceptance criterion was not a selector",
+      "summary": "`PLC-04` gives the grader a candidate lattice at ½-tile pitch, so it can finally stand a gun where no level author put a slot — `PLC-01` made placement continuous for the player months ago and the grader had been reasoning about a board the game no longer has. The ordering took five attempts, and the thing that decided it was not the grade table: the best-scoring candidate produced the worst board, and a different set of anchors failed under every ordering. So `PLC-04`'s own acceptance criterion — “every anchor still grades `ok`” — was withdrawn as a bar. Four anchors merge knowingly below it. Underneath, the one gate check that did fire named the wrong subsystem and said nothing at all.",
+      "tags": [
+        "PLC"
+      ],
+      "decisions": [
+        "081"
+      ],
+      "commits": [
+        {
+          "hash": "e1896da",
+          "subject": "feat(grader): a candidate lattice, and the grade table could not choose its ordering"
+        }
+      ],
+      "body": [
+        {
+          "type": "p",
+          "text": "`PLC-04` is the last open item in E3 Placement, and what it removes is `_slot_priority()` — the function that ranked an anchor's **authored slots** by distance to the path and handed them to the grader in that order. In its place is a deterministic candidate lattice at ½-tile pitch: the grader can now stand a gun anywhere the rules allow, including where no level author ever put a slot. `PLC-01` made placement continuous for the **player** months ago. The grader had been reasoning about a board the game no longer has ever since."
+        },
+        {
+          "type": "p",
+          "text": "The lattice is built once per `Anchor`, filtered through `PLC-02`'s own `_placement_reason()` using the largest footprint in `data/towers.json`, and sorted once. `_try_build` consumes from an index and contains no sort at all. It is mirrored into `scripts/test/parity.gd`, which is what the 1,440-run parity gate drives — two independent implementations that have to pick the same candidate at the same step, every step."
+        },
+        {
+          "type": "h3",
+          "text": "The story is the ordering, and it took five attempts"
+        },
+        {
+          "type": "p",
+          "text": "The spec named the ordering: sort by `(d2_to_path, x, y)`, consume greedily from the front. **It is degenerate.** Every anchor's lanes are axis-aligned, so `d2_to_path` ties *exactly* across the entire band parallel to a lane — and the secondary key ends up doing all the work. `(x, y)` turns into a raster sweep."
+        },
+        {
+          "type": "p",
+          "text": "Measured on all 24 anchors: the graded build collapsed into a **3–4 tile column at the board's left edge**, against authored slots that spanned 12–16 tiles. anchor-09 put twelve emplacements in a 4×10 block on a board whose second lane runs down `x=15` — never defending that lane at all — and went from 9/6/4 winning builds to **0/0/0**."
+        },
+        {
+          "type": "table",
+          "headers": [
+            "ordering",
+            "anchors clean",
+            "anchor-09",
+            "board"
+          ],
+          "rows": [
+            [
+              "`(d2, x, y)` — as specified",
+              "16/24",
+              "0/0/0",
+              "all twelve in a 3–4 tile column, lane 1 undefended"
+            ],
+            [
+              "minimum separation 2.5 tiles",
+              "**23/24**",
+              "0/0/0",
+              "knob-tuned, non-monotone — 3.0 gives 21/24"
+            ],
+            [
+              "global maximin arclength spread",
+              "21/24",
+              "ok",
+              "spread along one path, the other lane favoured"
+            ],
+            [
+              "lane round-robin + `(d2, arc, x, y)`",
+              "17/24",
+              "4/0/0",
+              "lanes split 8/4, each packed at its own head"
+            ],
+            [
+              "**round-robin × per-lane maximin**",
+              "**20/24**",
+              "**7/2/1**",
+              "**8/4 split, full-path coverage on both**"
+            ]
+          ]
+        },
+        {
+          "type": "p",
+          "text": "**Adopted: round-robin across lanes for whose turn it is; within a lane, the candidate whose arclength is farthest from every emplacement already on that lane.** Two orthogonal defects, and each fix does nothing whatsoever for the other:"
+        },
+        {
+          "type": "list",
+          "items": [
+            "**Lane-blindness**, cured only by round-robin — the one mechanism in the five that can express *“this lane has no guns on it”*.",
+            "**Front-loading**, which round-robin does not touch, because **any total order consumed greedily from the front packs at the front**. `(x, y)` packed at the board corner; arclength packed at the lane head. The same defect wearing a different axis."
+          ]
+        },
+        {
+          "type": "p",
+          "text": "Composed, anchor-09's twelve now sit on lane 0 at arclengths 0, 4.5, 9, 13.5, 18, 22.5, 27 and 36 of 37, and on lane 1 at 0, 3.5, 7 and 14 of 14. Eight guns and four."
+        },
+        {
+          "type": "h3",
+          "text": "The grade count did not choose it, and could not have"
+        },
+        {
+          "type": "p",
+          "text": "This is the part worth writing down. Minimum separation at 2.5 tiles scores **23/24**, the best of the five, while producing boards nobody would defend. The adopted ordering scores **20/24** while producing the only board of the five that is indistinguishable in shape from a hand-authored layout. Across five structurally different orderings, a *different set of anchors* failed each time, and the best-scoring candidate produced the worst board."
+        },
+        {
+          "type": "p",
+          "text": "That is the signature of grades **co-tuned with the thing being replaced** — the 24 clean grades were swept against a grader confined to the authored slots — rather than of a better sort key waiting to be found. So `PLC-04`'s acceptance criterion 6, *“every anchor still grades `ok`”*, was **withdrawn as a bar for this issue**. Decision **081** records the withdrawal with all five candidates and their boards."
+        },
+        {
+          "type": "p",
+          "text": "**This merges as a knowing regression, and it is not a footnote.** Four anchors go in below `ok`: anchor-01 (brutal unwinnable), anchor-04 (brutal single-solution), anchor-09 (brutal single-solution), anchor-11 (hard single-solution plus brutal unwinnable). Three of the four are brutal-only and all four boards are well shaped, which is the whole argument for shipping it — a grader that places well finds those tiers genuinely thin at the top difficulty. `LF-223` re-sweeps them and is the next workstream."
+        },
+        {
+          "type": "h3",
+          "text": "What was rejected"
+        },
+        {
+          "type": "p",
+          "text": "**Ordering the lattice by presence-weighted coverage** — despite the entry published an hour earlier proving that presence predicts real emplacement uptime far better than distance to the lane does, rank correlation **+0.748 against +0.520**. Two independent reasons, either sufficient. It is **circular**: the presence profile comes from running the sim, which depends on where things were built. And it **cannot be mirrored**: decision 078 restricts these two files to operations byte-identical across MSVC UCRT and CPython/Linux, and a coverage-weighted key is not one. There is an irony here worth exactly one sentence — the better metric, proven better sixty minutes earlier, is structurally unavailable to the thing that most wants it."
+        },
+        {
+          "type": "p",
+          "text": "**The minimum-separation constant**, despite scoring highest of the five. It is a tolerance widened until the number came out right; it is **non-monotone in its own parameter** (2.5 gives 23/24, 3.0 gives 21/24); it fails on a different set of anchors at every value; and it never rescued anchor-09 at any setting."
+        },
+        {
+          "type": "h3",
+          "text": "The numbers"
+        },
+        {
+          "type": "list",
+          "items": [
+            "**Parity: 1,440 runs identical across both engines, first try.** anchor-09 — the two-lane case that would break first if lane assignment or the maximin tie-break disagreed — was checked alone beforehand: 60 runs identical.",
+            "Sharded parity **923,874 ms**, against 877,233 ms on `5021a9e` (+5.3%) and 832,967 ms for the spec-literal forward index (+10.9%). That is **71% of the 1,300,000 ms bar**.",
+            "The cost was **attributed rather than assumed**: anchor-01 wins *fewer* runs now and still costs 22% more, so it is the per-lane scan, not longer-surviving runs.",
+            "The Python grading leg is still **4.9% faster than HEAD** — the lattice is a net win and the scan gives part of it back.",
+            "`sim.run --jobs 8` against `--jobs 1`: empty diff, no order dependence.",
+            "Lattice built once per `Sim`: 60 constructions on one anchor collapse to 1 build.",
+            "`_try_build` is sort-free in both engines, verified by an AST walk rather than by reading it."
+          ]
+        },
+        {
+          "type": "h3",
+          "text": "The tie-break, because a max-over-min has ties by construction"
+        },
+        {
+          "type": "p",
+          "text": "Two candidates equidistant either side of a gap tie exactly, and `LF-055` is the precedent where exactly that made the two engines disagree only when a wave happened to produce a tie. So the scan accepts only a **strict** improvement: the first index in the lane group wins, and that array is in ascending lattice order, which means ties resolve on the full `(d2, arclength, x, y)` tuple. Nothing leans on iteration order, and nothing leans on `sort_custom` being stable — GDScript does not guarantee that. `abs()` is written out as an explicit `if d < 0.0: d = -d` in both files so the arithmetic stays comparisons and `+ - *` only."
+        },
+        {
+          "type": "h3",
+          "text": "The second bug, found by being the first thing to fail"
+        },
+        {
+          "type": "p",
+          "text": "`sim determinism` — a gate check — returned `FAIL` on `sim/run.py`'s **exit code**, *before* comparing its two runs against each other. And `run.py --json` exits 1 whenever any anchor is not clean. So the moment the lattice made anchor-01 fail at brutal, the gate announced **“the sim is not deterministic”** — naming the wrong subsystem entirely — with `a.stderr` as its message, which is **empty**, because `run.py` writes its verdict to stdout. A red check, the wrong subsystem, and nothing after the check name. The two runs had been byte-identical the whole time."
+        },
+        {
+          "type": "p",
+          "text": "Now: a crash with no output to compare is still fatal and is caught first; genuine divergence still fails; a non-zero exit on identical output is **reported** rather than raised. All four branches were proved red-or-green **by injection** before the check was trusted — house style here, and this is the case it exists for."
+        },
+        {
+          "type": "p",
+          "text": "`LF-224` records what the fix removes: **nothing in the gate asserts that every anchor grades `ok`.** The conflation had been serving that role accidentally, under the wrong name, with an empty message. The real check must not be added until `LF-223` lands — a check that is red on arrival gets disabled rather than fixed."
+        },
+        {
+          "type": "h3",
+          "text": "Two more lines that belong on the record"
+        },
+        {
+          "type": "list",
+          "items": [
+            "`_slot_priority()` is **retained**, solely for `tools/analysis_lf014.py`, which reproduces the measurement decision **022** rests on. Repointing it at the lattice would move numbers a settled decision cites.",
+            "`LF-222` records that the lattice **enlarges** `LF-053`/`LF-095` rather than solving it. Every `Policy` is a total preference order and `_try_build` fills greedily, so a graded build is all-of-one-thing. With 12 slots that read as “twelve arc nodes”; with hundreds of candidates it is “as many as the cap and the money allow”. `BAL-02` is the fix, and this must not be read as one."
+          ]
+        },
+        {
+          "type": "h3",
+          "text": "Gate, and what this entry does not have"
+        },
+        {
+          "type": "p",
+          "text": "The work sits on `lf/plc-candidate-lattice` at `e1896da` and is gated at **tier 4**, which was still running as this was written — so no verdict is stated here. Faithful reporting means the result goes in the entry that has it, not this one. There are also **no screenshots**: this is grader-side work, it changes no pixel, and no frame was captured. An invented one would be worse than none."
+        },
+        {
+          "type": "h3",
+          "text": "Three entries, and the same thing was wrong in all of them"
+        },
+        {
+          "type": "p",
+          "text": "The first of the three found that the metric was measuring the wrong quantity. The second found that the **test** of that metric had been failing unnoticed, because no tier ran it. This one found that the **acceptance criterion** was not a valid selector — and that the one gate check which did fire named the wrong subsystem with an empty message."
+        },
+        {
+          "type": "p",
+          "text": "The thread is not “we found bugs”. In all three, the thing that was wrong was an **instrument** — not the game. The metric, then the test of the metric, then the bar the work was to be judged against and the check that announced the failure. None of them was a defect in what the player runs."
+        },
+        {
+          "type": "p",
+          "text": "That is the same move as `PLC-07`'s **the fault was in the instrument, not the code**, and the same move as `LF-201`'s **it reported a destruction it was incapable of performing**, both already in this journal. The habit that keeps paying is not scepticism about the code. It is scepticism about the thing doing the measuring, and about the number it hands you — including, and especially, when that number is green."
+        }
+      ]
     }
   ]
 }
