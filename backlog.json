@@ -1,5 +1,5 @@
 {
-  "next_id": 225,
+  "next_id": 227,
   "items": [
     {
       "id": "LF-001",
@@ -2671,6 +2671,18 @@
       "kind": "bug",
       "area": "design",
       "pri": "med",
+      "status": "done",
+      "why": "",
+      "opened": "2026-08-03",
+      "closed": "2026-08-03",
+      "note": "closed at 740f50c"
+    },
+    {
+      "id": "LF-224",
+      "title": "Nothing in the gate asserts that every anchor grades ok. DISCOVERED during PLC-04: the 'sim determinism' check returned FAIL on sim/run.py's exit code BEFORE comparing its two runs, and run.py --json exits 1 whenever an anchor is not clean - so the conflation was accidentally serving as an all-anchors-clean assertion, under the wrong name, with an empty message (run.py writes its verdict to stdout, and the check reported stderr). Decision 081's re-siting of that check to compare outputs first is correct and shipped with PLC-04, but it removes the accidental safety net. THE WORK: add a real 'anchor grades' check that runs sim/run.py over all 24 and fails on any anchor not ok, with the failing anchors and their problem strings in the message. DO NOT ADD IT UNTIL LF-223 LANDS - anchor-01, 04, 09 and 11 are knowingly below ok right now as a consequence of the lattice grader placing better than the sweep those anchors were tuned against, and a check that is red on arrival gets disabled rather than fixed. Cost: a full sim/run.py --jobs 8 is ~60 s, so tier 3 or 4, not tier 2 (already over budget, LF-178)",
+      "kind": "bug",
+      "area": "tooling",
+      "pri": "med",
       "status": "open",
       "why": "",
       "opened": "2026-08-03",
@@ -2678,10 +2690,22 @@
       "note": ""
     },
     {
-      "id": "LF-224",
-      "title": "Nothing in the gate asserts that every anchor grades ok. DISCOVERED during PLC-04: the 'sim determinism' check returned FAIL on sim/run.py's exit code BEFORE comparing its two runs, and run.py --json exits 1 whenever an anchor is not clean - so the conflation was accidentally serving as an all-anchors-clean assertion, under the wrong name, with an empty message (run.py writes its verdict to stdout, and the check reported stderr). Decision 081's re-siting of that check to compare outputs first is correct and shipped with PLC-04, but it removes the accidental safety net. THE WORK: add a real 'anchor grades' check that runs sim/run.py over all 24 and fails on any anchor not ok, with the failing anchors and their problem strings in the message. DO NOT ADD IT UNTIL LF-223 LANDS - anchor-01, 04, 09 and 11 are knowingly below ok right now as a consequence of the lattice grader placing better than the sweep those anchors were tuned against, and a check that is red on arrival gets disabled rather than fixed. Cost: a full sim/run.py --jobs 8 is ~60 s, so tier 3 or 4, not tier 2 (already over budget, LF-178)",
+      "id": "LF-225",
+      "title": "say_capacity.py and the dialog capacity gate check only track the spoken '<N> megawatts' phrase, so a brief that refers back to its own capacity a SECOND time as a bare word-number goes stale silently and the gate stays green. FOUND applying LF-223: anchor-04's capacity went 96 -> 94, say_capacity.py rewrote the spoken figure, and the brief still read 'Ninety-four megawatts. Shield wall's signed off - forty of those ninety-six if you raise it.' The tool structurally cannot reach it - its regex is ([A-Za-z][A-Za-z \\-]*?)\\s+megawatts, so a bare number with no unit after it is invisible. Fixed by hand in the LF-223 pull request; the GAP is the item. THE FIX: after rewriting the megawatt phrase, also scan the brief for the OLD spoken figure as a bare word-number and either rewrite it or refuse and report - the tool already knows how to refuse, it does exactly that when a brief contains two capacity-sized figures. Same class as the check that verifies output matches input and cannot see a generator wrong in a stable way",
       "kind": "bug",
       "area": "tooling",
+      "pri": "med",
+      "status": "open",
+      "why": "",
+      "opened": "2026-08-03",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-226",
+      "title": "anchor-11 is now the first shipped anchor where max_emplacements (13) EXCEEDS len(slots) (10), which newly exercises anchor_view.gd::_next_autobuild_candidate()'s _lattice_fallback_candidate() branch - written for exactly this case (LF-202, decision 063) and never entered by any shipped anchor until LF-223 authored the cap. rules parity is verified clean on anchor-11 (60/60 runs identical, --no-cache), so the RULES half is proven; what is NOT proven is the Godot-side autobuild fallback, because no scenario in data/scenarios/ uses anchor-11 and the grading harness sources candidates from the rules engines rather than from anchor_view.gd. THE WORK: add a scenario that autobuilds on anchor-11, or otherwise confirm the fallback at tier 3/4 before release. THE GENERAL LESSON is the one PLC-03 already paid for and CLAUDE.md records: a gate that runs the whole game proves nothing about a branch the shipped data never enters - that is exactly why firing arcs agree exists, and this is the same shape of hole in a different place",
+      "kind": "bug",
+      "area": "engine",
       "pri": "med",
       "status": "open",
       "why": "",

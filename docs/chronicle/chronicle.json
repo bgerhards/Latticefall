@@ -5498,6 +5498,247 @@
           "text": "That is the same move as `PLC-07`'s **the fault was in the instrument, not the code**, and the same move as `LF-201`'s **it reported a destruction it was incapable of performing**, both already in this journal. The habit that keeps paying is not scepticism about the code. It is scepticism about the thing doing the measuring, and about the number it hands you — including, and especially, when that number is green."
         }
       ]
+    },
+    {
+      "id": "four-anchors-four-different-levers",
+      "date": "2026-08-03",
+      "time": "16:20",
+      "title": "Four anchors, four different levers, and the one capacity that moved went down",
+      "summary": "`LF-223` is the re-balance the previous entry promised. `PLC-04`'s candidate lattice places better than the grader it replaced, and that exposed four anchors whose tiers had been tuned against a grader confined to the authored slots — anchor-01 unwinnable at brutal, anchor-04 and anchor-09 single-solution, anchor-11 both. All four are clean now, and the game is 24/24. Four anchors needed four different levers: a wave's arrival rate, a reactor capacity that was an exact multiple of a tower cost, a flank lane carrying 1.6% of the fight and a third of the guns, and an emplacement count that had quietly become the currency instead of power. The one capacity that moved went down.",
+      "tags": [
+        "BAL",
+        "PLC"
+      ],
+      "decisions": [],
+      "body": [
+        {
+          "type": "p",
+          "text": "The entry immediately before this one — **The acceptance criterion was not a selector**, `the-acceptance-criterion-was-not-a-selector`, merged as **#142** — shipped `PLC-04`'s candidate lattice and knowingly merged four anchors below the bar it had withdrawn. anchor-01 unwinnable at brutal; anchor-04 and anchor-09 single-solution at brutal; anchor-11 single-solution at hard and unwinnable at brutal. It named `LF-223` as the promised re-balance. This is `LF-223`."
+        },
+        {
+          "type": "p",
+          "text": "The lattice grader places **better** than the one it replaced, and that is the whole reason those four went red. Their tiers had been tuned against a grader confined to each anchor's authored slots. Give the grader the board the player actually has and the tuning stops holding."
+        },
+        {
+          "type": "h3",
+          "text": "The result"
+        },
+        {
+          "type": "p",
+          "text": "**24 of 24 anchors clean.** Four anchors, **four different levers**, and the one reactor capacity that moved went **down**. The other twenty anchors are byte-identical in win counts, distinct builds, peak load, brownout and death wave — nothing was nudged sideways to make a neighbour work."
+        },
+        {
+          "type": "table",
+          "headers": [
+            "anchor",
+            "cap",
+            "before → after (wins, distinct builds) std / hard / brutal"
+          ],
+          "rows": [
+            [
+              "anchor-01",
+              "60",
+              "17(2) / 10(2) / **0(0)** → 17(2) / 10(2) / **9(1)**"
+            ],
+            [
+              "anchor-04",
+              "96 → **94**",
+              "7(4) / 6(3) / **1(1)** → 8(4) / 7(4) / **6(2)**"
+            ],
+            [
+              "anchor-09",
+              "170",
+              "11(7) / 5(2) / **1(1)** → 12(8) / 5(2) / **2(2)**"
+            ],
+            [
+              "anchor-11",
+              "200",
+              "5(5) / **1(1)** / **0(0)** → 8(8) / **8(5)** / **2(2)**"
+            ]
+          ]
+        },
+        {
+          "type": "h3",
+          "text": "anchor-01 — the wave table's arrival rate, capacity untouched"
+        },
+        {
+          "type": "p",
+          "text": "Five pulse turrets **is** the 60 MW bus — 5 × 12 — so anchor-01's damage ceiling is a fixed 60 dps and always will be. A brutal warden drone is 40 × 1.55 = 62 hp, which makes the maximum sustainable arrival 0.97 units/s: one per 1.03 s. The authored waves 4, 5 and 6 arrived at 1.00 / 0.90 / **0.80 s**. The terminal wave was demanding 77.5 hp/s from a bus that can supply 60 — **29% above the anchor's own ceiling**. The level had only ever survived on wave *length*, never on rate."
+        },
+        {
+          "type": "p",
+          "text": "The discriminating measurement is the good part. **`lead_in` × 1.5 leaves brutal at zero winning builds; `interval` × 1.05 fixes it.** More time *between waves* does nothing, because nothing about the ceiling is a warm-up problem; more time between *units* is the whole thing. Money is inert too — the build is capacity-capped at five guns whatever the funds — and `max_emplacements` is inert at every value from 8 to 16."
+        },
+        {
+          "type": "p",
+          "text": "So the intervals went to 1.05 / 0.95 / 0.90. **98 units in, 98 units out**; counts, capacity, funds and lives all untouched. Wave 6's interval is the entire knob and it is monotone: 0.80 unwinnable, 0.85 → 3 lives left, 0.90 → 6, 0.95 → 10. Chose 0.90 — margin without erasing the leak."
+        },
+        {
+          "type": "h3",
+          "text": "anchor-04 — reactor capacity, reduced 96 → 94"
+        },
+        {
+          "type": "p",
+          "text": "`96 = 8 × 12` **exactly**, so every greedy policy filled to the same eight pulse turrets and the build space collapsed to one board. 92, 93, 94 and 95 are green in **45 of 45** cells; 96 is the first bad value. That is a structural reason rather than a fitted one, which is why it survived when everything else was ruled out."
+        },
+        {
+          "type": "p",
+          "text": "Everything else was ruled out **by measurement**. Starting funds is a **razor, not a gradient** — 480 ✗, 500 ✗, 520 ✓, 540 ✓, 560 ✓, 580 ✓, 600 ✗, 620 ✗, 640 ✗ — and picking a green cell out of that is choosing a fitted constant, not a design. No wave-rate variant of ten tried moved brutal off a single build. Lives from 10 to 22 produced no clean cell at all. `max_emplacements` from 8 to 16 had no effect whatsoever."
+        },
+        {
+          "type": "p",
+          "text": "**The one capacity move tightens the power budget rather than loosening it.** anchor-04's brutal winners now run at 94–98% of capacity at peak and 91–96% at the *mean* — the bus sits near the line for most of the level, which is what the power currency is for."
+        },
+        {
+          "type": "h3",
+          "text": "anchor-09 — the wave table's lane allocation, and the instrument that found it"
+        },
+        {
+          "type": "p",
+          "text": "Capacity and funds untouched; total units unchanged at 160. What was wrong was **where** they arrived. `sim/coverage.py`'s presence metric — the one shipped two entries ago — was decisive here: the flank lane carried **14 of 160 units and 1.6% of all live unit-ticks**, while `PLC-04`'s lane round-robin correctly garrisons that lane with **4 of 12 emplacements**. A third of the board defending 1.6% of the fight."
+        },
+        {
+          "type": "p",
+          "text": "Capacity is genuinely inert on this anchor: **zero clean cells across capacity 155–180 × funds 820–980**. No amount of power fixes a board where a third of the guns have nothing to shoot at. Sixteen pickets moved onto the flank instead — **130/30 rather than 146/14**, the same 160 units, the same hit points, the same leak budget — and flank presence went **1.6% → 4.9%**. Green in 15 of 15 cells."
+        },
+        {
+          "type": "p",
+          "text": "That is worth saying plainly: **an instrument built three entries ago to answer a different question is what identified this anchor's actual defect.** It was built to explain why emplacements sit idle. It found a wave table that had allocated its units to a lane nobody fights in."
+        },
+        {
+          "type": "h3",
+          "text": "anchor-11 — an emplacement cap, and the currency was not power"
+        },
+        {
+          "type": "p",
+          "text": "Every cheap policy stopped at exactly **10 emplacements — `len(slots)` — for 120 MW of a 200 MW bus.** The *emplacement count* was the currency and power was inert; only builds expensive per slot could reach the bus at all, which is exactly why hard had one answer and only one. Capacity confirmed inert at 185, 190, 195, 200 and 205."
+        },
+        {
+          "type": "p",
+          "text": "The lever is `max_emplacements: 13`, and it is monotone in its own parameter — 10 ✗, 11 ✗, 12 ✗, **13 ✓**, 14 ✓, 15 ✓, 16 ✓ — and green at every capacity from 185 to 205. Funds is a razor here as well (1210 ✗, 1240 ✓, 1270 ✗) and was rejected on the same grounds as anchor-04's."
+        },
+        {
+          "type": "p",
+          "text": "Board saturation falls **42% → 32%**, which puts anchor-11 in line with anchor-09 at 30% and anchor-10 at 33% instead of being the act-2 outlier. Note the direction: **lower saturation means the bus covers less of a full board, so that is more power pressure, not less.**"
+        },
+        {
+          "type": "h3",
+          "text": "Nothing was bought with power, and here is the number that proves it"
+        },
+        {
+          "type": "p",
+          "text": "The standing rule is that density is never paid for with reactor capacity. `docs/STATE.md` records what that failure looks like: anchor-24 once reaching 103% of board saturation, with the power decision having stopped existing on five levels. So the load figures are the acceptance evidence, not a footnote."
+        },
+        {
+          "type": "table",
+          "headers": [
+            "anchor",
+            "peak (% cap)",
+            "mean (% cap)",
+            "lives left",
+            "emplacements"
+          ],
+          "rows": [
+            [
+              "anchor-01",
+              "100%",
+              "84–94%",
+              "5–6 / 10",
+              "5 of 5 possible"
+            ],
+            [
+              "anchor-04",
+              "94–98%",
+              "91–96%",
+              "1–5 / 14",
+              "8"
+            ],
+            [
+              "anchor-09",
+              "104–107%",
+              "76–82%",
+              "1 / 14",
+              "9–12"
+            ],
+            [
+              "anchor-11",
+              "98–116%",
+              "77–86%",
+              "1 / 11",
+              "13"
+            ]
+          ]
+        },
+        {
+          "type": "p",
+          "text": "Grade-level peak ratios stayed at or above 130% on all four. No anchor gained slack. All four are money-bound at t=0, so power bites later, as designed. The capacity ladder stayed monotone — 60, 80, 92, **94**, 100, 104, 106, 110 | 170, 190, 200, 200, 250, 250, 260, 260 | 290 × 8 — and only anchor-04 moved, downward, forcing no other anchor."
+        },
+        {
+          "type": "p",
+          "text": "Density moved the way it should: anchor-01 peak on screen 28 → 25, anchor-09 28 → 26, anchor-04 every column identical, anchor-11 saturation 42% → 32%. Units per wave, leak, hit points per wave and drain are unchanged everywhere."
+        },
+        {
+          "type": "h3",
+          "text": "The design position that was chosen rather than tuned away"
+        },
+        {
+          "type": "p",
+          "text": "**anchor-01 brutal is now single-solution — nine winning policies, one distinct build — and that is correct.** anchor-01 unlocks one emplacement type and its 60 MW bus is exactly five of them, so the entire build space contains five boards and only the maximal one survives 1.55× hit points. `tutorial: true` already waives the single-solution rule for precisely this reason."
+        },
+        {
+          "type": "p",
+          "text": "The alternative was raising capacity to 72 for a sixth turret. That is a **20% power increase on the tutorial**, which would make the level easier at all three difficulties in order to fix a label the grader does not even apply to it. Refused."
+        },
+        {
+          "type": "h3",
+          "text": "Two gaps found on the way, both filed"
+        },
+        {
+          "type": "p",
+          "text": "**`tools/say_capacity.py` rewrites the spoken capacity and cannot see the second reference.** Its regex is anchored on the word “megawatts”, so anchor-04's brief was rewritten to ninety-four and still read:"
+        },
+        {
+          "type": "quote",
+          "text": "Anchor fourteen. Ninety-four megawatts. Shield wall's signed off — forty of those **ninety-six** if you raise it.",
+          "attribution": "data/dialog/anchor-04.json, before the hand fix"
+        },
+        {
+          "type": "p",
+          "text": "The `dialog capacity` gate check stayed **green** throughout, because what it checks is the *spoken* figure and the spoken figure was right. Fixed by hand in this branch; `LF-225` carries the gap. It is the same shape as the `chronicle.py --check` failure already recorded in this journal: **a check that verifies output matches input cannot see a generator that is wrong in a stable, reproducible way.**"
+        },
+        {
+          "type": "p",
+          "text": "**anchor-11 is now the first shipped anchor where `max_emplacements` exceeds `len(slots)`.** That newly exercises a Godot-side autobuild fallback written for exactly that case and never entered by any shipped anchor until now. `rules parity` is verified clean on anchor-11 — 60 of 60 runs identical, `--no-cache` — so the rules half is proven. The *autobuild* fallback is not, because no scenario uses anchor-11. `LF-226`."
+        },
+        {
+          "type": "p",
+          "text": "That is the same hole `firing arcs agree` exists to plug, and it is worth restating every time it turns up: **a gate that runs the whole game proves nothing about a branch the shipped data never enters.**"
+        },
+        {
+          "type": "h3",
+          "text": "What this entry does not have"
+        },
+        {
+          "type": "p",
+          "text": "The work sits on `lf/bal-relattice-rebalance` and is uncommitted as this is written, so there are no commit hashes here. A tier-4 gate is in flight and **no verdict is stated** — the result belongs in the entry that has it. There are also no screenshots, and this time the reason is worth one line: the change is **four JSON files**. The entry is numeric because there is no frame to show, and an invented one would be worse than none."
+        },
+        {
+          "type": "h3",
+          "text": "Four entries, and the shape reverses at the end"
+        },
+        {
+          "type": "p",
+          "text": "The three entries before this one each found the fault in an **instrument**: the metric, then the test of the metric, then the acceptance criterion the work was to be judged against. None of them was a defect in what the player runs."
+        },
+        {
+          "type": "p",
+          "text": "This one used those repaired instruments to find four **real** defects in the game. A tutorial wave arriving 29% faster than its own bus could ever answer. A capacity that was an exact multiple of a tower cost and so collapsed the build space to a single board. A flank lane carrying 1.6% of the fight and a third of the guns. An anchor where the emplacement count had quietly become the currency instead of power."
+        },
+        {
+          "type": "p",
+          "text": "None of those four was visible before, and each needed a different lever. **That is what the three instrument entries were for.**"
+        }
+      ]
     }
   ]
 }
