@@ -191,6 +191,24 @@ class Anchor:
     # 24 anchors that omits this key resolves to the standoff the fixed-slot game always
     # implied.
     lane_half_width: float = 0.5
+    # PLC-04: the grader's candidate lattice, memoised here rather than recomputed.
+    # `None` means "not built yet"; `Sim.__init__()` fills it on first use via
+    # `sim.engine.build_candidate_lattice()`, which is where it is DEFINED — the lattice
+    # needs FOOTPRINT_RADIUS, a rules constant that lives in the engine, and importing
+    # the engine from here would be a cycle. It is cached on the Anchor rather than on
+    # the Sim because a grading pass builds up to 60 Sims per anchor (20 policies x 3
+    # difficulties) off one loaded Anchor and the lattice is a pure function of board
+    # geometry: grid, lane waypoints and lane_half_width, none of which any caller
+    # mutates. `dataclasses.replace()` (tools/sweep.py) carries it across candidates
+    # untouched, which is correct precisely because the sweep varies capacity, funds,
+    # lives and waves and never the geometry — if a future caller ever does vary the
+    # geometry through `replace()`, it must pass `lattice=None` with it.
+    # Rows are `(x, y, lane, arclength)`: the position, the lane whose distance to it is
+    # smallest, and the arclength of that lane's closest point. The last two are what
+    # `Sim._try_build()`'s round-robin-across-lanes / maximin-within-a-lane consumption
+    # rule walks; they come out of the same traversal that computes the distance, never a
+    # second one.
+    lattice: tuple[tuple[float, float, int, float], ...] | None = None
 
     def point_at(self, lane: int, dist: float) -> tuple[float, float]:
         return self.lanes[lane].point_at(dist)

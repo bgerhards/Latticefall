@@ -316,6 +316,180 @@ USE_SPATIAL_INDEX = True
 # author a real per-tower value and read it here instead of this constant.
 FOOTPRINT_RADIUS = 0.45
 
+# PLC-04. Spacing of the grader's candidate lattice, in tiles.
+#
+# A BINARY FRACTION, and that is load-bearing rather than cosmetic. Every candidate
+# position is `index * LATTICE_SPACING`, and PLC-01 formats the chosen positions into the
+# parity signature with `%.4f` on both sides (`Outcome.built` below, parity.gd's own
+# `built`). 0.5 and 0.25 are exact in binary and round-trip through four decimal places
+# unchanged; 0.3 is not, and the two runtimes' formatting of the accumulated product would
+# be free to disagree in the fourth decimal on some index. Do not "tidy" this to a decimal
+# value.
+#
+# The lattice runs over tile-CENTRE coordinates, matching the convention pinned in
+# `Sim._placement_reason()`: x in {0, 0.5, ..., w-1}, y in {0, 0.5, ..., h-1}, i.e.
+# `2w-1` by `2h-1` raw positions before the bounds and lane filters. On an 18x15 board
+# that is 35 x 29 = 1,015 raw candidates.
+LATTICE_SPACING = 0.5
+
+# PLC-04 instrumentation. Incremented once per `build_candidate_lattice()` call, i.e. once
+# per Anchor object that ever reaches a Sim — never per `_try_build()` iteration, which is
+# the regression this counter exists to make assertable rather than merely readable. See
+# the acceptance criterion in docs/issues/PLC-04-grader-candidate-lattice.md.
+LATTICE_BUILDS = 0
+
+
+# PLC-04. Stand-in for "no emplacement on this lane yet" in the per-lane maximin scan
+# below. A plain large finite float, never `inf`: it is compared and subtracted like any
+# other arclength, and decision 078's safe-operation set is arithmetic and comparisons on
+# ordinary float64 — an infinity would leak a NaN out of `BIG - BIG` the moment anyone
+# reorders the expression. No real lane approaches it (the longest path in the 24 anchors
+# is 37 tiles).
+LATTICE_UNSEEDED = 1.0e9
+
+
+def build_candidate_lattice(anchor: Anchor) -> tuple[tuple[float, float, int, float], ...]:
+    """Every legal build position on `anchor` at LATTICE_SPACING, ordered
+    `(d2, arclength, x, y)`, each row carrying `(x, y, lane, arclength)`.
+
+    This is PLC-04: the grader's candidate set is now a property of the BOARD, not of the
+    anchor's authored `slots`. PLC-01 made placement continuous for the player, which left
+    `_slot_priority()` ranking a dozen authored points on a board that no longer has any —
+    the grader was reasoning about a game that had stopped existing.
+
+    THE FILTER is PLC-02's own legality predicate, minus overlap. Bounds and lane standoff
+    are anchor-static, so they are applied once, here; overlap depends on what is already
+    placed and is therefore the only test `_try_build()` still runs per candidate (see
+    `Sim._overlaps()`). The arithmetic is copied term for term from
+    `Sim._placement_reason()` — same order, same `>=`/`<` boundaries — and must move with
+    it. Filtering with the LARGEST footprint would be the general rule; every tower shares
+    one FOOTPRINT_RADIUS today, so "largest" and "the only one" coincide.
+
+    THE ORDER is `(d2_to_path, arclength, x, y)`, a total order over distinct positions,
+    sorted once. `d2_to_path` is the segment-exact point-to-segment distance PLC-02
+    introduced — the same function the rule uses, not `_slot_priority()`'s `steps`-sampled
+    approximation — minimised over every segment of every lane (WAR-01: a position covering
+    any one lane is worth something). It falls out of the standoff test for free: one pass
+    computes `best_d2`, the standoff filter compares it, and the sort key reuses it. The
+    same pass records WHICH lane won that minimum and the ARCLENGTH of the closest point
+    along it, because `_try_build()`'s consumption rule needs both and neither is worth a
+    second traversal. A tie between two lanes goes to the LOWER lane index: the comparison
+    is strict `<`, so the first lane to reach a given distance keeps it.
+
+    WHY THE ROW CARRIES A LANE AND AN ARCLENGTH AT ALL — the ordering history, so nobody
+    re-derives it. Five orderings were graded over all 24 anchors before this one was
+    chosen (see the PLC-04 report and the decision entry):
+
+      (d2, x, y), as the issue specified          16/24 ok   all 12 emplacements in a
+                                                             3-4 tile column at the board
+                                                             edge; anchor-09's second lane
+                                                             never defended
+      + minimum separation 2.5 tiles              23/24 ok   a tuned knob, non-monotone
+                                                             (3.0 tiles scores 21/24)
+      global maximin arclength spread             21/24 ok   one lane still favoured
+      lane round-robin + (d2, arc, x, y)          17/24 ok   lanes split, but each lane's
+                                                             share packed at its own head
+      lane round-robin x per-lane maximin         20/24 ok   THIS ONE
+
+    The count is deliberately NOT what chose it. Grade count and board quality came out
+    ANTI-correlated across those five: the 23/24 entry is a tolerance knob producing boards
+    nobody would defend, and this 20/24 entry is the only one that produces a board a
+    player would recognise — anchor-09 splits 8/4 across its two lanes and covers 0-36 of
+    lane 0's 37 tiles and 0-14 of lane 1's 14. The four anchors still failing (01, 04, 09,
+    11 — three of them at brutal only) are a re-balance, not an ordering defect: their
+    capacities and wave tables were swept against a grader confined to their authored
+    slots. Do not "improve" this ordering against the grade count.
+
+    Deliberately NOT ordered by `sim/coverage.py`'s presence-weighted coverage, even though
+    that metric predicts measured uptime far better (+0.748 vs lane_coverage()'s +0.520,
+    PR #141). Two reasons, both disqualifying. It is CIRCULAR: presence weighting needs the
+    live-unit-tick profile, which comes from running the sim, which depends on where things
+    were built. And it CANNOT BE MIRRORED: decision 078 restricts the rules and their
+    harnesses to operations byte-identical across MSVC UCRT and CPython/Linux, which the
+    `safe operations` gate check enforces over this file and scripts/test/parity.gd.
+    `d2_to_path` is `+ - * /` and comparisons throughout.
+
+    Every position is `i * LATTICE_SPACING` from an integer index rather than an
+    accumulated `x += spacing`: an accumulation would let a rounding difference compound
+    along the row, and the product is exact for a binary spacing at every index either
+    runtime can reach.
+    """
+    global LATTICE_BUILDS
+    LATTICE_BUILDS += 1
+    r = FOOTPRINT_RADIUS
+    w, h = anchor.grid
+    standoff = anchor.lane_half_width + r
+    scored: list[tuple[float, float, float, float, int]] = []
+    for iy in range(2 * h - 1):
+        y = float(iy) * LATTICE_SPACING
+        for ix in range(2 * w - 1):
+            x = float(ix) * LATTICE_SPACING
+            if not (x - r >= -0.5 and x + r <= w - 0.5 and y - r >= -0.5 and y + r <= h - 0.5):
+                continue
+            best_d2 = 1e18
+            best_lane = 0
+            best_s = 0.0
+            for li in range(len(anchor.lanes)):
+                lane = anchor.lanes[li]
+                wps = lane.waypoints
+                run = 0.0
+                for i in range(len(wps) - 1):
+                    ax, ay = wps[i][0], wps[i][1]
+                    bx, by = wps[i + 1][0], wps[i + 1][1]
+                    abx, aby = bx - ax, by - ay
+                    ab2 = abx * abx + aby * aby
+                    if ab2 <= 0.0:
+                        t = 0.0
+                    else:
+                        t = ((x - ax) * abx + (y - ay) * aby) / ab2
+                        t = min(1.0, max(0.0, t))
+                    cx, cy = ax + abx * t, ay + aby * t
+                    dx, dy = x - cx, y - cy
+                    d2 = dx * dx + dy * dy
+                    # Strict `<`, so a tie keeps the FIRST lane and the FIRST segment that
+                    # reached this distance — the lower lane index, the earlier arclength.
+                    # `min()` would have said the same thing about `best_d2` and nothing at
+                    # all about which lane produced it, which is why this is a comparison
+                    # rather than the `min()` the pre-PLC-04 version used.
+                    if d2 < best_d2:
+                        best_d2 = d2
+                        best_lane = li
+                        best_s = run + lane.seg_len[i] * t
+                    run += lane.seg_len[i]
+            if best_d2 < standoff * standoff:
+                continue
+            scored.append((best_d2, best_s, x, y, best_lane))
+    # Sorted on the FULL (d2, arclength, x, y) tuple, never on a prefix of it with the rest
+    # left to a stable sort: Python's `sorted` is stable and GDScript's
+    # `Array.sort_custom()` is not documented to be, so leaning on stability is exactly the
+    # intermittent tie-break divergence LF-055 already cost this project once (PRD risk #3).
+    # `best_lane` rides in the key's last position where it can never decide anything —
+    # (x, y) is already unique per row — purely so the tuple can be unpacked in one line.
+    scored.sort()
+    return tuple((x, y, li, s) for _d2, s, x, y, li in scored)
+
+
+def lattice_lane_groups(lattice: tuple[tuple[float, float, int, float], ...],
+                        lane_count: int) -> list[list[int]]:
+    """`lattice` indices grouped by lane, each group in lattice order.
+
+    PLC-04's consumption rule round-robins across lanes, so it needs "this lane's
+    candidates, best first" as a list it can walk. Derived rather than stored: it is a pure
+    function of the lattice, it is O(n) once per `Sim` construction (never per `_try_build`
+    iteration, and never per candidate), and keeping it out of `Anchor` means the memo
+    there stays one field holding one thing.
+
+    Each group is in ASCENDING LATTICE INDEX order, and that is load-bearing rather than
+    incidental: `_try_build()`'s maximin scan accepts a candidate only on a STRICT
+    improvement, so the first index to reach a given separation wins every tie — which
+    means ties are broken by the lattice's own `(d2, arclength, x, y)` order and never by
+    iteration order or by sort stability. Mirrors scripts/test/parity.gd's `groups`.
+    """
+    groups: list[list[int]] = [[] for _ in range(lane_count)]
+    for i in range(len(lattice)):
+        groups[lattice[i][2]].append(i)
+    return groups
+
 
 class Sim:
     def __init__(self, anchor: Anchor, towers: dict[str, Tower], enemies: dict[str, Enemy],
@@ -363,6 +537,26 @@ class Sim:
         self.lives = anchor.lives
         self.leaks = 0
         self.placed: list[Placed] = []
+        # PLC-04: the candidate lattice, memoised on the Anchor (sim/content.py) so a
+        # grading pass builds it ONCE per anchor rather than once per Sim, and never once
+        # per `_try_build()` iteration the way `_slot_priority()` was recomputed. See
+        # `build_candidate_lattice()` above for the filter, the order and why neither is
+        # negotiable; `_try_build()` below is the only consumer.
+        if anchor.lattice is None:
+            anchor.lattice = build_candidate_lattice(anchor)
+        self._lattice: tuple[tuple[float, float, int, float], ...] = anchor.lattice
+        # Both derived here — once per Sim, never per `_try_build()` iteration and never
+        # per candidate. `_lat_at` recovers a placed emplacement's (lane, arclength) from
+        # its position, which is what lets `_try_build()` re-seed its per-lane maximin
+        # state from `self.placed` on the second and later waves instead of assuming it
+        # placed everything on the board itself (a scheduled `build`/`sell` verb, BAL-01,
+        # can have moved it). Every position `_try_build()` ever places came out of the
+        # lattice, so an exact float key is exact by construction — these are binary
+        # fractions, never accumulated sums.
+        self._lat_groups: list[list[int]] = lattice_lane_groups(self._lattice,
+                                                                 len(anchor.lanes))
+        self._lat_at: dict[tuple[float, float], tuple[int, float]] = {
+            (row[0], row[1]): (row[2], row[3]) for row in self._lattice}
         # PLC-01: no free-list state. A position's availability is derived on demand —
         # occupied by anything in `self.placed`, or not — from `self.a.slots`, which is
         # never mutated. See `_slot_priority()` and `_is_placeable()` below.
@@ -601,8 +795,38 @@ class Sim:
         `free_slots.has(slot)` used to check in one call, alongside `_is_placeable()`."""
         return any(p.x == x and p.y == y for p in self.placed)
 
+    def _overlaps(self, x: float, y: float) -> bool:
+        """Whether a footprint at `(x, y)` collides with something already placed.
+
+        PLC-04: the ONE per-candidate test `_try_build()` still runs, because it is the one
+        part of `_placement_reason()` that is not anchor-static — bounds and lane standoff
+        were already applied when `build_candidate_lattice()` built the lattice, and
+        re-running them per candidate per iteration is precisely the O(path) cost this
+        issue exists to remove.
+
+        The arithmetic is `_placement_reason()`'s third test, term for term (`<`, never
+        `<=`: a touching footprint is legal), and is mirrored in scripts/test/parity.gd's
+        `_overlaps()`. It subsumes `_occupied()` — two records at the identical position
+        are at distance 0, which is below any positive `rr`.
+        """
+        rr = FOOTPRINT_RADIUS + FOOTPRINT_RADIUS
+        for p in self.placed:
+            dx, dy = x - p.x, y - p.y
+            if dx * dx + dy * dy < rr * rr:
+                return True
+        return False
+
     def _slot_priority(self) -> list[tuple[float, float]]:
-        """Available slots nearest the path first — a slot covering nothing is worth
+        """RETAINED FOR ONE CALLER, NOT USED BY THE GRADER. PLC-04 replaced this with
+        `build_candidate_lattice()` — `_try_build()` no longer calls it, and nothing in
+        the rules or the parity harness does either. It survives because
+        `tools/analysis_lf014.py` pins a fixed board with it to reproduce the measurement
+        decision 022 rests on ("Reproduce with tools/analysis_lf014.py", docs/DECISIONS.md);
+        repointing that script at the lattice would move the positions it pins and
+        therefore the numbers a settled decision cites. Delete it the day that
+        reproduction is retired, and not before.
+
+        Available slots nearest the path first — a slot covering nothing is worth
         nothing. PLC-01: "available" is the anchor's authored `slots`, filtered to those
         not already occupied — there is no stored free-list; this recomputes it, which is
         cheap since an anchor authors a handful of slots.
@@ -638,20 +862,108 @@ class Sim:
                 else len(self.a.slots))
 
     def _try_build(self) -> None:
-        """Spend down in preference order while funds and capacity allow."""
+        """Spend down in preference order while funds and capacity allow.
+
+        PLC-04: THIS FUNCTION CONTAINS NO SORT, and that is an acceptance criterion rather
+        than a style note. `_slot_priority()` used to be recomputed on every iteration of
+        this loop, sampling every lane at `max(2, int(path_length))` points per candidate;
+        at a dozen authored slots that was invisible, and at ~1,015 lattice candidates it
+        is the single most likely way to turn the parity gate into an hours-long run. The
+        lattice is built and ordered once (`build_candidate_lattice()`, memoised on the
+        Anchor), grouped by lane once per Sim (`lattice_lane_groups()`), and only walked
+        here.
+
+        THE CONSUMPTION RULE — round-robin across lanes, maximin within one:
+
+          - `turn` decides WHICH LANE gets the next emplacement, advancing one lane per
+            placement and wrapping. A lane with no legal candidate left is skipped, and
+            `turn` has already moved past it, so a saturated lane cannot stall the loop.
+          - Within that lane, `sep[i]` is candidate `i`'s arclength distance to the NEAREST
+            emplacement already standing ON THAT LANE, and the winner is the candidate that
+            maximises it. A lane with nothing on it yet has every `sep` at
+            LATTICE_UNSEEDED, so its first pick is simply its best-`(d2, arclength, x, y)`
+            candidate.
+
+        The two mechanisms are orthogonal and neither subsumes the other, which is the
+        whole reason for composing them: round-robin alone fixes lane-blindness and leaves
+        each lane's share packed at its own head; maximin alone spreads along a path and
+        still lets one lane take everything. See `build_candidate_lattice()`'s docstring for
+        the five graded orderings and why this one was chosen on board shape rather than on
+        grade count.
+
+        THE MAXIMIN TIE-BREAK, which is the real parity risk here. A max-over-min has ties
+        BY CONSTRUCTION — two candidates sitting either side of the same gap are exactly
+        equidistant from its ends. The scan accepts a candidate only on a STRICT
+        improvement (`sep[i] > best_sep`), so the FIRST index in `groups[li]` wins every
+        tie, and `groups[li]` is in ascending lattice index order — i.e. ties break on the
+        full `(d2, arclength, x, y)` tuple. Nothing here relies on iteration order, on sort
+        stability, or on two candidates comparing equal: Python's `sorted` is stable and
+        GDScript's `sort_custom` is not documented to be, and LF-055 is the precedent where
+        exactly that assumption diverged only on the waves that happened to produce a tie.
+
+        THE `and` IS ALSO LOAD-BEARING, for cost rather than correctness: `_overlaps()` is
+        only called when a candidate is already a strict improvement, which turns the scan
+        from O(candidates x placed) into O(candidates) plus a handful of overlap tests.
+        `best_sep` advances only on an ACCEPTED candidate, so an overlapping candidate
+        never masks a later legal one at the same separation.
+
+        `sep` is re-seeded from `self.placed` at the top of every call rather than carried
+        on the Sim: this runs once per wave, `self.placed` is the authority on what is
+        standing, and a scheduled `build`/`sell` verb (BAL-01) can have changed it between
+        waves without going through this loop at all.
+
+        Otherwise the shape is deliberately unchanged from the pre-PLC-04 loop — same
+        `for tower in self.buildable` scan, same `continue` on each of cost/caps/budget,
+        same `break` on the first tower that fits, same `else: return` when nothing does —
+        so the diff reads as "where do candidates come from", not as a rewrite.
+        """
+        lat = self._lattice
+        groups = self._lat_groups
+        n = len(lat)
+        n_lanes = len(self.a.lanes)
+
+        sep = [LATTICE_UNSEEDED] * n
+        for p in self.placed:
+            at = self._lat_at.get((p.x, p.y))
+            if at is None:
+                continue        # placed off-lattice by an explicit build() — not ours
+            pl, ps = at
+            for i in groups[pl]:
+                d = ps - lat[i][3]
+                if d < 0.0:
+                    d = -d      # abs() by branch: safe-ops, and identical in GDScript
+                if d < sep[i]:
+                    sep[i] = d
+
+        turn = 0
         while True:
             # LF-152: provably a no-op for every anchor that authors `slots` and no
             # `max_emplacements` (all 24 today) — `_effective_cap()` is `len(self.a.slots)`
-            # in that case, so this and the `if not slot_order: return` just below it are
-            # the same exit condition restated (PLC-01: there is no `free_slots` list left
-            # to test directly). Only bites once an anchor sets `max_emplacements` below
-            # its slot count, or has no `slots` at all (free placement — not yet loadable
-            # end to end, see sim/content.py's load_anchor()).
+            # in that case, so an anchor's authored slot COUNT still bounds how much the
+            # grader builds even though its authored slot POSITIONS no longer bound where.
+            # Since PLC-04 this is a real exit condition rather than a restatement of the
+            # "no candidates left" one below it: a lattice does not run out at a dozen
+            # emplacements the way a slot list did.
             if len(self.placed) >= self._effective_cap():
                 return
-            slot_order = self._slot_priority()
-            if not slot_order:
-                return
+            cand_i = -1
+            for _probe in range(n_lanes):
+                li = turn
+                turn += 1
+                if turn >= n_lanes:
+                    turn = 0
+                best_i = -1
+                best_sep = -1.0
+                for i in groups[li]:
+                    if sep[i] > best_sep and not self._overlaps(lat[i][0], lat[i][1]):
+                        best_sep = sep[i]
+                        best_i = i
+                if best_i >= 0:
+                    cand_i = best_i
+                    break
+            if cand_i < 0:
+                return          # every lane is saturated
+            cand_x, cand_y = lat[cand_i][0], lat[cand_i][1]
             placed_one = False
             for tower in self.buildable:
                 if tower.cost > self.funds:
@@ -664,8 +976,7 @@ class Sim:
                 budget = self.capacity_now() * (1.0 - self.policy.reserve)
                 if not self.policy.allow_overdraw and projected > budget:
                     continue
-                slot = slot_order[0]
-                self.placed.append(Placed(tower=tower, x=slot[0], y=slot[1]))
+                self.placed.append(Placed(tower=tower, x=cand_x, y=cand_y))
                 # Eager, not tick-gated (LF-099): capacity_now(), called again below on
                 # the very next candidate, must see a restorer placed this iteration —
                 # see the comment on _eff_slow/_rebuild_effect_lists().
@@ -676,6 +987,16 @@ class Sim:
                 break
             if not placed_one:
                 return   # nothing affordable fits
+            # Fold the new emplacement into its own lane's separations. Same expression as
+            # the seeding loop above, deliberately — one arithmetic form for "arclength
+            # distance", not two that must be kept in step.
+            pl, ps = lat[cand_i][2], lat[cand_i][3]
+            for i in groups[pl]:
+                d = ps - lat[i][3]
+                if d < 0.0:
+                    d = -d
+                if d < sep[i]:
+                    sep[i] = d
 
     def _shed_load(self) -> None:
         """Under a strict policy, take the least-preferred emplacement offline."""
