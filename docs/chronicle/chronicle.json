@@ -6077,6 +6077,198 @@
           "text": "**The tool is not the deliverable. The measurement the tool made possible is.** Thirteen tiles is a whole balance epic's starting point, and it did not exist this morning."
         }
       ]
+    },
+    {
+      "id": "where-the-player-never-stands",
+      "date": "2026-08-03",
+      "time": "20:30",
+      "title": "The instruments were standing where the player never stands",
+      "summary": "`LF-228` — a dialog cue that could never fire, and nothing noticed for two milestones. `anchor_view.gd` computed ward engagement as `placed + available_slots()`, and `available_slots()` is the authored slots still free — so once `PLC-01`/`PLC-02` made placement continuous the denominator grew with every build: 9, 10, 11 … 16 across eight free placements on anchor-01. `wards-full` was unreachable; `wards-half` arrived at the cap. On an anchor authoring no slots at all, both cues fired on the first build. It hid because every automated path in this project — the grader, the scenarios, the autobuild — builds on authored slots first, where the wrong expression is coincidentally correct. Fixing the trigger then made a second defect audible: the lines still quoted counts from when both anchors had six slots.",
+      "tags": [
+        "PLC",
+        "TS"
+      ],
+      "decisions": [
+        "080"
+      ],
+      "body": [
+        {
+          "type": "p",
+          "text": "The previous entry — **The generator was not the deliverable**, `the-generator-was-not-the-deliverable`, merged as **#144** — built `tools/genboard.py` and closed on the observation that the measurement the tool made possible was worth more than the tool. This entry is one of those measurements, and it is not about scale at all. The generator authors **78 emplacement slots on a 48×48 board**, and running the game on a board that size made a bug visible that had been sitting in a shipped file for two milestones."
+        },
+        {
+          "type": "h3",
+          "text": "The expression, and why it can only be wrong"
+        },
+        {
+          "type": "p",
+          "text": "`scripts/anchor_view.gd::_on_built()` computed the ward-engagement total as `sim.placed.size() + sim.available_slots().size()`. `available_slots()` returns the **authored** slots not currently occupied, and occupancy is an exact `(x, y)` equality test. Free placement — `PLC-01` and `PLC-02`, decision **080** — made positions continuous, so a freely placed emplacement almost never lands exactly on an authored coordinate. **The denominator therefore grows with every build.**"
+        },
+        {
+          "type": "p",
+          "text": "Measured on anchor-01 with eight free placements, before the fix:"
+        },
+        {
+          "type": "pre",
+          "text": "authored slots=8  max_emplacements=0   effective_cap()=8\nbuild 1 -> n=1 OLD_total=9   NEW_total=8\nbuild 2 -> n=2 OLD_total=10  NEW_total=8\nbuild 3 -> n=3 OLD_total=11  NEW_total=8\nbuild 4 -> n=4 OLD_total=12  NEW_total=8   <<NEW:wards-half>>\n...\nbuild 8 -> n=8 OLD_total=16  NEW_total=8   <<OLD:wards-half>>  <<NEW:wards-full>>",
+          "caption": "anchor-01, eight free placements. `OLD_total` is the shipped expression, `NEW_total` the fix. `wards-full` never fires at all; `wards-half` — a halfway cue — fires on the last build."
+        },
+        {
+          "type": "p",
+          "text": "And it is wrong in the other direction too. On an anchor that authors no slots at all — which `PLC-05` permits — `available_slots()` is empty, `total == placed`, and **both** conditions are true on the **first** build:"
+        },
+        {
+          "type": "pre",
+          "text": "authored slots=0  max_emplacements=6   effective_cap()=6\nbuild 1 -> n=1 OLD_total=1  NEW_total=6  <<OLD:wards-half>>  <<OLD:wards-full>>\nbuild 3 -> n=3              NEW_total=6  <<NEW:wards-half>>\nbuild 6 -> n=6              NEW_total=6  <<NEW:wards-full>>",
+          "caption": "The slots-less case. The old expression plays a halfway cue and a fully-engaged cue back to back on the first emplacement anyone builds."
+        },
+        {
+          "type": "h3",
+          "text": "Why it hid for two milestones, which is the good part"
+        },
+        {
+          "type": "p",
+          "text": "**`--autoplay` builds on authored slots first.** The control case, with every build landing on an authored coordinate:"
+        },
+        {
+          "type": "pre",
+          "text": "=== anchor-01, 8 builds ON the authored slots (autobuild's own ordering)\nbuild 4 -> n=4 OLD_total=8 NEW_total=8  <<OLD:wards-half>>  <<NEW:wards-half>>\nbuild 8 -> n=8 OLD_total=8 NEW_total=8  <<OLD:wards-full>>  <<NEW:wards-full>>",
+          "caption": "When every build lands on an authored slot, `placed + available_slots()` is exactly the slot count and the old expression is coincidentally correct. Old and new agree on every line."
+        },
+        {
+          "type": "p",
+          "text": "So the wrong expression is correct under **every automated path this project has** — the grader, the scenarios, the autobuild. Only a human free-placing hits it. That is worth stating plainly: a project that verifies almost everything through headless automation built a blind spot exactly where the automation and the player diverge."
+        },
+        {
+          "type": "h3",
+          "text": "The fix is a call, not a reimplementation"
+        },
+        {
+          "type": "p",
+          "text": "The denominator is now `sim.effective_cap()`:"
+        },
+        {
+          "type": "pre",
+          "text": "func wards_total() -> int:\n\treturn 0 if sim == null else sim.effective_cap()"
+        },
+        {
+          "type": "p",
+          "text": "`anchor_sim.gd:400` — `max_emplacements if max_emplacements > 0 else anchor.get(\"slots\", []).size()` — is the same quantity `build_at()` refuses past and `Sim._try_build()` uses. One number, already shared between the two rule implementations, already parity-verified. **`anchor_sim.gd` was not modified.**"
+        },
+        {
+          "type": "p",
+          "text": "Proved end to end through a real scenario on anchor-01 with eight free positions:"
+        },
+        {
+          "type": "pre",
+          "text": "DIALOG-TRIGGER wards-half frame=16 sim_t=0.233     <- build 4 of 8\nDIALOG-TRIGGER wards-full frame=24 sim_t=0.367     <- build 8 of 8",
+          "caption": "All 16 assertions pass. `view.wards.total` reads **8 on every build**, and each cue fires exactly once."
+        },
+        {
+          "type": "h3",
+          "text": "How it was verified, because it dodged a known trap"
+        },
+        {
+          "type": "p",
+          "text": "The hook is `export_state()` — `view.wards.{engaged,total}` — not a print marker. `tools/scenario.py` already relays its summary with every assertion's observed value, so the numbers are visible with **zero** new print prefixes. `shot.py` filters relayed markers by prefix and has silently eaten three working hooks before now; this change needed no edit to `main.gd`, `shot.py` or `scenario.py` at all. The bug was silent for exactly the reason the hook fixes: **nothing could see `total`**, and the only symptom was a line that never played."
+        },
+        {
+          "type": "p",
+          "text": "An extra finding fell out of it. An anchor with **neither** `slots` nor `max_emplacements` has `effective_cap() == 0`, so `build_at()` refuses every build outright — the degenerate case is already unreachable in the rules, and under the fix the `total > 0` guard correctly keeps both cues silent."
+        },
+        {
+          "type": "h3",
+          "text": "Fixing the trigger made a second defect audible"
+        },
+        {
+          "type": "p",
+          "text": "The cues were authored when both anchors had **six** slots. anchor-01 now authors 8 and anchor-24 authors 12. So with the trigger restored, the player would hear a line naming three wards at the fourth of eight, and a line naming six of six at the eighth of eight — and on the finale anchor, at the twelfth of twelve. Shipping the trigger fix without the text would have been worse than shipping neither, so three lines were rewritten **so that no cue quotes a count at all**:"
+        },
+        {
+          "type": "table",
+          "headers": [
+            "trigger",
+            "before",
+            "after"
+          ],
+          "rows": [
+            [
+              "anchor-01 `wards-half`",
+              "Three wards engaged. Ring's half live.",
+              "Half the ring reads engaged. Rest when you can afford it."
+            ],
+            [
+              "anchor-01 `wards-full`",
+              "Six of six. Ring's fully engaged.",
+              "That's the last ward. Ring's fully engaged."
+            ],
+            [
+              "anchor-24 `wards-full`",
+              "Six of six. Last ring Meridian lights on this order.",
+              "Every ward engaged. Last ring Meridian lights on this order."
+            ]
+          ]
+        },
+        {
+          "type": "p",
+          "text": "The constraint was structural rather than stylistic. `PLC-05` lets an anchor set `max_emplacements` above its authored slot count, `PLC-04`'s lattice places anywhere legal, and the `LF-080` generator derives **78** emplacements on a 48² board. **Nothing tracks the relationship between a dialog line and the anchor's capacity** — there is a gate check binding a mission brief to its reactor rating (`dialog capacity`) and no equivalent for this. So the lines were written to be true at any capacity: \"half the ring\" is the proportion the trigger actually tests, \"the last ward\" names the boundary it fires on, \"every ward\" is a universal quantifier."
+        },
+        {
+          "type": "p",
+          "text": "One line was already correct and was left alone as the model — Okonkwo's **\"Full ring, eleven-year-old hardware, and it still locks true. Somebody built this to last.\"** It never quoted a number."
+        },
+        {
+          "type": "h3",
+          "text": "`LF-207` was assessed and deliberately not done"
+        },
+        {
+          "type": "p",
+          "text": "`PLC-06` left a 1-tile fallback scan in `anchor_view.gd` because `PLC-04` did not exist yet, and `LF-207` says to replace it with `PLC-04`'s ordering once that landed. It landed this morning. The assessment says **leave it**, and the reasoning is worth recording rather than re-deriving next time."
+        },
+        {
+          "type": "p",
+          "text": "`PLC-04`'s GDScript lattice is a **private method on a `SceneTree` MainLoop** (`parity.gd:472-587`), not a class and not preloadable, depending on two file-local consts. The Python side is module-level and memoised on the `Anchor` dataclass, so extraction has no Python counterpart to mirror. Reuse therefore means a new preloadable module that both `parity.gd` and `anchor_view.gd` load — which drags in a `tools/check.py` `safe operations` registration, an edit to the one file whose failure mode is 1,152 empty dictionaries rather than an error, and a full tier-4 re-baseline including the Windows leg."
+        },
+        {
+          "type": "p",
+          "text": "And a second point that outlives the ticket: **even after extraction, `anchor_view.gd` would gain only the ordering.** `PLC-04`'s actual candidate choice is `_try_build()`'s lane round-robin by per-lane maximin, entangled with policy preferences, caps, overdraw, reserve and per-lane arclength state. \"One candidate ordering in the project\" is achievable for the lattice; **the consumption rule is a second thing**. `autobuild()`'s own docstring already claims it \"builds the way the cheap-mass policy would\" — which it does not, and would not, from the lattice alone."
+        },
+        {
+          "type": "p",
+          "text": "The current divergence is real but narrow: the fallback runs only when authored slots are exhausted **and** `placed < effective_cap()` — today that is anchor-11 alone, and only under `--autoplay`. Revisit when `LF-226`'s anchor-11 autobuild scenario is written, since that is the one thing that would exercise it."
+        },
+        {
+          "type": "h3",
+          "text": "Filed"
+        },
+        {
+          "type": "list",
+          "items": [
+            "**`LF-232`** — the audio cue is still counted. `_on_built()` plays `ward_engage_%d` with `clampi(n, 1, 6)`, so builds 7 through N all replay `ward_engage_6`. **The sound effect stops counting at exactly the number just removed from the text.** At 78 emplacements a counted cue is meaningless, so the recommendation is proportional rather than counted.",
+            "**`LF-233`** — rename `available_slots()` to `unoccupied_authored_slots()`. Three callers left, all meaning \"an authored position nobody has taken yet\". **The name is what made the bug read as correct.**"
+          ]
+        },
+        {
+          "type": "h3",
+          "text": "What this entry does not have"
+        },
+        {
+          "type": "p",
+          "text": "The work sits on `lf/eng-ward-engagement` and is uncommitted as this is written, so there are **no commit hashes** here. A tier-4 gate is in flight and **no verdict is stated** — that belongs in the entry that actually has the result. There is also **no screenshot**, deliberately: the proof here is a denominator that reads 8 on every build and two trigger lines with frame numbers on them, and a picture of a board with eight emplacements on it would show none of that."
+        },
+        {
+          "type": "h3",
+          "text": "Six entries, and the last one found this one"
+        },
+        {
+          "type": "p",
+          "text": "The generator built in the previous entry found this bug — it authors 78 slots on a 48×48 board, which made a growing denominator impossible to miss. And the bug survived two milestones because every automated path in this project builds on authored slots, so the wrong expression was right everywhere the machines looked."
+        },
+        {
+          "type": "p",
+          "text": "**The instruments were not wrong this time. They were just standing somewhere the player never stands.**"
+        }
+      ]
     }
   ]
 }

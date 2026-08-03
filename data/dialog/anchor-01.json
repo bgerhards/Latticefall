@@ -30,10 +30,10 @@
       "text": "We're losing lives, not the fight. Cut whatever's expensive and keep shooting." },
 
     { "trigger": "wards-half", "speaker": "control", "critical": false,
-      "text": "Three wards engaged. Ring's half live." },
+      "text": "Half the ring reads engaged. Rest when you can afford it." },
 
     { "trigger": "wards-full", "speaker": "control", "critical": false,
-      "text": "Six of six. Ring's fully engaged." },
+      "text": "That's the last ward. Ring's fully engaged." },
     { "trigger": "wards-full", "speaker": "okonkwo", "critical": false,
       "text": "Full ring, eleven-year-old hardware, and it still locks true. Somebody built this to last." },
 

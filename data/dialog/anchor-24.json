@@ -49,7 +49,7 @@
       "text": "Field lead, the ring is failing. Say the word and I will close it with you inside." },
 
     { "trigger": "wards-full", "speaker": "control", "critical": false,
-      "text": "Six of six. Last ring Meridian lights on this order.",
+      "text": "Every ward engaged. Last ring Meridian lights on this order.",
       "beat": "no triumph in it — stated flatly, same tone as everything else Control reads" },
 
     { "trigger": "debrief", "speaker": "control",

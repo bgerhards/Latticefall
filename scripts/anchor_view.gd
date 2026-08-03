@@ -340,8 +340,9 @@ func _next_autobuild_candidate():
 	## the day one anchor's cap does exceed its slot count. `PLC-04` (the grader's own
 	## candidate lattice) does not exist yet -- this is deliberately simple rather than
 	## anticipating it, and deliberately NOT a change to `AnchorSim.available_slots()`,
-	## which stays the authored-slots accessor `_on_built()`'s ward-engagement count also
-	## depends on.
+	## which stays the authored-slots accessor. LF-228: `_on_built()`'s ward-engagement
+	## count used to depend on it too and no longer does — this is now the only caller in
+	## this file, and it wants precisely "authored positions nobody has taken yet".
 	var free: Array = sim.available_slots()
 	if not free.is_empty():
 		return Vector2(free[0].x, free[0].y)
@@ -1005,16 +1006,43 @@ func _on_unit_leaked_dialog(_u: Dictionary) -> void:
 		_fire("low-lives")
 
 
+func wards_engaged() -> int:
+	## Emplacements standing on the board. The numerator of the ward-engagement cue.
+	return 0 if sim == null else sim.placed.size()
+
+
+func wards_total() -> int:
+	## The denominator of the ward-engagement cue: how many emplacements this anchor can
+	## hold at once.
+	##
+	## LF-228. This was `sim.placed.size() + sim.available_slots().size()` and was wrong in
+	## both directions once PLC-01/PLC-02 made placement continuous. `available_slots()` is
+	## the *authored* slots not currently occupied, and `_occupied()` is an exact (x, y)
+	## equality test — a freely placed emplacement almost never lands on an authored
+	## coordinate, so on an ordinary play session the sum GREW with every build (measured on
+	## anchor-01: 9, 10, 11 … 16 across eight free placements) and `n >= total` could never
+	## be satisfied. `wards-full` was unreachable and `wards-half` arrived at the cap instead
+	## of halfway. In the other direction, on an anchor authoring no `slots` at all — which
+	## PLC-05 permits — `available_slots()` is empty, the sum equalled `placed`, and BOTH
+	## thresholds were true on the FIRST build, firing the two lines back to back.
+	##
+	## The right denominator is the one the rules already agree on and parity already
+	## covers: `effective_cap()` — `max_emplacements` when the anchor authors one, else its
+	## authored slot count. `AnchorSim.build_at()` refuses past it and the board-saturation
+	## invariant is stated in terms of it, so the cue now says "the board is full" exactly
+	## when the board is in fact full. Not reimplemented here; called.
+	return 0 if sim == null else sim.effective_cap()
+
+
 func _on_built(_tower_id: String, _x: float, _y: float) -> void:
 	## "Ward" is Control's word for a built emplacement (data/dialog's wards-half/wards-full
 	## lines) — ward_engage_{1..6} is an indexed, counted cue, played on every build, and the
 	## two dialog thresholds are the ring being half and fully engaged.
 	# `sim` is untyped by this file's existing convention (see the field's own declaration
 	# and CLAUDE.md's note on the parse-time trap), so both need an explicit type rather
-	# than `:=`. PLC-01: `total` is the anchor's authored slot count -- placed + still
-	# available -- computed via available_slots() now that there is no free_slots field.
-	var total: int = sim.placed.size() + sim.available_slots().size()
-	var n: int = sim.placed.size()
+	# than `:=`.
+	var total: int = wards_total()
+	var n: int = wards_engaged()
 	Audio.sfx("ward_engage_%d" % clampi(n, 1, 6))
 	if total > 0 and n * 2 >= total:
 		_fire("wards-half")
@@ -2922,6 +2950,11 @@ func export_state() -> Dictionary:
 			"has_selection": has_selection,
 			"selected_at": {"x": selected_at.x, "y": selected_at.y},
 			"cursor_at": {"x": cursor_at.x, "y": cursor_at.y},
+			# LF-228: the ward-engagement cue's own two numbers, so a scenario can pin the
+			# denominator directly instead of inferring it from whether a dialog line
+			# appeared. The bug this exposes was silent for exactly that reason — nothing
+			# could see `total`, and the only symptom was a line that never played.
+			"wards": {"engaged": wards_engaged(), "total": wards_total()},
 			"speed": speed, "phase": phase(), "wave": wave_number(),
 		},
 	}
