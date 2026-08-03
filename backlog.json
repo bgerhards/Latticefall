@@ -1,5 +1,5 @@
 {
-  "next_id": 217,
+  "next_id": 221,
   "items": [
     {
       "id": "LF-001",
@@ -2215,11 +2215,11 @@
       "kind": "bug",
       "area": "design",
       "pri": "med",
-      "status": "open",
+      "status": "done",
       "why": "",
       "opened": "2026-08-01",
-      "closed": null,
-      "note": ""
+      "closed": "2026-08-03",
+      "note": "closed at 653dc58"
     },
     {
       "id": "LF-186",
@@ -2589,6 +2589,54 @@
       "pri": "med",
       "status": "open",
       "why": "A render asset nothing draws is a dead atlas cell, and the removal needs an atlas repack the UI work must not be tangled with",
+      "opened": "2026-08-03",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-217",
+      "title": "sim/coverage.py's geometric half does not predict its own dynamic tail, and verdict()'s (a)/(b)/(c) label inherits the error. MEASURED across the six LF-185 anchors: anchor-13 (6,0) has 43.9 pct geometric lane_coverage() and 2.5 pct mean uptime; anchor-10 (1,1) has 17.1 pct geometric and 53.7 pct uptime. lane_coverage() is a true statement about the level and should keep its meaning, but it is NOT the predictor the summary treats it as. What actually predicts uptime is PRESENCE-WEIGHTED coverage: the share of live unit-ticks inside range, which needs the lane's kill-progress distribution rather than just its length. On the six anchors half of all live unit-ticks fall in the first 20-25 pct of the lane and the last quarter holds 4-5 pct, so a slot covering lane the enemies never reach alive is idle regardless of distance-to-path or range - which is why sweeping pulse-turret range 3.2 to 7.0 moved p50 28.0->44.5 and left p10 pinned at 0.0. THE WORK: add presence-weighted coverage as a second column beside lane_coverage(), and rewrite verdict()'s '(a) geometry: slots are far from the lane' sentence, which is the wrong diagnosis for the failure it fires on. A scratch implementation exists (200 buckets, profile summed over 20 policies x 3 difficulties) - it was written in the LF-185 pass and is described in that PR",
+      "kind": "bug",
+      "area": "design",
+      "pri": "med",
+      "status": "open",
+      "why": "",
+      "opened": "2026-08-03",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-218",
+      "title": "Act 1 and act 2 anchors attrit the wave in the first fifth of the lane; act 3 does not, and that difference IS the residual near-zero tail. MEASURED in live unit-ticks per 5 pct of lane, summed over 20 policies x 3 difficulties: anchor-01 reaches 50 pct cumulative presence by bucket 3 (15 pct of lane) and anchor-13 by bucket 4; anchor-20 not until bucket 9 (45 pct), with 11 pct of presence still in the last quarter. Near-zero emplacement rates track it exactly - act 1 16 pct, act 2 11 pct, act 3 5 pct, after the LF-185 re-siting pass. CONSEQUENCE: slot re-siting can only move guns INTO the live zone, it cannot lengthen the live zone, so the tail migrates rather than vanishing (post-LF-185, anchor-11 (2,8) is 45/51 near-zero and anchor-13 (10,4) is 34/57 - slots that were fine before). Chasing near-zero to zero converges on every slot stacked at the lane entrance, which is fitting to the metric and is exactly what decision 067 rejected. THE LEVER for the rest is enemy hp/speed/spawn pressure in the act 1-2 wave tables, not slot geometry. This is BAL-04 territory and it WILL move the grades, so it must be graded as a balance pass rather than bolted onto a siting change. Note LF-187 already says decision 074's range numbers must be re-derived at 48x48 anyway",
+      "kind": "bug",
+      "area": "design",
+      "pri": "med",
+      "status": "open",
+      "why": "",
+      "opened": "2026-08-03",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-219",
+      "title": "data/schema/anchor.schema.json types slot coordinates as integer, which contradicts PLC-01's continuous positions and contradicts several briefs. VERIFIED in the LF-185 pass: sim/content.py loads slot coordinates as float64 and Sim._placement_reason() accepts any float, so the engines are continuous end to end - but a fractional slot in an anchor file is a SCHEMA ERROR today and validate_data.py will reject it. This mattered concretely: the LF-185 re-siting was told slots may be fractional, searched integer positions only after discovering the schema, and may have left better sub-tile positions unreachable. THE WORK is one of two, and it is a real choice rather than a typo fix: either widen the schema to 'number' so authored slots can use the continuous space the rules already model, or stop repeating the 'slots may be continuous floats now' claim in briefs and docs and make integer-only explicit. Prefer widening - PLC-04's candidate lattice will want sub-tile positions and the rules already accept them",
+      "kind": "bug",
+      "area": "data",
+      "pri": "med",
+      "status": "open",
+      "why": "",
+      "opened": "2026-08-03",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-220",
+      "title": "anchor-02 brutal lost two distinct winning builds (6 -> 4) in the LF-185 re-siting pass. Recorded so it is not later discovered as an unexplained narrowing. Still clean - sim/run.py reports ok=True, death wave unchanged at 2, and four distinct winning builds is well above the single-solution floor - and it is the ONLY cell of 18 (six anchors x three difficulties) that narrowed; distinct viable builds went UP on anchor-10, 11, 12, 13 and on anchor-08 standard. The likely mechanism is that concentrating slots into the high-presence early stretch of the lane makes a few strong sitings dominate, which removes weaker but previously-viable build orders. If anchor-02 brutal narrows further in any subsequent pass, this is the entry to start from. Before/after grade JSON was produced in the LF-185 pass",
+      "kind": "bug",
+      "area": "design",
+      "pri": "med",
+      "status": "open",
+      "why": "",
       "opened": "2026-08-03",
       "closed": null,
       "note": ""

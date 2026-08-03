@@ -4675,6 +4675,344 @@
           "text": "`_cull_band()` is lifted out of `_draw_board()` so the wash culls with exactly the same arithmetic instead of a second copy — two passes disagreeing about what is on screen shows up as a strip of tint hanging off the edge of the board at one zoom level. Proven a pure refactor the only way worth trusting: the frame afterwards is **byte-identical**, zero pixels changed."
         }
       ]
+    },
+    {
+      "id": "the-instrument-measured-the-wrong-quantity",
+      "date": "2026-08-03",
+      "time": "10:10",
+      "title": "The instrument measured the wrong quantity",
+      "summary": "LF-185 said six anchors carry slots no amount of range can rescue, gave their coordinates, and said move them. It was right about the slots and wrong about why. They are not far from the lane — several of them sit on top of it. What they cover is lane the enemies never reach alive. This is the pass that found the coverage instrument does not predict its own dynamic tail, replaced the metric with presence-weighted coverage, re-sited 21 slots across six anchors, and cut whole-game near-zero emplacements from 12.71% to 9.53% — along with the four things it did not fix and the one cell it made worse.",
+      "tags": [
+        "BAL"
+      ],
+      "decisions": [],
+      "body": [
+        {
+          "type": "p",
+          "text": "`LF-185` was confident because the other lever had already been tried and had failed decisively. Sweeping `pulse-turret` range from 3.2 to 7.0 tiles — more than double what ships — left p10 emplacement coverage pinned at literal **0.0%** at every step, while p50 climbed from 28.0% to 44.5%. The median moves and the tail does not. That is what proved the tail was geometry rather than range, and it is the entry immediately before this one."
+        },
+        {
+          "type": "p",
+          "text": "So `LF-185` named six anchors, listed the slots, and said move them. It was right that they need moving. It was wrong about **which** geometry was failing."
+        },
+        {
+          "type": "h3",
+          "text": "The instrument does not predict its own tail"
+        },
+        {
+          "type": "p",
+          "text": "`sim/coverage.py` exists because of the owner's play feedback in `LF-176` — that most emplacements can barely reach anything. Its geometric half, `lane_coverage()`, answers exactly the question that complaint asks: what fraction of the lane's length falls inside this slot's range. `LF-185` assumed the named slots scored badly on it. They do not."
+        },
+        {
+          "type": "table",
+          "headers": [
+            "slot",
+            "geometric lane coverage",
+            "measured mean uptime"
+          ],
+          "rows": [
+            [
+              "anchor-13 (6,0)",
+              "43.9%",
+              "**2.5%**"
+            ],
+            [
+              "anchor-13 (16,8)",
+              "36.9%",
+              "37.0%"
+            ],
+            [
+              "anchor-10 (7,13)",
+              "36.8%",
+              "**1.2%**"
+            ],
+            [
+              "anchor-10 (1,1)",
+              "17.1%",
+              "**53.7%**"
+            ]
+          ]
+        },
+        {
+          "type": "p",
+          "text": "The slot with 17% geometric coverage is doing three times the work of the slot with 44%. Two implementations of one idea — the geometric ceiling and the simulated result — disagree, and the disagreement is not noise, it is inverted."
+        },
+        {
+          "type": "h3",
+          "text": "Where along the lane the coverage sits"
+        },
+        {
+          "type": "p",
+          "text": "The missing variable is *where* on the lane the covered arc falls. Measured over 20 policies × 3 difficulties, in live-unit-ticks per 5% of lane length: on these six anchors **half of all live unit time falls in the first 20–25% of the lane**, and the final quarter holds 4–5% of it. Kill-position p50 on the bad anchors is 22–47% of lane length — the wave is dead well before the halfway mark."
+        },
+        {
+          "type": "p",
+          "text": "The contrast is anchor-20, one of the healthiest boards in the game at a 3.8% near-zero rate. Its profile is flat: half the presence is spent by 45% of the lane, and 11% of it is still in the final quarter."
+        },
+        {
+          "type": "p",
+          "text": "**A gun covering lane the enemies never reach alive is idle no matter how close to the path it sits or how long its range.** That one sentence explains why doubling range did nothing, and it is a better statement of the owner's original complaint than the complaint was."
+        },
+        {
+          "type": "p",
+          "text": "So the working metric for this pass became **presence-weighted coverage**: the share of live unit-ticks that fall inside a slot's range, rather than the share of lane length. The slots `LF-185` named score 2.2–26.9% on it."
+        },
+        {
+          "type": "h3",
+          "text": "What changed"
+        },
+        {
+          "type": "p",
+          "text": "21 slots re-sited across `data/anchors/anchor-{02,08,10,11,12,13}.json`. Slot arrays only; slot counts unchanged; no other key in any of the six files differs. One rule, applied identically to all six: **the legal integer position nearest the authored slot whose presence-weighted coverage is at least 42%, with a 2.0-tile dispersion floor** — the target relaxed in 2-point steps where 2.0-tile separation made 42% unreachable."
+        },
+        {
+          "type": "p",
+          "text": "Two alternative rules were measured on the dynamic instrument rather than argued about: take the global presence maximum, and take the nearest position clearing 30%. Both were worse or equal on 4 of the 6 anchors."
+        },
+        {
+          "type": "p",
+          "text": "A few rows are worth showing because of the column that goes the wrong way. `geo` is `lane_coverage()`; `live` is presence-weighted."
+        },
+        {
+          "type": "table",
+          "headers": [
+            "anchor",
+            "old",
+            "geo",
+            "live",
+            "new",
+            "geo",
+            "live"
+          ],
+          "rows": [
+            [
+              "11",
+              "(15,11)",
+              "20.6%",
+              "2.2%",
+              "(8,4)",
+              "68.8%",
+              "43.4%"
+            ],
+            [
+              "08",
+              "(13,8)",
+              "36.8%",
+              "5.3%",
+              "(7,3)",
+              "83.2%",
+              "48.4%"
+            ],
+            [
+              "02",
+              "(6,0)",
+              "24.4%",
+              "26.8%",
+              "(0,5)",
+              "**14.2%**",
+              "37.6%"
+            ],
+            [
+              "10",
+              "(3,9)",
+              "36.8%",
+              "4.5%",
+              "(3,2)",
+              "**29.0%**",
+              "44.4%"
+            ],
+            [
+              "13",
+              "(6,4)",
+              "66.1%",
+              "12.7%",
+              "(8,9)",
+              "**65.0%**",
+              "38.9%"
+            ]
+          ]
+        },
+        {
+          "type": "p",
+          "text": "**The `geo` column falls on 7 of the 21 moves.** The old instrument would have scored a third of this change as a regression."
+        },
+        {
+          "type": "h3",
+          "text": "The numbers"
+        },
+        {
+          "type": "p",
+          "text": "Per anchor, all three difficulties, all 20 policies. The range digest was `8189779cd568` on both the before and after runs, so the verdict labels are comparable across them — `LF-186` is the entry that records why that has to be checked rather than assumed."
+        },
+        {
+          "type": "table",
+          "headers": [
+            "anchor",
+            "near-zero before",
+            "after",
+            "p10 before",
+            "after",
+            "p50 before",
+            "after"
+          ],
+          "rows": [
+            [
+              "02",
+              "29.4%",
+              "12.8%",
+              "0.0%",
+              "0.3%",
+              "42.5%",
+              "49.0%"
+            ],
+            [
+              "08",
+              "31.9%",
+              "11.6%",
+              "0.0%",
+              "5.9%",
+              "31.2%",
+              "42.6%"
+            ],
+            [
+              "10",
+              "30.9%",
+              "16.5%",
+              "0.0%",
+              "1.2%",
+              "35.8%",
+              "41.8%"
+            ],
+            [
+              "11",
+              "24.2%",
+              "16.2%",
+              "0.3%",
+              "5.4%",
+              "34.6%",
+              "48.5%"
+            ],
+            [
+              "12",
+              "20.0%",
+              "5.9%",
+              "2.3%",
+              "16.8%",
+              "41.7%",
+              "46.5%"
+            ],
+            [
+              "13",
+              "25.2%",
+              "14.7%",
+              "0.0%",
+              "4.6%",
+              "29.4%",
+              "37.2%"
+            ]
+          ]
+        },
+        {
+          "type": "p",
+          "text": "The other 18 anchors are **byte-identical** before and after. Across the whole game:"
+        },
+        {
+          "type": "table",
+          "headers": [
+            "",
+            "before",
+            "after"
+          ],
+          "rows": [
+            [
+              "near-zero emplacements",
+              "1608/12647 = **12.71%**",
+              "1205/12646 = **9.53%**"
+            ],
+            [
+              "`pulse-turret` share of the near-zero set",
+              "85.4%",
+              "84.3%"
+            ],
+            [
+              "`pulse-turret`'s own near-zero rate",
+              "14.1%",
+              "10.4%"
+            ],
+            [
+              "act 1 / 2 / 3 near-zero",
+              "21% / 17% / 5%",
+              "16% / 11% / 5%"
+            ]
+          ]
+        },
+        {
+          "type": "p",
+          "text": "`sim/run.py` reports **24/24 anchors clean**; all six re-sited anchors grade `ok=True` before and after, and no untouched anchor's grade changed. Distinct viable builds went *up* on anchors 10, 11, 12 and 13, and on anchor-08 standard."
+        },
+        {
+          "type": "p",
+          "text": "Legality was checked against the real engine rather than reasoned about. `Sim._placement_reason()` was called on every slot of **all 24** anchors, each with every other slot of that anchor loaded as a `Placed` — the strictest reading of the overlap term. Zero illegal slots. The minimum pairwise separation anywhere in the game is 1.0 tiles, on anchor-20, which this pass did not touch; every newly authored slot is at least 2.0 tiles from its neighbours."
+        },
+        {
+          "type": "h3",
+          "text": "Four things this pass did not fix"
+        },
+        {
+          "type": "p",
+          "text": "**1. `LF-185`'s own claim about `pulse-turret` did not reproduce.** It recorded pulse-turret as 66–79% of every near-zero sample. Measured on the *pre-change* data at today's ranges, it is **85.4%** — and after the change it is 84.3%, so the share did not fall. Its own near-zero rate dropped by a quarter, but it still dominates the tail, because the autobuild fills every leftover slot with it. That is `LF-053` and `LF-072`, untouched here."
+        },
+        {
+          "type": "p",
+          "text": "**2. The tail migrated rather than vanishing.** After the change, anchor-11 (2,8) is near-zero in 45 of 51 samples and anchor-13 (10,4) in 34 of 57 — slots that were fine before. Killing units earlier steepens the presence profile, which strands the next rank back. Chasing near-zero to zero converges on every slot stacked at the lane entrance, which is fitting to the metric — decision 067's trap, by name. The pass stopped at the 21 slots `LF-185` named rather than chasing it."
+        },
+        {
+          "type": "p",
+          "text": "**3. anchor-02 brutal lost two distinct winning builds, 6 down to 4.** Still clean, still four, death wave unchanged at 2 — and it is the only one of eighteen anchor-by-difficulty cells that narrowed. Filed as `LF-220` so it is not later rediscovered as an unexplained narrowing with no cause attached."
+        },
+        {
+          "type": "p",
+          "text": "**4. The brief told the agent slots may be continuous floats now. They may not.** `data/schema/anchor.schema.json` still types slot coordinates as `integer`, even though `sim/content.py` loads them as float64 and `_placement_reason()` accepts any float. The search was therefore integer-only, and may have left better sub-tile positions unreachable. `LF-219`."
+        },
+        {
+          "type": "h3",
+          "text": "And the residual is not a siting problem"
+        },
+        {
+          "type": "p",
+          "text": "Act 3 already sits at 5% near-zero with a flat presence profile. Acts 1 and 2 sit at 16% and 11% with profiles that dump half the live time into the first fifth of the lane. Slot re-siting can move guns into the live zone; it cannot lengthen the live zone. The lever for the rest is enemy durability and spawn pressure in the act 1–2 wave tables — `BAL-04` territory, out of scope here, and it would move the grades."
+        },
+        {
+          "type": "h3",
+          "text": "Filed out of this"
+        },
+        {
+          "type": "list",
+          "items": [
+            "`LF-185` closed.",
+            "`LF-217` — the coverage instrument's geometric half does not predict its own dynamic tail, and `verdict()`'s label *(a) geometry: even 2x range does not recover coverage — slots are far from the lane* is the wrong sentence for the failure it fires on.",
+            "`LF-218` — the act 1–2 presence profile is the residual tail.",
+            "`LF-219` — the schema types slot coordinates as integer.",
+            "`LF-220` — anchor-02 brutal narrowed from six distinct winning builds to four."
+          ]
+        },
+        {
+          "type": "h3",
+          "text": "The habit worth naming"
+        },
+        {
+          "type": "p",
+          "text": "This project built an instrument specifically to answer the owner's complaint, used it, and then found the instrument was measuring the wrong quantity — not by argument, but because the numbers it produced did not correlate with the numbers the simulation produced."
+        },
+        {
+          "type": "p",
+          "text": "The fix was found by distrusting the instrument. That is the same move as `PLC-07`'s *the fault was in the instrument, not the code*, and the same move as `LF-201`'s *it reported a destruction it was incapable of performing*. Three times now, on unrelated work. It is becoming this project's most reliable debugging habit and it is worth naming."
+        },
+        {
+          "type": "p",
+          "text": "The work landed on `lf/bal-slot-resiting` and was gated at tier 4. This entry states no verdict for that run — it was still in flight when this was written, and a gate result written before the gate finishes is exactly the kind of claim this journal exists to not make."
+        }
+      ]
     }
   ]
 }
