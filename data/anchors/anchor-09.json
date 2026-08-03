@@ -114,7 +114,7 @@
       "spawns": [
         {
           "enemy": "reach-picket",
-          "count": 3,
+          "count": 2,
           "interval": 0.7
         },
         {
@@ -127,6 +127,13 @@
           "count": 1,
           "interval": 4.0,
           "delay": 9
+        },
+        {
+          "enemy": "reach-picket",
+          "count": 1,
+          "interval": 3.2,
+          "delay": 2.0,
+          "lane": 1
         }
       ]
     },
@@ -135,7 +142,7 @@
       "spawns": [
         {
           "enemy": "reach-picket",
-          "count": 4,
+          "count": 3,
           "interval": 0.7
         },
         {
@@ -148,6 +155,13 @@
           "count": 2,
           "interval": 3.5,
           "delay": 7
+        },
+        {
+          "enemy": "reach-picket",
+          "count": 1,
+          "interval": 3.2,
+          "delay": 2.0,
+          "lane": 1
         }
       ]
     },
@@ -156,7 +170,7 @@
       "spawns": [
         {
           "enemy": "reach-picket",
-          "count": 10,
+          "count": 8,
           "interval": 0.7
         },
         {
@@ -178,7 +192,7 @@
         },
         {
           "enemy": "reach-picket",
-          "count": 2,
+          "count": 4,
           "interval": 3.2,
           "delay": 2.0,
           "lane": 1
@@ -190,7 +204,7 @@
       "spawns": [
         {
           "enemy": "reach-picket",
-          "count": 8,
+          "count": 6,
           "interval": 0.7
         },
         {
@@ -212,7 +226,7 @@
         },
         {
           "enemy": "reach-picket",
-          "count": 2,
+          "count": 4,
           "interval": 3.2,
           "delay": 2.0,
           "lane": 1
@@ -224,7 +238,7 @@
       "spawns": [
         {
           "enemy": "reach-picket",
-          "count": 12,
+          "count": 10,
           "interval": 0.7
         },
         {
@@ -246,7 +260,7 @@
         },
         {
           "enemy": "reach-picket",
-          "count": 2,
+          "count": 4,
           "interval": 3.2,
           "delay": 2.0,
           "lane": 1
@@ -258,7 +272,7 @@
       "spawns": [
         {
           "enemy": "reach-picket",
-          "count": 8,
+          "count": 6,
           "interval": 0.7
         },
         {
@@ -280,7 +294,7 @@
         },
         {
           "enemy": "reach-picket",
-          "count": 2,
+          "count": 4,
           "interval": 3.2,
           "delay": 2.0,
           "lane": 1
@@ -292,7 +306,7 @@
       "spawns": [
         {
           "enemy": "reach-picket",
-          "count": 9,
+          "count": 6,
           "interval": 0.7
         },
         {
@@ -320,7 +334,7 @@
         },
         {
           "enemy": "reach-picket",
-          "count": 3,
+          "count": 6,
           "interval": 3.2,
           "delay": 2.0,
           "lane": 1
@@ -332,7 +346,7 @@
       "spawns": [
         {
           "enemy": "reach-picket",
-          "count": 9,
+          "count": 6,
           "interval": 0.7
         },
         {
@@ -360,7 +374,7 @@
         },
         {
           "enemy": "reach-picket",
-          "count": 3,
+          "count": 6,
           "interval": 3.2,
           "delay": 2.0,
           "lane": 1
