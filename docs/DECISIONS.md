@@ -3331,3 +3331,98 @@ directly observable, and it would either put the rule in the file twice or add a
 candidate per tick to the hottest loop in the sim. The fire pattern is the observable the arc
 decides, it is an integer signal that compares exactly across two languages, and it goes through
 the real `_select_target()` on both sides.
+
+---
+
+## 079 — A merged pull request closes its own issue, through a `Closes:` trailer read two ways
+
+**2026-08-02.** The owner reported something small: the loop ships a pull request, the pull
+request merges, and the issue is still sitting in the backlog. It turned out never to have
+worked once.
+
+**Proven, not argued.** PR #130 squash-merged to `main` carrying the body line
+``Closes `PLC-03` ``. Thirty-seven minutes later GitHub issue #31 was still `OPEN` with
+`closedAt: null`. GitHub acts **only** on `Closes #<number>`; a spec id in backticks is prose it
+reads past. Measured across the 51 merged pull requests available at the time: **zero** carried
+a closing keyword GitHub could resolve, only three attempted a `Closes <SPEC-ID>` phrasing at
+all, thirty issues stood open, and forty open backlog items were named by an already-merged PR.
+That last figure is deliberately **not** "forty stale items" — a PR naming `LF-211` may have
+*filed* it rather than fixed it, which is exactly what #130 did, and **that nothing in the
+repository distinguishes the two is the defect**, not a caveat on it.
+
+Three independent holes produced it. No workflow triggered on `pull_request: closed`, so nothing
+observed a merge at all. `tools/issues.py close` was excellent and was **a line in a prompt** —
+`autoloop.py`'s brief and step 8 of the `ship` skill — so when the *owner* merged by hand, no
+code ran. And two tracking systems had never been introduced to each other: `backlog.json`
+(`LF-nnn`, closed with `backlog.py done`) and `docs/issues/*.md` projected to GitHub (closed with
+`issues.py close`); the ship loop touched the second and never the first.
+
+**The mechanism matches what each system actually is.** A `docs/issues/` spec is projected
+*outside* the repository, so the close has to happen outside too — and GitHub already does it,
+atomically, on merge, **no matter who presses the button**, which is the case every previous
+mechanism missed. So the pull request body carries a **resolved** `Closes #N`, looked up from
+`docs/issues/.map.json` rather than typed. A `backlog.json` item is a file **inside** the
+repository; nothing external needs telling, so it is marked done in the pull request's own commit
+and merging is what lands it.
+
+Both halves read one declaration: a **`Closes:` trailer** in a commit message. The colon is
+load-bearing — it is git's own trailer syntax, so prose like "this closes the gap LF-105
+describes" cannot be mistaken for a declaration. `tools/traceability.py` is the tool;
+`issue traceability` (tier 1) checks the in-repo half offline; a `pull_request` step in
+`gate.yml` checks the body, reading it from the **environment** rather than a command line
+because a fork's PR body is attacker-controlled text and `${{ }}` in a `run:` block is script
+injection by construction.
+
+**Verified end to end on 2026-08-03:** PR #138 merged and issue #35 closed itself,
+`closedAt: 2026-08-03T13:30:33Z` — the first time in this repository's history that a merge has
+closed its own issue.
+
+**Rejected — a workflow on `pull_request: closed` that goes and closes things.** It is another
+mechanism to forget, it needs a token and network at exactly the moment nobody is watching, and
+it does nothing at all for the backlog file. Using the closing behaviour the host already has,
+and putting the backlog's close inside the commit, means there is no second step in either half.
+
+**Rejected — hard-failing the gate when a PR has no `Closes:` trailer.** Plenty of pull requests
+are refactors that close nothing, and a check satisfied by typing a trailer is a check that gets
+a trailer typed. What is refused is a trailer the repository cannot back up.
+
+---
+
+## 080 — `tile_slot` is retired rather than repurposed, and the buildable region is a tint
+
+**2026-08-02.** `PLC-07` poses the fork explicitly: with free placement removing the slot set,
+either drop the `tile_slot` sprite or repurpose it as the buildable-area wash.
+
+**Retired.** The sprite settles it rather than an argument about visual language: it is a raised,
+bevelled pad with a teal ring and four corner bolts — discrete geometry with real height, a
+hardpoint. Tiled across a region it reads as a *field of hardpoints*, which reinstates the exact
+"these are the slots" language `PLC-07` exists to remove. **A wash has to be a tint, not an
+object**, so the buildable region is drawn as a translucent lift over the ordinary ground tile.
+Measured: 235,333 px, ground moving from `(35,40,41)` to `(41,53,52)`.
+
+**The wash is bounds and lane standoff only, never overlap.** Overlap depends on what is
+currently built, so folding it in would invalidate the per-(anchor, tower) cache the moment
+anything is placed — and it is the wrong picture besides. The wash answers *"where does this
+weapon fit on this board at all"*, which is a property of the level; what is in the way right now
+is answered at the cursor by the ghost. It reads `_placement_reason()`'s **fixed test order**
+rather than re-deriving two of its three tests: the function returns the first failure, so `OK`
+or `OVERLAP` coming back is proof bounds and standoff both passed. A second, drifting copy of a
+rule is what `PLC-02` exists to prevent.
+
+**Rejected — drawing the standoff corridor for every lane segment.** It was the first
+implementation and it is *correct*: every line is a true statement about the geometry. On a 12x10
+anchor with one lane it produced about forty full-length offset lines webbed across the whole
+board, crossing tiles nowhere near the lane, reading as scratches on the lens. The screenshot
+killed it. The information a player needs is **local** — which piece of lane, and by how much —
+so it now draws the nearest segment's two offset edges over that segment alone plus a connector
+to the closest point on it. Three lines instead of forty. Both frames are in the journal.
+
+**Two corrections to `PLC-07`'s own spec, recorded because a spec is not append-only and a stale
+requirement is worse than a corrected one.** It says dropping the sprite makes `sprite coverage`
+fall to 21 of 26 — it would not; that check compares enemy and tower ids only, and `tile_slot` is
+a prop in `gen_assets.py`'s `PROP_ALLOWLIST`, so `asset coverage` governs it. And its task 4
+(`_draw_reach()` at a float centre) was already satisfied by `PLC-06`.
+
+**The asset removal is deliberately NOT in the same change** (`LF-216`). It triggers the art
+pipeline and a re-import, which is the step that blanks the owner's running game if mishandled
+(`LF-075`), and a red `sprite atlas` inside a UI pull request would read as a UI regression.
