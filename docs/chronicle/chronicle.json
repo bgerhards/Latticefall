@@ -5013,6 +5013,291 @@
           "text": "The work landed on `lf/bal-slot-resiting` and was gated at tier 4. This entry states no verdict for that run — it was still in flight when this was written, and a gate result written before the gate finishes is exactly the kind of claim this journal exists to not make."
         }
       ]
+    },
+    {
+      "id": "the-test-of-the-instrument-was-red",
+      "date": "2026-08-03",
+      "time": "11:30",
+      "title": "The test of the instrument was red, and no tier ran it",
+      "summary": "The entry before this one proved the coverage instrument's geometric half does not predict which emplacements actually work. This is the repair: presence-weighted coverage becomes the predictor, `lane_coverage()` stays as a measurement because it is still a true statement about a level, and rank correlation against measured uptime goes from +0.520 to +0.748 across the whole game — +0.622 to +0.780 on the eighteen anchors last week's pass never touched, which is the number that is not circular. Underneath it was something worse: `sim/coverage.py --selftest`, the only runtime proof that the instrumented sim cannot change an outcome, had been failing on `main` for at least two merges, because no gate tier runs it.",
+      "tags": [
+        "BAL",
+        "PLC"
+      ],
+      "decisions": [],
+      "body": [
+        {
+          "type": "p",
+          "text": "The previous entry, an hour old as this is written, ended on a diagnosis: `sim/coverage.py`'s geometric `lane_coverage()` does not predict its own dynamic tail, and the slot with 17% geometric coverage was doing three times the work of the slot with 44%. That entry re-sited 21 slots on the strength of a scratch implementation of presence-weighted coverage. This one makes the replacement real, quantifies how much better it is, and finds that the test which guards the whole instrument had been red the entire time."
+        },
+        {
+          "type": "p",
+          "text": "`lane_coverage()` is **kept**, not deleted. It answers a true question about a level — what fraction of the lane's length falls inside a slot's range — and that question deserves an honest answer. What changed is that it is no longer the thing the summary and the verdict label are computed from."
+        },
+        {
+          "type": "h3",
+          "text": "The metric now correlates"
+        },
+        {
+          "type": "p",
+          "text": "Spearman rank correlation of each metric against measured mean `uptime_combat`, one sample per (slot, tower) pair, over 20 policies × 3 difficulties."
+        },
+        {
+          "type": "table",
+          "headers": [
+            "set",
+            "n",
+            "`lane_coverage()`",
+            "presence-weighted"
+          ],
+          "rows": [
+            [
+              "whole game (24 anchors)",
+              "784",
+              "+0.520",
+              "**+0.748**"
+            ],
+            [
+              "the 18 anchors NOT re-sited by `5021a9e`",
+              "619",
+              "+0.622",
+              "**+0.780**"
+            ],
+            [
+              "the 6 that were",
+              "165",
+              "+0.050",
+              "**+0.599**"
+            ],
+            [
+              "act 1",
+              "119",
+              "+0.448",
+              "+0.748"
+            ],
+            [
+              "act 2",
+              "288",
+              "+0.308",
+              "+0.731"
+            ],
+            [
+              "act 3",
+              "377",
+              "+0.700",
+              "+0.787"
+            ]
+          ]
+        },
+        {
+          "type": "p",
+          "text": "**The 18-anchor row is the one that matters.** The six re-sited anchors were optimised against presence last week, so a gain measured on them could be circular — the metric scoring well on the boards it authored. It holds on the eighteen that were never touched, and that is what makes it a real result rather than a tautology."
+        },
+        {
+          "type": "p",
+          "text": "Within-anchor ordering — which is the question `PLC-04`'s candidate lattice actually asks, since it never compares a slot on one board against a slot on another — went from **mean rho +0.442 to +0.773**. And `lane_coverage()` is outright **negative** on three anchors: anchor-02 at −0.301, anchor-10 at −0.244, anchor-13 at −0.019. On those boards it orders their own slots backwards. Presence-weighted coverage is positive on all 24."
+        },
+        {
+          "type": "h3",
+          "text": "The four inversion rows, recomputed"
+        },
+        {
+          "type": "p",
+          "text": "Two of the four slots the previous entry used to make its case — anchor-13 (6,0) and anchor-10 (7,13) — **no longer exist**. `5021a9e` deleted them, which was the point of that pass. They were restored into an in-memory copy of each anchor so that all four could be measured identically under today's code. That detail is what makes these numbers reproducible a year from now, and it is why the uptime figures differ slightly from the ones published an hour ago."
+        },
+        {
+          "type": "table",
+          "headers": [
+            "slot",
+            "`lane_coverage()`",
+            "presence",
+            "measured uptime"
+          ],
+          "rows": [
+            [
+              "anchor-13 (6,0) (restored)",
+              "43.9%",
+              "16.1%",
+              "**0.4%**"
+            ],
+            [
+              "anchor-13 (16,8)",
+              "36.9%",
+              "26.7%",
+              "23.5%"
+            ],
+            [
+              "anchor-10 (7,13) (restored)",
+              "36.8%",
+              "11.6%",
+              "**0.6%**"
+            ],
+            [
+              "anchor-10 (1,1)",
+              "17.1%",
+              "60.6%",
+              "**54.0%**"
+            ]
+          ]
+        },
+        {
+          "type": "p",
+          "text": "`lane_coverage()` ranks those four 36.8 > 43.9 > 36.9 > 17.1, against a true order of 54.0 > 23.5 > 0.6 > 0.4. **It is inverted at both ends** — it calls the best slot the worst and the worst slot the second best. Presence gets the order right."
+        },
+        {
+          "type": "p",
+          "text": "One more, straight out of the shipped `--detail` output: anchor-10 `(11,9)` has **the highest lane coverage on the whole anchor at 71.7%**, and 29.2% presence. The single most attractive position on that board by the old instrument is a third-rate one by the new."
+        },
+        {
+          "type": "h3",
+          "text": "verdict() was calling the best-sited anchor in the game badly sited"
+        },
+        {
+          "type": "p",
+          "text": "The label `verdict()` printed for **anchor-01** — 83% median uptime, a 5% near-zero tail, the healthiest board there is — was this:"
+        },
+        {
+          "type": "quote",
+          "text": "(a) geometry: even 2x range does not recover coverage — slots are far from the lane.",
+          "attribution": "verdict(), on anchor-01, before this pass"
+        },
+        {
+          "type": "p",
+          "text": "The new labels compare an anchor's authored slots against **its own board's ceiling**: the median of the N best legal positions, where N is that anchor's own slot count, and legality comes from the engine's own `_placement_reason()` rather than from a re-derivation of the rule. Median-of-N against median-of-N, so no absolute presence threshold is needed — which matters, because presence share is not calibrated to uptime and a fixed cut on it would not be defensible."
+        },
+        {
+          "type": "p",
+          "text": "Four outcomes, and they land where the evidence already was:"
+        },
+        {
+          "type": "list",
+          "items": [
+            "**no material near-zero tail** — 12 anchors, including anchor-01, which needed no diagnosis at all.",
+            "**(b) range/waves** — anchors 02–05, the four lowest board ceilings in the game. `LF-187` independently says decision 074's range numbers must be re-derived; this arrives at the same four boards from a different direction.",
+            "**(a) siting** — anchors 06, 07, 09 and 11. Slots that a better position on the same board would fix.",
+            "**(c) not geometry** — anchors 08, 10 and 13, which is exactly `LF-218`'s finding: re-siting moves guns into the live zone but cannot lengthen the live zone."
+          ]
+        },
+        {
+          "type": "h3",
+          "text": "The worse thing underneath"
+        },
+        {
+          "type": "p",
+          "text": "`sim/coverage.py --selftest` is the **only** runtime proof that `InstrumentedSim` cannot change an `Outcome`. It runs the same (anchor, policy, difficulty) through both `Sim` and `InstrumentedSim` and asserts the results are field-for-field identical. Without it, a rules change in an unrelated workstream can silently invalidate every coverage measurement this project takes."
+        },
+        {
+          "type": "p",
+          "text": "It was **failing on `main`**, and had been for at least two merges, because **no gate tier runs it**. Nothing was red anywhere. Nothing could be."
+        },
+        {
+          "type": "p",
+          "text": "The mechanism is almost funny. The selftest builds a probe at `(500,500)` to prove that a slot with zero coverage measures zero. `PLC-02` gave the engine a real legality predicate, which started answering `out_of_bounds` for that position — so the scheduled build silently stopped landing, and the check failed with “the scheduled build never landed”: a message about the harness, not about coverage. A metric assertion that had quietly become a harness assertion."
+        },
+        {
+          "type": "p",
+          "text": "Proved rather than assumed, by running `git show HEAD:sim/coverage.py` in isolation, which printed `HEAD placed slots: []`. Fixed by widening the in-memory probe anchor to 40×40 and moving the probe to (30,30) — still exactly zero coverage at the longest range in the game — and no file under `data/` was touched. Filed as `LF-221`, where **the bug is fixed and the gap is the item**: the selftest is about 2m43s in full, tier 2 is already over its own budget (`LF-178`), so it needs either tier 3/4 or a cheap single-anchor outcome-parity variant at tier 2."
+        },
+        {
+          "type": "h3",
+          "text": "The new assertions were proved red first"
+        },
+        {
+          "type": "p",
+          "text": "House style here, and it was actually done rather than claimed — by injecting bugs into an in-memory copy and confirming each new assertion fires:"
+        },
+        {
+          "type": "quote",
+          "text": "FAIL presence bucket independence: worst |200 buckets − 800 buckets| is 0.0519 (tolerance 0.0200)",
+          "attribution": "with BUG B injected — 800 buckets served at 25"
+        },
+        {
+          "type": "quote",
+          "text": "FAIL presence share bounds: … whole board -> 52.095 (want exactly 1.0)",
+          "attribution": "with BUG A (wrong normaliser) and BUG B injected"
+        },
+        {
+          "type": "h3",
+          "text": "The refusal that was licensed and did not apply"
+        },
+        {
+          "type": "p",
+          "text": "The brief explicitly offered an out: if the presence profile turned out to be policy-dependent enough that a single pooled profile per anchor was meaningless, say so and do not ship. That out was **measured rather than taken**. Each of the 60 (policy, difficulty) cells was scored against its **own** profile and against the **pooled** one, mean within-cell rank correlation over 6 anchors:"
+        },
+        {
+          "type": "table",
+          "headers": [
+            "profile used",
+            "mean within-cell rho"
+          ],
+          "rows": [
+            [
+              "`lane_coverage()`",
+              "+0.487"
+            ],
+            [
+              "pooled per-anchor profile (what shipped)",
+              "**+0.828**"
+            ],
+            [
+              "own-cell oracle (not shippable)",
+              "+0.865"
+            ]
+          ]
+        },
+        {
+          "type": "p",
+          "text": "Pooling costs 0.037 of a 0.378 gain — it captures about **96% of what a per-cell oracle would buy**. The refusal was licensed and did not apply, which is only worth knowing because it was checked instead of assumed."
+        },
+        {
+          "type": "p",
+          "text": "But the per-run spread is real and wide: the worst slot swings **83.6 percentage points** across runs on anchor-02. So it is **reported rather than averaged away** — `per_run_min`, `per_run_max` and `per_run_std` on every record, and a `per-run lo..hi` column in `--detail`. A mean that hides an 83-point spread is the same class of error as the metric this entry replaces."
+        },
+        {
+          "type": "h3",
+          "text": "Cost, and the gate"
+        },
+        {
+          "type": "p",
+          "text": "**+6.3% to +9.8% wall clock**; a full 24-anchor run is 2m11s at `--jobs 8`. There is no new simulation — the presence profile is accumulated by the same walk that already computes uptime. One file changed: `sim/coverage.py`, **589 → 1008 lines**. No engine change, no data change, no game value moved."
+        },
+        {
+          "type": "p",
+          "text": "The gate ran at tier 4: **38 passed, 0 failed, 2 skipped**. The two skips are `rules parity` and `rules parity (windows)`, skipped by the content-hash cache because digest `f3e5a7b01020` had been verified fresh 40 minutes earlier against an identical set of rule and data files. That is **cached, not re-run, and a skip is not a pass** — said that way on purpose, in an entry that is entirely about instruments reporting something other than what they measure. `sim determinism` passed on this run."
+        },
+        {
+          "type": "h3",
+          "text": "Caveats that belong on the record"
+        },
+        {
+          "type": "list",
+          "items": [
+            "**The letter is a pointer to a column, not a result.** The classification is coarse at the boundary — anchor-11 at 0.72 and anchor-08 at 0.78 read as different letters two points apart. The docstring says so, so a reader of the tool learns it at the same time as a reader of this entry.",
+            "**The label is now relative to two things**, not one: `range_basis.digest` (`LF-186`) **and** the slot layout, because presence is measured on the authored board. `lane_coverage()` only ever needed the first caveat. A verdict computed before a re-siting pass is not comparable with one computed after — including, specifically, the verdicts in the entry before this one.",
+            "**Presence share is still not calibrated to uptime.** It predicts ordering well and says nothing reliable about magnitude, which is why every threshold in the new `verdict()` is relative."
+          ]
+        },
+        {
+          "type": "h3",
+          "text": "Three times now"
+        },
+        {
+          "type": "p",
+          "text": "Two entries in a row where the fault was in the instrument rather than in the code. The previous one found the metric measuring the wrong quantity; this one found that the **test** of that metric had been failing unnoticed, because nothing ran it."
+        },
+        {
+          "type": "p",
+          "text": "That is the same move as `PLC-07`'s **the fault was in the instrument, not the code**, and the same move as `LF-201`'s **it reported a destruction it was incapable of performing**. The habit is not scepticism about the code. It is scepticism about the thing doing the measuring, and it has now paid three times on unrelated work."
+        },
+        {
+          "type": "p",
+          "text": "What this leaves for `PLC-04`, the next workstream: a public API of `presence_coverage()`, `bucket_points()`, `legal_positions()` and `board_presence_ceiling()`. The last of those is already the argmax over the candidate lattice `PLC-04` needs, so that work starts with its search function written and measured."
+        },
+        {
+          "type": "p",
+          "text": "The work sits on `lf/bal-presence-coverage` and was not yet committed when this entry was written, so no commit hash is listed — the same call as last time, and for the same reason: a hash written before the commit exists is a claim this journal has no business making."
+        }
+      ]
     }
   ]
 }
