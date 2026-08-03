@@ -16,6 +16,7 @@ docs/DECISIONS.md's WAR-01 entry.
 from __future__ import annotations
 
 import json
+import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -473,7 +474,40 @@ def anchor_from_doc(doc: dict) -> Anchor:
 
 
 def all_anchor_ids() -> list[str]:
-    return sorted(p.stem for p in (DATA / "anchors").glob("anchor-*.json"))
+    """Every anchor that is TRACKED CONTENT, sourced from `git ls-files` rather than a
+    directory glob (LF-132).
+
+    This used to be `glob("anchor-*.json")`, which meant any file dropped into
+    `data/anchors/` was real content the moment it hit the disk. Measured consequence,
+    paid once already: a scratch 64x64 synthetic anchor used for a draw-path benchmark
+    was picked up by `tools/density.py` and broke the gate's `wave density` check
+    outright -- act 1 suddenly had a 700-unit anchor as its busiest reference, and
+    nothing in the failure pointed at an untracked file. `tools/genboard.py` (LF-080)
+    makes that workflow -- generate a board, grade it, throw it away -- routine rather
+    than accidental, so the glob had to go before the generator landed.
+
+    Tracked-only is the same rule and the same reasoning `PRC-02` already applied to
+    `tools/validate/validate_data.py`'s `discover_documents()`: a file that was never
+    `git add`ed is invisible to anyone who clones the repo, so it must be invisible to
+    the instruments too. `load_anchor()` is deliberately NOT changed -- it takes an id
+    and reads the path, so an untracked generated board can still be loaded and graded
+    by name. Discovery is the thing that must be conservative; loading by explicit
+    request is not.
+
+    Falls back to the glob if `git` is unavailable or this tree is not a repository --
+    a sdist or a vendored copy still has to be able to enumerate its own content, and
+    an exception here would take out every caller including the gate.
+    """
+    try:
+        out = subprocess.run(
+            ["git", "ls-files", "-z", "data/anchors"], cwd=ROOT,
+            capture_output=True, check=True,
+        ).stdout.decode()
+    except (OSError, subprocess.CalledProcessError):
+        return sorted(p.stem for p in (DATA / "anchors").glob("anchor-*.json"))
+    stems = [Path(rel).stem for rel in out.split("\0")
+             if rel.endswith(".json") and Path(rel).name.startswith("anchor-")]
+    return sorted(stems)
 
 
 def unlocked_for(towers: dict[str, Tower], anchor_id: str) -> list[Tower]:
