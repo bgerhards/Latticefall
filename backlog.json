@@ -1,5 +1,5 @@
 {
-  "next_id": 222,
+  "next_id": 225,
   "items": [
     {
       "id": "LF-001",
@@ -2644,6 +2644,42 @@
     {
       "id": "LF-221",
       "title": "sim/coverage.py --selftest was RED on main and nothing noticed, because NO GATE TIER RUNS IT. Found during the LF-217 pass and fixed there, but the gap is the real item. MECHANISM: the selftest's far-slot probe built at (500,500) to prove a slot with zero coverage measures zero; PLC-02's _placement_reason() then began answering out_of_bounds for that position, so the scheduled build stopped landing and the selftest failed with 'the scheduled build never landed' - a message about the harness, not about coverage. Proved against git show HEAD:sim/coverage.py run in isolation: 'HEAD placed slots: []'. Fixed in LF-217 by widening the in-memory probe anchor to 40x40 and moving the probe to (30,30); data/ untouched. WHY IT MATTERS: this selftest is the ONLY runtime proof that InstrumentedSim cannot move an Outcome - it runs the same (anchor, policy, difficulty) through both Sim and InstrumentedSim and asserts the Outcomes are field-for-field identical. Without it in the gate, a rules change in an unrelated workstream can silently invalidate every coverage measurement the project takes, and did, for at least two merges with nothing red anywhere. THE WORK: put it in a tier. It is ~2m43s in full, which is too expensive for tier 2 (already over its 28000ms budget, LF-178) - so either tier 3/4, or add a cheap variant that runs only the outcome-parity leg on a single anchor and put THAT in tier 2. Prefer the cheap variant plus the full run at tier 4",
+      "kind": "bug",
+      "area": "tooling",
+      "pri": "med",
+      "status": "open",
+      "why": "",
+      "opened": "2026-08-03",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-222",
+      "title": "PLC-04's candidate lattice ENLARGES LF-053/LF-095 rather than solving it, and PLC-04 must not be read as a fix for them. Every Policy is a total preference order and _try_build fills greedily from the top, so a graded build is all-of-one-thing. With 12 authored slots that produced 'twelve arc nodes'; with the ~366-763 legal lattice candidates per anchor at half-tile pitch it produces 'as many as _effective_cap() and the money allow'. MEASURED during the PLC-04 pass. The count has not actually moved yet because _effective_cap() still falls back to len(slots) - the day that fallback goes, it will. BAL-02's capped-core policies are the fix. Recorded here because PLC-04's own spec asks for the note and because a bigger candidate set makes a monoculture build look more deliberate than it is",
+      "kind": "bug",
+      "area": "design",
+      "pri": "med",
+      "status": "open",
+      "why": "",
+      "opened": "2026-08-03",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-223",
+      "title": "Re-sweep anchor-01, anchor-04, anchor-09 and anchor-11 against PLC-04's lattice grader. Decision 081 adopted round-robin x per-lane maximin as the lattice ordering on BOARD QUALITY grounds and explicitly WITHDREW PLC-04's acceptance criterion 6 ('every anchor still grades ok') as an invalid selector - board quality and grade count were measured anti-correlated across five orderings, with the best-scoring candidate (minimum separation 2.5, 23/24) producing boards nobody would defend and the adopted one (20/24) producing the only board indistinguishable from a hand-authored layout. THE FOUR FAILURES ARE A RE-BALANCE, NOT AN ORDERING PROBLEM: anchor-01 brutal unwinnable, anchor-04 brutal single-solution, anchor-09 brutal single-solution, anchor-11 hard single-solution plus brutal unwinnable. Three of the four are brutal-only and all four boards are well shaped. The cause is that these anchors' capacities, funds and wave tables were swept against a grader confined to their authored slots, so a grader that places well finds those tiers genuinely thin at the top difficulty. THE WORK: tools/sweep.py per anchor, then reconcile the capacity ladder to a monotone envelope BY HAND and re-run tools/say_capacity.py - PLC-04's spec warns that a sweep proves nothing outside its grid and tunes one anchor blind to the others. This is BAL-04 territory and it should be graded as a balance pass",
+      "kind": "bug",
+      "area": "design",
+      "pri": "med",
+      "status": "open",
+      "why": "",
+      "opened": "2026-08-03",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-224",
+      "title": "Nothing in the gate asserts that every anchor grades ok. DISCOVERED during PLC-04: the 'sim determinism' check returned FAIL on sim/run.py's exit code BEFORE comparing its two runs, and run.py --json exits 1 whenever an anchor is not clean - so the conflation was accidentally serving as an all-anchors-clean assertion, under the wrong name, with an empty message (run.py writes its verdict to stdout, and the check reported stderr). Decision 081's re-siting of that check to compare outputs first is correct and shipped with PLC-04, but it removes the accidental safety net. THE WORK: add a real 'anchor grades' check that runs sim/run.py over all 24 and fails on any anchor not ok, with the failing anchors and their problem strings in the message. DO NOT ADD IT UNTIL LF-223 LANDS - anchor-01, 04, 09 and 11 are knowingly below ok right now as a consequence of the lattice grader placing better than the sweep those anchors were tuned against, and a check that is red on arrival gets disabled rather than fixed. Cost: a full sim/run.py --jobs 8 is ~60 s, so tier 3 or 4, not tier 2 (already over budget, LF-178)",
       "kind": "bug",
       "area": "tooling",
       "pri": "med",

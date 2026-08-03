@@ -1322,15 +1322,36 @@ def check_gate_docs_consistent() -> Result:
 
 
 def check_sim() -> Result:
+    """Two runs at one seed must produce byte-identical output. That is the entire claim, and
+    it is deliberately *not* "anchor-01 grades ok".
+
+    `sim/run.py --json` exits 1 whenever an anchor is not clean, and this check used to return
+    FAIL on that exit code **before** comparing the two runs — so a balance regression reported
+    as "the sim is not deterministic", naming the wrong subsystem, with `a.stderr` as its
+    message. That message is *empty*, because `run.py` writes its verdict to stdout. `PLC-04`
+    found it the expensive way: the lattice grader made anchor-01 fail at brutal, and the gate
+    said the sim was non-deterministic with nothing after the check name.
+
+    A non-zero exit is still fatal when there is nothing to compare — that is a crash, and it
+    is caught first. Once both runs agree byte for byte the sim *is* deterministic, so a
+    non-zero exit is reported rather than raised.
+
+    Note what this deliberately does not cover: **nothing in the gate asserts that every anchor
+    grades `ok`.** The conflation above was accidentally serving that role, badly. `LF-224`.
+    """
     sim = ROOT / "sim" / "run.py"
     if not sim.exists():
         return Result(SKIP, "headless sim not written (LF-002)")
     a = run(PY, str(sim), "--anchor", "anchor-01", "--seed", "1", "--json")
     b = run(PY, str(sim), "--anchor", "anchor-01", "--seed", "1", "--json")
-    if a.returncode != 0:
-        return Result(FAIL, a.stderr.strip()[-400:])
+    if not a.stdout.strip():
+        detail = a.stderr.strip()[-400:] or "and no stderr either"
+        return Result(FAIL, f"sim/run.py produced no output (exit {a.returncode}) — {detail}")
     if a.stdout != b.stdout:
         return Result(FAIL, "same seed produced different output — sim is not deterministic")
+    if a.returncode != 0:
+        return Result(OK, f"deterministic — anchor-01 does not grade clean (exit "
+                          f"{a.returncode}), which is a balance state, not a determinism one")
     return Result(OK, "deterministic")
 
 

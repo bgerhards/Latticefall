@@ -18,6 +18,18 @@ const AnchorSimScript := preload("res://scripts/anchor_sim.gd")
 
 const MAX_SIM_SECONDS := 3600.0
 
+## PLC-04. Mirrors sim/engine.py's LATTICE_SPACING — see that constant's own comment for
+## why it is a binary fraction and must stay one: every candidate position is
+## `index * LATTICE_SPACING`, and `built` below formats it with `%.4f` on both sides.
+const LATTICE_SPACING := 0.5
+
+## PLC-04. Mirrors sim/engine.py's LATTICE_UNSEEDED: "no emplacement on this lane yet" in
+## _try_build()'s per-lane maximin scan. A plain large finite float, never INF — it is
+## compared and subtracted like any other arclength, and an infinity would produce a NaN
+## out of `BIG - BIG` the moment anyone reorders the expression. No real lane approaches
+## it (the longest path in the 24 anchors is 37 tiles).
+const LATTICE_UNSEEDED := 1.0e9
+
 # BAL-01: data/tuning.json, loaded once in _init() and read by _dispatch_one()/_run()
 # below. No autoload reference anywhere in this file needs these — see the
 # `rules autoloads` gate check (decision 054/061) for why that distinction matters here.
@@ -59,6 +71,12 @@ func _init() -> void:
 		var anchor := _read("res://data/anchors/%s.json" % aid)
 		if anchor.is_empty():
 			continue
+		# PLC-04: built ONCE per anchor, here, outside both the policy and the difficulty
+		# loop — not per run and emphatically not per _try_build() iteration. Mirrors
+		# sim/engine.py memoising it on the Anchor dataclass, which is the same "one build
+		# per anchor" lifetime by a different mechanism (this file re-reads the anchor doc
+		# per anchor id and holds no Anchor object to hang a cache on).
+		var lattice := _build_candidate_lattice(anchor)
 		var available: Array = []
 		for tid in towers:
 			if String(towers[tid].get("unlocked_at", "anchor-01")) <= String(aid):
@@ -66,7 +84,7 @@ func _init() -> void:
 		available.sort()
 		for policy in _policies(available):
 			for diff in ["standard", "hard", "brutal"]:
-				out.append(_run(anchor, towers, enemies, policy, diff))
+				out.append(_run(anchor, towers, enemies, policy, diff, lattice))
 
 	print("PARITY_JSON " + JSON.stringify(out))
 	quit()
@@ -311,7 +329,7 @@ func _dispatch_one(s, verb: String, args: Dictionary, charge_state: Dictionary) 
 # ────────────────────────────────────────────────────────────────── run ──
 
 func _run(anchor: Dictionary, towers: Dictionary, enemies: Dictionary,
-		policy: Dictionary, diff: String) -> Dictionary:
+		policy: Dictionary, diff: String, lattice: Dictionary) -> Dictionary:
 	var s := AnchorSimScript.new()
 	s.setup(anchor, towers, enemies, diff)
 
@@ -360,7 +378,7 @@ func _run(anchor: Dictionary, towers: Dictionary, enemies: Dictionary,
 
 	for wi in range(anchor["waves"].size()):
 		s.begin_wave(wi)
-		_try_build(s, policy, buildable)
+		_try_build(s, policy, buildable, lattice)
 		_shed(s, policy)
 		var lead := float(anchor["waves"][wi].get("lead_in", 20.0))
 		var lead_ticks := int(lead / AnchorSimScript.DT)
@@ -432,66 +450,226 @@ func _run(anchor: Dictionary, towers: Dictionary, enemies: Dictionary,
 	}
 
 
-func _is_occupied(s, x: float, y: float) -> bool:
-	## Mirrors sim/engine.py's Sim._occupied() / scripts/anchor_sim.gd's _occupied().
-	## PLC-01: there is no free-list on `s` any more — occupancy is derived from `s.placed`
-	## directly wherever a caller external to AnchorSim needs it, same as the rules files.
+func _overlaps(s, x: float, y: float) -> bool:
+	## PLC-04. Mirrors sim/engine.py's Sim._overlaps() — the ONE per-candidate legality
+	## test _try_build() still runs, because it is the only part of _placement_reason()
+	## that is not anchor-static. Bounds and lane standoff were applied once, when
+	## _build_candidate_lattice() built the lattice below.
+	##
+	## Arithmetic copied term for term from scripts/anchor_sim.gd's _placement_reason()
+	## overlap branch (`<`, never `<=`: a touching footprint is legal). It subsumes the
+	## old _is_occupied() — two records at the identical position are at distance 0, below
+	## any positive rr — which is why that function is gone rather than kept alongside.
+	var rr: float = AnchorSimScript.FOOTPRINT_RADIUS + AnchorSimScript.FOOTPRINT_RADIUS
 	for p in s.placed:
-		if float(p["x"]) == x and float(p["y"]) == y:
+		var dx: float = x - float(p["x"])
+		var dy: float = y - float(p["y"])
+		if dx * dx + dy * dy < rr * rr:
 			return true
 	return false
 
 
-func _slot_priority(s) -> Array:
-	## Same metric as engine.py: distance from the slot to the nearest sampled point on
-	## ANY lane, sampled at the same resolution so both pick the same slot. Squared
-	## distances in float64, matching Sim._slot_priority(). Decision 030. WAR-01: every
-	## lane is sampled and the minimum kept — a slot near just one of several lanes is
-	## still worth a slot, so "nearest the path" means "nearest the nearest lane".
-	## PLC-01: no `s.free_slots` to read any more — the available positions are the
-	## anchor's authored `slots` filtered to those `_is_occupied()` says nothing already
-	## sits on, recomputed here the same way sim/engine.py's Sim._slot_priority()
-	## recomputes it from `self.a.slots` every call. Returns `[x, y]` pairs, never a
-	## Vector2/Vector2i (float32, banned in the rules).
+func _build_candidate_lattice(anchor: Dictionary) -> Dictionary:
+	## PLC-04. Mirrors sim/engine.py's build_candidate_lattice() candidate for candidate and
+	## in the same order — see that docstring for the filter, the ordering metric, the five
+	## graded orderings behind the consumption rule, and why presence-weighted coverage
+	## (sim/coverage.py) is deliberately NOT the metric. The two must agree exactly or
+	## parity fails on the first wave of the first anchor.
+	##
+	## Returns the three structures _try_build() walks, all built ONCE per anchor:
+	##   rows    [[x, y, lane, arclength], ...] ordered by (d2, arclength, x, y)
+	##   groups  Array[PackedInt32Array] — row indices per lane, in that same order.
+	##           Mirrors sim/engine.py's lattice_lane_groups(), which the Python side
+	##           derives once per Sim; both are outside the build loop, which is all the
+	##           acceptance criterion asks.
+	##   at      "%.4f,%.4f" -> [lane, arclength], so a placed emplacement can be mapped
+	##           back to its lane. Keyed by the SAME fixed-precision string the parity
+	##           signature uses rather than by a float pair: lattice positions are binary
+	##           fractions at 0.5 pitch, so the formatting is lossless and unique here, and
+	##           it sidesteps float-keyed Dictionary hashing entirely.
+	##
+	## Reads the raw anchor document rather than an AnchorSim: the lattice is built once per
+	## anchor, before any AnchorSim for it exists. Waypoints come straight from
+	## `paths[i].waypoints` — the AUTHORED points, never resampled, same as
+	## _placement_reason()'s `_wx`/`_wy` — and only elements 0 and 1 are read (a waypoint's
+	## optional third element is the TER-01 elevation level and never enters this).
+	##
+	## Segment length is `abs(dx) + abs(dy)`, matching scripts/anchor_sim.gd:216 and
+	## sim/content.py's Lane.build(): lanes are axis-aligned, so manhattan == euclidean
+	## (decision 030) and there is no third expression for "how long is this segment".
+	##
+	## PackedFloat64Array, never PackedFloat32Array or Vector2: float32 is banned in the
+	## rules and this feeds positions the parity signature formats with %.4f.
+	var r: float = AnchorSimScript.FOOTPRINT_RADIUS
+	var w: int = int(anchor["grid"]["w"])
+	var h: int = int(anchor["grid"]["h"])
+	var standoff: float = float(anchor.get("lane_half_width", 0.5)) + r
+
+	var lanes_x: Array = []
+	var lanes_y: Array = []
+	var lanes_seg: Array = []
+	for lane in anchor.get("paths", []):
+		var xs := PackedFloat64Array()
+		var ys := PackedFloat64Array()
+		for wp in lane["waypoints"]:
+			xs.append(float(wp[0]))
+			ys.append(float(wp[1]))
+		var seg := PackedFloat64Array()
+		for i in range(xs.size() - 1):
+			seg.append(abs(xs[i + 1] - xs[i]) + abs(ys[i + 1] - ys[i]))   # axis-aligned
+		lanes_x.append(xs)
+		lanes_y.append(ys)
+		lanes_seg.append(seg)
+
 	var scored: Array = []
-	for raw in s.anchor.get("slots", []):
-		var sx: float = float(raw[0])
-		var sy: float = float(raw[1])
-		if _is_occupied(s, sx, sy):
-			continue
-		var best := 1e18
-		for lane in range(s.path_length.size()):
-			var plen: float = s.path_length[lane]
-			var steps: int = maxi(2, int(plen))
-			for i in range(steps + 1):
-				var p: PackedFloat64Array = s.point_at_xy(lane, plen * float(i) / float(steps))
-				var dx: float = p[0] - sx
-				var dy: float = p[1] - sy
-				best = minf(best, dx * dx + dy * dy)
-		scored.append([best, sx, sy])
+	for iy in range(2 * h - 1):
+		var y: float = float(iy) * LATTICE_SPACING
+		for ix in range(2 * w - 1):
+			var x: float = float(ix) * LATTICE_SPACING
+			if not (x - r >= -0.5 and x + r <= float(w) - 0.5 and y - r >= -0.5 and y + r <= float(h) - 0.5):
+				continue
+			var best_d2 := 1e18
+			var best_lane := 0
+			var best_s := 0.0
+			for li in range(lanes_x.size()):
+				var wx: PackedFloat64Array = lanes_x[li]
+				var wy: PackedFloat64Array = lanes_y[li]
+				var sg: PackedFloat64Array = lanes_seg[li]
+				var run := 0.0
+				for i in range(wx.size() - 1):
+					var ax: float = wx[i]
+					var ay: float = wy[i]
+					var bx: float = wx[i + 1]
+					var by: float = wy[i + 1]
+					var abx: float = bx - ax
+					var aby: float = by - ay
+					var ab2: float = abx * abx + aby * aby
+					var t: float
+					if ab2 <= 0.0:
+						t = 0.0
+					else:
+						t = ((x - ax) * abx + (y - ay) * aby) / ab2
+						t = minf(1.0, maxf(0.0, t))
+					var cx: float = ax + abx * t
+					var cy: float = ay + aby * t
+					var dx: float = x - cx
+					var dy: float = y - cy
+					var d2: float = dx * dx + dy * dy
+					# Strict `<`, so a tie keeps the FIRST lane and the FIRST segment that
+					# reached this distance — the lower lane index, the earlier arclength.
+					# minf() would have said the same about best_d2 and nothing about which
+					# lane produced it, which is why this is a comparison now.
+					if d2 < best_d2:
+						best_d2 = d2
+						best_lane = li
+						best_s = run + sg[i] * t
+					run += sg[i]
+			if best_d2 < standoff * standoff:
+				continue
+			scored.append([best_d2, best_s, x, y, best_lane])
+	## Sorted on the FULL (d2, arclength, x, y) tuple, never on a prefix of it:
+	## Array.sort_custom() is not documented as stable in Godot 4.7 while Python's `sorted`
+	## is, so leaning on stability to break a tie is exactly the intermittent divergence
+	## LF-055 already cost this project once (PRD risk #3).
 	scored.sort_custom(func(a, b):
 		if a[0] != b[0]: return a[0] < b[0]
 		if a[1] != b[1]: return a[1] < b[1]
-		return a[2] < b[2])
-	var out: Array = []
-	for row in scored:
-		out.append([row[1], row[2]])
-	return out
+		if a[2] != b[2]: return a[2] < b[2]
+		return a[3] < b[3])
+
+	var rows: Array = []
+	var groups: Array = []
+	for _li in range(lanes_x.size()):
+		groups.append(PackedInt32Array())
+	var at := {}
+	for k in range(scored.size()):
+		var row: Array = scored[k]
+		rows.append([row[2], row[3], row[4], row[1]])         # x, y, lane, arclength
+		groups[row[4]].append(k)
+		at["%.4f,%.4f" % [row[2], row[3]]] = [row[4], row[1]]
+	return {"rows": rows, "groups": groups, "at": at}
 
 
-func _try_build(s, policy: Dictionary, buildable: Array) -> void:
+func _try_build(s, policy: Dictionary, buildable: Array, lattice: Dictionary) -> void:
+	## PLC-04: NO SORT in this function, mirroring sim/engine.py's Sim._try_build(). Read
+	## that docstring for the full reasoning; the mechanism, restated only as far as it
+	## takes to check the two files against each other:
+	##
+	##   - `turn` picks WHICH LANE gets the next emplacement, one lane per placement,
+	##     wrapping. A lane with no legal candidate left is skipped and `turn` has already
+	##     moved past it, so a saturated lane cannot stall the loop.
+	##   - `sep[i]` is candidate i's arclength distance to the nearest emplacement already
+	##     standing ON ITS OWN LANE; within the chosen lane the winner maximises it. A lane
+	##     with nothing on it yet has every sep at LATTICE_UNSEEDED, so its first pick is
+	##     its best-(d2, arclength, x, y) candidate.
+	##
+	## THE MAXIMIN TIE-BREAK is the parity risk and is handled explicitly: a max-over-min
+	## ties by construction (two candidates either side of one gap are equidistant from its
+	## ends), so the scan accepts only a STRICT improvement, which hands every tie to the
+	## first index in groups[li] — and that array is in ascending row order, i.e. in
+	## (d2, arclength, x, y) order. Nothing relies on iteration order, on sort_custom being
+	## stable, or on two candidates comparing equal (LF-055).
+	##
+	## THE `and` IS LOAD-BEARING for cost: _overlaps() is only reached by a candidate that
+	## is already a strict improvement. `best_sep` advances only on an ACCEPTED candidate,
+	## so an overlapping one never masks a later legal one at the same separation.
+	##
+	## `sep` is re-seeded from s.placed at the top of every call rather than carried across
+	## waves: this runs once per wave, s.placed is the authority on what is standing, and a
+	## scheduled build/sell verb (BAL-01) can have changed it without going through here.
+	var rows: Array = lattice["rows"]
+	var groups: Array = lattice["groups"]
+	var at: Dictionary = lattice["at"]
+	var n := rows.size()
+	var n_lanes := groups.size()
+
+	var sep := PackedFloat64Array()
+	sep.resize(n)
+	sep.fill(LATTICE_UNSEEDED)
+	for p in s.placed:
+		var key := "%.4f,%.4f" % [float(p["x"]), float(p["y"])]
+		if not at.has(key):
+			continue         # placed off-lattice by an explicit build_at() — not ours
+		var seed_row: Array = at[key]
+		var seed_lane: int = int(seed_row[0])
+		var seed_s: float = float(seed_row[1])
+		for i in groups[seed_lane]:
+			var d0: float = seed_s - float(rows[i][3])
+			if d0 < 0.0:
+				d0 = -d0     # abs() by branch: safe-ops, and identical in Python
+			if d0 < sep[i]:
+				sep[i] = d0
+
+	var turn := 0
 	while true:
-		# LF-152/decision 063: provably a no-op for every anchor that omits
-		# max_emplacements (all 24 today) — `effective_cap()` is `anchor.get("slots",
-		# []).size()` in that case (PLC-01: there is no `free_slots` list left to test
-		# directly), so this and the `if order.is_empty(): return` just below it are the
-		# same exit condition restated. Mirrors sim/engine.py's Sim._try_build()'s own
-		# early check.
+		# LF-152/decision 063: `effective_cap()` is `anchor.get("slots", []).size()` for
+		# every anchor that omits max_emplacements (all 24 today), so an anchor's authored
+		# slot COUNT still bounds how much the grader builds even though PLC-04 means its
+		# authored slot POSITIONS no longer bound where. Since PLC-04 this is a real exit
+		# condition rather than a restatement of the "no candidates left" one below it: a
+		# lattice does not run out at a dozen emplacements the way a slot list did.
+		# Mirrors sim/engine.py's Sim._try_build()'s own early check.
 		if s.placed.size() >= s.effective_cap():
 			return
-		var order := _slot_priority(s)
-		if order.is_empty():
-			return
+		var cand_i := -1
+		for _probe in range(n_lanes):
+			var li := turn
+			turn += 1
+			if turn >= n_lanes:
+				turn = 0
+			var best_i := -1
+			var best_sep := -1.0
+			for i in groups[li]:
+				if sep[i] > best_sep and not _overlaps(s, rows[i][0], rows[i][1]):
+					best_sep = sep[i]
+					best_i = i
+			if best_i >= 0:
+				cand_i = best_i
+				break
+		if cand_i < 0:
+			return           # every lane is saturated
+		var cand_x: float = rows[cand_i][0]
+		var cand_y: float = rows[cand_i][1]
 		var placed_one := false
 		for tid in buildable:
 			var tw: Dictionary = s.towers[tid]
@@ -512,17 +690,31 @@ func _try_build(s, policy: Dictionary, buildable: Array) -> void:
 				continue
 			# LF-152: the trap decision 063 named — build_at() can now REFUSE (the cap
 			# check above), and this call ignored its return value entirely, setting
-			# placed_one = true unconditionally. PLC-01: `order` never shrinks on a
-			# refusal either (it is recomputed fresh next iteration from `s.placed`), so
+			# placed_one = true unconditionally. The chosen candidate does not change on
+			# a refusal (PLC-04: `sep` only moves when something is actually placed), so
 			# the outer while loop would never terminate: an infinite loop, meaning the
 			# parity run HANGS rather than fails. Checking the return value is the whole
-			# fix — a refusal now falls through to the next candidate exactly like a
-			# funds/caps/budget rejection already does.
-			if s.build_at(tid, order[0][0], order[0][1]):
+			# fix — a refusal now falls through to the next tower exactly like a
+			# funds/caps/budget rejection already does. build_at() re-runs the full
+			# _placement_reason(); it can only ever agree here, since the lattice is
+			# pre-filtered on bounds and lane and `_overlaps()` above covers the third
+			# test — but it stays checked rather than assumed.
+			if s.build_at(tid, cand_x, cand_y):
 				placed_one = true
 				break
 		if not placed_one:
 			return
+		# Fold the new emplacement into its own lane's separations. Same expression as the
+		# seeding loop above, deliberately — one arithmetic form for "arclength distance",
+		# not two that must be kept in step. Mirrors sim/engine.py's identical tail.
+		var pl: int = int(rows[cand_i][2])
+		var ps: float = float(rows[cand_i][3])
+		for i in groups[pl]:
+			var d: float = ps - float(rows[i][3])
+			if d < 0.0:
+				d = -d
+			if d < sep[i]:
+				sep[i] = d
 
 
 func _shed(s, policy: Dictionary) -> void:

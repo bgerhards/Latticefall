@@ -3426,3 +3426,70 @@ a prop in `gen_assets.py`'s `PROP_ALLOWLIST`, so `asset coverage` governs it. An
 **The asset removal is deliberately NOT in the same change** (`LF-216`). It triggers the art
 pipeline and a re-import, which is the step that blanks the owner's running game if mishandled
 (`LF-075`), and a red `sprite atlas` inside a UI pull request would read as a UI regression.
+
+---
+
+## 081 — The grader's lattice is ordered by lane round-robin and per-lane maximin, and the grade table is not what chose it
+
+**2026-08-03.** `PLC-04` replaces `_slot_priority()` — which ranked the anchor's authored slots
+by distance to the path — with a deterministic candidate lattice at ½-tile pitch, so the grader
+can stand a gun where no level author put a slot. The spec names the ordering: sort by
+`(d2_to_path, x, y)`, consume greedily from the front, no re-sort per iteration.
+
+**The specified ordering is rejected, and four alternatives were measured before one was
+adopted.** Every anchor's lanes are axis-aligned, so `d2_to_path` **ties exactly** across the
+whole band parallel to a lane and the secondary key does all the work. `(x, y)` turns into a
+raster sweep: on all 24 anchors the graded build collapsed into a 3–4 tile column at the board's
+left edge, against authored slots that spanned 12–16 tiles. anchor-09 put twelve emplacements in
+a 4x10 block on a board whose second lane runs down `x=15`, never defending that lane at all, and
+went from 9/6/4 winning builds to **0/0/0**.
+
+| ordering | anchors clean | anchor-09 | board |
+|---|---|---|---|
+| `(d2, x, y)` — as specified | 16/24 | 0/0/0 | all twelve in a 3–4 tile column, lane 1 undefended |
+| minimum separation 2.5 tiles | **23/24** | 0/0/0 | knob-tuned and non-monotone — 3.0 gives 21/24 |
+| global maximin arclength spread | 21/24 | ok | spread along one path, the other lane favoured |
+| lane round-robin + `(d2, arc, x, y)` | 17/24 | 4/0/0 | lanes split 8/4, each packed at its own head |
+| **round-robin × per-lane maximin** | **20/24** | **7/2/1** | **8/4 split, full-path coverage on both** |
+
+**Adopted: round-robin across lanes for whose turn it is, and within a lane the candidate whose
+arclength is farthest from every emplacement already on that lane.** Two orthogonal defects, each
+with a fix that does nothing for the other. Round-robin cures lane-blindness — it is the only
+mechanism that can express "this lane has no guns on it". Maximin cures front-loading, which
+round-robin does not touch, because **any total order consumed greedily from the front packs at
+the front**: `(x, y)` packed at the board corner and arclength packed at the lane head, which is
+the same defect wearing a different axis. Composed, anchor-09's twelve emplacements cover lane 0
+at arclengths 0, 4.5, 9, 13.5, 18, 22.5, 27, 36 of 37 and lane 1 at 0, 3.5, 7, 14 of 14.
+
+**The decisive point is that the grade count did not choose it — and could not have.** Minimum
+separation at 2.5 tiles scores 23/24, the best of the five, while producing boards nobody would
+defend; the adopted ordering scores 20/24 while producing the only board of the five that is
+indistinguishable in shape from a hand-authored layout. **Board quality and grade count are
+anti-correlated across the candidates**, measured twice over five orderings, which means
+`PLC-04`'s acceptance criterion 6 — "every anchor still grades `ok`" — is not a valid selector
+and is **withdrawn as a bar for this issue**. The 24 clean grades in `docs/STATE.md` were swept
+against a grader confined to the authored slots; a grader that places well finds anchor-01, 04,
+09 and 11 genuinely thin at the top difficulty. That is a re-balance, not an ordering, and it is
+`BAL-04`'s.
+
+**Rejected — ordering the lattice by presence-weighted coverage**, even though decision-adjacent
+work an hour earlier (`LF-217`) proved it predicts real emplacement uptime far better than
+distance to the lane does (rank correlation +0.748 against +0.520). Two independent reasons. It
+is **circular**: presence weighting needs the live-unit-tick profile, which comes from running the
+sim, which depends on where things were built. And it **cannot be mirrored**: decision 078
+restricts the rules and their harnesses to operations byte-identical across MSVC UCRT and
+CPython/Linux, enforced by the `safe operations` check over `sim/engine.py` and
+`scripts/test/parity.gd` — the two files the lattice lives in. `d2_to_path` and an arclength are
+`+ - * / sqrt` and comparisons throughout; a coverage-weighted key is not.
+
+**Rejected — a minimum-separation constant**, despite it scoring highest. It is a tolerance
+widened until the number came out right, it is **non-monotone** in its own parameter (2.5 gives
+23/24 and 3.0 gives 21/24), it fails on a different set of anchors at every value, and it never
+rescued anchor-09 at any setting. A knob that scores well and explains nothing is the shape of
+result decision 067 refused.
+
+**The general lesson, which outlives `PLC-04`.** A search heuristic that has not been found yet
+and a metric that cannot select one look identical from a single number. What separated them here
+was running four structurally different orderings and noticing that *different anchors failed
+each time* while the best-scoring one produced the worst board — the signature of grades co-tuned
+with the thing being replaced, not of a better sort key waiting to be discovered.
