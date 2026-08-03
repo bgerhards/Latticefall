@@ -5739,6 +5739,344 @@
           "text": "None of those four was visible before, and each needed a different lever. **That is what the three instrument entries were for.**"
         }
       ]
+    },
+    {
+      "id": "the-generator-was-not-the-deliverable",
+      "date": "2026-08-03",
+      "time": "18:50",
+      "title": "The generator was not the deliverable. Thirteen tiles was.",
+      "summary": "`LF-080` builds `tools/genboard.py`, the large-board layout generator that decision 073's 48×48 target needs before any 48² content can exist — shipped anchors are 12–18 by 10–15, and hand-authoring a four-lane 48² theatre is not viable. Every budget it emits is a shipped-content ratio re-measured off `data/anchors/` at run time, not a constant somebody typed. But the tool is not the point. Run the repaired coverage instrument over its output and the top weapon needs about 13 tiles of range to cover the same fraction of a 48² lane it covers on a shipped board today — a number a whole balance epic can start from. Also here: a blocking discovery bug proved rather than described, and an instrument that fooled itself one entry after being repaired.",
+      "tags": [
+        "TS",
+        "BAL"
+      ],
+      "decisions": [
+        "073",
+        "074"
+      ],
+      "body": [
+        {
+          "type": "p",
+          "text": "The previous entry — **Four anchors, four different levers**, `four-anchors-four-different-levers`, merged as **#143** — closed `LF-223` and put the game at 24 of 24 anchors clean. It ended by observing that the three entries before it had each found a fault in an **instrument**, and that it had then used those repaired instruments to find four real defects. This entry does the same thing to a board that does not exist yet."
+        },
+        {
+          "type": "p",
+          "text": "`LF-080` — THEATRE SCALE 05 — is **the large-board layout generator**, `tools/genboard.py`. Decision **073** set the board target to 48×48. Shipped anchors are 12–18 wide by 10–15 tall. Hand-authoring a four-lane 48² anchor with a converging funnel and 78 sited emplacement slots is not viable, so the generator had to exist before the content could."
+        },
+        {
+          "type": "h3",
+          "text": "What it emits, shown rather than described"
+        },
+        {
+          "type": "p",
+          "text": "This is the first entry in five with something visual in it, and the reason the other four had none is that they changed JSON files and measured them. `--preview` renders the board as ASCII and writes nothing — the same preview-first method `tools/densify.py` uses. The default configuration, captured for this entry:"
+        },
+        {
+          "type": "pre",
+          "text": "    0    0    1    1    2    2    3    3    4    4  \n  0 ..S.............................................\n  1 ..0...o...............o.......o.................\n  2 .o0000000000.........0000000000.................\n  3 ..........o0.........0....o...0.................\n  4 ...........0o........0........0.................\n  5 ...........0.........0o.......0.................\n  6 ...........0.........0.......o0.................\n  7 ...........0.........0........0.................\n  8 ..........o0..o.....o0........0.......o.........\n  9 ...........00000000000........00000000000.......\n 10 ..................o...........o...o.....0.......\n 11 .......................................o0.......\n 12 ........................................0.......\n 13 ..o......o................o.............0.......\n 14 S1111111111111o......o1111111111........0.......\n 15 ......o......1........1......o.1........0o......\n 16 .............1........1........1o.......0.......\n 17 .............1........1........1........0.......\n 18 .............1o......o1........1.......o0.......\n 19 .............1........1........1........0.......\n 20 .............1....o...1.......o1..o.....0.......\n 21 .............1111111111........111111111#.......\n 22 ..............o......o................oo#oo.....\n 23 ........................................#.o.....\n 24 ........................................####K...\n 25 ......o......o...............o..........#.o.....\n 26 S22222222222222........222222222.......o#oo.....\n 27 ..o......o....2........2.o....o2........#.......\n 28 ..............2.......o2.......2........#.......\n 29 .............o2........2.......2.......o#.......\n 30 ..............2........2.......2.......o#.......\n 31 ..............2........2.......2o.......#.......\n 32 ..............2o.....o.2o......2....o...#.......\n 33 ..............2222222222.......222222222#oo.....\n 34 .................o...............o......3.......\n 35 ........................................3.......\n 36 ........................................3.......\n 37 ................o.......o........o.....o3.......\n 38 ................333333333.......333333333.......\n 39 ................3...o...3.......3....o..........\n 40 ................3.......3.......3...............\n 41 ................3.......3.......3o..............\n 42 ................3o.....o3.......3...............\n 43 ................3.......3.......3...............\n 44 ................3.......3o......3...............\n 45 .......o333333333.......333333333o..............\n 46 ........3...o...o...........o...................\n 47 ........S.......................................",
+          "caption": "`.venv/bin/python tools/genboard.py --preview`, default configuration, verbatim. The digit is the lane index — four lanes, `0` through `3`, laid in disjoint horizontal bands with buildable gutters between them and serpentining inside each band. `#` is a tile shared by more than one lane, which is what the converging funnel at `x=40` is made of. `o` is an emplacement slot, `S` a spawn point, `K` the keep at (44,24). The gutters are the point: every dot is buildable ground, and there is a great deal of it."
+        },
+        {
+          "type": "p",
+          "text": "The full 48×48 grid is 52 characters wide including its row labels, which fits this page's column without scrolling — so it is shown at full size rather than reduced to a smaller `--lanes` configuration. The identity and budget block `--preview` prints underneath it has one line — the weapon-range summary, 118 characters — that is wider than the column, and it scrolls sideways rather than wrapping:"
+        },
+        {
+          "type": "pre",
+          "text": "anchor-25  Generated 48x48 theatre, 4 lanes  ·  act 3\n  grid            48x48 = 2304 tiles\n  lanes           4  lengths 80 68 74 73  total 295  union 272 tiles\n  spawn points    4  (2, 0) (0, 14) (0, 26) (8, 47)\n  slots           78  (3.5 lane tiles each)\n  capacity        1872 MW  = 50% of board saturation (78 x 48 MW)\n  funds / lives   21917  /  244\n  capacity decay  68.6 MW per wave\n  unlocked        9 emplacements at id 'anchor-25' (unlocks follow the ID, not --act)\n  weapon range    3.8-7.0 tiles  → one emplacement at max range covers 4.7% of the lane set, 17.5% of its longest lane\n\n  wave  units  leak       hp   drain  per-lane\n     1     39    55     5465     176  10 10 10 9\n     2     51    67     6570     224  13 13 13 12\n     3     63    83     8005     272  16 16 16 15\n     4     74    94     8850     304  19 19 18 18\n     5     86   108    10060     348  22 22 21 21\n     6     98   122    11390     400  25 25 24 24\n     7    110   140    13410     468  28 28 27 27\n     8    122   160    15420     524  31 31 30 30\n     9    134   174    16750     576  34 34 33 33\n    10    146   186    17740     616  37 37 36 36\n   tot    923  1189   lives 244 = 20.5% leak budget",
+          "caption": "The same run's summary and generated wave table, verbatim. The one 118-character line runs past the column and scrolls rather than wrapping, because a soft-wrapped listing is not the listing."
+        },
+        {
+          "type": "p",
+          "text": "Lane lengths 80 / 68 / 74 / 73 = **295 tiles**, union **272**, **78 slots**, **1872 MW**, **21,917 funds**, **244 lives**, **923 units** across 10 waves, from four spawn points on three edges."
+        },
+        {
+          "type": "h3",
+          "text": "Nothing in that block is a constant somebody typed"
+        },
+        {
+          "type": "p",
+          "text": "**Every budget is a shipped-content ratio re-measured off `data/anchors/` at run time, multiplied by a measured property of the generated board.** Slot count is union lane tiles divided by 3.5. Capacity is slot count × max draw × 0.50. Funds come from the shipped funds-per-slot ratio, lives from the act's leak budget, wave mass from the lane-length ratio. Change the shipped content and the generator's output moves with it, which is the only way a generator stays honest as the game it scales from is tuned."
+        },
+        {
+          "type": "p",
+          "text": "Validated clean — **0 schema errors, 0 `check_anchor` errors, 0 warnings** — across nine configurations: lanes 2–5, sweeps 1–5, 32² / 48² / 64², acts 1–3. Deterministic: `--selftest` generates twice and compares byte-identical at **35,522 bytes**; two `--out` runs `diff` empty at the same sha256; verified cwd-independent."
+        },
+        {
+          "type": "h3",
+          "text": "The prerequisite that was genuinely blocking, proved rather than described"
+        },
+        {
+          "type": "p",
+          "text": "`LF-132`: `sim/content.py`'s `all_anchor_ids()` discovered anchors with a raw `glob('anchor-*.json')`, so **any untracked file dropped in `data/anchors/` was treated as real shipped content.** The backlog entry had predicted, in as many words, that this would bite again the moment anyone built the large-board generator — because a generate, grade, discard workflow is exactly that."
+        },
+        {
+          "type": "p",
+          "text": "It was proved by doing it rather than by reasoning about it. The generated board was dropped at `data/anchors/anchor-25.json`, untracked, and the numbers taken on both sides of the fix:"
+        },
+        {
+          "type": "table",
+          "headers": [
+            "",
+            "before (`glob`)",
+            "after (`git ls-files`)"
+          ],
+          "rows": [
+            [
+              "`all_anchor_ids()`",
+              "25",
+              "**24**"
+            ],
+            [
+              "act 3 units/wave, `tools/density.py`",
+              "**22.3** (was 13.6)",
+              "13.6"
+            ],
+            [
+              "act 3 hp/wave",
+              "2747 (was 1668)",
+              "1668"
+            ],
+            [
+              "gate `wave density` reference act",
+              "`act 1 32 (92%) · act 3 35 (100%)`",
+              "`act 1 32 (100%) · act 3 21 (66%)`"
+            ]
+          ]
+        },
+        {
+          "type": "p",
+          "text": "The gate check **flipped which act it treats as the reference**, and that is the part worth naming: not a crash, not a red run — a silently different answer to the question the check exists to ask. After the conversion the generated file is still sitting on disk and every number is back where it was."
+        },
+        {
+          "type": "p",
+          "text": "`load_anchor()` was deliberately left alone, so an untracked board still grades **by name** — which is the whole generate-and-discard workflow, and the reason the fix belongs in **discovery** rather than in loading. Both synthetic anchors were deleted afterwards; 24 tracked."
+        },
+        {
+          "type": "h3",
+          "text": "The finding, which is worth more than the tool"
+        },
+        {
+          "type": "p",
+          "text": "`LF-187` predicted that decision **074**'s range numbers would not survive 48²: longer lanes mean a fixed absolute range covers a shrinking fraction of the board. **That is now measured rather than predicted.**"
+        },
+        {
+          "type": "p",
+          "text": "The target is **about 13 tiles for the top weapon**, being the range at which the median generated slot recovers the 48.9% own-lane coverage a shipped act-3 slot has today."
+        },
+        {
+          "type": "table",
+          "headers": [
+            "range (tiles)",
+            "median own-lane coverage, generated 48²"
+          ],
+          "rows": [
+            [
+              "7.0",
+              "21.8%"
+            ],
+            [
+              "9.0",
+              "30.8%"
+            ],
+            [
+              "11.0",
+              "41.3%"
+            ],
+            [
+              "**13.0**",
+              "**48.8%**"
+            ]
+          ]
+        },
+        {
+          "type": "p",
+          "text": "The demonstration is a control the generator ships with. `--budget shipped` puts a shipped act-3 anchor's **absolute** numbers — 12 slots, 290 MW, 4030 funds, 13.7 units/wave — onto the generated 48² geometry, unchanged. It grades like this:"
+        },
+        {
+          "type": "table",
+          "headers": [
+            "difficulty",
+            "winning builds",
+            "peak",
+            "% cap",
+            "brownout",
+            "died on",
+            "verdict"
+          ],
+          "rows": [
+            [
+              "standard",
+              "3 of 15",
+              "504.0 MW",
+              "174%",
+              "100%",
+              "wave 7",
+              "—"
+            ],
+            [
+              "hard",
+              "1 of 15",
+              "504.0 MW",
+              "174%",
+              "100%",
+              "wave 7",
+              "**single-solution**"
+            ],
+            [
+              "brutal",
+              "0 of 15",
+              "474.0 MW",
+              "163%",
+              "100%",
+              "wave 7",
+              "**unwinnable**"
+            ]
+          ]
+        },
+        {
+          "type": "p",
+          "text": "With budgets **derived from the geometry** instead, the same board grades `ok` at all three. So the control does its job: it separates the range-and-budget question from the layout question, and the layout is not what is broken."
+        },
+        {
+          "type": "p",
+          "text": "A second defect shows up in that same derived grade, and it belongs to `BAL-04` rather than here: **the winner set and the death wave do not move across difficulty at all.** Four distinct builds at each of standard, hard and brutal; all three dying at wave 7; the same four policies winning every time — burst, greedy-overdraw, anti-armour, overcharge-greedy. **Margin** moves — winners finish on 106–126 lives at standard and 10–64 at brutal — but **selection does not**. Difficulty is changing how close it is, not what works."
+        },
+        {
+          "type": "h3",
+          "text": "The presence profile: the shape is fine, the level has collapsed"
+        },
+        {
+          "type": "p",
+          "text": "Measured with the coverage instrument that entry 53 — **The test of the instrument was red**, `the-test-of-the-instrument-was-red` — repaired. Generated 48² against shipped act-3 anchor-20:"
+        },
+        {
+          "type": "table",
+          "headers": [
+            "",
+            "generated 48²",
+            "anchor-20"
+          ],
+          "rows": [
+            [
+              "presence p50, authored slots",
+              "**6.8%**",
+              "55.4%"
+            ],
+            [
+              "the board's own presence ceiling",
+              "**11.9%** (2032 legal positions)",
+              "91.3% (180)"
+            ],
+            [
+              "siting efficiency",
+              "0.57",
+              "0.61"
+            ],
+            [
+              "uptime p10 / p50 / p90",
+              "12% / 19% / 34%",
+              "27% / 48% / 63%"
+            ],
+            [
+              "damage share p50 / max",
+              "1.4% / 6.5%",
+              "9.2% / 33.6%"
+            ],
+            [
+              "near-zero (uptime under 10%)",
+              "275/4368 = 6%",
+              "30/659 = 5%"
+            ]
+          ]
+        },
+        {
+          "type": "p",
+          "text": "**`LF-218` does not get structurally worse at 48², and that was worth checking rather than assuming.** Cumulative presence reaches 25 / 50 / 75 / 90% at lane fraction 13 / 31 / 57 / 81% on the generated board, against 14 / 32 / 58 / 82% on anchor-20. The last quarter of the lane carries 13.6–14.1% per lane against anchor-20's 14.1%. The four lanes carry 26.9 / 23.8 / 25.3 / 23.9% of live unit-ticks, which is about as even as a four-lane board gets."
+        },
+        {
+          "type": "p",
+          "text": "So **the attrition profile is scale-invariant** once slot count scales with lane length. What collapses is per-emplacement work, not the shape of the tail — which is precisely a range problem and not a layout one. That is the same 13 tiles, reached from a different direction."
+        },
+        {
+          "type": "h3",
+          "text": "The instrument fooled itself again, one entry after being repaired"
+        },
+        {
+          "type": "p",
+          "text": "`verdict()` printed “no material near-zero tail (6% of emplacements)” for a board whose own ceiling is **11.9%**. The `(0)` branch short-circuits on the near-zero fraction before branch `(b)` ever consults `board_presence_ceiling`. Filed as `LF-229`."
+        },
+        {
+          "type": "p",
+          "text": "It is **invisible on all 24 shipped anchors**, because their ceilings are 75–95% and the short-circuit gives the right answer every time at those levels. Only a board unlike any shipped board reaches the hole."
+        },
+        {
+          "type": "p",
+          "text": "Worth saying plainly rather than filing quietly: **entry 53 rewrote those exact labels earlier the same day**, and the rewrite has a hole. It is the same lesson as `firing arcs agree`, and it keeps arriving in different clothes — **a check that runs over all shipped content proves nothing about a branch the shipped content never enters.**"
+        },
+        {
+          "type": "h3",
+          "text": "What `slots` is still for, after `PLC-04`"
+        },
+        {
+          "type": "p",
+          "text": "Checked against the tree rather than assumed, because the generator has to decide how much care to spend siting slots that free placement has arguably made decorative. The answer is a clean three-way split:"
+        },
+        {
+          "type": "list",
+          "items": [
+            "**The count is a real budget.** `_effective_cap()` takes `max_emplacements` else `len(slots)`, and it is the binding constraint in every run graded here — 12 of 16 policies fill all 78 and stop. It is also `validate_data.py`'s saturation denominator and `board_presence_ceiling`'s `n_slots`.",
+            "**The positions are an instrument input and a validator input.** `validate_data.py`'s bounds, on-path, duplicate, dead-slot and ramp/cliff checks; all of `sim/coverage.py`'s per-slot work; the editor overlay; `PLC-06`'s autoplay fallback (`LF-207`); and `_slot_priority()`, kept alive solely for decision 022's measurement.",
+            "**The positions are dead to both placement paths** — the grader's (7,402 lattice candidates on 48² against 579 and 763 on shipped boards), the player's, and the board render."
+          ]
+        },
+        {
+          "type": "p",
+          "text": "So the generator sites slots carefully **only because the coverage instrument reads them**. A generator that emitted `max_emplacements` and no `slots` at all would grade identically and be unmeasurable — which is a good argument for keeping the field and a bad one for believing it still does what its name suggests."
+        },
+        {
+          "type": "h3",
+          "text": "Two more filed on the way through"
+        },
+        {
+          "type": "list",
+          "items": [
+            "**`LF-228`** — `anchor_view.gd::_on_built()` computes the ward-engagement total as `placed + available_slots()`. With free placement that total **grows with every build**, so `wards-full` never fires; and on a slots-less anchor it equals `placed`, so `wards-half` and `wards-full` both fire on the **first** build.",
+            "**`LF-230`** — `InstrumentedSim`'s overhead is 2.1× at 12 emplacements and **6.8× at 78** (3.88 s → 26.41 s, same policy, `Outcome`s field-identical). A full coverage pass is 2.5 minutes on anchor-20 and **21 minutes** on the 48² board; a 64² board derives 131 emplacements. The rules got `WAR-03`'s spatial grid. The instrument did not."
+          ]
+        },
+        {
+          "type": "h3",
+          "text": "Not a refusal, with one caveat worth recording"
+        },
+        {
+          "type": "p",
+          "text": "The sim cost does **not** explode at this scale. The candidate lattice builds in 125 ms, a plain run is 2.5–4.9 s, a full 60-cell grade about 7.5 minutes. Maximum `sim_seconds` observed was **1,397 against a `MAX_SIM_SECONDS` of 3,600** — so nothing is being killed by the clock. But that headroom is 2.6×, and a 64² board with slower act-3 units will approach it. Recorded now, while it is still comfortable."
+        },
+        {
+          "type": "p",
+          "text": "And one thing that is not about scale at all: **all 16 policies reach the emplacement cap during wave 1's 22-second lead-in** — on the generated board **and** on shipped anchor-24. **Nothing is sequenced after the first decision.** That is inherited from the shipped funds-per-slot ratio rather than caused by the board size, which is exactly why it matters: scaling the ratio forward carries the defect forward with it."
+        },
+        {
+          "type": "h3",
+          "text": "What this entry does not have"
+        },
+        {
+          "type": "p",
+          "text": "The work sits on `lf/ts-layout-generator` and is uncommitted as this is written, so there are **no commit hashes** here. A tier-4 gate is in flight and **no verdict is stated** — the result belongs in the entry that actually has it, not in a hopeful sentence in this one."
+        },
+        {
+          "type": "h3",
+          "text": "Five entries, and the tool is the least of them"
+        },
+        {
+          "type": "p",
+          "text": "Five entries today. Four of them found the fault in an instrument — the metric, then the test of the metric, then the acceptance criterion, and then the four real defects those repaired instruments exposed. This one built a tool, ran the repaired instruments over its output, and got a number."
+        },
+        {
+          "type": "p",
+          "text": "**The tool is not the deliverable. The measurement the tool made possible is.** Thirteen tiles is a whole balance epic's starting point, and it did not exist this morning."
+        }
+      ]
     }
   ]
 }

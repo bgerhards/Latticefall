@@ -294,6 +294,8 @@ th {
 td { color: var(--bone); border-bottom: 1px solid rgba(37, 51, 56, 0.6); }
 tr:last-child td { border-bottom: none; }
 td code, th code { white-space: normal; }
+/* The header row is uppercased as a style; a function or path named in it is not. */
+th code { text-transform: none; letter-spacing: 0; }
 
 figure {
   margin: 24px 0;
@@ -316,6 +318,42 @@ figcaption {
   font-size: 0.88rem;
   color: var(--muted);
   line-height: 1.5;
+}
+
+/* ---- Listings (verbatim tool output) ----
+
+   Same raised-panel treatment as `figure`, because a captured terminal frame is evidence in
+   exactly the way a screenshot is. Bone on panel is 12.73:1, so the smaller type is still
+   well past AA; the wrapper scrolls horizontally rather than wrapping, because a soft-wrapped
+   ASCII board is not the board. */
+
+figure.listing {
+  margin: 24px 0;
+  padding: 12px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.pre-wrap {
+  overflow-x: auto;
+  border-radius: 3px;
+}
+
+figure.listing pre {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 0.85rem;
+  line-height: 1.35;
+  color: var(--bone);
+}
+
+figure.listing pre code {
+  background: transparent;
+  padding: 0;
+  font-size: inherit;
+  color: inherit;
+  white-space: pre;
 }
 
 /* ---- Commits ---- */
@@ -355,4 +393,5 @@ footer.site-footer code { font-size: 0.85em; }
   .entry-header h1 { font-size: 1.6rem; }
   th, td { padding: 6px 10px; }
   blockquote { font-size: 1.1rem; }
+  figure.listing pre { font-size: 0.72rem; }
 }

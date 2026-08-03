@@ -13,7 +13,7 @@ a disposable projection of them.
 
 `chronicle.json` is that source here. It is an ordered list of entries — date, title,
 summary, tags, decision references, commits, and a body made of small typed blocks
-(paragraph, heading, quote, list, table, image). This script is the only thing that turns
+(paragraph, heading, quote, list, table, image, pre). This script is the only thing that turns
 that data into `index.html` and `entries/*.html`. It is idempotent: running it twice with an
 unchanged `chronicle.json` produces byte-identical output, because nothing here reads the
 clock or the filesystem beyond the JSON and the already-committed images it references.
@@ -190,12 +190,31 @@ def render_block(block: dict[str, Any], image_prefix: str) -> str:
         items = "".join(f"<li>{render_inline(i)}</li>" for i in block["items"])
         return f"<ul>{items}</ul>"
     if t == "table":
-        headers = "".join(f"<th>{esc(h)}</th>" for h in block["headers"])
+        # Headers go through `render_inline` like every other prose field. They used not to,
+        # and the result was the LF-173/LF-189 shape one more time: two headers in the
+        # already-published `the-test-of-the-instrument-was-red` printed literal backticks
+        # around `lane_coverage()`, and `audit_markup` could not see it because it only scans
+        # for `**`. A header naming a function or a path is prose about code, so it needs the
+        # same code spans the cells beneath it already get.
+        headers = "".join(f"<th>{render_inline(h)}</th>" for h in block["headers"])
         rows = "".join(
             "<tr>" + "".join(f"<td>{render_inline(str(c))}</td>" for c in row) + "</tr>"
             for row in block["rows"]
         )
         return f'<div class="table-wrap"><table><thead><tr>{headers}</tr></thead><tbody>{rows}</tbody></table></div>'
+    if t == "pre":
+        # Verbatim tool output — an ASCII board preview, a grade table, a gate tally. It is
+        # NOT prose and must never go through `render_inline`: a listing's backticks,
+        # asterisks and angle brackets are content, so the text is escaped once and emitted
+        # untouched. `<code>` inside `<pre>` is the semantic pairing for a code listing and
+        # it also makes the listing invisible to `audit_markup`'s bold scan, which is
+        # correct — a `**` in captured output is not unrendered markup.
+        cap = block.get("caption", "")
+        cap_html = f"<figcaption>{render_inline(cap)}</figcaption>" if cap else ""
+        return (
+            f'<figure class="listing"><div class="pre-wrap">'
+            f'<pre><code>{esc(block["text"])}</code></pre></div>{cap_html}</figure>'
+        )
     if t == "image":
         src = f"{image_prefix}{block['file']}"
         cap = render_inline(block.get("caption", ""))
