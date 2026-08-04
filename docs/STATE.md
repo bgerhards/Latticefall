@@ -25,9 +25,11 @@ is stable and worth stating: **a tier is a *minimum*, a tier-excluded check repo
 NOT a pass**, and **tier 4 exceeds the 600 s Bash ceiling** whenever the parity digest misses, so
 it will background and notify.
 
-**The parity digest covers rule files AND every tracked data file — 78 of them now.** So a
-data-only change forces a fresh 1,440-run comparison on both platforms, and `wrap_gate.py` will
-escalate to tier 4 with no watched *path* having changed. That is a digest escalation, not a
+**The parity digest covers rule files AND every tracked data file** — `wrap_gate.py` prints the
+live count, which is 79 as this is written and will not stay that. So a data-only change forces a
+fresh comparison on both platforms (**1,512 runs** since decision 089 added the 21st policy — and
+that number moves with the policy set, so read the run's own header rather than this line), and
+`wrap_gate.py` will escalate to tier 4 with no watched *path* having changed. That is a digest escalation, not a
 path one, and it is correct. **But CI does not agree with the gate about this** (`LF-227`):
 `parity-windows.yml` triggers on three rule files only, so a data-only PR gets no Windows leg.
 
@@ -43,133 +45,143 @@ A `--script` parity run is only ~2 cores and overlaps freely.
 
 ## Where the project is
 
-**Latticefall is content-complete at 18×15, and the theatre-scale frontier is now unblocked on
-its range half.** 24 anchors grading `ok` at all three difficulties, three acts, a board camera
-with a minimap, multi-lane paths, terrain elevation, sixteen-yaw turrets, free placement end to
-end, CI running the real gate and parity on both platforms, and a build journal at **65 entries**.
+**Latticefall is content-complete at 18×15, and the campaign's own instruments have just been
+rebuilt.** 24 anchors grading `ok` at all three difficulties, three acts, a board camera with a
+minimap, multi-lane paths, terrain elevation, sixteen-yaw turrets, free placement end to end, CI
+running the real gate and parity on both platforms, and a build journal at **69 entries**.
 
 The programme is `docs/PRD-THEATRE-SCALE.md`, decomposed into `docs/issues/`. **Milestones:**
 E1 Process 17/20 · E2 Camera **8/8** · E3 Placement **7/7** · E4 Terrain 5/14 · E5 War 6/15 ·
-E6 Fidelity 5/8 · E7 Balance 4/7.
+E6 Fidelity 5/8 · E7 Balance 5/7.
 
-**A 48² board has now been generated, graded, and looked at in the engine** —
-`docs/chronicle/assets/2026-08-04-first-48-square-board.png` is the first picture of one. That
-single act produced three of this session's five findings.
+**`BAL-04`'s instrument half is now done and its content half is unblocked.** Four decisions
+(086–089) replaced the grade-quality selector, confirmed the brownout price, rebased the
+acceptance criteria against measurement, and gave the grader the one verb it had never used. The
+campaign is graded by 21 policies now, not 20, and the numbers below are that campaign.
 
 ## What the last session did
 
-**Four pull requests, #152–#155, four decisions (082–085), and eleven backlog items
-(`LF-242`–`LF-252`).** The arc is one sentence: **five times, the instrument was the thing that
-was wrong** — and every one was found by looking at the thing the check was standing in front
-of, not by auditing checks.
+**Four pull requests, #157–#160, four decisions (086–089), and eight backlog items
+(`LF-253`–`LF-260`).** The arc is one sentence: **three of the four were measured refusals**, and
+every finding came from pointing an instrument at the campaign rather than from auditing the
+instrument.
 
-| what was checked | what it reported | what was true |
-|---|---|---|
-| grade table, 24 anchors × 3 (`LF-243`) | 24/24 `ok` at the derived ranges | brutal win share **25% → 43%**, median winning builds 3 → 6 |
-| `rules parity`, 1,440 runs (`LF-244`) | the two engines agree | **six of eight** scheduled verbs never dispatched once |
-| `coverage.py` `site-eff` (`LF-246`) | anchors 03–05's slots reach 36–47% | slot **positions** vestigial since `PLC-04` |
-| `accessibility` at 200% (`LF-247`) | 192 text items clean | the playfield was **4 px** wide |
-| `game renders` (`LF-251`) | `coverage 0.95, 114 tones` | **identical** before and after the board changed completely |
+| what was asked | what was found |
+|---|---|
+| `LF-243`: bound brutal's win share | **no bound exists.** Every *shape* statistic is identical between the healthy campaign and the dissolved one — drop ratio 0.405 vs 0.411, hazard fit 1.143 vs 1.121. Only the *level* differs, and bounding a level takes a fitted constant. Claim weakened until it needed none. |
+| `LF-253`: is overdrawing overpowered? | **no — it is an artefact.** The clean/browned split is the same runs at every price. Within policy the effect drops three quarters and flips sign on brutal: +6.0 / +5.2 / **−3.7%**. |
+| `LF-255`: is `ROBUST_ENOUGH` misread? | **yes, and three of nine acceptance criteria were failed by the baseline they describe.** One was impossible by construction. |
+| `LF-245`: does an upgrade policy help? | **yes on standard, no above it.** 11/24 · 5/24 · **0/24** against `cheap-mass`'s 9 · 9 · 5. |
 
-**#152 — range derived for 48², and refused.** `tools/range_derive.py` holds *own-lane coverage*
-fixed and bisects for the range at which a generated 48² board recovers what a shipped act-3 slot
-has. Mortar 7.0 → **13.0**, reproducing a previous session's estimate by a different route; the
-ladder is **not** uniform (1.36× at the short end, 1.86× at the long) and the **support** rows are
-in it because `Sim._covered_by()` tests their range against *unit* positions exactly as the firing
-loop does. Decision **082**. The patch is printed, never applied — and the obvious reason was
-measured and is **wrong**: all 24 shipped anchors stay `24/24 ok` at the derived ranges. What
-happens is that brutal dissolves, and the grade table cannot see it.
+**#157 — win share, with no constant in it.** The top difficulty's win share must fall strictly
+below the bottom one's, on every anchor. 0 of 24 shipped anchors fail; 3 of 24 fail at decision
+082's derived ranges. `tools/range_derive.py --shipped-impact` now prints **21/24 clean against
+24/24 at the authored ones** where it used to print 24/24 on both sides — the tool that found the
+blind spot reports it. `verdict()` is a pure function now, `--selftest` drives all four rules red
+and green, and `grade verdict` (tier 1, ~200 ms) is the **red half** of `anchor grades`, proved
+red four ways by breaking behaviour. Decision **086**.
 
-**#153 — the six verbs nobody graded are the six with a key bound to them.** `Sim._dispatch_one()`
-accepts eight; twenty policies schedule two. Decision **083**, and a `verbs agree` check at tier 3
-(2.5 s) whose best idea is that **`upgrade` is proved geometrically** — a probe 4.0 tiles off a
-lane at range 3.0 *cannot fire*, and after the merge admits 8.0 it can.
+**#158 — the discipline gap was a population, not an effect.** Browned-out runs win by 21.8
+points raw. Whether a run browns out is decided by the *policy's* build rules, so the raw split
+compares policies, not behaviours — the lance is the best weapon and draws the most, so a
+lance-led board overdraws. A slope sweep from 1.5 to 6.0 also killed the idea that the price is
+the lever: the gap only reaches zero where **five anchors stop grading**, and past slope ~4 the
+0.70 cap means **there is no price left to raise**. Decision **087**.
 
-**#154 — the playfield was 4 px wide at 200%.** `COL_W + THREAT_W` = 948 px that do not shrink
-when the scale shrinks the viewport. Decisions **084** (decision 073's zoom-to-fit row divided by
-the full viewport, not the strip — 2.04× out at 100%, 223× at 200%; **strike the row, board stays
-48²**) and **085** (`Ui.PLAYFIELD_MIN_W := COL_W`, threat panel undocks above ~137%). New
-`playfield width` check, tier 1, 9 ms, proved red four ways.
+**#159 — the acceptance criteria had never been run against the campaign.** Three of nine failed,
+a fourth had been satisfied three sessions earlier by decision 067. `ROBUST_ENOUGH = 8` has now
+carried **four** distinct meanings. Every bullet carries its measured baseline and the one-liner
+that reproduces it, and the bar is *no anchor gets worse*. Decision **088**.
 
-**#155 — autoplay built twelve dampers.** `Content.unlocked_at()` sorts alphabetically, so
-`anchor-damper` won every pick from anchor-10 on. Fixed as a *policy*, not a sort, because
-`sim/run.py` sorts the same list and re-ordering it would move a parity input.
+**#160 — the grader had never bought an upgrade.** 55–62% of every fund is unspent because
+`Sim._dispatch_one()` has accepted `upgrade` since BAL-01 and no policy scheduled one.
+`upgrade-ladder` is `cheap-mass` plus a schedule, so every difference is attributable to
+upgrading alone. It is a **net negative campaign-wide** (16 of 72 cells against 23) that still
+opens **nine cells nothing else reaches** and adds a winning build to 10 of 72. Parity ran fresh
+on **both** platforms at 1,512 runs, identical. Decision **089**.
 
-**Three subagent dispatches, and every one pushed back with evidence.** The `godot-engineer`
-refused **both** minimap approaches the brief recommended, with a capture showing the build bar
-below the fold. The `chronicler` caught an error in **each** of three briefs — a policy count of
-three that was two (decision 083 corrected before it landed), an assertion count of three that
-was one, and a backlog item claimed as filed that was not. Brief them to check the tree, and read
-what they send back.
+**The chronicler found a real error in every one of the four briefs, and two of them had already
+reached the tree.** "4 of 24 fail" where a tutorial exemption made it 3; the *paired* run counts
+printed beside the *raw* delta under one label; "four of nine bullets failed" where three failed
+and a fourth was already satisfied; and "a four-emplacement board beats the five-emplacement one"
+when `cheap-mass` wins that cell too. **Brief it to check the brief, and correct in place rather
+than quietly** — decisions 087, 088 and 089 each say what they said before review.
 
 ## What is broken or missing, in priority order
 
-1. **`BAL-04` (#17) — the density and leak rebase.** The range half is done (decision 082). What
-   remains: density targets for 48², the leak budget, the capacity ladder, the re-grade, and the
-   composition check. Note the generated 48² board grades `ok` at derived ranges but with only
-   **4 distinct winning builds of 16**, half decision 044's `ROBUST_ENOUGH = 8`.
-2. **`LF-243` — the grade table is not a valid selector, twice proved.** Decision 081 found grade
-   count and board quality anti-correlated; decision 082 found a green 24/24 over a dissolved
-   difficulty. Candidate replacement is **win share per difficulty**, required to fall
-   monotonically (today 40/30/25%, derived-range 55/47/43%). Needs a derivation, not a constant —
-   decision 067's reason for deleting `PRESSURE_FLOOR`.
-3. **`LF-245` — no policy ever upgrades.** 55–62% of every fund the player has is never spent;
-   counting upgrades absorbs most of it (anchor-10 and 11 go *negative*). A prototype
-   `upgrade-ladder` adds a new winning build on **10 of 72** cells. Belongs in `BAL-04`'s re-grade
-   — a 21st policy moves `distinct_builds_tried` everywhere and adds 72 parity rows.
+1. **`BAL-04`'s content half.** Everything its instrument half needed now exists: a selector that
+   can see a difficulty dissolve (086), acceptance criteria with baselines (088), and the final
+   policy set (089). What remains is the work itself — density targets for 48², the leak budget,
+   the capacity ladder, the re-grade and the composition check. **Read the rewritten acceptance
+   criteria first**; they are the bar and they now carry the numbers.
+2. **`LF-259` — should upgrading die at the top difficulty?** Measured: the ladder wins 0 of 24
+   anchors on brutal. The obvious explanation is *wrong* — damage per megawatt improves on
+   upgrade (0.75 → 0.78); the loss is in money and probably build sequencing. A design question,
+   answered inside `BAL-04`, not a tuning knob.
+3. **`LF-218` — acts 1–2 attrit the wave in the first fifth of the lane.** The variable is hp per
+   unit (act 1 46, act 2 61, act 3 **123**), not lane length. `BAL-04`'s.
 4. **`LF-246` — `coverage.py` reports on vestigial data.** `presence`, `lane`, `site-eff` and
    `verdict()`'s `(a) siting` label are computed over authored slots, which `PLC-04` made
-   positionally irrelevant; `uptime`, `near-zero` and `board_presence_ceiling` are real. **This
-   retires the siting half of the old priority 2** and means `LF-185`'s 12.71% → 9.53% result
-   cannot be reproduced and must not be cited.
+   positionally irrelevant. `LF-185`'s 12.71% → 9.53% result cannot be reproduced and must not be
+   cited.
 5. **`LF-251` — `game renders` cannot see the board.** Same two numbers across a completely
    different board. Fix: assert emplacement count and distinct ids from the facing dump the
    capture already prints.
-6. **`LF-218` — acts 1–2 attrit the wave in the first fifth of the lane.** Now quantified: the
-   variable is **hp per unit** (act 1 46, act 2 61, act 3 **123**), not lane length (35.6 / 40.4 /
-   41.8, near-identical) and not unit count (act 1 fields *more*). Entangled with the density
-   rebase, so it is `BAL-04`'s.
-7. **`LF-240`/`LF-241` — tier 2 is over budget**, measured at **37,669 ms** against 28,000 at the
-   start of this session, worse than the 30,500 recorded. Move `sim determinism` to tier 3.
-8. **`LF-247` residue / `LF-249`** — cosmetic 20 px overlay overlap at 200%.
-9. **`LF-242` — `restorer.range` is dead data** in both engines. The real question is whether a
-   restorer should have a radius at all; today it is the only emplacement whose siting is free.
-10. **`LF-216`** — remove the `tile_slot` render asset. Owns an atlas repack and a re-import.
-    **Say so before re-importing**; the owner plays out of this tree.
-11. **`LF-227`** — CI's Windows parity leg still does not run on a data-only change.
-12. **`LF-230`** — `InstrumentedSim` is 6.8× overhead at 78 emplacements; a coverage pass on a 48²
-    board is 21 minutes.
+6. **`LF-240`/`LF-241` — tier 2 is over budget**, measured at **30,767–30,982 ms** against 28,000
+   this session. The fix is still to move `sim determinism` out, not to move the number.
+7. **`LF-254` — `hard` does not bite on anchor-04 and anchor-08** (identical win share to
+   standard). Reported, not asserted, deliberately — a check red on arrival gets disabled.
+8. **`LF-227`** — CI's Windows parity leg still does not run on a data-only change.
+9. `LF-242` (`restorer.range` is dead data) · `LF-216` (remove `tile_slot`; owns an atlas repack
+   and a re-import — **say so before re-importing**) · `LF-230` (`InstrumentedSim` is 6.8×
+   overhead at 78 emplacements) · `LF-249` (200% overlay overlap) · `LF-260` (a policy-list
+   name check would turn a 15-minute parity failure into a 10 ms one).
 
 ## Needs the owner — do not decide these
 
-**Nothing is blocked.** Two things are worth *telling* rather than asking:
+**Nothing is blocked.** One thing is worth *telling* rather than asking:
 
-**Decision 073's deciding number was wrong, and the answer is unchanged.** It chose 48² partly on
-a zoom-to-fit row computed against the full viewport instead of the playfield strip. Corrected,
-sprite-on-screen at 100% UI is 32² → 59 px, 48² → 39 px, 64² → 29 px, so **every** candidate falls
-inside or below the band 64² was rejected for and the row selects nothing. Decision 084 strikes
-the row rather than redoing it, because 073 itself concluded the board is never fully visible and
-the minimap does the wide read. **Board size stays 48².** 073 asked for exactly this: *"if either
-becomes load-bearing for a further decision, take the frame directly."*
-
-**200% interface scale was unplayable and is now fixed** (decision 085) — worth knowing because it
-is a setting the owner could have reached at any time.
+**Upgrading is currently a beginner's option that stops working.** The upgrade-ladder policy wins
+11 of 24 anchors on standard, 5 on hard and **0 on brutal**. Whether that is the intended shape
+of the mechanic is a genuine design question (`LF-259`) rather than a defect — a mechanic that
+fades as difficulty rises is a legitimate choice, and so is one that stays live. It is recorded
+rather than decided because `BAL-04`'s re-grade is where it can be answered with the content in
+front of it.
 
 *`LF-173`'s asterisk question is unchanged and still small. PRD §6's five decisions all remain
 taken.*
 
 ## Method that works — do not skip it
 
-- **Look at the thing the check is standing in front of.** All five instrument failures came from
-  that and none from auditing checks. Generating one 48² board and opening it in the engine
-  produced three of them in twenty minutes.
+- **Look at the thing the check is standing in front of.** Every instrument failure across the
+  last two sessions came from that and none from auditing checks. This session added four more —
+  a selector blind to a dissolved difficulty, a statistic measuring a population, acceptance
+  criteria nobody had run, and a verb no policy had ever dispatched.
+- **When two candidate worlds differ only in LEVEL and not in SHAPE, stop looking for the
+  constant.** Decision 086: monotonicity, spacing and curvature all passed on the campaign that
+  had dissolved. The honest move is to weaken the claim until it needs no constant, not to keep
+  hunting for the one that fits.
+- **A campaign-wide split of runs by an outcome property compares whatever POPULATIONS that
+  property selects.** Decision 087: "browned-out runs win by 21.8 points" was "the policies that
+  overdraw are the strong ones". Pair within policy before believing any such split — the
+  uncontrolled version even reversed its ordering across difficulties between two campaigns while
+  the controlled one stayed near zero in both.
+- **Run a criterion against its baseline the day you write it.** Decision 088: three of `BAL-04`'s
+  nine acceptance criteria were failed by the campaign they describe, and one was impossible by
+  construction.
 - **Prove a check red before trusting it green.** `verbs agree` was proved red five ways and
   `playfield width` four; two of `verbs agree`'s modes break *behaviour* rather than an
   expectation, because the other three would pass if the comparator were vacuous.
-- **A measured refusal is a successful outcome.** Four this session: the range patch refused on
-  measurement, both minimap approaches refused with a capture, a new policy refused as out of
-  scope, and a chronicler refusing to guess which journal captures were affected.
-- **Brief subagents to check the brief.** Three dispatches, three caught errors in mine.
+- **A measured refusal is a successful outcome.** Three of this session's four PRs were one: no
+  bound on brutal exists (086), the brownout price is not mispriced and is not the lever anyway
+  (087), and `ROBUST_ENOUGH` cannot be read as a floor (088).
+- **Brief subagents to check the brief — it has been worth more than any self-review.** Four
+  dispatches this session, **four** caught errors in mine, and two had already reached the tree:
+  "4 of 24 fail" where a tutorial exemption made it 3; the *paired* run counts printed beside the
+  *raw* delta under one label; "four of nine criteria failed" where three did and a fourth was
+  already satisfied; and "a four-emplacement board beats the five-emplacement one" when
+  `cheap-mass` wins that cell too. **Correct in place, not quietly** — decisions 087, 088 and 089
+  each say what they said before review.
 - **A number written into a comment is not a number anything checks** — `display_settings.gd` had
   already measured the 4 px playfield and used it only to justify an unrelated default.
 - **Author the layout, then sweep, then write dialog** (decision 026). **Check the harness before
@@ -179,6 +191,16 @@ taken.*
 
 Newest first. Full detail in `CLAUDE.md`.
 
+- **`sim/run.py --json` silently drops each report's `runs` unless `--detail` is also passed**, so
+  anything computing a per-run statistic off the JSON gets nothing and says nothing. `LF-258`.
+- **A grading policy is authored in TWO places that must move together** — `standard_policies()`
+  in `sim/engine.py` and `_policies()` in `scripts/test/parity.gd`. Divergence is *not* silent
+  (parity names it "present in python, absent from godot") but you learn it 1,512 runs and ~15
+  minutes later. `LF-260`.
+- **`tools/session.py` re-runs the gate itself** and will blow a 10-minute timeout after a rules
+  change. Pass `--gate-from <saved --json artefact>`.
+- **`built` entries are `"<tower-id>@<x>,<y>"`, not bare tower ids.** A filter that tests
+  membership against a set of tower ids matches nothing and reports a spectacular false zero.
 - **After a squash-merge, a stale local `main` blocks `git checkout main`** with a misleading
   "local changes would be overwritten". The fix is `git fetch origin main:main` **while `main` is
   not checked out** — the mirror of the "refusing to fetch into branch 'main' checked out at ..."
@@ -211,53 +233,53 @@ Newest first. Full detail in `CLAUDE.md`.
 ### Gate
 
 ```
-[  ok  ] python syntax          1035ms  65 files
-[  ok  ] json parses             372ms  87 files
-[  ok  ] game data              1386ms  58 documents against 7 schemas (7 exercised) · no warnings
-[  ok  ] wave density            123ms  act 1 32 on screen (100%) · act 2 27 on screen (85%) · act 3 21 on screen (66%)
+[  ok  ] python syntax          1063ms  65 files
+[  ok  ] json parses             384ms  87 files
+[  ok  ] game data              1385ms  58 documents against 7 schemas (7 exercised) · no warnings
+[  ok  ] wave density            126ms  act 1 32 on screen (100%) · act 2 27 on screen (85%) · act 3 21 on screen (66%)
 [  ok  ] dialog capacity         228ms  24 briefs quote their own capacity
-[  ok  ] banned terms           1141ms  294 files clean
+[  ok  ] banned terms           1140ms  294 files clean
 [  ok  ] tier counts               0ms  45 checks, tiers 1-4 all match the docstring
-[  ok  ] sfx determinism         875ms  ui_confirm byte-identical
-[  ok  ] music manifest           29ms  14 tracks
-[  ok  ] sfx loudness           1921ms  86 file(s) measured (86 sfx, 0 music) · ALL WITHIN BAND
-[  ok  ] music loudness        86370ms  14 file(s) measured (0 sfx, 14 music) · ALL WITHIN BAND
-[  ok  ] sprite atlas           2392ms  568 cells in 2 pages, in sync
+[  ok  ] sfx determinism         954ms  ui_confirm byte-identical
+[  ok  ] music manifest           32ms  14 tracks
+[  ok  ] sfx loudness           1946ms  86 file(s) measured (86 sfx, 0 music) · ALL WITHIN BAND
+[ skip ] music loudness            0ms  excluded by --tier 2 (this check is tier 4) — did not run
+[  ok  ] sprite atlas           2432ms  568 cells in 2 pages, in sync
 [  ok  ] sprite coverage           8ms  22 ids drawn from 44 sprites
-[  ok  ] asset coverage           42ms  22 data ids <-> 26 render assets, both directions clean
-[  ok  ] backlog rendered          7ms  90 open
-[  ok  ] chronicle current       109ms  68 entries, 1 commit(s) behind
-[  ok  ] agent models             16ms  6 agents pinned to opus
-[  ok  ] leases wired             27ms  8 launch sites leased
-[  ok  ] issue traceability      243ms  ok: no `Closes:` trailer in b4ea598700a620f364e3124ed52289943aa91d7e..HEAD — nothing claimed, nothing to verify
-[  ok  ] sim determinism        8546ms  deterministic
-[  ok  ] anchor grades         64635ms  24 anchors grade ok at every difficulty (--jobs 8)
-[  ok  ] grade verdict           165ms  sim/run.py selftest: 14 case(s) ok — verdict() fires on 6, stays silent on 4, 4 structural; tiers 'standard' -> 'brutal' read from DIFFICULTIES
-[  ok  ] gdscript parses        2164ms  37 scripts parse clean
-[  ok  ] godot boots            5113ms  main scene loads clean
-[  ok  ] scenario smoke        35331ms  smoke.json: 3 assertion(s) passed
-[  ok  ] scenario abilities    16992ms  abilities.json: 9 assertion(s) passed
-[  ok  ] scenario a11y-worst   10475ms  a11y-worst.json: 8 assertion(s) passed
-[  ok  ] scenario lf161-scroll  13457ms  lf161_edge_scroll_contained.json: 4 assertion(s) passed
-[  ok  ] scenario gamepad      21593ms  gamepad_build.json: 9 assertion(s) passed
-[  ok  ] scenario lf226-fallback  71970ms  lf226_lattice_fallback.json: 30 assertion(s) passed
-[  ok  ] save roundtrip        10740ms  save_roundtrip: OK — took 'salvage-rights' in process 1, process 2 (fresh boot, same on-disk save) read it back: excluded from its own offer, 1 recoveries owned in both, progress.json agrees on disk
-[  ok  ] game renders           9745ms  coverage 0.95, 114 tones
-[  ok  ] menu renders           4892ms  coverage 0.146, 8 anchors listed
-[  ok  ] accessibility         46227ms  198 text items clean, worst contrast 5.08:1
-[  ok  ] terrain parsers agree   2462ms  ok — 2 case(s), python and godot agree with the fixture and each other
-[  ok  ] firing arcs agree      2562ms  ok — 4 emplacement(s) over 280 ticks, 48 shots, python and godot identical and inside the analytic windows
-[  ok  ] verbs agree            2579ms  ok — 7 verb(s) over 320 ticks, 112 shots, python and godot identical and matching the fixture's own arithmetic
-[ skip ] rules parity            626ms  parity cached — skipping 1512 runs (digest 0b1a41338aef, covers 4 rule file(s) + 79 data file(s) + godot --version, last verified 2026-08-04T21:26:46.586126+00:00 at commit b4ea598700a6)
-[  ok  ] rules parity (windows) 936361ms  1512 runs identical (gdscript vs python) [windows] (digest 0b1a41338aef, freshly verified — not from cache)
+[  ok  ] asset coverage           40ms  22 data ids <-> 26 render assets, both directions clean
+[  ok  ] backlog rendered          6ms  91 open
+[  ok  ] chronicle current       118ms  69 entries, 0 commit(s) behind
+[  ok  ] agent models             20ms  6 agents pinned to opus
+[  ok  ] leases wired             26ms  8 launch sites leased
+[  ok  ] issue traceability      242ms  ok: no `Closes:` trailer in a7c37734134a7372051480e706f58a1cf4b22e00..HEAD — nothing claimed, nothing to verify
+[  ok  ] sim determinism        8525ms  deterministic
+[ skip ] anchor grades             0ms  excluded by --tier 2 (this check is tier 3) — did not run
+[  ok  ] grade verdict           167ms  sim/run.py selftest: 14 case(s) ok — verdict() fires on 6, stays silent on 4, 4 structural; tiers 'standard' -> 'brutal' read from DIFFICULTIES
+[  ok  ] gdscript parses        2179ms  37 scripts parse clean
+[  ok  ] godot boots            5110ms  main scene loads clean
+[ skip ] scenario smoke            0ms  excluded by --tier 2 (this check is tier 3) — did not run
+[ skip ] scenario abilities        0ms  excluded by --tier 2 (this check is tier 3) — did not run
+[ skip ] scenario a11y-worst       0ms  excluded by --tier 2 (this check is tier 3) — did not run
+[ skip ] scenario lf161-scroll      0ms  excluded by --tier 2 (this check is tier 3) — did not run
+[ skip ] scenario gamepad          0ms  excluded by --tier 2 (this check is tier 3) — did not run
+[ skip ] scenario lf226-fallback      0ms  excluded by --tier 2 (this check is tier 3) — did not run
+[ skip ] save roundtrip            0ms  excluded by --tier 2 (this check is tier 3) — did not run
+[ skip ] game renders              0ms  excluded by --tier 2 (this check is tier 3) — did not run
+[ skip ] menu renders              0ms  excluded by --tier 2 (this check is tier 3) — did not run
+[ skip ] accessibility             0ms  excluded by --tier 2 (this check is tier 3) — did not run
+[  ok  ] terrain parsers agree   2460ms  ok — 2 case(s), python and godot agree with the fixture and each other
+[ skip ] firing arcs agree         0ms  excluded by --tier 2 (this check is tier 3) — did not run
+[ skip ] verbs agree               0ms  excluded by --tier 2 (this check is tier 3) — did not run
+[ skip ] rules parity              0ms  excluded by --tier 2 (this check is tier 4) — did not run
+[ skip ] rules parity (windows)      0ms  excluded by --tier 2 (this check is tier 4) — did not run
 [  ok  ] safe operations          36ms  5 files clean (scripts/anchor_sim.gd, sim/engine.py, scripts/test/parity.gd, scripts/test/arc_parity.gd, scripts/test/verb_parity.gd)
-[  ok  ] rules autoloads           8ms  clean against 9 autoload(s): Audio, Content, Display, Progress, Recoveries, Sprites, Tuning, Ui, _mcp_game_helper
+[  ok  ] rules autoloads           6ms  clean against 9 autoload(s): Audio, Content, Display, Progress, Recoveries, Sprites, Tuning, Ui, _mcp_game_helper
 [  ok  ] yaw hysteresis            3ms  YAW_HYSTERESIS_FRAC=0.25 (< 0.5)
-[  ok  ] playfield width           8ms  playfield >= 420px at all 6 scales: 1x 940px, 1.1x 765px, 1.25x 556px, 1.5x 828px (undocked), 1.75x 645px (undocked), 2x 508px (undocked)
-[  ok  ] hooks configured       2726ms  4 events wired (PreToolUse, PostToolUse, SubagentStop, SessionEnd) · guard.py --selftest 58/58 ok · +3 more wired (PostCompact, PreCompact, SessionStart), scripts compile
-[  ok  ] facing harness         2700ms  yaw_band.py + facing.gd smoke ok (anchor-07, yaws=4, frac=0)
+[  ok  ] playfield width           9ms  playfield >= 420px at all 6 scales: 1x 940px, 1.1x 765px, 1.25x 556px, 1.5x 828px (undocked), 1.75x 645px (undocked), 2x 508px (undocked)
+[  ok  ] hooks configured       2786ms  4 events wired (PreToolUse, PostToolUse, SubagentStop, SessionEnd) · guard.py --selftest 58/58 ok · +3 more wired (PostCompact, PreCompact, SessionStart), scripts compile
+[ skip ] facing harness            0ms  excluded by --tier 2 (this check is tier 3) — did not run
 
-tier 4 — 44 passed · 0 failed · 1 skipped · 1368446ms
+tier 2 — 28 passed · 0 failed · 17 skipped · 31434ms
 ```
 
 ### Inventory
@@ -443,6 +465,7 @@ SEQUENCING NOTE. Do not start this before the Theatre Scale programme's E3 place
 ### Recent commits
 
 ```
+a7c3773 feat(balance): the grader learns to upgrade, and upgrading turns out to be a standard-difficulty strategy (#160)
 b4ea598 docs(balance): three of BAL-04's nine acceptance criteria were failed by the baseline they describe (#159)
 54c666b fix(balance): "indiscipline wins" was an artefact of which policies overdraw, and the price stays (#158)
 2940bfc feat(balance): the grade table could not see brutal dissolve, and the bound it wanted is not there (#157)
@@ -450,7 +473,6 @@ b4ea598 docs(balance): three of BAL-04's nine acceptance criteria were failed by
 57f4f11 fix(engine): autoplay built twelve dampers and the render check reported the same numbers either way (#155)
 a41e997 fix(ui): the playfield was 4 px wide at 200% and every accessibility check passed (#154)
 1e59d71 test(gate): the six verbs nobody graded are the six with a key bound to them (#153)
-0db669d feat(balance): range derived from lane length at 48², and the grade table cannot see what it costs (#152)
 ```
 
 <!-- END AUTO -->
