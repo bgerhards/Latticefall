@@ -6269,6 +6269,171 @@
           "text": "**The instruments were not wrong this time. They were just standing somewhere the player never stands.**"
         }
       ]
+    },
+    {
+      "id": "the-net-the-fix-removed",
+      "date": "2026-08-03",
+      "time": "22:15",
+      "title": "The net one fix removed, and the branch no shipped board could enter",
+      "summary": "Two verification holes, both opened by today's own work, both closed here. `LF-224`: `sim determinism` used to return FAIL on `sim/run.py`'s exit code, and `run.py --json` exits 1 whenever an anchor is not clean, so it had been serving by accident as an all-anchors-clean assertion under the wrong name and with an empty message. Entry 54 made the check do what its name says, which removed the accidental net; the deliberate one — `anchor grades`, tier 3, printing every failing anchor's own problem strings — is built now that entry 55's re-balance has all 24 back to `ok`. `LF-229`: `sim/coverage.py`'s `verdict()` short-circuited on the near-zero tail before it ever consulted the board's own presence ceiling, and printed \"no material near-zero tail\" for a generated board whose best 78 legal positions reach 12% of the live wave. And the ticket's own premise turned out to be wrong in a way that lands on act 1.",
+      "tags": [
+        "PRC",
+        "BAL"
+      ],
+      "decisions": [],
+      "body": [
+        {
+          "type": "p",
+          "text": "The previous entry — **The instruments were standing where the player never stands**, `where-the-player-never-stands`, merged as **#145** — found a dialog cue that could never fire, because every automated path in this project builds on authored slots and the wrong expression is coincidentally correct there. This entry is the seventh and last of the day, and it is about the instruments again, from the other side: **two holes that today's own work opened**, and what it takes to notice that your own fix removed something."
+        },
+        {
+          "type": "h3",
+          "text": "`LF-224` — the net nobody meant to have, removed by a correct fix"
+        },
+        {
+          "type": "p",
+          "text": "`sim determinism` used to return `FAIL` on `sim/run.py`'s **exit code**, before it compared its two runs at all. And `run.py --json` exits 1 whenever an anchor is not clean. So the check had been serving, by accident, as an all-anchors-clean assertion — **under the wrong name, with an empty message**, because `run.py` writes its verdict to stdout and the check reported stderr."
+        },
+        {
+          "type": "p",
+          "text": "Entry 54 — **The acceptance criterion was not a selector**, `the-acceptance-criterion-was-not-a-selector` — fixed the check to do what its name says. That is right, and it **removed the accidental net**. Entry 55, **Four anchors, four different levers**, then restored all 24 anchors to `ok`. The deliberate replacement was deferred until the grades were clean, on the reasoning that a check which is red on arrival gets disabled rather than fixed. They are clean, so it is built now."
+        },
+        {
+          "type": "p",
+          "text": "`tools/check.py` gains **`anchor grades`**, tier 3. It shells `sim/run.py --jobs 8 --json`, parses the report, and puts **every failing anchor's own `problems` strings** in the message. It restates none of `run.py`'s thresholds — what counts as unwinnable, as a single-solution level, as difficulty not biting, stays `run.py`'s business. A second copy of a rule is the drift this project keeps paying for."
+        },
+        {
+          "type": "p",
+          "text": "Proved red first, against two deliberately perturbed anchors:"
+        },
+        {
+          "type": "pre",
+          "text": "anchor grades  FAIL   59733 ms\n2 of 24 anchors do not grade ok (sim/run.py --jobs 8):\n  anchor-14  standard: unwinnable — no policy clears it\n  anchor-14  hard: unwinnable — no policy clears it\n  anchor-14  brutal: unwinnable — no policy clears it\n  anchor-19  hard: every distinct build clears it — difficulty is not biting\n  anchor-19  brutal: every distinct build clears it — difficulty is not biting",
+          "caption": "The perturbation lived in a **scratchpad shadow tree** with no `.git`, so the real `data/` was never touched and `git status --porcelain data/` stayed empty throughout — the working tree is shared with whoever else is running, and a red-first proof must not be the thing that breaks them."
+        },
+        {
+          "type": "p",
+          "text": "And green on the real tree: `24 anchors grade ok at every difficulty (--jobs 8)`."
+        },
+        {
+          "type": "h3",
+          "text": "Why tier 3, and the reasoning is the interesting part"
+        },
+        {
+          "type": "p",
+          "text": "**Tier 2 is unavailable.** It is already *over* its own 28,000 ms budget (`LF-178`), and decision 067 refused to raise a threshold so the data would fit once already — the fix there is to move a check out, not to move the number again. **Tier 4 was rejected** because the regression this catches arrives almost exclusively as a **data-only pull request**: entry 55 moved four anchors' capacities and slot layouts and nothing else. Tier 3 is the PR tier, and a check that only runs nightly lets an unwinnable anchor sit on `main` until the next scheduled run. The cost is named rather than hidden: **tier 3 goes from 204 s to 265 s**."
+        },
+        {
+          "type": "p",
+          "text": "One thing worth a line on its own. `tier counts` is a tier-1 check that asserts `check.py`'s own docstring counts against its `CHECKS` registry on every run, so **adding a check without updating the prose turns the gate red**. That is deliberate — a count written into prose here rots within a day, so it is asserted rather than trusted. Docstring updated in the same change: tier 3 = **38**, tier 4 = **41**."
+        },
+        {
+          "type": "h3",
+          "text": "`LF-229` — the branch that no shipped board could reach"
+        },
+        {
+          "type": "p",
+          "text": "`sim/coverage.py`'s `verdict()` printed **\"no material near-zero tail (9% of emplacements)\"** for a generated 48x48 board whose **own presence ceiling is 11.9%** — a board where the best legal positions available anywhere reach 12% of the live wave. The `(0)` branch tested the near-zero tail and returned before `(b)` ever consulted `board_presence_ceiling`."
+        },
+        {
+          "type": "pre",
+          "text": "ceiling top_n_median 11.9%   near-zero tail 8.7%   site-eff 0.57\nuptime p10/p50/max   11% / 18% / 61%\n\nBEFORE: no material near-zero tail (9% of emplacements)\nAFTER:  (b) range/waves: the board's own best 78 positions reach only 12% of the live wave",
+          "caption": "The mechanism is that `NEAR_ZERO_UPTIME` is an **absolute** 0.10, so the tail measure only ever sees a *bimodal* board. A board that is uniformly mediocre has no tail to find and is nonetheless broken everywhere."
+        },
+        {
+          "type": "p",
+          "text": "`(b)` is now tested **first and unconditionally**. The order is `(b)` then `(0)` then `(a)` then `(c)`. **All 24 shipped anchors keep their exact verdict — 0 of 24 moved**, verified by running the pre-change and post-change `verdict()` over one cached 24-anchor report set, so the comparison cost no simulation at all."
+        },
+        {
+          "type": "h3",
+          "text": "The ordering argument was made for all four branches, not just the pair"
+        },
+        {
+          "type": "p",
+          "text": "This is the part worth recording, because it is the part that would otherwise be re-derived. `(a)` deliberately stays **after** `(0)`. It is a **ratio** against the board's own ceiling — headroom, not outcome — and promoting it above the tail test relabels **twelve** shipped anchors from \"no material tail\" to \"(a) siting\", on boards where every emplacement is doing work. `(b)` is an **absolute** claim that no outcome is reachable anywhere, so it needs no tail to be true. Outcomes rank above headroom; a claim about what could have been better ranks below both."
+        },
+        {
+          "type": "h3",
+          "text": "The correction — and it lands on act 1"
+        },
+        {
+          "type": "p",
+          "text": "`LF-229`'s own ticket said all 24 shipped ceilings are 75–95%, so the short-circuit could only ever mask a low ceiling on a board unlike any that ships. **That premise was wrong.** Measured while fixing it, at range basis `8189779cd568`:"
+        },
+        {
+          "type": "table",
+          "headers": [
+            "anchor",
+            "board presence ceiling",
+            "vs `BOARD_CEILING_LOW` (0.75)"
+          ],
+          "rows": [
+            [
+              "anchor-02",
+              "68.3%",
+              "under"
+            ],
+            [
+              "anchor-03",
+              "65.3%",
+              "under"
+            ],
+            [
+              "anchor-04",
+              "50.1%",
+              "under"
+            ],
+            [
+              "anchor-05",
+              "41.8%",
+              "under"
+            ]
+          ]
+        },
+        {
+          "type": "p",
+          "text": "No label moved when the ordering was fixed, but **only** because those four already carry large near-zero tails and were reaching `(b)` by another route. (`LF-234` records that band as 22–31%; `sim/coverage.py`'s own note says 19–31% — the conclusion is the same either way, and the discrepancy is recorded here rather than smoothed over.) So the masking window is **narrower than the ticket claimed and real** — and what sits under the threshold is **act 1's entire opening stretch**."
+        },
+        {
+          "type": "p",
+          "text": "Those are boards where the level's own slot-and-range budget is the limit, not the player's siting. Filed as **`LF-234`**. It is the same conclusion `LF-187` reaches from the other direction — a fixed absolute range covers a shrinking fraction as lanes lengthen — and the same four anchors entry 55's re-balance found thinnest. Worth treating as one finding rather than three."
+        },
+        {
+          "type": "h3",
+          "text": "Two smaller things"
+        },
+        {
+          "type": "list",
+          "items": [
+            "A new selftest case locks the branch ordering on **synthetic** summaries — free, no simulation, and red on the pre-fix `verdict()`. But `sim/coverage.py --selftest` is **still in no gate tier** (`LF-221`, open), which entry 53 already flagged. **The cheapest guard in the file is the one nothing runs.**",
+            "The irony worth naming: entry 53 — **The test of the instrument was red, and no tier ran it**, `the-test-of-the-instrument-was-red` — rewrote these very labels **the same day**, and the rewrite shipped with this hole. The fix was not to add a fourth branch. It was to re-argue the order of all of them."
+          ]
+        },
+        {
+          "type": "h3",
+          "text": "The gate, and what this entry does not have"
+        },
+        {
+          "type": "p",
+          "text": "A **tier 4** run finished before this was written: **39 passed · 0 failed · 2 skipped**, out of **41 checks** — up from 40, and the new one is among the 39 that ran and passed. The two skips are `rules parity` and `rules parity (windows)`, held back by the content-hash cache at digest `78921592b4c5` because no rule or data file changed in this branch. **That is cached, not run** — it is not a pass, and it is stated that way here for the same reason the gate's own tally line names every check that did not run: a green partial result that reads like a full one is the failure the tiering exists to prevent."
+        },
+        {
+          "type": "p",
+          "text": "The work sits on `lf/prc-verification-holes` and is uncommitted as this is written, so there are **no commit hashes** here. And there is **no screenshot**: the evidence in this entry is a check message with two anchors' problem strings in it and a verdict label that changed on a board that does not ship, and neither of those is a thing a picture of the game can show."
+        },
+        {
+          "type": "h3",
+          "text": "Seven entries in one day"
+        },
+        {
+          "type": "p",
+          "text": "Three of them found the fault in an instrument rather than in the game. One built a tool that then found a real bug. One fixed four anchors with four different levers. One found a cue the player could never hear. And this one closes the two holes the others opened."
+        },
+        {
+          "type": "p",
+          "text": "**A verification layer is not a thing you build once. It is a thing that acquires holes exactly as fast as the code under it changes, and the only defence is noticing when your own fix removed something.**"
+        }
+      ]
     }
   ]
 }

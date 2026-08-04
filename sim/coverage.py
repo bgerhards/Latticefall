@@ -58,6 +58,9 @@ meaning exactly — it is a true statement about the level and other things read
 `verdict()` now reads presence, not lane length, and its (a)/(b)/(c) sentences changed with
 it — the old "(a) geometry: slots are far from the lane" fired on anchor-01, which is the
 best-sited anchor in the game. See that function for what each letter now claims and why.
+Its branch ORDER is load-bearing and is argued there too: LF-217 put the near-zero tail test
+first, and LF-229 measured that this let a 48x48 generated board whose own ceiling is 11.9%
+report as healthy. The board-ceiling test now runs unconditionally, ahead of everything.
 
 **One comparability rule the geometric half did not need.** A presence number is measured on
 the anchor's own authored board, so it moves when the slots move; `lane_coverage()` does not.
@@ -669,10 +672,7 @@ def verdict(summary: dict) -> str:
     support it, and printed it for anchor-01 — the best-sited anchor in the game, 83% median
     uptime and a 5% tail.
 
-    The three questions now asked, in this order, each against evidence that supports it:
-
-      (0) **Is there a tail at all?** `near_zero_frac` under `NEAR_ZERO_TAIL_OK`. Nothing to
-          diagnose; say so rather than manufacturing a cause. Twelve anchors land here.
+    The four questions now asked, in this order, each against evidence that supports it:
 
       (b) **range / wave table** — `board_presence_ceiling.top_n_median` under
           `BOARD_CEILING_LOW`. The N best legal positions on this board, N = the anchor's own
@@ -680,6 +680,12 @@ def verdict(summary: dict) -> str:
           fixes that; the lever is weapon range or the wave table. Independently corroborated:
           the four anchors this selects are the four with the lowest ceiling in the game, and
           LF-187 already says range must be re-derived from lane length.
+
+      (0) **Is there a tail at all?** `near_zero_frac` under `NEAR_ZERO_TAIL_OK`. Nothing to
+          diagnose; say so rather than manufacturing a cause. Thirteen anchors land here —
+          06, 07, 12, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, at range basis `8189779cd568`.
+          LF-217 wrote "twelve" and it had already rotted by LF-229; a count in prose here is
+          only true at one range basis and one slot layout, so read the table, not this line.
 
       (a) **siting** — `siting_efficiency` under `SITING_EFFICIENT`. The board admits much
           better positions than the authored slots use, so moving slots is the lever. Note
@@ -690,6 +696,41 @@ def verdict(summary: dict) -> str:
           Build order, timing or the wave table, not where the slots are. This is exactly
           LF-218's finding on the re-sited anchors: re-siting moves guns into the live zone
           but cannot lengthen it, so the tail migrates instead of vanishing.
+
+    **Why (b) is tested FIRST, and why (a) is deliberately NOT — LF-229.**
+
+    LF-217 wrote these four branches with the tail test in front, and that ordering had a
+    hole big enough to hide the worst board this project can currently generate. Measured on
+    a `tools/genboard.py` 48x48 four-lane board (scratchpad, never `data/`): presence p50
+    **6.7%**, board `top_n_median` **11.9%**, median uptime **18%**, and a near-zero fraction
+    of **8.7%** — just under `NEAR_ZERO_TAIL_OK`. So `(0)` fired and the summary read *"no
+    material near-zero tail (9% of emplacements)"* for a board on which the best 78 legal
+    positions in existence reach an eighth of the live wave. `(b)` would have caught it by a
+    factor of six and never ran.
+
+    The mechanism is that `NEAR_ZERO_UPTIME` is an **absolute** 0.10, so the tail measure
+    only sees a *bimodal* board — some emplacements idle, others working. A board that is
+    uniformly mediocre has no tail to find (p10 uptime 11%, barely above the threshold) and
+    is nonetheless broken everywhere. "The board admits nothing better anywhere" is a
+    strictly stronger statement than "some emplacements idle" and does not need a tail to be
+    true, so it is tested unconditionally.
+
+    `(a)` stays **after** `(0)`, and that is a decision rather than an oversight. It is a
+    *ratio* against the board's own ceiling — headroom, not outcome — and headroom is only
+    worth naming when something is actually going wrong. `(b)` is an absolute claim that no
+    outcome is reachable at all; `(0)` is a claim about outcomes; `(a)` is a claim about what
+    could have been better. Outcomes rank above headroom. Measured consequence of the
+    alternative, on the 24 shipped anchors at range basis `8189779cd568`: promoting `(a)`
+    above `(0)` relabels **twelve** of them — 06, 07, 12, 15, 17, 18, 19, 20, 21, 22, 23, 24
+    — from "no material tail" to "(a) siting", on boards whose emplacements are all doing
+    work. Promoting `(b)` alone relabels **none**: the four anchors under `BOARD_CEILING_LOW`
+    (02 at 68%, 03 at 65%, 04 at 50%, 05 at 42% — the backlog's "all 24 are 75-95%" is wrong,
+    and this is the number) already carry tails of 19-31% and were already reaching `(b)`.
+
+    The general shape is the one decision 078 records for the firing-arc branch and `LF-226`
+    for the autobuild fallback: **a check that only ever runs over content which passes says
+    nothing about content that does not.** All 24 shipped anchors are far above the ceiling
+    threshold, so no shipped anchor could ever have exercised this ordering.
 
     **Two comparability warnings, both measured rather than reasoned about.**
 
@@ -714,11 +755,13 @@ def verdict(summary: dict) -> str:
     board = summary.get("board_presence_ceiling") or {}
     top_n = board.get("top_n_median", 0.0)
     eff = summary.get("siting_efficiency", 0.0)
-    if tail < NEAR_ZERO_TAIL_OK:
-        return f"no material near-zero tail ({tail:.0%} of emplacements)"
+    # (b) first, unconditionally: a low ceiling is a fact about the board that no other
+    # column can contradict, and it is the one branch a near-zero tail can hide (LF-229).
     if top_n < BOARD_CEILING_LOW:
         return (f"(b) range/waves: the board's own best {board.get('n_slots', '?')} positions "
                 f"reach only {top_n:.0%} of the live wave")
+    if tail < NEAR_ZERO_TAIL_OK:
+        return f"no material near-zero tail ({tail:.0%} of emplacements)"
     if eff < SITING_EFFICIENT:
         return (f"(a) siting: authored slots reach {eff:.0%} of what this board's "
                 f"slot budget admits")
@@ -886,6 +929,34 @@ def _selftest() -> int:
         n = len(check_anchors) * len(standard_policies(["pulse-turret"])) * len(DIFFICULTIES)
         print(f"ok   outcome parity: InstrumentedSim == Sim on every policy/difficulty "
               f"across {', '.join(check_anchors)}")
+
+    # 5. `verdict()` branch ORDER, on synthetic summaries. Free — no simulation at all — and
+    # it is the only thing standing between this file and a repeat of LF-229, where the
+    # near-zero tail test sat in front of the board-ceiling test and reported a 48x48
+    # generated board with an 11.9% ceiling as healthy. It cannot be caught by running the
+    # instrument over shipped content: no shipped anchor combines a sub-0.75 ceiling with a
+    # sub-10% tail, which is exactly the "a gate that runs the whole game proves nothing
+    # about a branch the shipped data never enters" lesson decision 078 already paid for.
+    # The numbers in the first case are the measured ones from that generated board.
+    def summ(tail: float, top_n: float, eff: float) -> dict:
+        return {"near_zero_frac": tail, "siting_efficiency": eff,
+                "board_presence_ceiling": {"top_n_median": top_n, "n_slots": 78}}
+
+    verdict_cases = [
+        # (name, summary, required substring)
+        ("low ceiling under a silent tail (LF-229)", summ(0.087, 0.119, 0.57), "(b) range/waves"),
+        ("low ceiling AND efficient siting",         summ(0.30,  0.119, 0.95), "(b) range/waves"),
+        ("healthy ceiling, no tail",                 summ(0.05,  0.90,  0.52), "no material"),
+        ("healthy ceiling, tail, poor siting",       summ(0.30,  0.90,  0.52), "(a) siting"),
+        ("healthy ceiling, tail, good siting",       summ(0.30,  0.90,  0.95), "(c) not geometry"),
+    ]
+    for name, s, want in verdict_cases:
+        got = verdict(s)
+        if want not in got:
+            print(f"FAIL verdict ordering [{name}]: want {want!r}, got {got!r}")
+            ok = False
+        else:
+            print(f"ok   verdict ordering [{name}] -> {got}")
 
     return 0 if ok else 1
 
