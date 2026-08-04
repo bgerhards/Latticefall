@@ -31,9 +31,15 @@ decision in it is still winnable.
 
 ## Tasks
 
-- [ ] Do not start until {{PLC-05}}'s replacement saturation invariant exists. Without a
+- [x] Do not start until {{PLC-05}}'s replacement saturation invariant exists. Without a
       denominator there is nothing bounding capacity, and the sweep will buy clean grades with
-      reactor megawatts exactly as it did before (LF-107, PRD §7 risk 1).
+      reactor megawatts exactly as it did before (LF-107, PRD §7 risk 1). **Done** — E3 is 7/7
+      and `validate_data.py` reports `ok — 0 warning(s)` on the shipped campaign.
+- [x] Establish a grade-quality selector that can see a difficulty dissolve. **Done, decision
+      086** (LF-243): `win_share` per difficulty, and the top tier's share must fall strictly
+      below the bottom tier's on every anchor. The old knife-edge rule let decision 082's
+      derived ranges take brutal from 24% to 43% campaign-wide without moving one verdict, so
+      re-grading against the old table would have produced a green result that meant nothing.
 - [ ] Re-derive the density targets for the new board and lane counts, and write the derivation
       into `tools/density.py`'s docstring. Peak units *in flight* stays the metric — a Column at
       0.5 tiles/sec holds the board four times as long as a Shard (`tools/check.py:115-127`).
@@ -42,8 +48,12 @@ decision in it is still winnable.
       gate check's comparison depends on it.
 - [ ] Rebase `DENSITY_FLOOR` and the act comparison in `tools/check.py`, with the new measured
       per-act figures in the commit body.
-- [ ] Fix or retire `PRESSURE_FLOOR` (LF-054): measure pressure on **winning builds only**, or
-      raise the floor until it discriminates. A check that cannot fail is worse than no check.
+- [x] Fix or retire `PRESSURE_FLOOR` (LF-054). **Done, decision 067 — it was deleted, not
+      raised**, because a threshold picked to make today's data fail is fitted to that data.
+      Nothing in `sim/` or `tools/` computes it any more; only a tombstone comment in
+      `sim/run.py` remains, and that comment names the replacement worth building (time spent
+      within a band of capacity across a *winning* run) as design work with its own evidence.
+      This task and its acceptance bullet were both stale for three sessions.
 - [ ] Re-derive the leak budget per act. Current: Act I 8.7%, Act II 11.4%, Act III 20.4%
       (`docs/STATE.md`). A leak costs the unit's `leak_cost = max(1, round(hp/130))`
       (decision 047), and lives must be compared against the wave's **total `leak_cost`**, never
@@ -71,20 +81,50 @@ decision in it is still winnable.
 
 ## Acceptance criteria
 
-- All 24 anchors grade `ok` against the new policy set, at all three difficulties.
-- Every anchor has at least the project's existing robustness threshold of distinct winning
-  builds (`ROBUST_ENOUGH = 8` per decision 044), and at least one winning build on each anchor
-  contains **more than one weapon id** ({{BAL-02}}'s output — a mixed board is now gradeable and
-  must be shown to be reachable).
-- No anchor's `capacity_mw` exceeds the {{PLC-05}} saturation bound; `validate_data.py` reports
-  zero saturation errors and zero warnings above 80%.
-- `wave density` passes with rebased per-act figures, and those figures are recorded in
-  `docs/STATE.md`.
-- `PRESSURE_FLOOR` either fails on a deliberately slack anchor or has been removed with a
-  written reason.
-- `dialog capacity` passes: 24 briefs quote their own capacity.
-- Composition is preserved: no act has more than 10% of its spawn entries at `count: 1`.
-- `rules parity` identical.
+**Every bullet below carries the measured baseline it is judged against.** The previous
+version of this section did not: **three of its nine criteria were already failed by the
+campaign they were written to describe, and a fourth had been satisfied three sessions
+earlier** — see decision 088 and `LF-255`. (Nine criteria in eight bullets; one was
+compound.) A criterion invented before the measurement is a criterion this workstream would
+have had to argue its way out of at the end, which is the worst possible time to discover it.
+
+Baselines are the shipped 18×15 campaign as of `54c666b`, reproducible with
+`.venv/bin/python -m sim.run --jobs 8` and the one-liners in each bullet.
+
+- **All 24 anchors grade `ok`, at all three difficulties.** Baseline **24/24**. Note this is
+  now a stronger statement than when it was written: decision 086 added the win-share rule, so
+  `ok` also asserts the top difficulty is harder than the bottom one on every anchor.
+- **No anchor's `standard + brutal` distinct winning builds falls below its own baseline.**
+  Baseline is **not** a flat 8. Decision 044's `ROBUST_ENOUGH = 8` caps the *benefit* of extra
+  builds inside `tools/sweep.py`'s scorer — a saturation point for a search, never a floor —
+  and read as a floor it fails on **8 of 24 anchors today**: anchor-01 (3), 02 (7), 03 (6),
+  04 (6), 05 (7), 07 (7), 08 (5), 23 (7). So the bar is *no anchor gets worse*, per anchor,
+  against those numbers. `LF-255`, decision 088.
+- **Every anchor with two or more weapon ids unlocked keeps at least one winning build
+  containing more than one weapon id.** Baseline **17 of the 22 anchors where it is
+  achievable** — 17 of 24 unconditioned; keep the two denominators apart. The condition is
+  load-bearing: anchor-01 and anchor-02 unlock exactly **one** weapon, so the criterion is
+  impossible there by construction and the old unconditional wording made them permanent
+  failures. The five
+  achievable misses are anchor-03, 04, 05 (two weapons unlocked) and anchor-07, 08 (three, while
+  anchor-06 with the same three does meet it) — all Act I, and all real content findings for this
+  workstream rather than defects in the criterion.
+- **No anchor's `capacity_mw` exceeds the {{PLC-05}} saturation bound.** Baseline
+  `validate_data.py` → `ok — 0 warning(s)`, so the bar is that it stays there.
+- **`wave density` passes with rebased per-act figures**, and those figures are recorded in
+  `docs/STATE.md`. Baseline: act 1 32 on screen (100%), act 2 27 (85%), act 3 21 (66%).
+- **`dialog capacity` passes:** 24 briefs quote their own capacity. Baseline **24/24**.
+- **No act's share of spawn entries at `count: 1` rises above its baseline.** Baselines are act 1
+  **10.1%** (15/148), act 2 **29.4%** (106/361), act 3 **33.8%** (108/320) — so the old
+  "no act above 10%" bullet was failed by all three acts on the day it was written. The intent
+  behind it is sound and unchanged (251 of 252 Act III spawn entries once came out at `count: 1`
+  and every wave collapsed to "N shards and one of each"); it is a **regression bound**, and it
+  is stated as one now rather than as an absolute nobody measured.
+- **`rules parity` identical**, both platforms.
+
+**Deleted rather than rewritten:** *"`PRESSURE_FLOOR` either fails on a deliberately slack
+anchor or has been removed with a written reason."* Decision **067** removed it, with a written
+reason, three sessions before this was read. The task list above is corrected to match.
 
 ## Verification
 

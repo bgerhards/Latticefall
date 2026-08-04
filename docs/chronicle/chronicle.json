@@ -8223,6 +8223,338 @@
           "text": "No screenshot. There is no visual surface to any of this — it is a grading instrument and a constant that did not move, and the tables are the whole of what there is to look at."
         }
       ]
+    },
+    {
+      "id": "the-criteria-were-never-measured",
+      "date": "2026-08-04",
+      "time": "15:40",
+      "title": "Third and last of the day — the largest balance workstream's acceptance criteria had never been run against the campaign they were written to describe, and one of them was impossible",
+      "summary": "`LF-255`, `LF-257`, `LF-054` and decision 088, closing an arc begun in `the-bound-was-not-there` and continued in `the-policies-that-overdraw-are-the-strong-ones`. `BAL-04` is the campaign re-grade, the largest remaining balance workstream. Measured against the shipped campaign its own acceptance criteria describe: the robustness bullet fails on **8 of 24** anchors, the mixed-weapon bullet fails on **7 of 24** and is **impossible by construction** on two of them, the composition bullet was failed by **all three acts** on the day it was written — 10.1 / 29.4 / 33.8% — and a fifth bullet had been satisfied three sessions earlier by decision 067. No code changed. Every bullet now carries the measured baseline it is judged against and the one-liner that reproduces it.",
+      "tags": [
+        "BAL"
+      ],
+      "decisions": [
+        "088"
+      ],
+      "commits": [
+        {
+          "hash": "4c3d5db",
+          "subject": "docs(balance): four of BAL-04's nine acceptance bullets were failed by the baseline they describe"
+        }
+      ],
+      "body": [
+        {
+          "type": "p",
+          "text": "Third and last of the day's three instrument entries, and the one that closes the arc. `the-bound-was-not-there` (decision 086) found that the grade table could not see a difficulty dissolve; `the-policies-that-overdraw-are-the-strong-ones` (decision 087) found that the discipline gap measured a population and not an effect. Both are linked at the foot of this page. This one is decision 088, and the sentence that holds the three together is its closing paragraph: **all three were found by pointing the instrument at the campaign and reading what came back — none by auditing the instrument.**"
+        },
+        {
+          "type": "h3",
+          "text": "The defect"
+        },
+        {
+          "type": "p",
+          "text": "`BAL-04` is the campaign re-grade: density targets for the larger board, the leak budget, the capacity ladder, the composition check and the re-grade itself. It is the largest remaining balance workstream — fifteen tasks in `docs/issues/BAL-04-regrade-the-campaign.md` after this commit, fourteen before it, twelve of them still open. Its acceptance criteria were written before anything was measured against them. Measured now, against the shipped 18×15 campaign as of `54c666b`:"
+        },
+        {
+          "type": "table",
+          "headers": [
+            "bullet",
+            "today"
+          ],
+          "rows": [
+            [
+              "all 24 anchors grade `ok`",
+              "**pass**, 24/24"
+            ],
+            [
+              "≥ `ROBUST_ENOUGH` = 8 distinct winning builds",
+              "**fail on 8 of 24**"
+            ],
+            [
+              "≥1 winning build with more than one weapon id",
+              "**fail on 7 of 24**, two of them **impossible**"
+            ],
+            [
+              "`capacity_mw` under the saturation bound",
+              "**pass**, `0 warning(s)`"
+            ],
+            [
+              "`PRESSURE_FLOOR` fixed or removed",
+              "**already done** — decision 067, three sessions earlier"
+            ],
+            [
+              "`dialog capacity`",
+              "**pass**, 24/24"
+            ],
+            [
+              "no act above 10% of spawn entries at `count: 1`",
+              "**fail on all three acts** — 10.1 / 29.4 / 33.8%"
+            ],
+            [
+              "`rules parity` identical",
+              "**pass**"
+            ]
+          ]
+        },
+        {
+          "type": "p",
+          "text": "None of that is a statement about the content. It is a statement about the bar: a workstream held to these would have had to argue its way out of them at the end, which is the worst possible moment to discover a criterion was never met. **Every bullet now carries its measured baseline and the one-liner that reproduces it, and the bar is \"no anchor gets worse\" rather than an absolute invented in advance.**"
+        },
+        {
+          "type": "h3",
+          "text": "Three failures, or four"
+        },
+        {
+          "type": "p",
+          "text": "The old section had **eight** bullets, one of which is compound — a robustness floor and a mixed-weapon requirement in the same sentence — which is how eight bullets are nine criteria. The table above has eight rows because the ninth criterion, `wave density` with rebased per-act figures recorded in `docs/STATE.md`, is not a baseline that can pass or fail today: it passes as it stands (act 1 32 units on screen, act 2 27 at 85%, act 3 21 at 66%) and the rebase it asks for is this workstream's own output."
+        },
+        {
+          "type": "p",
+          "text": "Which leaves a discrepancy worth recording, in an entry about counts that were never checked. The commit subject, decision 088's opening line, the rewritten section's preamble and `LF-255`'s closing note all say **four of nine bullets failed**. The table each of them publishes enumerates **three** — the robustness floor, the mixed-weapon requirement, the composition bound — plus `PRESSURE_FLOOR`, which is the already-satisfied one. This journal is append-only and so is the decision log, so nothing is corrected there; it is written down here instead. Every underlying figure reproduces exactly, and they were all re-derived for this entry rather than taken from the commit body."
+        },
+        {
+          "type": "h3",
+          "text": "`ROBUST_ENOUGH = 8`, now read four ways"
+        },
+        {
+          "type": "p",
+          "text": "Decision 044 introduced the digit inside a **scorer**. `tools/sweep.py`'s `cell_score()` computes it over `standard_wins + brutal_wins` and 044's own words are that build count \"pays up to `ROBUST_ENOUGH` and stops\" — a point of diminishing returns for a search, so that a sweep cannot buy a green cell with an endless supply of marginal builds. It is a saturation cap on a **benefit**. It has since been read as a bar four separate times:"
+        },
+        {
+          "type": "list",
+          "items": [
+            "**044, as written:** a cap on the benefit of extra builds inside the sweep's scorer, over the two tiers summed.",
+            "**`BAL-04`'s acceptance bullet:** a per-anchor floor over the same sum — under which 8 of the 24 anchors fail today.",
+            "**`docs/STATE.md`'s priority list:** per anchor **per tier**. No anchor in the shipped campaign reaches 8 distinct winning builds on the top difficulty; the highest is anchor-14 at 7, so every anchor in the game fails that reading.",
+            "**The candidate metric decision 086 rejected:** a per-tier ceiling built on the same misreading, rejected there for the same reason."
+          ]
+        },
+        {
+          "type": "p",
+          "text": "Read as a per-anchor floor over `standard + brutal`, here is what the shipped campaign actually has on the eight anchors that miss it:"
+        },
+        {
+          "type": "table",
+          "headers": [
+            "anchor",
+            "`standard`",
+            "`brutal`",
+            "sum"
+          ],
+          "rows": [
+            [
+              "anchor-01",
+              "2",
+              "1",
+              "**3**"
+            ],
+            [
+              "anchor-02",
+              "5",
+              "2",
+              "**7**"
+            ],
+            [
+              "anchor-03",
+              "4",
+              "2",
+              "**6**"
+            ],
+            [
+              "anchor-04",
+              "4",
+              "2",
+              "**6**"
+            ],
+            [
+              "anchor-05",
+              "5",
+              "2",
+              "**7**"
+            ],
+            [
+              "anchor-07",
+              "4",
+              "3",
+              "**7**"
+            ],
+            [
+              "anchor-08",
+              "3",
+              "2",
+              "**5**"
+            ],
+            [
+              "anchor-23",
+              "4",
+              "3",
+              "**7**"
+            ]
+          ]
+        },
+        {
+          "type": "p",
+          "text": "So the bullet is now **no anchor gets worse**, per anchor, against those eight numbers and the sixteen above them. That is a bar the campaign can be held to on the day it is written, which is the whole of the repair."
+        },
+        {
+          "type": "h3",
+          "text": "The bullet that could not be met"
+        },
+        {
+          "type": "p",
+          "text": "\"At least one winning build on each anchor contains more than one weapon id\" is **impossible on anchor-01 and anchor-02**, which unlock exactly one weapon between them. Five emplacements in `data/towers.json` deal damage — the pulse turret, the arc node, the ion lance, the flak array and the mortar — and the first of them unlocks at anchor-01, the second at anchor-03. What unlocks at anchor-02 is the scan relay, which does no damage and is therefore not a weapon id. Two anchors were permanently red against a criterion no content change could ever satisfy."
+        },
+        {
+          "type": "p",
+          "text": "Conditioned on \"two or more weapon ids unlocked\", **17 of the 24 anchors meet it today**. Seven miss; two of those seven are the impossible ones, so the achievable score is 17 of 22 and there are **five real misses**: anchor-03, 04 and 05 with two weapons unlocked, and anchor-07 and 08 with three — while anchor-06, on the same three, does meet it. All five are Act I. Those five stop being a defect in the criterion and become content findings for the workstream, which is a strictly more useful thing for a bar to produce."
+        },
+        {
+          "type": "h3",
+          "text": "The composition bound becomes a regression bound"
+        },
+        {
+          "type": "p",
+          "text": "\"No act has more than 10% of its spawn entries at `count: 1`\" was failed by all three acts on the day it was written:"
+        },
+        {
+          "type": "table",
+          "headers": [
+            "act",
+            "entries at `count: 1`",
+            "spawn entries",
+            "share"
+          ],
+          "rows": [
+            [
+              "act 1",
+              "15",
+              "148",
+              "**10.1%**"
+            ],
+            [
+              "act 2",
+              "106",
+              "361",
+              "**29.4%**"
+            ],
+            [
+              "act 3",
+              "108",
+              "320",
+              "**33.8%**"
+            ]
+          ]
+        },
+        {
+          "type": "p",
+          "text": "The intent behind it is sound and is unchanged. It was written after a transform free to cut the wave table took **251 of 252** Act III spawn entries to `count: 1` and reduced every wave to \"N shards and one of each\" — a content loss that no verdict in the grade table can see, because a flattened wave still grades fine. The repair keeps the intent exactly and drops the invented number: each act is pinned to **its own measured share** and forbidden to rise. Relaxing the bullet to a figure the acts pass — somewhere near 35% — was rejected, because it asserts nothing, while the regression form has no free parameter at all and is strictly stronger against the failure it was written for."
+        },
+        {
+          "type": "p",
+          "text": "One check worth doing before trusting a baseline drawn out of the content: `count` is a **required** key in `data/schema/anchor.schema.json` under `waves[].spawns[]`, and all **829** spawn entries in the campaign carry it explicitly. The share is a property of the authored content, not an artefact of a default in the counting script."
+        },
+        {
+          "type": "h3",
+          "text": "Two backlog items closed, and a figure from yesterday's entry retired"
+        },
+        {
+          "type": "p",
+          "text": "`LF-257`. Decision 086 recorded that at decision 082's derived ranges the power-discipline gap \"inverts again and widens\", −11.9 → −22.2 points. Decision 087 then showed the shipped version of that same statistic is an artefact of **which policies overdraw**. Paired within policy, using the function 087 shipped, the derived-range campaign comes back flat — and so the sentence in 086 is retired by a later measurement rather than edited:"
+        },
+        {
+          "type": "table",
+          "headers": [
+            "",
+            "`standard`",
+            "`hard`",
+            "`brutal`",
+            "helps on"
+          ],
+          "rows": [
+            [
+              "shipped campaign, uncontrolled",
+              "+21.8",
+              "+17.6",
+              "+15.6",
+              "—"
+            ],
+            [
+              "derived-range campaign, uncontrolled",
+              "+11.9",
+              "+16.7",
+              "+22.2",
+              "—"
+            ],
+            [
+              "shipped campaign, within policy",
+              "**+6.0%**",
+              "**+5.2%**",
+              "**−3.7%**",
+              "7, 6 and 4 of 18"
+            ],
+            [
+              "derived-range campaign, within policy",
+              "**−6.9%**",
+              "**−2.2%**",
+              "**+2.5%**",
+              "5, 5 and 7 of 18"
+            ]
+          ]
+        },
+        {
+          "type": "p",
+          "text": "**There is no range–power interaction in that number.** The detail worth landing is in the top two rows: the uncontrolled statistic does not merely change magnitude between the two campaigns, it **reverses its ordering across the difficulties** — falling 21.8 → 15.6 in one and rising 11.9 → 22.2 in the other — while the controlled one stays within seven points of zero in both. That is the clearest single demonstration in the tree of why the raw split is not an instrument. It cost one script run against an already-cached grade, exactly as the backlog item predicted."
+        },
+        {
+          "type": "p",
+          "text": "A note for anyone reading these three pages in sequence, because the arithmetic looks inconsistent otherwise: the backlog and decision 086 write these gaps **negative** (clean minus browned-out), and decision 088's table writes them **positive** (browned-out minus clean), which is the convention `sim/run.py` prints. Same magnitudes, opposite sign. The previous entry made the same note for the same reason."
+        },
+        {
+          "type": "p",
+          "text": "`LF-054` — `PRESSURE_FLOOR` — closed as **already done**. Decision 067 **deleted** it rather than raising it, because a threshold picked to make today's data fail is fitted to that data. Nothing under `sim/` or `tools/` computes it any more; only a tombstone comment remains, and that comment names the replacement worth building. The item survived as open for three sessions purely because `BAL-04`'s task list and its acceptance criteria both still carried a bar for it. Both are corrected in this commit — a backlog item kept alive by two stale sentences in a spec nobody had re-read."
+        },
+        {
+          "type": "h3",
+          "text": "Two mistakes made on the way here, and they belong in the record"
+        },
+        {
+          "type": "p",
+          "text": "The first: `LF-255`, the backlog item that started this whole pass, was filed **this same morning** and named **five** anchors under `ROBUST_ENOUGH` when there are **eight**. It listed anchor-01, 02, 03, 04 and 08 with the right numbers and missed anchor-05, 07 and 23 entirely, because it was written from a partial scan and not re-derived before filing. That is an incomplete count inside an item whose entire point was that a number had not been checked against the thing it described. The closing note now carries the measured list and says which one it is."
+        },
+        {
+          "type": "p",
+          "text": "The second was nearly a spectacular finding. The first attempt at the mixed-weapon baseline reported **0 of 24** anchors having a winning build with more than one weapon id — every anchor in the game, at every difficulty, apparently solved by a single emplacement type. It was wrong. A `built` entry in the grade JSON is not a tower id, it is `\"<tower-id>@<x>,<y>\"` with the position carried at four decimal places (`pulse-turret@0.0000,4.0000`, and free placement is why the coordinates are floats at all), so a filter matching bare tower ids matched nothing on every anchor and the aggregate came back a clean, uniform, entirely false zero. It was caught by printing the actual build lists instead of trusting the total — the same move that produced every real finding today."
+        },
+        {
+          "type": "h3",
+          "text": "What was measured"
+        },
+        {
+          "type": "p",
+          "text": "No code changed in this commit: `docs/DECISIONS.md`, `docs/issues/BAL-04-regrade-the-campaign.md`, `docs/BACKLOG.md` and `backlog.json`, four files. The gate on it was **tier 2 — 28 passed, 0 failed, 30,982 ms**, over its own 28,000 ms budget, which is `LF-240` and unrelated to this change: the tier-2 breach is a known regression in `sim determinism` with a measured fix already written up. Tier 2 is 19 tier-1 checks plus 9 tier-2 ones, which is where the 28 comes from."
+        },
+        {
+          "type": "p",
+          "text": "Re-derived independently for this entry rather than copied out of the commit body: a fresh `.venv/bin/python -m sim.run --jobs 8 --json --detail` over the whole campaign (61 s wall, 6 m 15 s CPU) reproduces **24/24 `ok`**, the same eight anchors under 8 with the same per-tier counts, and the same 17 of 24 on mixed weapons with the same seven misses. The composition shares were recomputed straight from `data/anchors/*.json` and give 15/148, 106/361 and 108/320 to the decimal. `validate_data.py` reports `ok — 0 warning(s)` across 58 documents. Tier 1 is 19 passed, 0 failed, 7,221 ms."
+        },
+        {
+          "type": "p",
+          "text": "No screenshot. There is no visual surface to any of this — it is a specification measured against a data set, and the tables are the whole of what there is to look at."
+        },
+        {
+          "type": "h3",
+          "text": "The lesson, three times in one day"
+        },
+        {
+          "type": "quote",
+          "text": "Run the criterion against the baseline the day you write it.",
+          "attribution": "decision 088"
+        },
+        {
+          "type": "p",
+          "text": "Decision 086: the grade table could not see a difficulty dissolve. Decision 087: the discipline gap measured a population, not an effect. Decision 088: the acceptance criteria were never checked against the thing they describe. Three instruments, three defects, one day — and every one of them surfaced by running the instrument over the real campaign and reading the output, not by reading the instrument's code. A bar nobody can clear, sitting in a spec, is worse than no bar: it gets quietly reinterpreted at the end by whoever is tired, which is precisely how one digit acquired four meanings."
+        }
+      ]
     }
   ]
 }
