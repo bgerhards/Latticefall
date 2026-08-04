@@ -32,7 +32,7 @@ extends RefCounted
 ## its background colours out of that same PNG (CLAUDE.md).
 
 const KNOWN_ACTIONS := ["build", "select", "pick", "press", "gamepad", "ability", "speed",
-	"scroll", "cursor", "pause", "camera", "shot", "a11y", "facings"]
+	"scroll", "cursor", "pause", "camera", "autobuild", "shot", "a11y", "facings"]
 ## Actions folded into main.gd's pre-existing per-run fields rather than dispatched through
 ## `actions_at()` — see the file doc above.
 const CAPTURE_ACTIONS := ["shot", "a11y", "facings"]

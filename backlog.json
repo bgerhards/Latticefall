@@ -1,5 +1,5 @@
 {
-  "next_id": 236,
+  "next_id": 238,
   "items": [
     {
       "id": "LF-001",
@@ -2707,11 +2707,11 @@
       "kind": "bug",
       "area": "engine",
       "pri": "med",
-      "status": "open",
+      "status": "done",
       "why": "",
       "opened": "2026-08-03",
-      "closed": null,
-      "note": ""
+      "closed": "2026-08-03",
+      "note": "closed at 54dc447"
     },
     {
       "id": "LF-227",
@@ -2814,6 +2814,30 @@
       "title": "AudioDirector.sfx() has no cue log, so no scenario can assert what the game actually PLAYED - every audio assertion in this project is really an assertion about the caller's arithmetic. FOUND while fixing LF-232: proving the ward cue's rung sequence needed a TEMPORARY field added to anchor_view.gd::export_state() and removed again before shipping, because the cue index was visible nowhere outside _on_built(). Both LF-228 and LF-232 were silent for the same reason. LF-174 already lists audio_director.gd as zero-coverage; this is the concrete mechanism. THE WORK: a bounded ring buffer of the last N cue names, exposed through Audio.report() or a view.audio.recent key in export_state(). It makes 'the brownout duck fired', 'the deny tone played and not the build tone' and 'rung 6 played exactly once' assertable from a scenario, none of which can be checked today. Bounded is load-bearing - an unbounded log on a 48x48 board with 78 emplacements and ten waves is a memory leak, and the gate's own bounded-subprocess rule exists for the same class of reason",
       "kind": "chore",
       "area": "audio",
+      "pri": "med",
+      "status": "open",
+      "why": "",
+      "opened": "2026-08-03",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-236",
+      "title": "--autoplay is not a smoke policy on any act-2 board, and any check relying on it to produce a PLAYING board is measuring an empty one. MEASURED on anchor-11 while closing LF-226: Content.unlocked_at() returns ids sorted ALPHABETICALLY and _autobuild_step() takes the first affordable one, so anchor-damper wins every pick. Boot spends 1080 of 1150 credits on four Anchor Dampers - damage: 0 - the board kills nothing, earns no bounty, never builds again, and lives reaches 0 during wave 2 (frame 1192, sim_t 59.6). The same flag looks fine on anchor-01 only because pulse-turret happens to sort before anything else it can afford there. THE FIX IS A POLICY, NOT A SORT: pick by damage-per-MW, or reuse the grader's own policies from sim/engine.py, which already encode preference orders that were graded rather than guessed. NOTE this is why LF-226's scenario needed a new autobuild verb rather than --extra --autoplay: arming autobuild from _ready() before frame 0 spends the purse before a scenario can place anything, leaving anchor-11 at 194 of 200 MW where capacity and max_emplacements bind at the same instant and the scenario cannot tell which one stopped the run",
+      "kind": "bug",
+      "area": "engine",
+      "pri": "med",
+      "status": "open",
+      "why": "",
+      "opened": "2026-08-03",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-237",
+      "title": "scenario lf226-fallback is the most expensive non-parity check in the gate at 75.8 s local; next is anchor grades at 63.7 s and scenario smoke at 37.4 s. SCENARIO_TIMEOUT_S is 300 s and its comment already records CI being slow enough to force 120 -> 300 once. THE COST IS STRUCTURAL, not a slow implementation: the 12th and 13th emplacements on anchor-11 are funded by wave-2 and wave-3 bounty, so the run cannot end before roughly frame 2900 even at 3x, the fastest authored speed. Two things to do rather than one. First, RE-MEASURE ON CI before assuming the 300 s margin holds - the local figure is 16-core and CI is not. Second, note that tier 3 is now 355 s locally and has absorbed two 60-80 s checks in one day (anchor grades, this one); tier 3 has no asserted budget the way tiers 1 and 2 do, so nothing will tell us when it stops being a usable PR gate. Consider giving tier 3 a --budget assertion like the lower tiers have, which is the only mechanism this project has that reliably catches a tier quietly becoming too slow to use",
+      "kind": "chore",
+      "area": "tooling",
       "pri": "med",
       "status": "open",
       "why": "",

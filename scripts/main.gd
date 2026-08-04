@@ -970,6 +970,18 @@ func _run_scenario_action(verb: String, args: Array) -> void:
 			pause_menu.show_menu()
 		"camera":
 			view.set_camera_override(Vector2(float(args[0]), float(args[1])), float(args[2]))
+		"autobuild":
+			# LF-226: the same `view.autobuild()` the `--autoplay` flag calls, scheduled on a
+			# frame instead of at boot. That timing is the whole point rather than a
+			# convenience: `--autoplay` fires from `_ready()`, BEFORE any scenario action can
+			# run, so the boot pass spends the anchor's entire starting purse under its own
+			# greedy first-affordable policy and a scenario cannot choose the board it wants
+			# to test. Measured on anchor-11: booting with `--autoplay` buys four Anchor
+			# Dampers (0 damage, 72 MW) and leaves 70 credits, which puts the board at
+			# 194 of 200 MW by its thirteenth emplacement — close enough to capacity that
+			# "it stopped at the cap" and "it ran out of megawatts" become the same
+			# observation, which is exactly the thing LF-226's scenario has to tell apart.
+			view.autobuild()
 		_:
 			# Unreachable in practice: scenario.gd's load_file() already rejects any verb
 			# outside KNOWN_ACTIONS before this dispatcher ever runs. Guarded anyway rather
