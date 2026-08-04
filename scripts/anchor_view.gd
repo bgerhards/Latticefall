@@ -1034,16 +1034,64 @@ func wards_total() -> int:
 	return 0 if sim == null else sim.effective_cap()
 
 
+## How many rungs the `ward_engage_*` bank has. Six, and it is a *phrase*, not six
+## interchangeable knocks: `tools/audio/synth_sfx.py`'s `WARD_STEPS` rises G3–A3–B3–C4–D4–E4
+## through a major pentatonic with level climbing 0.30 dB per rung, everything else held
+## identical, "so the sixth is unmistakably the last one". That property is what
+## `ward_cue_step()` below is built to preserve, and it is why the bank size is not a
+## number to be grown casually — see LF-232.
+const WARD_CUE_RUNGS: int = 6
+
+
+static func ward_cue_step(n: int, total: int) -> int:
+	## Which rung of the six-sound ward phrase an engagement of `n` out of `total` plays.
+	##
+	## LF-232. This was `clampi(n, 1, 6)` — a *counted* cue, one sound per emplacement — so
+	## on anchor-01 (8 slots) builds 7 and 8 both replayed rung 6, and on anchor-24 (12)
+	## builds 7 through 12 all did: the count stopped counting at exactly the "six of six"
+	## number LF-228 had just deleted from the dialog text. Counting cannot be repaired by
+	## authoring more sounds, because the ceiling is not fixed any more — PLC-05 lets an
+	## anchor set `max_emplacements` above its authored slot count and the LF-080 generator
+	## derives 78 emplacements on a 48x48 board, where one sound per emplacement means
+	## nothing at all. So the cue is proportional: six rungs spread across however much of
+	## the board is engaged.
+	##
+	## The mapping, in one line: rung 6 the moment the board is full, otherwise rungs 1..5
+	## spread evenly over the builds before it — `1 + (n - 1) * 5 / (total - 1)`, integer
+	## division, which is a floor here because both operands are non-negative.
+	##
+	## Both endpoints are deliberate, because that is where the old bug lived. `n == 1`
+	## gives rung 1 (the first build is always the bottom of the phrase). `n == total`
+	## gives rung 6 and *only* n == total does, so the top note lands on the last build
+	## and lands once — the same build the `wards-full` dialog line fires on. On a
+	## six-emplacement board the sequence is 1,2,3,4,5,6: identical, rung for rung, to the
+	## counted cue this replaces, which is the bank's own design case.
+	##
+	## Pure and static so it depends on nothing in the scene — `n` and `total` come from
+	## `wards_engaged()` and `wards_total()`, and `wards_total()` is `sim.effective_cap()`,
+	## the denominator the rules and the parity harness already agree on. Not recomputed
+	## here.
+	if total <= 1:
+		# A one-emplacement board (or a caller with no board at all): any build that lands
+		# fills it, so the only honest rung is the last one.
+		return WARD_CUE_RUNGS
+	if n >= total:
+		return WARD_CUE_RUNGS
+	if n <= 1:
+		return 1
+	return 1 + (n - 1) * (WARD_CUE_RUNGS - 1) / (total - 1)
+
+
 func _on_built(_tower_id: String, _x: float, _y: float) -> void:
 	## "Ward" is Control's word for a built emplacement (data/dialog's wards-half/wards-full
-	## lines) — ward_engage_{1..6} is an indexed, counted cue, played on every build, and the
-	## two dialog thresholds are the ring being half and fully engaged.
+	## lines) — ward_engage_{1..6} is the ring charging, played on every build, and the two
+	## dialog thresholds are that ring being half and fully engaged.
 	# `sim` is untyped by this file's existing convention (see the field's own declaration
 	# and CLAUDE.md's note on the parse-time trap), so both need an explicit type rather
 	# than `:=`.
 	var total: int = wards_total()
 	var n: int = wards_engaged()
-	Audio.sfx("ward_engage_%d" % clampi(n, 1, 6))
+	Audio.sfx("ward_engage_%d" % ward_cue_step(n, total))
 	if total > 0 and n * 2 >= total:
 		_fire("wards-half")
 	if total > 0 and n >= total:
@@ -2954,7 +3002,16 @@ func export_state() -> Dictionary:
 			# denominator directly instead of inferring it from whether a dialog line
 			# appeared. The bug this exposes was silent for exactly that reason — nothing
 			# could see `total`, and the only symptom was a line that never played.
-			"wards": {"engaged": wards_engaged(), "total": wards_total()},
+			# LF-232 adds `cue`: which rung of the six-sound ward phrase the LAST build
+			# played. The counted-cue bug was invisible for exactly the same reason the
+			# LF-228 one was — nothing outside `_on_built()` could see the index, so
+			# "builds 7..12 all replay rung 6" was not observable from any state a
+			# scenario could assert on. It is derived, not stored: `ward_cue_step()` is
+			# pure, so reading it here cannot drift from what was played.
+			"wards": {
+				"engaged": wards_engaged(), "total": wards_total(),
+				"cue": ward_cue_step(wards_engaged(), wards_total()),
+			},
 			"speed": speed, "phase": phase(), "wave": wave_number(),
 		},
 	}
