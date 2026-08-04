@@ -94,6 +94,11 @@ var fx_additive: Node2D
 var speed: float = 1.0
 var _speeds: Array = [1.0]
 
+## LF-236/LF-250. The emplacement `--autoplay` leads with, mirroring `cheap-mass` in
+## sim/engine.py (`rest(has("pulse-turret"))`). A constant rather than a literal because
+## it is the one thing tying the smoke policy to the graded policy it claims to imitate —
+## see `_autobuild_preference()` for what went wrong without it.
+const AUTOBUILD_LEAD := "pulse-turret"
 const LOW_LIVES_FRAC := 0.5      ## mirrors tuning.json grade.thresholds' CONTESTED cutoff
 const CHAIN_HIGH_STREAK := 5     ## kills chained together before Control remarks on it
 
@@ -311,8 +316,35 @@ func autobuild() -> void:
 	_autobuild_step()
 
 
-func _autobuild_step() -> void:
+func _autobuild_preference() -> Array:
+	## LF-236/LF-250. `Content.unlocked_at()` ends with `out.sort()`, so it returns ids
+	## ALPHABETICALLY, and walking that array first-affordable-wins picks `anchor-damper`
+	## — damage 0 — on every anchor from anchor-10 on, where the damper unlocks. Measured
+	## on anchor-24 with `tools/shot.py --facings`: 24 FACE lines, every one of them
+	## `anchor_damper_base` or `anchor_damper_head`. Twelve emplacements, nothing that
+	## shoots. `autobuild()`'s own docstring has promised "the way the 'cheap-mass' policy
+	## would" for fifteen anchors while doing nothing of the kind, and `game renders`
+	## drives `--autoplay --anchor anchor-24` for all three of its captures — so the gate
+	## has been reporting coverage off a board with no damage on it.
+	##
+	## THE FIX IS A POLICY, NOT A SORT. `unlocked_at()`'s ordering is left alone
+	## deliberately: `sim/run.py` sorts the same list so the GDScript preference tail
+	## matches the Python port's, and re-ordering it there would move a parity input to
+	## fix a smoke policy. `cheap-mass` in `sim/engine.py` is `rest(has("pulse-turret"))`
+	## — the turret first, then everything else in the sorted order — and this reproduces
+	## exactly that, which is what the docstring already claims.
 	var unlocked: Array = Content.unlocked_at(anchor_id)
+	var out: Array = []
+	if unlocked.has(AUTOBUILD_LEAD):
+		out.append(AUTOBUILD_LEAD)
+	for tid in unlocked:
+		if tid != AUTOBUILD_LEAD:
+			out.append(tid)
+	return out
+
+
+func _autobuild_step() -> void:
+	var unlocked: Array = _autobuild_preference()
 	while true:
 		var cand = _next_autobuild_candidate()
 		if cand == null:
