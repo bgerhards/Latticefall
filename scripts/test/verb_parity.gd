@@ -159,7 +159,8 @@ func _dispatch(s: Variant, verb: String, args: Dictionary, abilities: Dictionary
 			# A deliberate no-op in the rules — the sim ticks at a fixed DT and "speed"
 			# is scripts/anchor_view.gd's wall-clock pacing, a presentation concept.
 			# BAL-01 required this be PROVED rather than assumed, and
-			# tools/verb_parity.py's --no-speed control run is that proof.
+			# tools/verb_parity.py's stripped-actions control run is that proof, and it
+			# runs on every invocation rather than behind a flag.
 			pass
 		"ability":
 			match String(args.get("kind", "")):

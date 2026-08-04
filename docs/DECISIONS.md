@@ -3600,8 +3600,16 @@ shipped data never enters.
 **The measurement.** `Sim._dispatch_one()` accepts eight verbs — `speed`, `call_wave`,
 `ability`, `target_mode`, `sell`, `upgrade`, `set_online`, `build`. Across all **twenty**
 distinct policies `standard_policies()` ever returns, exactly **two** are ever scheduled:
-`call_wave` by one policy, and `ability` by three (surge and overcharge only — never
-shutter). `veterancy` is set by one policy and `chain_bounty` by none.
+`call_wave` by one policy, and `ability` by **two** — `surge-on-peak` and
+`overcharge-greedy`, 53 actions between them; never shutter. `veterancy` is set by one
+policy and `chain_bounty` by none.
+
+*(That figure was written as "three policies" when this entry was first drafted and was
+wrong; the chronicler re-derived it against the tree and it is two. Corrected before this
+decision landed on `main`, which is why it is an edit rather than a superseding entry —
+append-only protects what was published and believed, not a miscount caught in the same
+hour. The 53-action total was right, and the direction of the error favours the finding:
+fewer policies pressing buttons is a wider hole, not a narrower one.)*
 
 So every one of the **1,440 `rules parity` runs executes the absent branch** for
 `target_mode`, `sell`, `upgrade`, `set_online`, `build`, `ability:shutter` and `speed`.

@@ -7060,6 +7060,215 @@
           "text": "Gate: tier 2, **26 passed, 0 failed, 16 correctly skipped**, 32,372 ms. No rules file and no data file changed, so tier 2 is the bar. `python syntax` went from 63 files to 64 — the new tool tracked **before** the run rather than after it, which is the trap where a new untracked file is invisible to the gate, avoided on purpose this time."
         }
       ]
+    },
+    {
+      "id": "never-pressed-the-sell-button",
+      "date": "2026-08-04",
+      "time": "08:36",
+      "title": "1,440 runs of the whole game per parity check, and not one of them ever pressed the sell button",
+      "summary": "`LF-244`, decision 083. `Sim._dispatch_one()` accepts eight scheduled verbs. Across all **twenty** policies the grader ever builds, exactly two are ever scheduled — so every one of the 1,440 `rules parity` runs executes the **absent** branch for `sell`, `upgrade`, `set_online`, `build`, `target_mode`, the shutter and `speed`. Those six are precisely the ones with a key bound to them in `project.godot`. A fixture, a harness and a `verbs agree` gate check at tier 3 close it. The route here was not a hunt for parity holes — it was a wrong first read of the campaign's economy.",
+      "tags": [
+        "PRC",
+        "BAL"
+      ],
+      "decisions": [
+        "083"
+      ],
+      "commits": [
+        {
+          "hash": "b3e861a",
+          "subject": "test(gate): the six verbs nobody graded are the six with a key bound to them"
+        }
+      ],
+      "body": [
+        {
+          "type": "p",
+          "text": "The previous entry, an hour before this one — `the-grade-table-said-nothing` — derived emplacement range from lane length and then found that the grade table could not see what the change cost. That left a question hanging about the instrument rather than the content: what **else** can the grader not see? The answer turned out to be most of the player's interface."
+        },
+        {
+          "type": "h3",
+          "text": "The measurement"
+        },
+        {
+          "type": "p",
+          "text": "`Sim._dispatch_one()` accepts eight scheduled verbs — `speed`, `call_wave`, `ability`, `target_mode`, `sell`, `upgrade`, `set_online`, `build`. `standard_policies()` returns **twenty** distinct policies, and sixteen of them schedule nothing whatsoever. Of the four that do anything at all: one schedules `call_wave`, once, on the first tick; two schedule `ability`, 53 actions between them, and only the surge and the overcharge — never the shutter; and the fourth opts into veterancy rather than pressing a button. `chain_bounty` is set by no policy in the set."
+        },
+        {
+          "type": "p",
+          "text": "So every one of the 1,440 `rules parity` runs executes the **absent** branch for `target_mode`, `sell`, `upgrade`, `set_online`, `build`, the shutter ability and `speed`. `scripts/test/parity.gd:317` has carried a mirrored `upgrade` dispatch since `BAL-01`, and nothing has ever driven it."
+        },
+        {
+          "type": "p",
+          "text": "**One number in the record needs correcting, and this entry is where that happens rather than in the record itself.** `LF-244`'s backlog title, the commit message above and decision 083 all state that `ability` is scheduled by **three** policies. Re-running `standard_policies()` against the tree at `b3e861a` and counting says **two** — `surge-on-peak` (20 actions) and `overcharge-greedy` (33). The 53-action total those three places also record is exactly right; it is the policy count that is off by one. Nothing about the finding moves: fewer policies pressing buttons makes the hole wider, not narrower. It is written down here because `docs/DECISIONS.md` is append-only and so is this journal."
+        },
+        {
+          "type": "h3",
+          "text": "Why this is worse than an unauthored firing arc, and it is checkable rather than rhetorical"
+        },
+        {
+          "type": "p",
+          "text": "An unauthored `cos_half_angle` (decision 078, `PLC-03`) is inert in the shipped game **by construction** — the acceptance bar for that work was that no shipped emplacement row gains one, so the untested branch is a branch nobody can reach. These six are different in kind. They are the player's entire interface, and `project.godot`'s action map has one bound action for each of them:"
+        },
+        {
+          "type": "table",
+          "headers": [
+            "verb",
+            "bound action",
+            "what `scripts/anchor_view.gd` does with it"
+          ],
+          "rows": [
+            [
+              "`sell`",
+              "`lf_sell`",
+              "`sim.sell(i)` — line 1433"
+            ],
+            [
+              "`upgrade`",
+              "`lf_upgrade`",
+              "`sim.upgrade(i)` — line 1443"
+            ],
+            [
+              "`set_online`",
+              "`lf_power`",
+              "`sim.set_online(i, now)` — line 1564"
+            ],
+            [
+              "`build`",
+              "`lf_build`",
+              "`sim.build_at(...)` — lines 327 and 1546"
+            ],
+            [
+              "`target_mode`",
+              "`lf_target`",
+              "writes `p[\"target_mode\"]` directly — line 1150"
+            ],
+            [
+              "`speed`",
+              "`lf_speed_cycle`",
+              "the tick-rate multiplier"
+            ]
+          ]
+        },
+        {
+          "type": "p",
+          "text": "An `upgrade()` that merged its stats differently in the two engines would mean every balance conclusion about an upgraded board describes a game nobody plays — and the owner plays the Windows build, which is the whole reason decision 078 exists in the first place. This is the third instance of the same principle: **a gate that runs the whole game proves nothing about a branch the shipped data never enters.**"
+        },
+        {
+          "type": "h3",
+          "text": "What landed"
+        },
+        {
+          "type": "p",
+          "text": "`data/schema/fixtures/scheduled-verbs.json` (154 lines — four emplacement types, one walker spawned three times, ten scheduled actions, 320 ticks), `tools/verb_parity.py` (481 lines), `scripts/test/verb_parity.gd` (204 lines), and a `verbs agree` check at tier 3 costing 2,573 ms. The Python side drives `Sim._dispatch_one()` itself; the GDScript side drives `scripts/anchor_sim.gd` through a mirror of `parity.gd`'s match block. Same shape `tools/arc_parity.py` established. Five claims:"
+        },
+        {
+          "type": "list",
+          "items": [
+            "The two engines agree **byte for byte** on fire pattern, funds, spend, bus load, emplacement count, and every unit's distance and hit points, on every tick.",
+            "The money trajectory matches arithmetic done **in the harness** from the fixture's own costs: 2000 − 100 − 200 − 300 = 1400, −150 upgrade = 1250, −400 build = 850, + floor(400 × SELL_REFUND) = 1090. Two engines wrong the same way still fail.",
+            "`upgrade` is proved **geometrically**, not by reading a stat back out — the next section.",
+            "`set_online` and the shutter are priced on the bus to the exact megawatt, and the unit inside `hold_tiles` is held at a standstill for all thirty ticks the shutter is down.",
+            "`speed` is **proved** to be the no-op `sim/engine.py`'s own comment claims it is, by re-running the whole fixture with the speed actions stripped and requiring identical output. That is the demonstration `BAL-01`'s task list asked for and never got."
+          ]
+        },
+        {
+          "type": "h3",
+          "text": "Claim 3 is the one worth copying: an upgrade proved by geometry, not by a read-back"
+        },
+        {
+          "type": "p",
+          "text": "The obvious way to check `upgrade` is to apply it and read `range` back out of the emplacement. That proves a write happened, in one engine, and nothing else. So the fixture does it structurally instead. `verb-probe-reach` is built at (10, 0) with range 3.0, and the lane runs straight along y = 4 — a 4.0-tile standoff. It **cannot fire at all**: not at a poorly chosen target, not at a distant one, not at any target, no matter where anything on the board stands. After the upgrade merges range 8.0 it reaches sqrt(8² − 4²) = 6.9282 tiles of lane either side of x = 10."
+        },
+        {
+          "type": "p",
+          "text": "So the check is: **zero** shots from that row before tick 150, and after it, every tick it fires on must have a unit within 8.0 and **none** within 3.0. An engine that merged the wrong key, or merged nothing, or merged into the wrong emplacement, cannot satisfy that in either direction."
+        },
+        {
+          "type": "h3",
+          "text": "The fixture, tick by tick"
+        },
+        {
+          "type": "pre",
+          "text": "   tick  funds  spend    load placed units  verb(s)\n      0   1400    600    60.0      3     1\n     30   1400    600    60.0      3     1  speed\n     60   1400    600    60.0      3     2  target_mode\n     90   1400    600    30.0      3     2  set_online\n    120   1400    600    60.0      3     2  set_online\n    150   1250    750    60.0      3     2  upgrade\n    180    850   1150   100.0      4     2  build\n    200    850   1150   100.0      4     3  speed\n    210    850   1150   155.0      4     3  ability\n    240    850   1150   100.0      4     3  ability\n    270   1090   1150    60.0      3     3  sell\n    319   1090   1150    60.0      3     3\n\nok - 7 verb(s) over 320 ticks, 112 shots, python and godot identical and\n     matching the fixture's own arithmetic",
+          "caption": "Regenerated for this entry with `.venv/bin/python tools/verb_parity.py --report` — about three seconds, one headless windowless Godot. `load` is the bus in MW; `verb(s)` is what the schedule dispatched on that tick."
+        },
+        {
+          "type": "p",
+          "text": "The bus column is where the identification lives. 60 → 30 → 60 MW as emplacement 2 goes offline and back: no other subset of the fixture's draws {10, 20, 40} sums to 30, so the drop names **that row** rather than merely reporting that something changed. Then 100 → 155 → 100 as the shutter comes down and lifts. And the funds column is compared against the harness's own arithmetic rather than against either engine, so two engines wrong the same way still fail."
+        },
+        {
+          "type": "h3",
+          "text": "Proved red first, five ways, and the last two are the interesting ones"
+        },
+        {
+          "type": "p",
+          "text": "`--corrupt upgrade | refund | bus | target | engine`. The first three break an **expectation** — they change a number the harness asserts. That is necessary and not sufficient: all three would still go red against a comparator that compared nothing at all, because they fail against the fixture's arithmetic rather than against the other engine. So the last two break **behaviour** instead. `target` makes the mode switch a no-op; `engine` perturbs one tick of one engine's result. A vacuous comparator passes those two, and this one does not."
+        },
+        {
+          "type": "h3",
+          "text": "A bug found in my own check, which is this entry in miniature"
+        },
+        {
+          "type": "p",
+          "text": "The first `--corrupt target` run did not go red. It **crashed** — an `IndexError` out of `check_target_mode()`, which indexed `hps[tick + 1]` while guarding only on `hps[probe]`. A check that raises instead of reporting is not a passing check and is barely a failing one: it proves the harness ran, not that the engines agree. It was fixed in the same change. It is a small instance of exactly the thing this whole entry is about — the verifier itself being unverified."
+        },
+        {
+          "type": "h3",
+          "text": "The alternative, measured rather than dismissed, and rejected here only"
+        },
+        {
+          "type": "p",
+          "text": "Adding upgrade-buying and selling **policies** to `standard_policies()` is the obvious move. It would put the verbs into the real 1,440-run parity set instead of a fixture, and improve the grader at the same time. It was measured, not waved away: a prototype `upgrade-ladder` policy — preference byte-identical to `cheap-mass`, plus a schedule walking `upgrade` by index in three passes so an unaffordable upgrade is retried once kills have paid for it — spends **2,280** on act-3 anchors against the base mean of **1,835**, and adds a new distinct winning build on **10 of 72** anchor-by-difficulty cells. It never trivialises anything: no cell reaches distinct-winning equals distinct-tried, and it wins exactly one brutal cell in the whole campaign."
+        },
+        {
+          "type": "p",
+          "text": "It is rejected **here and only here**. A twenty-first policy moves `distinct_builds_tried` on every anchor in the campaign and adds 72 rows to the parity set — that is a re-grade, and a re-grade is `BAL-04`'s blast radius, not a verification change's. `LF-245` carries it with its numbers."
+        },
+        {
+          "type": "p",
+          "text": "`call_wave`, the surge and the overcharge are deliberately **out** of the fixture: those three are what shipped policies already schedule, so `rules parity` covers them across 1,440 runs and the fixture would only add cost. The harness asserts its own scope rather than trusting it — if the fixture ever stops scheduling one of the seven in-scope verbs, the check fails rather than quietly shrinking to whatever is left in it."
+        },
+        {
+          "type": "h3",
+          "text": "How this was actually found, including a first read that was wrong"
+        },
+        {
+          "type": "p",
+          "text": "The route here was not a hunt for parity holes. It came from measuring the campaign's economy across all 24 anchors, where **55–62% of every fund the player ever has is never spent** (act 1 58%, act 2 55%, act 3 62%; anchor-24 finishes with 4,358 unspent). The first read of that was that the economy is dead — a resource the game hands out and never asks for back."
+        },
+        {
+          "type": "p",
+          "text": "That read is **wrong**, and the correction is what exposed the verb hole. Counting the cost of upgrading every emplacement on the board the grader actually built absorbs most of the surplus, leaving 22 / 16 / 28% unspent by act — and anchor-10 and anchor-11 go **negative**, at −1% and −10%, meaning a fully-upgraded board is not affordable there at all. So the surplus is an artefact of the **grader's repertoire**, not of the game's design: no policy in `standard_policies()` has ever bought an upgrade. That is the moment the question stopped being about money and started being about which verbs the grader has never pressed."
+        },
+        {
+          "type": "p",
+          "text": "One more number from the same pass, filed under `LF-245`: by act 3 the board stands at **97–100%** of its final size before the first enemy spawns, with only 1.1–1.4 waves carrying any build at all — one act-3 anchor reaches a flat 100%. Upgrades are the only shipped mechanism that could sequence that. Issue 17's sequencing note predicted it; this measured it."
+        },
+        {
+          "type": "h3",
+          "text": "API traps found, so the next session does not rediscover them"
+        },
+        {
+          "type": "list",
+          "items": [
+            "`AnchorSim` has **no `call_wave()` verb at all**. `parity.gd`'s `\"call_wave\"` branch sets a local flag that its own wave lead-in loop consumes; there is nothing to call.",
+            "`parity.gd`'s `build` verb takes `args[\"slot\"]` as a two-element array, not `x` / `y` keys. A fixture that writes `x` / `y` silently exercises a different contract instead of failing.",
+            "`data/schema/fixtures/` is excluded by `validate_data.py`'s `discover_documents()` but is **not** excluded by `parity_inputs_digest()`. Adding this fixture took the digest's data set from 78 files to 79 and forced a full tier-4 re-comparison on **both** platforms. That is the conservative behaviour and it is correct; it is written down so the next person adding a fixture expects the cost rather than discovers it."
+          ]
+        },
+        {
+          "type": "h3",
+          "text": "The gate"
+        },
+        {
+          "type": "p",
+          "text": "Tier 4: **43 passed, 0 failed, 0 skipped**, 2,177,204 ms — about 36 minutes. Both parity legs freshly verified at the new digest `205413f5378e`, 1,440 runs identical on each. `reap.py` clean afterwards. The new check sits at tier 3 rather than tier 2 for the same two reasons `firing arcs agree` does: it is one headless windowless Godot of the same class, and tier 2 is already over its own 28,000 ms budget (`LF-178`, measured at 37,669 ms on a clean run at the start of this session), where the standing answer is to move a check out rather than move the number again."
+        },
+        {
+          "type": "p",
+          "text": "No screenshot with this one, because nothing visible changed — this is a verification change end to end. The tick table above is the artefact, and it regenerates in three seconds from the tool rather than sitting in a PNG that can go stale without anything going red."
+        }
+      ]
     }
   ]
 }

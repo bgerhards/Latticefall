@@ -1849,7 +1849,7 @@ def check_verb_parity() -> Result:
 
     `Sim._dispatch_one()` accepts eight verbs. Across all twenty distinct policies
     `standard_policies()` returns, exactly two are ever scheduled — `call_wave` (one
-    policy) and `ability` (surge and overcharge, three policies). So every one of the
+    policy) and `ability` (surge and overcharge, two policies). So every one of the
     1,440 `rules parity` runs executes the **absent** branch for `target_mode`, `sell`,
     `upgrade`, `set_online`, `build`, the shutter ability and `speed`.
     `scripts/test/parity.gd:317` has mirrored the upgrade dispatch since BAL-01 and

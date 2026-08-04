@@ -6,7 +6,7 @@ board of player actions and prove they agree, tick by tick, about what each verb
 WHY THIS EXISTS, and it is the same hole PLC-03 found in a different wall.
 `Sim._dispatch_one()` accepts eight verbs. Across all twenty distinct policies
 `standard_policies()` ever returns, exactly two are ever scheduled: `call_wave` (one
-policy) and `ability` (surge and overcharge, three policies). So every one of the 1,440
+policy) and `ability` (surge and overcharge, two policies). So every one of the 1,440
 `rules parity` runs executes the **absent** branch for `target_mode`, `sell`, `upgrade`,
 `set_online`, `build`, the shutter ability and `speed` — and says nothing whatever about
 the present one. `scripts/test/parity.gd:317` has mirrored the upgrade dispatch since
@@ -36,8 +36,9 @@ FIVE CLAIMS, in increasing order of what they would catch:
    fixture's draws sums to 30 — and the shutter must add exactly its tuning `draw_mw`
    while holding a unit inside `hold_tiles` at a standstill.
 5. **`speed` is proved to be the no-op the engine's own comment claims.** BAL-01's task
-   list required that be demonstrated rather than asserted; `--no-speed` re-runs the whole
-   fixture with the `speed` actions stripped and requires the output to be identical.
+   list required that be demonstrated rather than asserted, so every run re-runs the whole
+   fixture a second time with the `speed` actions stripped and requires byte-identical
+   output. Not behind a flag: a proof nobody remembers to ask for is not a proof.
 
     .venv/bin/python tools/verb_parity.py
     .venv/bin/python tools/verb_parity.py --report    # the timeline it measured
