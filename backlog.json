@@ -1,5 +1,5 @@
 {
-  "next_id": 257,
+  "next_id": 259,
   "items": [
     {
       "id": "LF-001",
@@ -3031,11 +3031,11 @@
       "kind": "bug",
       "area": "design",
       "pri": "high",
-      "status": "open",
+      "status": "done",
       "why": "The power economy is the game; if overdrawing dominates, decision 022 priced it wrong",
       "opened": "2026-08-04",
-      "closed": null,
-      "note": ""
+      "closed": "2026-08-04",
+      "note": "CLOSED AS NOT A DEFECT, on a controlled measurement. Decision 087. The raw number is an artefact of WHICH POLICIES OVERDRAW, not of overdrawing. TWO CONTROLS, both run against the shipped campaign. (1) POLICY IDENTITY. Whether a run browns out is decided by the policy build rules, not by the penalty -- sweeping BROWNOUT_SLOPE from 1.5 to 6.0 and re-grading the whole campaign at each value leaves the clean/browned split at exactly the same 307/173 runs every time, and the clean set win rate at 17.9 pct at every price. Comparing each policy against ITSELF -- its own browned-out runs against its own clean ones -- three quarters of the effect goes and the sign flips on brutal: +6.0 / +5.2 / -3.7 pct against the raw +21.8 / +17.6 / +15.6, helping on 7 of 18, 6 of 18 and 4 of 18 policies that split both ways. A thing that helps on under a third of the approaches that try it is a judgement call, which is exactly what decision 022 built against LF-014 flat -40 pct penalty. (2) THE PRICE IS NOT THE LEVER EITHER. Slope sweep, whole campaign re-graded per value: 1.5 -> 24/24 anchors ok and brutal gap +15.6 pct; 2.5 -> 23/24, +11.0; 3.0 -> 22/24, +5.8; 4.0 -> 19/24, +1.2; 6.0 -> 17/24, -1.7. The gap reaches zero on brutal near slope 4.2, where FIVE anchors no longer grade; on standard and hard it never reaches zero at all, still +10.7 and +8.2 points at four times the shipped price. So even had the raw effect been real, the penalty could not fix it without the content moving with it -- that is BAL-04 joint re-tune, not a constant. WITHDRAWN FROM THE EARLIER NOTE: the 11-13 emplacement bucket reversal and the lives-left comparison are both confounded by the same policy-identity effect and neither should be cited. SHIPPED: sim/run.py prints raw and within-policy together and never one alone, tools/session.py writes the same table under docs/STATE.md grade table each wrap, and the grade verdict selftest drives campaign_discipline red path -- including a guard clause that was dead when written and only became live because breaking it on purpose left the selftest green. BROWNOUT_SLOPE=1.5 and BROWNOUT_MAX_PENALTY=0.70 unchanged."
     },
     {
       "id": "LF-254",
@@ -3069,6 +3069,30 @@
       "pri": "low",
       "status": "open",
       "why": "A known thin margin is not a surprise when it fires",
+      "opened": "2026-08-04",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-257",
+      "title": "Decision 086 derived-range discipline figure is an uncontrolled split and is not evidence. 086 records that at the 48-square derived ranges the power-discipline gap inverts again and WIDENS, -11.9 / -16.7 / -22.2 points against the shipped campaign -21.8 / -17.6 / -15.6. Decision 087 then showed the shipped version of exactly that statistic is an artefact of WHICH POLICIES OVERDRAW -- comparing each policy against itself removes three quarters of it and flips the sign on brutal. The derived-range figure was computed the same uncontrolled way and has never been paired within policy, so it is not evidence of anything and 086 should not be cited for it. Both decision entries are append-only and neither is edited; 087 already flags this in its closing paragraph. THE WORK is one script: grade the campaign at decision 082 derived ranges keeping --detail, and run campaign_discipline() (sim/run.py) over it -- the function already exists and takes exactly that shape, so this is minutes, not a workstream. WHY IT MIGHT MATTER: if the derived-range campaign genuinely widens the gap within policy where the shipped one does not, that is a real interaction between emplacement RANGE and the power economy, and it lands squarely in BAL-04 alongside decision 082 range flip. If it flattens the same way the shipped one did, the sentence in 086 is simply retired by a later entry. Either answer is cheap. Found by the chronicler reviewing decision 087.",
+      "kind": "question",
+      "area": "design",
+      "pri": "med",
+      "status": "open",
+      "why": "A number in an append-only decision that nothing has controlled for",
+      "opened": "2026-08-04",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-258",
+      "title": "sim/run.py --json silently drops each report runs unless --detail is also passed, so anything computing a per-run statistic off the JSON gets nothing and says nothing. FOUND while wiring decision 087 overdraw figure into tools/session.py: campaign_discipline() needs per-run brownout_fraction and won, main() --json path filters with {k: v for k, v in r.items() if k != runs or args.detail}, and session.py had been calling --json --jobs 0 with no --detail for as long as it has existed. The function now returns {} rather than raising and the grade verdict selftest drives BOTH halves of that guard -- and the second half was DEAD when written: deleting it left the selftest green, which is how it earned a case. session.py now passes --detail; the cost is about 700 KiB more through the pipe and zero extra grading, because the runs already exist. WHAT IS LEFT: the flag is a trap for the next caller, not just for this one. tools/check.py anchor grades calls --json without --detail and is unaffected only because it reads per-anchor ok. Options are to make --json always include runs (simplest, but it is a 700 KiB default for every caller), or to have --json without --detail emit runs: null rather than omitting the key so a consumer sees an explicit absence instead of a missing attribute. Prefer the second. Low priority: the one live consumer is fixed and guarded.",
+      "kind": "chore",
+      "area": "tooling",
+      "pri": "low",
+      "status": "open",
+      "why": "A silent-absence flag that already caught one caller",
       "opened": "2026-08-04",
       "closed": null,
       "note": ""

@@ -7948,6 +7948,281 @@
           "text": "No screenshot on this one. It is a change to a grading instrument and it has no visual surface in the game at all — the two listings above are the whole of what there is to look at."
         }
       ]
+    },
+    {
+      "id": "the-policies-that-overdraw-are-the-strong-ones",
+      "date": "2026-08-04",
+      "time": "15:10",
+      "title": "Filed high in the morning, closed the same afternoon — indiscipline does not win, the policies that overdraw are simply the strong ones",
+      "summary": "`LF-253` and decision 087, the immediate sequel to `the-bound-was-not-there`. That entry reported a finding it called **backwards**: across all 1,440 shipped runs, boards that brown out the reactor bus win 53.2% on `standard` against 31.4% for clean ones, a 21.8-point advantage to indiscipline against the whole point of the power economy. It is an artefact. Whether a run browns out is decided by the **policy's build rules**, not by the price — the clean/browned split does not move by a single run when the penalty is swept to four times its shipped value. Compare each policy against **itself** and three quarters of the effect goes and the sign flips on the top tier. Two more claims made in between are withdrawn with it, and the price is not the lever anyway.",
+      "tags": [
+        "BAL"
+      ],
+      "decisions": [
+        "087"
+      ],
+      "commits": [
+        {
+          "hash": "5ebec61",
+          "subject": "fix(balance): \"indiscipline wins\" was an artefact of which policies overdraw, and the price stays"
+        }
+      ],
+      "body": [
+        {
+          "type": "p",
+          "text": "The previous entry — `the-bound-was-not-there`, linked at the foot of this page — closed with a section headed \"the one that came back backwards\". This is the correction to it, written the same day, one commit later. Decision 086 is append-only and is not edited; decision 087 corrects one of its rejection **reasons** and confirms decision 022. The rejection itself still stands: the metric was rejected and stays rejected."
+        },
+        {
+          "type": "h3",
+          "text": "The claim, and it was ours"
+        },
+        {
+          "type": "p",
+          "text": "While deriving decision 086, the hunt was for a difficulty metric that needed **no constant of its own**, and `sim/engine.py`'s `DIFFICULTIES` table appeared to hand one over. Its comment says the top tier's 1.55 multiplier was swept to be \"the point where brutal kills the overdraw build but leaves the disciplined one alive\". If that is true, the gap between the win rates of disciplined boards and overdrawing ones should **widen** as difficulty rises. Splitting all 1,440 shipped runs — 24 anchors, 20 policies, 3 difficulties — on whether a run ever browned out gave the opposite:"
+        },
+        {
+          "type": "table",
+          "headers": [
+            "",
+            "`standard`",
+            "`hard`",
+            "`brutal`"
+          ],
+          "rows": [
+            [
+              "clean runs win",
+              "31.4%",
+              "23.5%",
+              "17.9%"
+            ],
+            [
+              "runs that brown out win",
+              "**53.2%**",
+              "**41.2%**",
+              "**33.5%**"
+            ],
+            [
+              "advantage to indiscipline",
+              "**+21.8**",
+              "**+17.6**",
+              "**+15.6** points"
+            ]
+          ]
+        },
+        {
+          "type": "p",
+          "text": "Decision 086 recorded that as \"not weakly supported, it is backwards\", and it was filed as `LF-253`, a `high` design bug against the mechanic this entire game is built on. Power is the real currency; if overdrawing the bus is worth twenty points of win rate at every difficulty, decision 022 priced it wrong and the capacity ladder `BAL-04` is about to rebase would be tuned on top of an inverted incentive. That was the right severity for the number as it stood."
+        },
+        {
+          "type": "p",
+          "text": "One note for anyone reading the two pages side by side: `the-bound-was-not-there` writes these gaps as **negative** (clean minus browned-out, `−21.8 pts`) and everything from here on writes them as **positive** (browned-out minus clean, `+21.8%`), which is the sign convention `sim/run.py` now prints. Same magnitudes, opposite sign; nothing changed but which way round the subtraction goes."
+        },
+        {
+          "type": "h3",
+          "text": "The control that was missing"
+        },
+        {
+          "type": "p",
+          "text": "The previous entry did look for a confound, and the check it used does not control for one. It reads: \"It is not one greedy policy dominating the sample — 171 to 173 runs per difficulty brown out, out of twenty policies, so many of them do it.\" That rules out a single outlier and nothing else. **Many policies browning out is not the same as browning out being what distinguishes them.** The twenty policies differ in far more than their power discipline, and the split is drawn by what they build."
+        },
+        {
+          "type": "p",
+          "text": "The decisive test is the cheapest one available and it should have been the first: if the penalty is what makes browned-out runs win, then changing the penalty should change something about the browned-out set. Sweeping `BROWNOUT_SLOPE` from its shipped 1.5 up to 6.0 and re-grading the whole campaign at each value, **not one run crosses the line** — the figures below are identical at 1.5, at 4.0 and at 6.0, each re-measured for this entry, and the commit reports the same at 2.5 and 3.0."
+        },
+        {
+          "type": "table",
+          "headers": [
+            "",
+            "`standard`",
+            "`hard`",
+            "`brutal`"
+          ],
+          "rows": [
+            [
+              "clean / browned-out runs",
+              "309 / 171",
+              "310 / 170",
+              "307 / 173"
+            ],
+            [
+              "clean set's win rate",
+              "31.4%",
+              "23.5%",
+              "17.9%"
+            ]
+          ]
+        },
+        {
+          "type": "p",
+          "text": "Whether a run browns out is decided by the policy's build rules, which do not read the penalty. So the raw comparison is largely a statement about **which policies overdraw**, and those turn out to be the strong ones: the ion lance is the best weapon in the game — 48 damage against the mortar's 26 — and it also draws the most, 34 MW against 30, so a lance-led board overdraws almost by construction. The split is not disciplined boards against undisciplined ones. It is one set of strategies against another."
+        },
+        {
+          "type": "p",
+          "text": "Compare each policy against **itself** — its own browned-out runs against its own clean ones, so the strategy is held fixed and only the overdraw varies — and three quarters of the effect goes, and the sign flips where the `DIFFICULTIES` comment made its claim:"
+        },
+        {
+          "type": "table",
+          "headers": [
+            "",
+            "`standard`",
+            "`hard`",
+            "`brutal`"
+          ],
+          "rows": [
+            [
+              "raw",
+              "+21.8%",
+              "+17.6%",
+              "+15.6%"
+            ],
+            [
+              "**within policy**",
+              "**+6.0%**",
+              "**+5.2%**",
+              "**−3.7%**"
+            ],
+            [
+              "helps on",
+              "7 of 18",
+              "6 of 18",
+              "**4 of 18** policies"
+            ]
+          ]
+        },
+        {
+          "type": "p",
+          "text": "Eighteen of the twenty policies produce both clean and browned-out runs and can be paired with themselves; the other two never split and are dropped rather than pooled. A thing that helps on **under a third** of the approaches that try it is a judgement call — which is precisely what decision 022 set out to build, against the flat −40% penalty `LF-014` had measured as making \"never exceed capacity\" unconditionally correct. `BROWNOUT_SLOPE = 1.5` and `BROWNOUT_MAX_PENALTY = 0.70` are unchanged, and `LF-253` is closed as not a defect."
+        },
+        {
+          "type": "pre",
+          "text": "campaign win share over 24 anchors (distinct winning builds / distinct builds tried, pooled)\n  standard 40.6% (134/330) · hard 30.0% (100/333) · brutal 24.2% (80/331)\n  falls strictly across the tiers: yes   [reported, not asserted]\n  hard does not fall below standard on 2 anchor(s): anchor-08, anchor-15   [reported, not asserted — only brutal is a problem]\n\noverdraw advantage — does browning out the bus help? (decision 087; reported, not asserted)\n                 raw    within policy   helps on\n  standard    +21.8%            +6.0%   7/18 policies (309 clean, 123 browned-out runs)\n  hard        +17.6%            +5.2%   6/18 policies (310 clean, 122 browned-out runs)\n  brutal      +15.6%            -3.7%   4/18 policies (307 clean, 125 browned-out runs)\n  The raw column is confounded by WHICH policies overdraw and must not be read alone.\n\n24/24 anchors clean",
+          "caption": "The new footer, re-run in full for this entry at `.venv/bin/python -m sim.run --jobs 8`. **Both columns print, always** — printing the raw one alone is how this was misread, and printing only the adjusted one would hide what was misread. `tools/session.py` writes the same table under `docs/STATE.md`'s grade table on every wrap; it now passes `--detail`, because a within-policy figure cannot be recovered from the per-anchor aggregates. The run counts on the right are the paired subset — the runs belonging to the eighteen policies that split — not the campaign totals of 309/171, 310/170 and 307/173."
+        },
+        {
+          "type": "h3",
+          "text": "The price is not the lever anyway"
+        },
+        {
+          "type": "p",
+          "text": "This is the measurement worth keeping, and it would have mattered even if the raw effect had been real. The whole campaign was re-graded at each slope. Nothing else was changed."
+        },
+        {
+          "type": "table",
+          "headers": [
+            "slope",
+            "anchors ok",
+            "`brutal` gap",
+            "`standard` gap",
+            "`brutal` win share"
+          ],
+          "rows": [
+            [
+              "**1.5** (shipped)",
+              "**24/24**",
+              "+15.6%",
+              "+21.8%",
+              "24.2%"
+            ],
+            [
+              "2.5",
+              "23/24",
+              "+11.0%",
+              "+16.0%",
+              "22.0%"
+            ],
+            [
+              "3.0",
+              "22/24",
+              "+5.8%",
+              "+14.8%",
+              "19.5%"
+            ],
+            [
+              "4.0",
+              "**19/24**",
+              "+1.2%",
+              "+10.7%",
+              "17.4%"
+            ],
+            [
+              "6.0",
+              "**17/24**",
+              "−1.7%",
+              "**+10.7%**",
+              "16.2%"
+            ]
+          ]
+        },
+        {
+          "type": "p",
+          "text": "The gap reaches zero on `brutal` somewhere near slope 4.2 — where **five anchors no longer grade at all**. On `standard` and `hard` it never reaches zero: at four times the shipped price it is still **+10.7** and **+8.2** points. So the penalty could not have fixed the raw figure without the content moving with it, which is `BAL-04`'s joint re-tune and not a constant anyone can turn on its own."
+        },
+        {
+          "type": "p",
+          "text": "Three of the five rows above — 1.5, 4.0 and 6.0 — were re-measured independently for this entry, by patching the constant in memory before the grading pool forks rather than by editing `sim/engine.py`, so the shared working tree never held a modified rules file and neither parity leg was disturbed. Every figure reproduced exactly. The 2.5 and 3.0 rows are quoted from the commit and were **not** re-run here. One detail the re-run adds: the `standard` gap reading **+10.7% at both 4.0 and 6.0** is not a transcription slip, it is the column having gone flat — `BROWNOUT_MAX_PENALTY = 0.70` caps the penalty, so past a certain slope the price stops rising for any board already deep enough into the red, and raising it further only removes anchors."
+        },
+        {
+          "type": "h3",
+          "text": "Two more claims withdrawn"
+        },
+        {
+          "type": "p",
+          "text": "Between the two decisions, two further results were derived off the same uncontrolled split and both are withdrawn. Neither should be cited again."
+        },
+        {
+          "type": "list",
+          "items": [
+            "**That the effect reverses across the 11-to-13 emplacement bucket boundary.** Same confound: an emplacement count is a property of what the policy built, so bucketing on it re-selects populations exactly as brownout status did.",
+            "**That browned-out winners finish with 9.6 lives against clean winners' 5.7.** That figure is real, and it is `brutal` only — 58 browned-out winners against 55 clean ones. Paired within anchor it collapses to **+0.6, −1.4 and +0.5 lives**, better on **6 of 11**, **2 of 8** and **3 of 7** anchors that have winners of both kinds. The unpaired gap is act-3 anchors carrying larger life pools: act 1 ships 10 to 24 lives per anchor, act 3 ships 18 to 48, and act-3 anchors are where the overdrawing boards are winning."
+          ]
+        },
+        {
+          "type": "p",
+          "text": "One claim from the previous entry is left standing and should not be — it was not re-measured here and the same confound applies to it. That entry closes its backwards section with \"at the derived ranges the trend inverts again, the gap going −11.9 to −22.2 and widening, so range interacts with it\". That is a raw split of a second campaign, computed the same uncontrolled way. It is not withdrawn, because nothing has measured it either way; it is simply not evidence of anything until it is paired within policy."
+        },
+        {
+          "type": "h3",
+          "text": "A guard clause that was dead when it was written"
+        },
+        {
+          "type": "p",
+          "text": "`campaign_discipline()` needs each report's per-run records, and `sim/run.py --json` **drops** them unless `--detail` is also passed — an API trap worth writing down on its own, because anything computing a per-run statistic out of that JSON silently gets nothing rather than an error. The function returns an empty dictionary rather than raising, behind a two-part guard: no `runs` key at all, or `runs` present but trimmed of the field. The `grade verdict` selftest grew two cases for it, taking it to **14**, and one of those two exists only because the second half of that guard was **dead when written** — deleting it on purpose left the selftest green."
+        },
+        {
+          "type": "p",
+          "text": "That was re-checked for this entry rather than taken on trust, by patching three separate breaks into an in-memory copy of `sim/run.py` and running the selftest against each. All three go red as the file ships. Remove the trimmed-runs case, and one of the three goes quiet:"
+        },
+        {
+          "type": "pre",
+          "text": "=== selftest as it ships (14 cases) ===\n  A drop `not runs` half of the guard: RED (IndexError: list index out of range)\n  B drop `brownout_fraction not in` half: RED (KeyError: 'brownout_fraction')\n  C pool instead of pair (within := raw): RED (AssertionError: ...)\n=== with the trimmed-runs assertion removed ===\n  A drop `not runs` half of the guard: RED (IndexError: list index out of range)\n  B drop `brownout_fraction not in` half: GREEN\n  C pool instead of pair (within := raw): RED (AssertionError: ...)",
+          "caption": "Break-mode check, run from the scratchpad against an in-memory copy so the tracked file was never modified. Case C is the one that matters most: it makes the function pool instead of pair, which is the exact mistake this whole entry is about, and the selftest fixture is built so the raw column says +50% while the within-policy column says 0%. `grade verdict` runs the whole selftest at tier 1 in **203 ms**, with no Godot and no content load — 6 cases where the verdict must fire, 4 where it must stay silent, 4 structural."
+        },
+        {
+          "type": "h3",
+          "text": "The general lesson, and it is the same one twice in one day"
+        },
+        {
+          "type": "quote",
+          "text": "A campaign-wide split of runs by an outcome property is a comparison between whatever populations that property selects.",
+          "attribution": "decision 087"
+        },
+        {
+          "type": "p",
+          "text": "It happened twice in the same session. Decision 086 spent hours looking for a constant that separates two campaigns which differ only in **level** and not in shape, and the honest move there was to weaken the claim until it needed no constant. Here the number looked like a statement about a game mechanic and was a statement about a population. Both times the fix was the same: find out what the number is actually a statement **about** before deciding what it means."
+        },
+        {
+          "type": "p",
+          "text": "It is also worth saying plainly that a `high` design bug was filed in the morning and closed the same afternoon by its own follow-up measurement, and that this is a good outcome rather than an embarrassing one. The alternative was a re-priced constant, shipped on a number nobody had controlled, against a mechanic that turns out not to have been broken. The ticket stays in the backlog closed rather than deleted, carrying both the raw figure and the two controls, because the raw figure will be re-derived by somebody eventually and it needs to be findable with its refutation attached."
+        },
+        {
+          "type": "p",
+          "text": "The commit records a tier-4 gate across the change: **43 passed, 0 failed, 426,674 ms**, with both parity legs reporting a cached skip — no rules file was touched, since the slope sweep never modified `sim/engine.py` on disk. A cached skip is not a pass, which is why the tally is 43 against a registry of 45. That gate was not re-run for this entry. What was re-run: the full campaign grade, the three slope rows, the three break modes, and `.venv/bin/python -m sim.run --selftest` at 14 cases."
+        },
+        {
+          "type": "p",
+          "text": "No screenshot. There is no visual surface to any of this — it is a grading instrument and a constant that did not move, and the tables are the whole of what there is to look at."
+        }
+      ]
     }
   ]
 }
