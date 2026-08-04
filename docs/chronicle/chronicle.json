@@ -6867,6 +6867,199 @@
           "text": "**A constraint upstream of a bug is not a fix. It is a fuse, and nobody knows it is load-bearing until it is removed.** The practical corollary is what turned a four-line ticket into a day of work: when you widen a type, the job is not the widening. It is finding everything downstream that had quietly been relying on the narrower one."
         }
       ]
+    },
+    {
+      "id": "the-grade-table-said-nothing",
+      "date": "2026-08-04",
+      "time": "07:12",
+      "title": "The derivation was right. The prediction was wrong. The grade table said nothing.",
+      "summary": "`BAL-04` / `LF-187`, decision 082. `range` in `data/towers.json` is an absolute distance in tiles, tuned against 18×15 boards whose lanes run 24–51; decision 073 moved the board target to 48×48, where the generated lanes run 68–80. `tools/range_derive.py` holds own-lane coverage fixed and bisects for the range that recovers it — a per-emplacement ladder from 1.36× to 1.86×, with the mortar landing on 13.0 exactly. Then the honest check. The confident prediction that applying the ladder now would gut the shipped campaign was **measured, and it is wrong**: all 24 anchors still grade `ok`. What the grade table cannot see is that the top difficulty dissolves.",
+      "tags": [
+        "BAL"
+      ],
+      "decisions": [
+        "082"
+      ],
+      "commits": [
+        {
+          "hash": "2002270",
+          "subject": "feat(balance): range derived from lane length at 48 squared, and the grade table cannot see what it costs"
+        }
+      ],
+      "body": [
+        {
+          "type": "p",
+          "text": "`range` in `data/towers.json` is an absolute distance in tiles. It was tuned against 18×15 boards whose lanes run 24 to 51 tiles, and decision 073 then moved the board target to 48×48 — where the generated board's lanes run 68 to 80. A constant absolute range covers a shrinking share of a wave's route as the board grows, and it shrinks **silently**: nothing anywhere in the campaign goes red about it. This is the range half of `BAL-04` and `LF-187`, and it was the top item on the priority list because every theatre-scale board is behind it."
+        },
+        {
+          "type": "h3",
+          "text": "The invariant is own-lane coverage, and the two better metrics could not be used"
+        },
+        {
+          "type": "p",
+          "text": "`tools/range_derive.py` (new, 561 lines) holds exactly one quantity fixed — **own-lane coverage**, the share of **one** lane's length a slot can reach, taken as the median over a board's authored slots — and bisects for the range at which a generated 48² board recovers what a shipped act-3 slot has today. Two coverage metrics already exist in `sim/coverage.py` and neither one is the right instrument here, which is worth saying because both were considered first:"
+        },
+        {
+          "type": "list",
+          "items": [
+            "`lane_coverage()` is length-weighted across every lane, so it divides a well-sited gun's score by the lane count and reads four lanes as a range problem. A board with more lanes would ask for more range purely for having more lanes.",
+            "`presence_coverage()` is much the better predictor of real uptime — rank correlation **+0.748** against **+0.520** (`LF-217`) — but it is measured from a live run on the board's own slots. It does not exist until the board has been graded, and this solve has to run **before** there is any content to grade. So the geometry is the derivation and the grader is the check, in that order."
+          ]
+        },
+        {
+          "type": "h3",
+          "text": "The ladder"
+        },
+        {
+          "type": "p",
+          "text": "Eight shipped act-3 anchors (median lane 41 tiles, 96 slots) against a generated 48² four-lane board (lanes 68–80 tiles, 78 slots). The middle column is the quantity being held constant across the move, not an output."
+        },
+        {
+          "type": "table",
+          "headers": [
+            "emplacement",
+            "authored",
+            "shipped median own-lane",
+            "derived",
+            "×"
+          ],
+          "rows": [
+            [
+              "shield-wall",
+              "3.6",
+              "14.3%",
+              "4.9",
+              "1.36"
+            ],
+            [
+              "arc-node",
+              "3.8",
+              "16.0%",
+              "5.5",
+              "1.45"
+            ],
+            [
+              "pulse-turret",
+              "4.0",
+              "17.4%",
+              "6.0",
+              "1.50"
+            ],
+            [
+              "flak-array",
+              "4.6",
+              "23.6%",
+              "7.3",
+              "1.59"
+            ],
+            [
+              "anchor-damper",
+              "4.5",
+              "22.9%",
+              "7.2",
+              "1.60"
+            ],
+            [
+              "scan-relay",
+              "6.0",
+              "35.4%",
+              "9.8",
+              "1.63"
+            ],
+            [
+              "ion-lance",
+              "6.2",
+              "38.1%",
+              "10.2",
+              "1.65"
+            ],
+            [
+              "mortar-emplacement",
+              "7.0",
+              "49.1%",
+              "13.0",
+              "1.86"
+            ]
+          ]
+        },
+        {
+          "type": "p",
+          "text": "Plus the four `upgrade.range` overrides, solved the same way — 4.4→7.1, 5.4→9.0, 6.8→12.3, 8.0→15.2 — because an upgrade whose range does not scale with its base becomes a downgrade."
+        },
+        {
+          "type": "p",
+          "text": "**The mortar lands on 13.0 exactly.** A previous session posted a target of about 13 tiles to issue 17 by a completely different route, and that number is the whole reason this pass had a target at all. Reproducing it from lane geometry turns it from an input into a check."
+        },
+        {
+          "type": "h3",
+          "text": "Two things a single multiplier would have got wrong"
+        },
+        {
+          "type": "p",
+          "text": "**The ladder does not scale uniformly.** 1.36× at the short end against 1.86× at the long: a short range on a winding lane sits on the steep part of the coverage curve and a long one does not, so one factor applied to every row is wrong in both directions at once."
+        },
+        {
+          "type": "p",
+          "text": "**The support emplacements belong in the derivation, and decision 074 left them out.** `shield-wall` (slow), `scan-relay` (reveal) and `anchor-damper` (damp) have their range tested against **unit** positions by `Sim._covered_by()`, with the same squared-distance compare the firing loop uses — they are lane-coverage quantities exactly as much as a weapon's range is. Holding them fixed at 48² would have silently halved the Act II damper decision that decision 027 exists to create."
+        },
+        {
+          "type": "h3",
+          "text": "One field that reads as tuning and is not"
+        },
+        {
+          "type": "p",
+          "text": "`restorer.range` is never read by either rules implementation. `Sim.capacity_now()` (`sim/engine.py:608`) adds `effect_value` for every online restorer with no distance test at all, and `scripts/anchor_sim.gd:383` mirrors it. That is a measurement rather than a reading of the code: anchor-20 was graded with the restorer's range at 1.0 and again at 40.0 and `by_difficulty` came back identical field for field — and the same assertion returns `False` when pointed at `pulse-turret`, so it discriminates rather than being vacuously true. The restorer is therefore excluded from the ladder, because scaling nothing is nothing. It is the only emplacement in the game whose siting is free. `LF-242` carries the real question, which is whether it should be."
+        },
+        {
+          "type": "h3",
+          "text": "What the ladder buys on the board it was solved for"
+        },
+        {
+          "type": "p",
+          "text": "On the generated 48² board at the **authored** ranges, brutal is a single-solution level — 1 winning build out of 16 tried — and all three difficulties die on wave 8. At the derived ranges it is 4 of 16 at all three, it grades `ok`, and the death wave separates for the first time: 9 / 9 / 8."
+        },
+        {
+          "type": "pre",
+          "text": "    0    0    1    1    2    2    3    3    4    4\n  0 ..S.............................................\n  1 ..0...o...............o.......o.................\n  2 .o0000000000.........0000000000.................\n  3 ..........o0.........0....o...0.................\n  4 ...........0o........0........0.................\n  5 ...........0.........0o.......0.................\n  6 ...........0.........0.......o0.................\n  7 ...........0.........0........0.................\n  8 ..........o0..o.....o0........0.......o.........\n  9 ...........00000000000........00000000000.......\n 10 ..................o...........o...o.....0.......\n 11 .......................................o0.......\n 12 ........................................0.......\n 13 ..o......o................o.............0.......\n 14 S1111111111111o......o1111111111........0.......\n 15 ......o......1........1......o.1........0o......\n 16 .............1........1........1o.......0.......\n 17 .............1........1........1........0.......\n 18 .............1o......o1........1.......o0.......\n 19 .............1........1........1........0.......\n 20 .............1....o...1.......o1..o.....0.......\n 21 .............1111111111........111111111#.......\n 22 ..............o......o................oo#oo.....\n 23 ........................................#.o.....\n 24 ........................................####K...\n 25 ......o......o...............o..........#.o.....\n 26 S22222222222222........222222222.......o#oo.....\n 27 ..o......o....2........2.o....o2........#.......\n 28 ..............2.......o2.......2........#.......\n 29 .............o2........2.......2.......o#.......\n 30 ..............2........2.......2.......o#.......\n 31 ..............2........2.......2o.......#.......\n 32 ..............2o.....o.2o......2....o...#.......\n 33 ..............2222222222.......222222222#oo.....\n 34 .................o...............o......3.......\n 35 ........................................3.......\n 36 ........................................3.......\n 37 ................o.......o........o.....o3.......\n 38 ................333333333.......333333333.......\n 39 ................3...o...3.......3....o..........\n 40 ................3.......3.......3...............\n 41 ................3.......3.......3o..............\n 42 ................3o.....o3.......3...............\n 43 ................3.......3.......3...............\n 44 ................3.......3o......3...............\n 45 .......o333333333.......333333333o..............\n 46 ........3...o...o...........o...................\n 47 ........S.......................................\n\nanchor-24  Generated 48x48 theatre, 4 lanes  ·  act 3\n  grid            48x48 = 2304 tiles\n  lanes           4  lengths 80 68 74 73  total 295  union 272 tiles\n  spawn points    4  (2, 0) (0, 14) (0, 26) (8, 47)\n  slots           78  (3.5 lane tiles each)\n  weapon range    3.8-7.0 tiles  → one emplacement at max range covers 4.7% of the lane set, 17.5% of its longest lane",
+          "caption": "The board the ladder was solved against, straight out of `tools/genboard.py --preview`. Four lanes of 68 to 80 tiles across 48², 78 slots. A digit is a lane index, `#` a tile two lanes share, `o` an authored slot, `S` a spawn and `K` the anchor. The last line is the problem in one sentence: at the ranges the campaign ships today, an emplacement at maximum range reaches 17.5% of the longest lane it sits on and 4.7% of the lane set."
+        },
+        {
+          "type": "h3",
+          "text": "The prediction was made confidently, checked, and was wrong"
+        },
+        {
+          "type": "p",
+          "text": "This is the part of the session worth keeping. Before anything had been measured, the position stated plainly in this session was that applying the ladder now **would gut the current game** — a 13-tile mortar on a 41-tile lane is absurd on its face, so the shipped campaign would fall over. `--shipped-impact` was written to **check** that claim rather than to assert it."
+        },
+        {
+          "type": "p",
+          "text": "It is wrong. **All 24 shipped anchors grade 24/24 `ok` at the derived ranges, completely unchanged.** Not one of them notices."
+        },
+        {
+          "type": "p",
+          "text": "What actually happens is a failure the grade table has no column for: the top difficulty dissolves. On brutal the share of tried builds that **win** goes **25% → 43%**; the median anchor's distinct winning builds goes **3 → 6**; anchor-02, 09 and 11 go from 2 winning builds to **8, 7 and 8**. And not one anchor trips `sim/run.py`'s difficulty-is-not-biting rule, because that rule fires only when **every** distinct build clears — the closest any anchor came was anchor-14 on standard, at 13 of 14."
+        },
+        {
+          "type": "p",
+          "text": "So this is the **second independent proof that the grade table is not a valid selector**, after decision 081 found board quality and grade count anti-correlated across five lattice orderings. There a green grade could not choose the right answer; here a green grade cannot see the wrong one. `LF-243` carries the candidate replacement — win **share** per difficulty, required to fall monotonically across the three tiers. The shipped campaign is 40 / 30 / 25 percent today, monotone and discriminating; at the derived ranges it is 55 / 47 / 43, still monotone but compressed. That needs a derivation and a decision entry of its own, not a constant fitted to today's data — which is exactly why `PRESSURE_FLOOR` was deleted in decision 067."
+        },
+        {
+          "type": "h3",
+          "text": "Deliberately not done"
+        },
+        {
+          "type": "list",
+          "items": [
+            "**The patch is printed and never applied.** It lands with the first 48² content, per decision 082. Nothing under `data/` changed in this commit; the diff is one new tool, the decision, and the backlog.",
+            "**No dynamic coverage pass on the generated board.** `sim/coverage.py`'s `InstrumentedSim` is 6.8× overhead at 78 emplacements and one pass is about 21 minutes (`LF-230`). The geometric solve is the derivation; `--grade` is the check that was run instead.",
+            "**`LF-234`'s act-1 presence ceilings are not re-measured** against the derived ladder — anchor-02 68.3%, 03 65.3%, 04 50.1%, 05 41.8%. Decision 082 puts that with the content rather than here."
+          ]
+        },
+        {
+          "type": "p",
+          "text": "Gate: tier 2, **26 passed, 0 failed, 16 correctly skipped**, 32,372 ms. No rules file and no data file changed, so tier 2 is the bar. `python syntax` went from 63 files to 64 — the new tool tracked **before** the run rather than after it, which is the trap where a new untracked file is invisible to the gate, avoided on purpose this time."
+        }
+      ]
     }
   ]
 }
