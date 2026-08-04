@@ -81,7 +81,7 @@ silent drift. See that check's own docstring for what it caught before it existe
   trustworthy, and `--budget` turns the figures above into assertions, so an instrument that
   can run backwards is the wrong one to be judging a 0.8% margin with. Only `started_at`
   stays on the wall clock, because a timestamp is not a duration.
-- **tier 3 (PR), 39 checks:** tier 2 + `facing harness` (moved here from tier 2, above) +
+- **tier 3 (PR), 40 checks:** tier 2 + `facing harness` (moved here from tier 2, above) +
   `anchor grades` (LF-224 — the deliberate replacement for the all-anchors-clean assertion
   `sim determinism` was serving by accident until PLC-04; ~62 s, and tier 3 rather than
   tier 2 because tier 2 is over budget and rather than tier 4 because the regression it
@@ -102,8 +102,11 @@ silent drift. See that check's own docstring for what it caught before it existe
   here before PRC-18. PLC-03 added `firing arcs agree` here too — a headless, windowless
   Godot like `terrain parsers agree`, put at this tier rather than at tier 2 because tier 2
   is already over its own budget (LF-178) and the branch it covers is inert in shipped data;
-  see `check_firing_arcs`'s own docstring.
-- **tier 4 (nightly/release), 42 checks — the default:** tier 3 + `music loudness` (see
+  see `check_firing_arcs`'s own docstring. **LF-244 added `verbs agree` here on the same
+  reasoning and for a larger hole** — six of the eight verbs `Sim._dispatch_one()` accepts
+  are never scheduled by any shipped policy, and unlike the firing arc the *player* uses
+  every one of them; see `check_verb_parity`'s own docstring.
+- **tier 4 (nightly/release), 43 checks — the default:** tier 3 + `music loudness` (see
   `_run_loudness_check`'s own comment for why it did not join `sfx loudness` at tier 3) +
   `rules parity` (grows with every policy/anchor) + `rules parity (windows)` (BAL-06 — the
   same runs again, against the Windows binary the owner actually plays rather than the Linux
@@ -1064,8 +1067,12 @@ SAFE_OPS_VECTOR_DIVERGENCE = "10.2%"
 ## own task list says this check must scan "only anchor_sim.gd and engine.py"; what that
 ## bullet is protecting against is `iso.gd`'s legitimate trigonometry being flagged, and
 ## a rules HARNESS is on the rules side of that line.
+## LF-244 added `scripts/test/verb_parity.gd` on the identical reasoning as
+## `arc_parity.gd`: it drives the rules inside Godot, so a divergent operation introduced
+## there would move a result this gate then reports as agreement.
 SAFE_OPS_SCOPE: list[str] = ["scripts/anchor_sim.gd", "sim/engine.py",
-                             "scripts/test/parity.gd", "scripts/test/arc_parity.gd"]
+                             "scripts/test/parity.gd", "scripts/test/arc_parity.gd",
+                             "scripts/test/verb_parity.gd"]
 
 SAFE_OPS_EXEMPT_MARKER = "safe-ops-exempt"
 
@@ -1837,6 +1844,54 @@ def check_firing_arcs() -> Result:
     return Result(OK, r.stdout.strip())
 
 
+def check_verb_parity() -> Result:
+    """The scheduled verbs exist twice too, and nothing has ever compared them (LF-244).
+
+    `Sim._dispatch_one()` accepts eight verbs. Across all twenty distinct policies
+    `standard_policies()` returns, exactly two are ever scheduled — `call_wave` (one
+    policy) and `ability` (surge and overcharge, two policies). So every one of the
+    1,440 `rules parity` runs executes the **absent** branch for `target_mode`, `sell`,
+    `upgrade`, `set_online`, `build`, the shutter ability and `speed`.
+    `scripts/test/parity.gd:317` has mirrored the upgrade dispatch since BAL-01 and
+    nothing has ever driven it.
+
+    **This is a worse hole than the firing arc's, and the difference is who uses it.** An
+    unauthored arc is inert in the shipped game by construction; these six verbs are the
+    player's entire interface — the build, sell, upgrade, online-toggle, target-mode and
+    speed controls. An `upgrade()` that merged its stats differently in the two engines
+    would mean every balance conclusion about an upgraded board describes a game nobody
+    plays, and it would surface as an unexplained divergence between the sweep and the
+    build the owner is actually running on Windows.
+
+    `tools/verb_parity.py` drives both engines over
+    `data/schema/fixtures/scheduled-verbs.json` — four emplacements, three walkers, ten
+    actions, 320 ticks — and makes five claims: the two engines agree byte for byte on
+    fire pattern, funds, spend, bus load, emplacement count and every unit's distance and
+    hit points; the money trajectory matches arithmetic done in the harness from the
+    fixture's own costs; `upgrade` is proved *geometrically*, by an emplacement standing
+    4.0 tiles off the lane with range 3.0 going from structurally-unable-to-fire to firing
+    inside the window range 8.0 admits; `set_online` and the shutter are proved on the bus,
+    to the exact megawatt; and `speed` is proved to be the no-op the engine's own comment
+    claims, by re-running with the speed actions stripped and requiring identical output.
+
+    All five were proved red before this check was trusted — `--corrupt upgrade`,
+    `refund`, `bus`, `target` and `engine`, the last two breaking behaviour rather than an
+    expectation. Tier 3, for the same two reasons `firing arcs agree` is: it is one
+    headless windowless Godot of the same class, and tier 2 is already over its own
+    28,000 ms budget (LF-178), where the answer is to move a check out rather than move
+    the number again.
+    """
+    script = ROOT / "tools" / "verb_parity.py"
+    if not script.exists():
+        return Result(SKIP, "scheduled-verb parity harness missing")
+    if toolpaths.godot() is None:
+        return Result(SKIP, "godot not installed")
+    r = run(PY, str(script))
+    if r.returncode != 0:
+        return Result(FAIL, (r.stderr + r.stdout).strip()[-1200:])
+    return Result(OK, r.stdout.strip())
+
+
 def check_rules_parity(force: bool = False, no_cache: bool = False) -> Result:
     """The rules exist twice, in Python and GDScript. Prove they agree.
 
@@ -2083,6 +2138,10 @@ CHECKS = [
     # implementations" risk, on the one branch `rules parity` structurally cannot reach.
     # Tier 3 rather than tier 2 — see the function's own docstring for why.
     Check("firing arcs agree", 3, check_firing_arcs),
+    # LF-244. The same shape again, for a much larger hole: six of the eight verbs
+    # Sim._dispatch_one() accepts are never scheduled by any shipped policy, so all 1,440
+    # parity runs execute their absent branch. Unlike the arc, the PLAYER uses all six.
+    Check("verbs agree",       3, check_verb_parity),
     Check("rules parity",      4, check_rules_parity),
     # BAL-06 / LF-105 (PRD risk 2, blocker): the check above proves parity against
     # whichever Godot toolpaths.godot() prefers (Linux on this machine) — this is the

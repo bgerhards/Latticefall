@@ -3588,3 +3588,93 @@ existing anchors could be grown rather than regenerated.
 50.1%, 05 41.8%) are re-measured against the derived ladder at that point rather than carried
 forward. Superseded by nothing yet; supersedes the range half of decision 074 for 48² boards
 only — 074's numbers remain what the 18×15 campaign ships.
+
+---
+
+## 083 — The scheduled verbs get their own fixture, because the six nobody graded are the six the player has a key bound to
+
+**2026-08-04.** `LF-244`. Extends decision 078's principle to a much larger hole, and is the
+third instance of it: a gate that runs the whole game proves nothing about a branch the
+shipped data never enters.
+
+**The measurement.** `Sim._dispatch_one()` accepts eight verbs — `speed`, `call_wave`,
+`ability`, `target_mode`, `sell`, `upgrade`, `set_online`, `build`. Across all **twenty**
+distinct policies `standard_policies()` ever returns, exactly **two** are ever scheduled:
+`call_wave` by one policy, and `ability` by **two** — `surge-on-peak` and
+`overcharge-greedy`, 53 actions between them; never shutter. `veterancy` is set by one
+policy and `chain_bounty` by none.
+
+*(That figure was written as "three policies" when this entry was first drafted and was
+wrong; the chronicler re-derived it against the tree and it is two. Corrected before this
+decision landed on `main`, which is why it is an edit rather than a superseding entry —
+append-only protects what was published and believed, not a miscount caught in the same
+hour. The 53-action total was right, and the direction of the error favours the finding:
+fewer policies pressing buttons is a wider hole, not a narrower one.)*
+
+So every one of the **1,440 `rules parity` runs executes the absent branch** for
+`target_mode`, `sell`, `upgrade`, `set_online`, `build`, `ability:shutter` and `speed`.
+`scripts/test/parity.gd:317` has carried a mirrored `upgrade` dispatch since BAL-01 and
+nothing has ever driven it.
+
+**Why this is worse than the firing arc, and it is not a matter of degree.** An unauthored
+`cos_half_angle` is inert in the shipped game by construction — decision 078's acceptance
+bar was that no shipped row gains one. These six are the **player's entire interface**, and
+that is checkable rather than rhetorical: `project.godot`'s action map binds `lf_sell`,
+`lf_upgrade`, `lf_target`, `lf_power`, `lf_build` and `lf_speed_cycle` — **one action per
+uncovered verb** — and `scripts/anchor_view.gd` calls `sim.sell()`, `sim.upgrade()`,
+`sim.set_online()`, `sim.build_at()` and writes `p["target_mode"]` directly. An `upgrade()`
+that merged its stats differently in the two engines would mean every balance conclusion
+about an upgraded board describes a game nobody plays — and the owner plays the Windows
+build, which is the whole reason decision 078 exists.
+
+**Decision: a dedicated fixture and harness, at tier 3, in the shape `arc_parity.py`
+established.** `data/schema/fixtures/scheduled-verbs.json` — four emplacements, three
+walkers, ten actions, 320 ticks — driven through `Sim._dispatch_one()` itself on the Python
+side and through `scripts/test/verb_parity.gd`'s mirror of `parity.gd`'s match block on the
+GDScript side.
+
+**Five claims, and the third is the one worth copying.** The engines must agree byte for
+byte on fire pattern, funds, spend, bus load, emplacement count and every unit's distance
+and hit points; the money trajectory must match arithmetic done in the harness from the
+fixture's own costs; **`upgrade` is proved geometrically rather than by reading a stat back
+out** — `verb-probe-reach` stands 4.0 tiles off a straight lane at range 3.0 and therefore
+*cannot fire at all*, and after the merge admits range 8.0 it can, so the check is "zero
+shots before the upgrade tick, and after it every tick it fires on has a unit within 8.0
+and none within 3.0"; `set_online` and the shutter are priced on the bus to the exact
+megawatt (30.0 MW, a drop no other subset of the fixture's draws can produce); and `speed`
+is **proved** to be the no-op the engine's comment claims, by re-running with the speed
+actions stripped and requiring identical output — which is the demonstration BAL-01's own
+task list asked for and never got.
+
+All five were proved red first, through `--corrupt upgrade | refund | bus | target |
+engine`. The last two break *behaviour* rather than an expectation, because the first three
+would all still pass if the comparator itself were vacuous.
+
+**Rejected: adding upgrade-buying and selling policies to `standard_policies()`.** It is
+the obvious move — it would put the verbs into the real 1,440-run parity set rather than a
+fixture, and it would improve the grader at the same time. Measured, it does both: a
+prototype `upgrade-ladder` policy (preference byte-identical to `cheap-mass`, plus a
+schedule walking `upgrade` by index in three passes) spends 2,280 on act-3 anchors against
+the base mean of 1,835 and **adds a new distinct winning build on 10 of 72 anchor-by-
+difficulty cells**. It is rejected *here* and only here: a twenty-first policy moves
+`distinct_builds_tried` on every anchor in the campaign and adds 72 rows to the parity set,
+which is a re-grade, and a re-grade is `BAL-04`'s blast radius rather than a verification
+change's. `LF-245` carries it with its numbers.
+
+**Rejected: `call_wave`, surge and overcharge in the fixture.** Those three are the ones
+shipped policies already schedule, so `rules parity` covers them across 1,440 runs and the
+fixture would only add cost. The harness asserts its own scope rather than trusting it — if
+the fixture ever stops scheduling one of the seven in-scope verbs, the check fails rather
+than quietly shrinking to whatever is left.
+
+**Tier 3, not tier 2**, for the two reasons `firing arcs agree` is: it is one headless
+windowless Godot of the same class, and tier 2 is already over its own 28,000 ms budget
+(`LF-178`, and measured at **37,669 ms** on a clean run at the start of this session), where
+the standing answer is to move a check out rather than to move the number again.
+
+**A consequence worth stating.** The fixture lives under `data/schema/fixtures/`, which
+`tools/validate/validate_data.py` excludes but `parity_inputs_digest()` does **not** — so
+adding it took the digest's data set from 78 files to 79 and forced a full tier-4
+re-comparison on both platforms. That is the conservative behaviour `docs/STATE.md` already
+calls correct, and it is noted here so the next person adding a fixture expects the cost
+rather than discovering it.
