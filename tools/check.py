@@ -81,7 +81,11 @@ silent drift. See that check's own docstring for what it caught before it existe
   trustworthy, and `--budget` turns the figures above into assertions, so an instrument that
   can run backwards is the wrong one to be judging a 0.8% margin with. Only `started_at`
   stays on the wall clock, because a timestamp is not a duration.
-- **tier 3 (PR), 37 checks:** tier 2 + `facing harness` (moved here from tier 2, above) +
+- **tier 3 (PR), 38 checks:** tier 2 + `facing harness` (moved here from tier 2, above) +
+  `anchor grades` (LF-224 — the deliberate replacement for the all-anchors-clean assertion
+  `sim determinism` was serving by accident until PLC-04; ~62 s, and tier 3 rather than
+  tier 2 because tier 2 is over budget and rather than tier 4 because the regression it
+  catches arrives as a data-only PR, see `check_anchor_grades`) +
   `game renders`, `menu renders`, `accessibility`,
   `scenario smoke`, `scenario abilities`, `scenario a11y-worst`, `scenario lf161-scroll`,
   `scenario gamepad` (PRC-18 split what used to be one `scenarios pass` check hardcoding
@@ -95,7 +99,7 @@ silent drift. See that check's own docstring for what it caught before it existe
   Godot like `terrain parsers agree`, put at this tier rather than at tier 2 because tier 2
   is already over its own budget (LF-178) and the branch it covers is inert in shipped data;
   see `check_firing_arcs`'s own docstring.
-- **tier 4 (nightly/release), 40 checks — the default:** tier 3 + `music loudness` (see
+- **tier 4 (nightly/release), 41 checks — the default:** tier 3 + `music loudness` (see
   `_run_loudness_check`'s own comment for why it did not join `sfx loudness` at tier 3) +
   `rules parity` (grows with every policy/anchor) + `rules parity (windows)` (BAL-06 — the
   same runs again, against the Windows binary the owner actually plays rather than the Linux
@@ -1336,8 +1340,10 @@ def check_sim() -> Result:
     is caught first. Once both runs agree byte for byte the sim *is* deterministic, so a
     non-zero exit is reported rather than raised.
 
-    Note what this deliberately does not cover: **nothing in the gate asserts that every anchor
-    grades `ok`.** The conflation above was accidentally serving that role, badly. `LF-224`.
+    What this deliberately does not cover is asserted by `anchor grades` (tier 3) directly
+    below, which closes `LF-224`. Keep the two separate: this one answers "is the sim
+    reproducible", that one answers "is the content winnable", and conflating them is the
+    exact mistake `PLC-04` had to undo.
     """
     sim = ROOT / "sim" / "run.py"
     if not sim.exists():
@@ -1353,6 +1359,81 @@ def check_sim() -> Result:
         return Result(OK, f"deterministic — anchor-01 does not grade clean (exit "
                           f"{a.returncode}), which is a balance state, not a determinism one")
     return Result(OK, "deterministic")
+
+
+## `anchor grades` gets its own ceiling rather than riding DEFAULT_TIMEOUT. Measured on this
+## 16-core WSL2 box, idle: **61.6 s wall, 6m15s CPU** for all 24 anchors at `--jobs 8`. The
+## default 300 s is only 4.9x that, and LF-116 measured contention on this machine turning a
+## 9 s capture into minutes — a pool that is merely slow because three agents are grading at
+## once must not be reported as a wedge. 600 s is ~10x the idle figure and still a backstop,
+## not a performance budget.
+GRADE_TIMEOUT = 600.0
+## Matches the figure CLAUDE.md documents for this exact command. Capped rather than
+## `--jobs 0` so a 4-core CI box is not 6x oversubscribed, and floored at 1 so the check
+## still runs where `os.cpu_count()` returns None.
+GRADE_JOBS = max(1, min(8, os.cpu_count() or 1))
+
+
+def check_anchor_grades() -> Result:
+    """Every anchor must grade `ok`. `LF-224`.
+
+    **Nothing in the gate asserted this until now, and for a while nothing had to.**
+    `check_sim` above used to return FAIL on `sim/run.py`'s *exit code* before comparing its
+    two runs, and `run.py --json` exits 1 whenever any anchor is not clean — so a balance
+    regression was caught, under the name "sim determinism", with an empty message (`run.py`
+    writes its verdict to stdout; the check reported stderr). `PLC-04` made that check do what
+    its name says and the accidental net went with it. This is the deliberate replacement, and
+    the whole point of it is the message: the failing anchors and their own problem strings,
+    not an exit code.
+
+    What `sim/run.py` calls a problem is its business, not this check's — unwinnable at some
+    difficulty, exactly one distinct winning build (a single-solution level), or every distinct
+    build clearing above standard (difficulty not biting). This check restates none of that; it
+    reads `problems` and prints them. A threshold copied here would be the second copy of a
+    rule, which is the drift this project keeps paying for.
+
+    **Tier 3, not 2 and not 4.** Tier 2 is already *over* its own 28,000 ms budget (`LF-178`)
+    and decision 067 refused to raise a threshold to make data fit once already, so 61.6 s
+    there is not available — the fix for tier 2 is to move a check out, not to move the number.
+    Tier 4 was rejected because the thing this guards against arrives almost exclusively as a
+    **data-only pull request** — `LF-223` moved four anchors' capacities and slot layouts and
+    nothing else — and tier 3 is the PR tier, described in the module docstring as "where a
+    coverage regression is caught before merge". A check that only runs nightly lets an
+    unwinnable anchor sit on `main` until the next scheduled run, which is the same shape of
+    hole `LF-224` opened. 61.6 s against a tier that already spends ~190 s launching Godot nine
+    times is a cost worth naming and paying; tier 3 has no asserted budget precisely because it
+    is the tier where completeness beats speed.
+
+    **A note on what this cannot see, since that is half of why it exists.** `sim/run.py`
+    grades `data/anchors/*.json` through `all_anchor_ids()`, which is `git ls-files` — a
+    generated or scratch anchor is invisible here, deliberately (see `sim/coverage.py`'s
+    `verdict()` and `LF-229` for what that class of blindness cost in a neighbouring
+    instrument). This asserts the shipped 24 are winnable, nothing more.
+    """
+    sim = ROOT / "sim" / "run.py"
+    if not sim.exists():
+        return Result(SKIP, "headless sim not written (LF-002)")
+    r = run(PY, str(sim), "--jobs", str(GRADE_JOBS), "--json", timeout=GRADE_TIMEOUT)
+    if not r.stdout.strip():
+        detail = r.stderr.strip()[-400:] or "and no stderr either"
+        return Result(FAIL, f"sim/run.py produced no output (exit {r.returncode}) — {detail}")
+    try:
+        reports = json.loads(r.stdout)
+    except json.JSONDecodeError as exc:
+        # A non-zero exit with unparseable stdout is a crash, not a grade — say which.
+        detail = r.stderr.strip()[-400:] or r.stdout.strip()[:200]
+        return Result(FAIL, f"sim/run.py --json emitted unparseable output "
+                            f"(exit {r.returncode}, {exc}) — {detail}")
+    bad = [rep for rep in reports if not rep.get("ok", False)]
+    if bad:
+        lines = [f"{len(bad)} of {len(reports)} anchors do not grade ok "
+                 f"(sim/run.py --jobs {GRADE_JOBS}):"]
+        for rep in bad:
+            for p in rep.get("problems") or ["ok=false with no problem string"]:
+                lines.append(f"  {rep.get('anchor', '?')}  {p}")
+        return Result(FAIL, "\n".join(lines))
+    return Result(OK, f"{len(reports)} anchors grade ok at every difficulty "
+                      f"(--jobs {GRADE_JOBS})")
 
 
 def check_gdscript_parses() -> Result:
@@ -1963,6 +2044,9 @@ CHECKS = [
     Check("leases wired",      1, check_leases_wired),
     Check("issue traceability", 1, check_issue_traceability),
     Check("sim determinism",   2, check_sim),
+    # LF-224. Sits next to `sim determinism` because the two were once one check by
+    # accident — see both docstrings. Tier 3, and the reason is in check_anchor_grades'.
+    Check("anchor grades",     3, check_anchor_grades),
     Check("gdscript parses",   1, check_gdscript_parses),
     Check("godot boots",       2, check_godot_boots),
     # PRC-18: one check per data/scenarios/*.json file, not one check that loops over all of
