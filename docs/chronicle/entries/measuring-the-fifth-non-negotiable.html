@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Measuring the fifth non-negotiable, for the first time — Latticefall build journal</title>
-<meta name="description" content="CLAUDE.md's fifth non-negotiable — loudness-match audio, never peak-normalize — had never been measured by anything in the gate. The only audio check, check_sfx_reproducible, verifies determinism, not loudness; a synthesis change that reproduces byte-identical but drifts the whole bank's perceived level would have passed every check the project has ever run. PRC-18's testing audit found the gap. tools/audio/loudness.py closes it with a real ITU-R BS.1770-4 / EBU R128 gated integrated LUFS implementation, validated three independent ways and proved red on real assets before being trusted — and it ships with its own blind spot named rather than hidden.">
+<meta name="description" content="CLAUDE.md&#x27;s fifth non-negotiable — loudness-match audio, never peak-normalize — had never been measured by anything in the gate. The only audio check, check_sfx_reproducible, verifies determinism, not loudness; a synthesis change that reproduces byte-identical but drifts the whole bank&#x27;s perceived level would have passed every check the project has ever run. PRC-18&#x27;s testing audit found the gap. tools/audio/loudness.py closes it with a real ITU-R BS.1770-4 / EBU R128 gated integrated LUFS implementation, validated three independent ways and proved red on real assets before being trusted — and it ships with its own blind spot named rather than hidden.">
 <link rel="stylesheet" href="../chronicle.css">
 </head>
 <body>

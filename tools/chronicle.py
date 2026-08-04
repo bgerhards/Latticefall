@@ -18,6 +18,16 @@ that data into `index.html` and `entries/*.html`. It is idempotent: running it t
 unchanged `chronicle.json` produces byte-identical output, because nothing here reads the
 clock or the filesystem beyond the JSON and the already-committed images it references.
 
+**Element content and attribute values are escaped by different functions, `esc()` and
+`attr()`, and prose bound for an attribute is stripped to plain text by `render_plain()`
+first.** That split is not stylistic. One function called with `quote=False` served both for
+59 entries, which is LF-211: a straight double quote in an image caption ended the `alt`
+attribute early and spilled the rest of the caption into the tag. The general shape — a
+prose field that skips the inline renderer, or a template hole that takes the wrong escaper —
+has now bitten four times (table headers in e5e3902, `alt`, the meta description, the entry
+navigation's `href`), so the rule is: an interpolation inside `"…"` takes `attr()`, an
+interpolation in element content takes `render_inline()` unless it is an identifier.
+
 History itself is append-only — that rule lives in the data, not in this script. This file
 will happily regenerate an edited entry if asked to; it is `.claude/agents/chronicler.md`
 and the working agreement in `CLAUDE.md` that say a past entry is never rewritten, only
@@ -80,12 +90,38 @@ def fmt_date(date: str, time: str | None) -> str:
 
 
 def esc(s: str) -> str:
+    """Escape for ELEMENT CONTENT — `&`, `<`, `>` only.
+
+    Quotes are deliberately left alone here because a `"` inside a text node is not markup
+    and `&quot;` in prose is noise. That is safe *only* in element content, which is why
+    attribute values go through `attr()` instead. The two used to be one function called
+    with `quote=False` everywhere, and the consequence was LF-211: a straight double quote
+    in an image caption closed the `alt` attribute early and the rest of the caption leaked
+    out of the string and into the tag as bogus attributes. It was worked around by every
+    author remembering to type curly quotes, which is not a mechanism.
+    """
     return html.escape(s, quote=False)
 
 
-def _wrap_pairs(s: str, delim: str, tag: str) -> str:
+def attr(s: str) -> str:
+    """Escape for an ATTRIBUTE VALUE — `&`, `<`, `>`, `"` and `'`.
+
+    Every interpolation inside a `"..."` in this file's templates must go through this and
+    not through `esc()`. Both quote styles are escaped rather than only the double: the
+    difference is invisible in correct output and the whole point of LF-211 is that a
+    generator which is *nearly* right about escaping is a generator that ships broken tags
+    with nothing red anywhere.
+
+    Prose bound for an attribute needs `render_plain()` FIRST — an attribute value cannot
+    hold tags, so `render_inline()`'s `<strong>` would arrive as visible `&lt;strong&gt;`.
+    """
+    return html.escape(s, quote=True)
+
+
+def _wrap_pairs(s: str, delim: str, tag: str | None) -> str:
     """Wrap `delim`-delimited spans in `<tag>`, left to right, leaving anything unpaired as
-    literal text.
+    literal text. `tag=None` strips the delimiters and keeps the content bare, which is what
+    `render_plain` needs for an attribute value that cannot hold a tag at all.
 
     A delimiter only opens a span if a closing one exists AND the content between them is
     non-empty and not whitespace-bounded. That guard is what keeps a stray `**` in prose
@@ -100,7 +136,7 @@ def _wrap_pairs(s: str, delim: str, tag: str) -> str:
             close = s.find(delim, i + d)
             content = s[i + d:close] if close != -1 else ""
             if close != -1 and content and not content[0].isspace() and not content[-1].isspace():
-                out.append(f"<{tag}>{content}</{tag}>")
+                out.append(content if tag is None else f"<{tag}>{content}</{tag}>")
                 i = close + d
                 continue
             out.append(delim)          # unpaired — literal, not markup
@@ -156,21 +192,58 @@ def render_inline(text: str) -> str:
     `audit_markup` asserts the result, because "an author noticed stray asterisks" is not a
     check.
     """
-    parts = esc(text).split("`")
+    stitched, codes = _hide_code_spans(esc(text))
+    out = _wrap_pairs(stitched, "**", "strong")
+    for i, code in enumerate(codes):
+        out = out.replace(f"\x00{i}\x00", f"<code>{code}</code>", 1)
+    return out
+
+
+def _hide_code_spans(text: str) -> tuple[str, list[str]]:
+    """Replace `` `x` `` spans with opaque `\\x00N\\x00` sentinels, returning the stitched
+    string and the extracted contents in order.
+
+    NUL cannot appear in the source, so a sentinel cannot collide with real content, and it
+    carries no asterisk — which is the property `render_inline` relies on to pair bold ACROSS
+    a code span without the code span's own characters ever participating (LF-189).
+    """
     codes: list[str] = []
     stitched: list[str] = []
-    for i, part in enumerate(parts):
+    for i, part in enumerate(text.split("`")):
         if i % 2:
-            # An opaque, asterisk-free, markup-free placeholder. NUL cannot appear in the
-            # escaped source, so it cannot collide with real content.
             stitched.append(f"\x00{len(codes)}\x00")
             codes.append(part)
         else:
             stitched.append(part)
+    return "".join(stitched), codes
 
-    out = _wrap_pairs("".join(stitched), "**", "strong")
+
+def render_plain(text: str) -> str:
+    """Render the same inline grammar as `render_inline`, but to PLAIN TEXT: no tags, no
+    escaping, delimiters removed. `` `x` `` -> `x`, `**x**` -> `x`.
+
+    This exists because three destinations in this file's templates cannot hold a tag:
+    `<meta name="description" content="…">`, `<img alt="…">` and `<title>`. All three used to
+    take `esc(field)` straight, which shipped the markup LITERALLY — measured on the
+    published site, entry 56's meta description opens ``content="`LF-080` builds…`` and nine
+    image captions carry backticks or asterisks into their `alt`. That is what search
+    results, link unfurls and screen readers read.
+
+    **`LF-231` asked for `render_inline` here and that would have been wrong**, which is
+    worth writing down because the two functions look interchangeable. An attribute value is
+    not markup: `render_inline` would produce `<strong>` inside `content="…"`, `attr()` would
+    then escape it, and the description would read `&lt;strong&gt;first&lt;/strong&gt;` —
+    trading unrendered asterisks for visible tag names, which is worse. `<title>` is RCDATA
+    and would show the tags for the same reason. The markup is *removed*, not rendered.
+
+    Pairing follows `render_inline` exactly — same code-span extraction, same `_wrap_pairs`
+    guard — so an unpaired delimiter stays literal in both. Anything else would mean two
+    parsers to keep in step, which is the drift this whole file exists to avoid.
+    """
+    stitched, codes = _hide_code_spans(text)
+    out = _wrap_pairs(stitched, "**", None)
     for i, code in enumerate(codes):
-        out = out.replace(f"\x00{i}\x00", f"<code>{code}</code>", 1)
+        out = out.replace(f"\x00{i}\x00", code, 1)
     return out
 
 
@@ -183,7 +256,12 @@ def render_block(block: dict[str, Any], image_prefix: str) -> str:
     if t == "quote":
         out = f"<blockquote>{render_inline(block['text'])}"
         if block.get("attribution"):
-            out += f"<cite>{esc(block['attribution'])}</cite>"
+            # Prose, so it takes the inline renderer like every other prose field. An
+            # attribution is nearly always a file, a function or a check name — the exact
+            # shape that wants backticks — and it was the last field still bypassing
+            # `render_inline`, which is how the table headers fixed in e5e3902 shipped
+            # literal backticks to a published page.
+            out += f"<cite>{render_inline(block['attribution'])}</cite>"
         out += "</blockquote>"
         return out
     if t == "list":
@@ -217,15 +295,24 @@ def render_block(block: dict[str, Any], image_prefix: str) -> str:
         )
     if t == "image":
         src = f"{image_prefix}{block['file']}"
-        cap = render_inline(block.get("caption", ""))
+        # The caption is rendered twice, to two different grammars, and that is the LF-211
+        # fix: `<figcaption>` is element content and gets tags, `alt` is an attribute value
+        # and gets plain text through `attr()`. Before this, `alt` took `esc(caption)` — so
+        # one straight double quote ended the attribute and spilled the rest of the caption
+        # into the tag, and any markup arrived verbatim for a screen reader to read out.
+        cap = block.get("caption", "")
         return (
-            f'<figure><img src="{esc(src)}" alt="{esc(block.get("caption", ""))}" loading="lazy">'
-            f"<figcaption>{cap}</figcaption></figure>"
+            f'<figure><img src="{attr(src)}" alt="{attr(render_plain(cap))}" loading="lazy">'
+            f"<figcaption>{render_inline(cap)}</figcaption></figure>"
         )
     sys.exit(f"unknown body block type: {t!r}")
 
 
 def render_chips(entry: dict[str, Any]) -> str:
+    """Tags and decision numbers. These are IDENTIFIERS, not prose — an epic name or a
+    decision number never carries markup and would be wrong to render if it did — so `esc()`
+    in element content is the whole requirement. Same for a commit hash. Noted because the
+    audit that produced the rest of this file's fixes had to say why these two stayed put."""
     chips = []
     for tag in entry.get("tags", []):
         chips.append(f'<span class="chip chip-epic">{esc(tag)}</span>')
@@ -272,8 +359,8 @@ def render_index(data: dict[str, Any]) -> str:
         date_str = fmt_date(e["date"], None)
         cards.append(
             f'<li class="entry-card">'
-            f'<a class="entry-link" href="entries/{esc(e["id"])}.html">'
-            f'<time datetime="{esc(e["date"])}">{esc(date_str)}</time>'
+            f'<a class="entry-link" href="entries/{attr(e["id"])}.html">'
+            f'<time datetime="{attr(e["date"])}">{esc(date_str)}</time>'
             f'<h2>{render_inline(e["title"])}</h2>'
             f"{render_chips(e)}"
             f'<p class="summary">{render_inline(e["summary"])}</p>'
@@ -281,8 +368,8 @@ def render_index(data: dict[str, Any]) -> str:
         )
     body = f"""
 <header class="masthead">
-  <p class="kicker">{esc(site.get("kicker", "Latticefall"))}</p>
-  <h1>{esc(site["title"])}</h1>
+  <p class="kicker">{render_inline(site.get("kicker", "Latticefall"))}</p>
+  <h1>{render_inline(site["title"])}</h1>
   <p class="subtitle">{render_inline(site["subtitle"])}</p>
 </header>
 <main>
@@ -295,8 +382,8 @@ def render_index(data: dict[str, Any]) -> str:
 </footer>
 """
     head = PAGE_HEAD.format(
-        title=esc(site["title"]),
-        description=esc(site["subtitle"]),
+        title=esc(render_plain(site["title"])),
+        description=attr(render_plain(site["subtitle"])),
         css=CSS_FILE,
     )
     return head + body + PAGE_TAIL
@@ -311,23 +398,28 @@ def render_entry(entry: dict[str, Any], all_entries: list[dict[str, Any]]) -> st
     date_str = fmt_date(entry["date"], entry.get("time"))
 
     nav_parts = ['<a class="back" href="../index.html">&larr; the journal</a>']
+    # The two `href`s here were interpolated raw — no escaping at all — and the link text
+    # took `esc()` while the same title takes `render_inline()` in the header and on the
+    # index card. Both are the LF-211 shape: an id is an attribute value and a title is prose.
     if prev_e:
-        nav_parts.append(f'<a class="prev" href="{prev_e["id"]}.html">&larr; {esc(prev_e["title"])}</a>')
+        nav_parts.append(
+            f'<a class="prev" href="{attr(prev_e["id"])}.html">&larr; {render_inline(prev_e["title"])}</a>')
     if next_e:
-        nav_parts.append(f'<a class="next" href="{next_e["id"]}.html">{esc(next_e["title"])} &rarr;</a>')
+        nav_parts.append(
+            f'<a class="next" href="{attr(next_e["id"])}.html">{render_inline(next_e["title"])} &rarr;</a>')
 
     superseded = ""
     if entry.get("superseded_by"):
         superseded = (
             f'<p class="superseded">Superseded by '
-            f'<a href="{esc(entry["superseded_by"])}.html">a later entry</a>.</p>'
+            f'<a href="{attr(entry["superseded_by"])}.html">a later entry</a>.</p>'
         )
 
     body = f"""
 <nav class="entry-nav top">{" ".join(nav_parts[:1])}</nav>
 <article>
   <header class="entry-header">
-    <time datetime="{esc(entry["date"])}">{esc(date_str)}</time>
+    <time datetime="{attr(entry["date"])}">{esc(date_str)}</time>
     <h1>{render_inline(entry["title"])}</h1>
     {render_chips(entry)}
     <p class="summary lede">{render_inline(entry["summary"])}</p>
@@ -343,8 +435,8 @@ def render_entry(entry: dict[str, Any], all_entries: list[dict[str, Any]]) -> st
 </nav>
 """
     head = PAGE_HEAD.format(
-        title=esc(f'{entry["title"]} — Latticefall build journal'),
-        description=esc(entry["summary"]),
+        title=esc(f'{render_plain(entry["title"])} — Latticefall build journal'),
+        description=attr(render_plain(entry["summary"])),
         css=f"../{CSS_FILE}",
     )
     return head + body + PAGE_TAIL
@@ -368,6 +460,27 @@ def generate(out_dir: Path) -> list[Path]:
         written.append(page_path)
 
     return written
+
+
+RE_LONE_ASTERISK = re.compile(r"(?<![\w*/.\-])\*(?=\S)[^*\n]*\S\*(?![\w*/])")
+
+LEGACY_LONE_ASTERISK: frozenset[str] = frozenset({
+    "a-panel-that-cannot-lie",
+    "four-anchors-four-different-levers",
+    "gc-was-lying",
+    "measuring-the-fifth-non-negotiable",
+    "merging-closed-nothing",
+    "no-instrument-panel-no-brake",
+    "placement-rule-both-engines",
+    "the-acceptance-criterion-was-not-a-selector",
+    "the-blocker-was-already-fixed",
+    "the-gate-was-exempt-from-its-own-rule",
+    "the-guard-denied-its-own-advice",
+    "the-instrument-measured-the-wrong-quantity",
+    "the-net-the-fix-removed",
+    "the-sound-kept-counting",
+    "three-refusals-that-look-different",
+})
 
 
 def audit_markup(out_dir: Path) -> bool:
@@ -404,11 +517,37 @@ def audit_markup(out_dir: Path) -> bool:
     journal belongs in backticks by house style, so the check nudges toward the convention
     instead of fighting it, and the message says so. A red run here almost always means an
     entry needs a pair of backticks or a closing `**`, not that this file is broken.
+
+    **A LONE asterisk pair is the third shape, and it is a ratchet rather than a plain
+    assertion (LF-231).** Single-asterisk emphasis prints literally *by design* — that is
+    LF-173's measured reversal, argued in `render_inline` — so `*like this*` in prose is
+    always unrendered markup, and nothing checked for it: six spans got through one draft
+    and were promoted to `**` by hand. Widening the scan is the fix, but running it over the
+    corpus for the first time found **54 spans across 15 already-published entries**, and
+    this journal is append-only: those entries record what was true on the day they were
+    written and are not editable to make a check green.
+
+    So the exemption below is exact in both directions. A lone asterisk in an entry NOT in
+    `LEGACY_LONE_ASTERISK` fails, which is the check the ticket asked for; and an id in that
+    set that no longer produces one also fails, as a stale exemption, so the list cannot
+    quietly grow to cover new work. It can only ever shrink. The list is entry ids and not
+    spans deliberately — an entry is immutable once published, so per-entry granularity
+    cannot hide a later addition to an older page.
+
+    The pattern is guarded the way `_wrap_pairs` is: an opening `*` must be preceded by
+    something that is not a word character, `/`, `.`, `-` or another `*`, and must be
+    followed by non-whitespace. That is what keeps `tools/*.py`, `scripts/test/*.gd` and
+    `a * b` out of it — the same globs-in-prose ambiguity that made single-asterisk
+    *rendering* unshippable is tractable for *detection*, because detection may be
+    conservative and a renderer may not.
     """
     ok = True
+    seen_ids: set[str] = set()
     for path in sorted(out_dir.rglob("*.html")):
         html_text = path.read_text(encoding="utf-8")
         rel = path.relative_to(out_dir)
+        entry_id = path.stem if path.parent.name == "entries" else ""
+        seen_ids.add(entry_id)
 
         # `**` INSIDE a <code> element is legitimate content, not unrendered markup — an
         # entry quoting `split("**")` is correct output. Only asterisks left in PROSE mean
@@ -424,6 +563,18 @@ def audit_markup(out_dir: Path) -> bool:
                   "put paths and globs in backticks, which is house style anyway")
             ok = False
 
+        lone = [m.group(0) for m in RE_LONE_ASTERISK.finditer(prose)]
+        if lone and entry_id not in LEGACY_LONE_ASTERISK:
+            print(f"unrendered emphasis in {rel}: {len(lone)} lone-asterisk span(s) — "
+                  f"{', '.join(repr(s[:60]) for s in lone[:3])}")
+            print("  single-asterisk emphasis prints literally by design (LF-173) — "
+                  "use ** for emphasis, or backticks if it is a path or a glob")
+            ok = False
+        elif not lone and entry_id in LEGACY_LONE_ASTERISK:
+            print(f"stale exemption in {rel}: {entry_id!r} is in LEGACY_LONE_ASTERISK but no "
+                  "longer carries a lone-asterisk span — remove it from the set")
+            ok = False
+
         for tag in ("strong", "code", "em"):
             opens, closes = html_text.count(f"<{tag}>"), html_text.count(f"</{tag}>")
             if opens != closes:
@@ -433,6 +584,10 @@ def audit_markup(out_dir: Path) -> bool:
         for m in re.finditer(r"<code>[^<]*<(strong|em)>[^<]*</code>", html_text):
             print(f"crossed tags in {rel}: {m.group(0)[:80]}")
             ok = False
+
+    for gone in sorted(LEGACY_LONE_ASTERISK - seen_ids):
+        print(f"stale exemption: {gone!r} is in LEGACY_LONE_ASTERISK but no entry renders it")
+        ok = False
     return ok
 
 

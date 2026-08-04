@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Interrupted, not broken — Latticefall build journal</title>
-<meta name="description" content="The earlier entry today, “The autoloop had no instrument panel and no brake,” closed on an open question: the spawned session's first run had died instantly with a 15-byte log reading “Execution error,” filed as LF-209. That diagnosis was wrong, and the evidence had been on disk the whole time — the session transcript shows three minutes of real work ended by the owner's own Ctrl-C. The bug it uncovered instead was worse: Ctrl-C is delivered to the terminal's whole foreground process group, so it reached the child directly and the graceful-stop boundary shipped hours earlier could never have worked. LF-209 is dropped, not closed.">
+<meta name="description" content="The earlier entry today, “The autoloop had no instrument panel and no brake,” closed on an open question: the spawned session&#x27;s first run had died instantly with a 15-byte log reading “Execution error,” filed as LF-209. That diagnosis was wrong, and the evidence had been on disk the whole time — the session transcript shows three minutes of real work ended by the owner&#x27;s own Ctrl-C. The bug it uncovered instead was worse: Ctrl-C is delivered to the terminal&#x27;s whole foreground process group, so it reached the child directly and the graceful-stop boundary shipped hours earlier could never have worked. LF-209 is dropped, not closed.">
 <link rel="stylesheet" href="../chronicle.css">
 </head>
 <body>
