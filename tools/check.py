@@ -39,11 +39,18 @@ opposite case — they live in `CHECKS`, so they cost nothing to assert — and 
 check below does exactly that on every tier-1 run: a stale count here is a red run, not a
 silent drift. See that check's own docstring for what it caught before it existed.
 
-- **tier 1 (pre-commit), 18 checks:** `python syntax`, `json parses`, `gdscript parses`,
+- **tier 1 (pre-commit), 19 checks:** `python syntax`, `json parses`, `gdscript parses`,
   `game data`, `wave density`, `dialog capacity`, `backlog rendered`, `chronicle current`,
   `agent models`, `leases wired`, `issue traceability`, `banned terms`, `tier counts`,
   `safe operations`, `rules autoloads`, `yaw hysteresis`, `asset coverage`,
-  `playfield width`. No Godot window opens.
+  `playfield width`, `grade verdict`. No Godot window opens.
+
+  **`grade verdict` (LF-243) is the newest, and it is the red half of a tier-3 check.**
+  `anchor grades` grades the shipped 24 and asserts they pass, so every rule in
+  `sim/run.py`'s `verdict()` is only ever seen succeeding; three of the four cannot fire on
+  any shipped anchor at all. This drives all of them on both paths, over synthetic grade
+  tables, in ~180 ms with no Godot and no content load. Same argument as `firing arcs agree`
+  and `verbs agree`, one level up — see `check_grade_verdict`'s own docstring.
 
   **`playfield width` (LF-247) is the newest, and it is here rather than at tier 2 or 3
   because it costs nothing to run and everything to have skipped.** It asserts that the board
@@ -54,7 +61,7 @@ silent drift. See that check's own docstring for what it caught before it existe
   both green throughout, because both audit **text** and a playfield is not a text item. Its
   mirror of the four geometry expressions is pinned verbatim against `scripts/ui_theme.gd`,
   so the mirror can only go stale loudly.
-- **tier 2 (pre-push), 27 checks:** tier 1 + `sim determinism`, `sprite atlas`,
+- **tier 2 (pre-push), 28 checks:** tier 1 + `sim determinism`, `sprite atlas`,
   `sprite coverage`, `music manifest`, `sfx determinism`, `sfx loudness` (PRC-18 — see
   `_run_loudness_check`'s own comment for why it is `sfx loudness` and not `music loudness`
   that landed here), `godot boots`, `terrain parsers agree`, `hooks configured`.
@@ -91,7 +98,7 @@ silent drift. See that check's own docstring for what it caught before it existe
   trustworthy, and `--budget` turns the figures above into assertions, so an instrument that
   can run backwards is the wrong one to be judging a 0.8% margin with. Only `started_at`
   stays on the wall clock, because a timestamp is not a duration.
-- **tier 3 (PR), 41 checks:** tier 2 + `facing harness` (moved here from tier 2, above) +
+- **tier 3 (PR), 42 checks:** tier 2 + `facing harness` (moved here from tier 2, above) +
   `anchor grades` (LF-224 — the deliberate replacement for the all-anchors-clean assertion
   `sim determinism` was serving by accident until PLC-04; ~62 s, and tier 3 rather than
   tier 2 because tier 2 is over budget and rather than tier 4 because the regression it
@@ -116,7 +123,7 @@ silent drift. See that check's own docstring for what it caught before it existe
   reasoning and for a larger hole** — six of the eight verbs `Sim._dispatch_one()` accepts
   are never scheduled by any shipped policy, and unlike the firing arc the *player* uses
   every one of them; see `check_verb_parity`'s own docstring.
-- **tier 4 (nightly/release), 44 checks — the default:** tier 3 + `music loudness` (see
+- **tier 4 (nightly/release), 45 checks — the default:** tier 3 + `music loudness` (see
   `_run_loudness_check`'s own comment for why it did not join `sfx loudness` at tier 3) +
   `rules parity` (grows with every policy/anchor) + `rules parity (windows)` (BAL-06 — the
   same runs again, against the Windows binary the owner actually plays rather than the Linux
@@ -1592,6 +1599,42 @@ def check_anchor_grades() -> Result:
                       f"(--jobs {GRADE_JOBS})")
 
 
+def check_grade_verdict() -> Result:
+    """`sim/run.py --selftest`: drive every branch of the grading verdict, red and green.
+
+    The sibling of `anchor grades` above, and the half that check structurally cannot do.
+    `anchor grades` grades the shipped 24 and asserts they are all `ok` — so every rule in
+    `verdict()` is exercised on its **passing** path only, and three of the four cannot fire
+    on any anchor in `data/anchors/` at all. A rule that has been quietly inverted, or a
+    tutorial exemption widened until it swallows the campaign, would leave `anchor grades`
+    green. This is the same argument `firing arcs agree` and `verbs agree` are here for,
+    stated one level up: **a check that runs the whole game proves nothing about a branch
+    the shipped data never enters** (CLAUDE.md).
+
+    It is what makes decision 086's rule falsifiable. That rule — the top difficulty's win
+    share must fall below the bottom one's — is green on all 24 shipped anchors today, which
+    is exactly the state in which a new check is worth nothing unless its red path has been
+    driven. `sim/run.py`'s `selftest()` drives it six ways, including the two real tables
+    (anchor-02 and anchor-23 at the derived ranges) that decision 082 measured and the old
+    knife-edge rule read as clean.
+
+    **Tier 1**: no Godot, no content load, no Sim — `verdict()` is a pure function of a grade
+    table and the whole selftest is ~180 ms of arithmetic, which is the same argument that
+    put `playfield width` and `safe operations` at this tier. Note tier 2 is over its budget
+    (`LF-240`) and this adds to that; ~0.2 s against a ~12 s overrun does not change the fix,
+    which is still to move a check out.
+    """
+    sim = ROOT / "sim" / "run.py"
+    if not sim.exists():
+        return Result(SKIP, "headless sim not written (LF-002)")
+    r = run(PY, str(sim), "--selftest", timeout=60)
+    if r.returncode != 0:
+        detail = (r.stderr.strip() or r.stdout.strip())[-600:]
+        return Result(FAIL, f"sim/run.py --selftest failed (exit {r.returncode}):\n{detail}")
+    return Result(OK, r.stdout.strip().splitlines()[-1] if r.stdout.strip()
+                  else "selftest ok (no output)")
+
+
 def check_gdscript_parses() -> Result:
     """Parse-check every tracked GDScript file in isolation. See `tools/validate/gdscript.py`
     for the why: a parse error here is a hang or a blank frame with no error at the failure
@@ -2252,6 +2295,10 @@ CHECKS = [
     # LF-224. Sits next to `sim determinism` because the two were once one check by
     # accident — see both docstrings. Tier 3, and the reason is in check_anchor_grades'.
     Check("anchor grades",     3, check_anchor_grades),
+    # LF-243 / decision 086. The RED half of `anchor grades`: that check grades the shipped
+    # 24 and so only ever exercises the green path of every rule in `sim/run.py`'s
+    # `verdict()`. See check_grade_verdict's own docstring.
+    Check("grade verdict",     1, check_grade_verdict),
     Check("gdscript parses",   1, check_gdscript_parses),
     Check("godot boots",       2, check_godot_boots),
     # PRC-18: one check per data/scenarios/*.json file, not one check that loops over all of

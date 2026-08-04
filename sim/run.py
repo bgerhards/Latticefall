@@ -9,9 +9,34 @@ Grade Latticefall anchors headlessly.
     .venv/bin/python sim/run.py --jobs 8                     # one process per anchor
 
 The verdict is not just win/loss. An anchor passes only if it is winnable by more
-than one approach and the player is actually pressed against capacity at some point.
+than one approach and the top difficulty is actually harder than the bottom one.
 A level nobody can lose and a level with exactly one answer are both failures, and
 neither shows up in a pass/fail number.
+
+WIN SHARE, AND WHY THE OLD TEST COULD NOT SEE A DIFFICULTY DISSOLVE. Until LF-243 the
+only guard on a difficulty tier was `distinct_winning_builds == distinct_builds_tried`
+— a knife edge that fires when *every* build clears and is silent one build short of
+that. Decision 082 walked straight through it: grading all 24 shipped anchors at the
+48-square derived ranges left them 24/24 `ok` while brutal's share of tried builds that
+win went 24% -> 43% and the median anchor's winning builds went 3 -> 6. The campaign's
+own instrument reported no change to a change that roughly doubled how forgiving the
+top difficulty is.
+
+The replacement is `win_share` = `distinct_winning_builds / distinct_builds_tried`, and
+the rule is that the **top** difficulty's win share must fall strictly below the
+**bottom** one's, on every anchor. It has no threshold in it, which is the point —
+decision 067 deleted `PRESSURE_FLOOR` for being a number with no argument behind it, and
+a bound on "how forgiving is too forgiving" would be exactly that number again. "The
+hardest tier is harder than the easiest tier" needs no constant and is the weakest
+statement that is not vacuous. Measured: 0 of 24 shipped anchors fail it, 3 of 24 fail
+it at the derived ranges. A fourth, anchor-01, trips the same comparison there and still
+reports `ok`, because the tutorial relaxation reaches this rule too. Decision 086.
+
+A share rather than a count, because BAL-04 adds grading policies and a count would
+tighten every time the repertoire grows, for a reason that has nothing to do with the
+content. `hard` is deliberately *reported* and not asserted — measured, it does not fall
+below standard on anchor-08 or anchor-15 today, and brutal is the tier `DIFFICULTIES`
+itself describes as the decisive one.
 
 Grading is embarrassingly parallel and was serial for twenty-four anchors: --jobs
 grades them in a pool, in the same order, with the same numbers. The sim has no RNG and
@@ -39,6 +64,12 @@ import lease  # noqa: E402  — scopes the --jobs pool for tools/reap.py (PRC-07
 ## legitimately slower than the 3.5-minute serial baseline this file's docstring measures.
 ## The TTL is a crash backstop for the pool, not a performance budget.
 POOL_LEASE_TTL_S = 1800.0
+
+## The tiers are read off DIFFICULTIES' own order rather than spelled "standard"/"brutal"
+## here, so a fourth tier is a data change and not a second place to remember. Decision 060
+## made the same call for the yaw count.
+BASE_DIFFICULTY = list(DIFFICULTIES)[0]
+TOP_DIFFICULTY = list(DIFFICULTIES)[-1]
 
 ## PRESSURE_FLOOR used to live here, asserting that an anchor's peak load gets near
 ## capacity — "the player is pressed against the bus". It was measured DEAD twice: 0 of 72
@@ -77,6 +108,64 @@ def grade_all(anchor_ids: list[str], difficulties: list[str], jobs: int = 1) -> 
             return list(pool.imap(_grade_one, work))
 
 
+def verdict(by_diff: dict, tutorial: bool = False) -> list[str]:
+    """Turn a per-difficulty grade table into the anchor's list of problems.
+
+    A pure function of the table, with no Sim and no content behind it, so `--selftest`
+    can drive every branch in milliseconds. That is not tidiness: three of the four rules
+    below can only fire on content that does not exist in `data/anchors/`, so a gate that
+    grades the shipped 24 exercises the *green* path of each one and says nothing whatever
+    about the red path. `firing arcs agree` is the same lesson (CLAUDE.md) — a check that
+    runs the whole game proves nothing about a branch the shipped data never enters.
+    """
+    problems = []
+    for diff, d in by_diff.items():
+        if d["win_count"] == 0:
+            problems.append(f"{diff}: unwinnable — no policy clears it")
+        elif d["distinct_winning_builds"] == 1 and d["distinct_builds_tried"] > 1:
+            problems.append(
+                f"{diff}: only one distinct build clears it — single-solution level")
+        if (d["distinct_builds_tried"] > 1
+                and d["distinct_winning_builds"] == d["distinct_builds_tried"]
+                and diff != BASE_DIFFICULTY):
+            problems.append(f"{diff}: every distinct build clears it — difficulty is not biting")
+
+    # LF-243 / decision 086. The rule above is a knife edge: it fires only when a tier's
+    # win share is exactly 1.0, so it is silent one build short of that — which is how
+    # decision 082's derived ranges took brutal from 24% to 43% campaign-wide without
+    # moving a single verdict. This is the general form of the same statement, and it is
+    # strictly stronger: a tier at share 1.0 cannot be below a tier that is at most 1.0,
+    # so every case the knife edge catches this catches too.
+    #
+    # Only the top tier is asserted. The middle tiers are *reported* by main() instead,
+    # because measured they do not fall below standard on anchor-08 or anchor-15 today and
+    # a check that is red on arrival gets disabled rather than fixed (LF-224). `brutal` is
+    # also the tier DIFFICULTIES' own comment describes as the decisive one.
+    if (BASE_DIFFICULTY != TOP_DIFFICULTY
+            and BASE_DIFFICULTY in by_diff and TOP_DIFFICULTY in by_diff
+            and by_diff[BASE_DIFFICULTY]["distinct_builds_tried"] > 1):
+        top, base = by_diff[TOP_DIFFICULTY], by_diff[BASE_DIFFICULTY]
+        if top["win_share"] >= base["win_share"]:
+            problems.append(
+                f"{TOP_DIFFICULTY}: win share {top['win_share']:.0%} "
+                f"({top['distinct_winning_builds']}/{top['distinct_builds_tried']}) is "
+                f"not below {BASE_DIFFICULTY}'s {base['win_share']:.0%} "
+                f"({base['distinct_winning_builds']}/{base['distinct_builds_tried']}) — "
+                f"the top difficulty is not harder than the bottom one")
+
+    # A tutorial has one emplacement unlocked, so it has one build by construction and
+    # nothing for a difficulty tier to differentiate — five distinct builds tried on
+    # anchor-01 against thirteen to sixteen everywhere else, which quantises its win share
+    # into 20-point steps and makes a strict comparison between tiers meaningless. All
+    # three build-count checks are relaxed, and the anchor declares this in data rather
+    # than the grader inferring it.
+    if tutorial:
+        problems = [p for p in problems
+                    if "single-solution" not in p and "not biting" not in p
+                    and "not harder than" not in p]
+    return problems
+
+
 def grade_anchor(anchor, difficulties: list[str], towers=None, enemies=None) -> dict:
     """Grade an Anchor object. Split out from grade() so a sweep can grade an anchor
     that only exists in memory — tools/sweep.py varies capacity, funds and wave weight
@@ -101,6 +190,10 @@ def grade_anchor(anchor, difficulties: list[str], towers=None, enemies=None) -> 
             "policy_count": len(outcomes),
             "distinct_winning_builds": len(distinct_wins),
             "distinct_builds_tried": len(distinct_all),
+            # LF-243. Stored rather than left for each consumer to divide, because three
+            # of them already recompute `distinct_winning_builds` in their own way and a
+            # fourth copy of the ratio is the drift this project keeps paying for.
+            "win_share": (len(distinct_wins) / len(distinct_all)) if distinct_all else 0.0,
             "peak_load_mw": round(max(o.peak_load_mw for o in outcomes), 2),
             "peak_load_ratio": round(
                 max(o.peak_load_mw for o in outcomes) / anchor.capacity_mw, 3),
@@ -110,27 +203,7 @@ def grade_anchor(anchor, difficulties: list[str], towers=None, enemies=None) -> 
                 max(o.brownout_fraction for o in outcomes), 3),
         }
 
-    problems = []
-    for diff, d in by_diff.items():
-        if d["win_count"] == 0:
-            problems.append(f"{diff}: unwinnable — no policy clears it")
-        elif d["distinct_winning_builds"] == 1 and d["distinct_builds_tried"] > 1:
-            problems.append(
-                f"{diff}: only one distinct build clears it — single-solution level")
-        if (d["distinct_builds_tried"] > 1
-                and d["distinct_winning_builds"] == d["distinct_builds_tried"]
-                and diff != "standard"):
-            problems.append(f"{diff}: every distinct build clears it — difficulty is not biting")
-
-    # A level with one emplacement unlocked has exactly one build by construction.
-    # That is correct for a tutorial, so the anchor declares it rather than the
-    # grader guessing.
-    # A tutorial has one emplacement unlocked, so it has one build by construction and
-    # nothing for a difficulty tier to differentiate. Both checks are relaxed, and the
-    # anchor declares this in data rather than the grader inferring it.
-    if anchor.tutorial:
-        problems = [p for p in problems
-                    if "single-solution" not in p and "not biting" not in p]
+    problems = verdict(by_diff, anchor.tutorial)
 
     return {
         "anchor": anchor.id,
@@ -148,6 +221,164 @@ def grade_anchor(anchor, difficulties: list[str], towers=None, enemies=None) -> 
     }
 
 
+def campaign_win_share(reports: list[dict], diffs: list[str]) -> dict:
+    """Pool win share across a set of graded anchors, per difficulty.
+
+    Pooled (sum of winners over sum of tried), not the mean of per-anchor shares: an
+    anchor with sixteen distinct builds tried is a stronger statement about the campaign
+    than a tutorial with five, and averaging the ratios gives them equal weight. The two
+    figures differ by under half a point on the shipped campaign either way; the pooled
+    one is reported because it is the one whose denominator is a real count.
+
+    Reported, never asserted. Measured on both the shipped campaign (40.6/30.0/24.2) and
+    on the derived-range campaign decision 082 refused (54.5/46.8/42.6), this falls
+    strictly in *both* — so it cannot be the test, and pretending otherwise would put a
+    number in the gate that has already been shown not to discriminate. It is here as a
+    trend line: `tools/session.py` writes it under `docs/STATE.md`'s grade table on every
+    wrap, which is where a campaign-level drift becomes visible over sessions rather than
+    within one. LF-243, decision 086.
+    """
+    out: dict = {"by_difficulty": {}, "anchors": len(reports)}
+    for d in diffs:
+        cells = [r["by_difficulty"][d] for r in reports if d in r["by_difficulty"]]
+        won = sum(c["distinct_winning_builds"] for c in cells)
+        tried = sum(c["distinct_builds_tried"] for c in cells)
+        out["by_difficulty"][d] = {"won": won, "tried": tried,
+                                   "win_share": (won / tried) if tried else 0.0}
+    shares = [out["by_difficulty"][d]["win_share"] for d in diffs]
+    out["falls_strictly"] = all(a > b for a, b in zip(shares, shares[1:]))
+    # The tiers between bottom and top are not asserted per-anchor (see grade_anchor);
+    # naming the anchors where they do not fall is what makes that omission visible
+    # instead of silent. Measured today: hard does not fall on anchor-08 and anchor-15.
+    out["not_falling"] = {}
+    for d in diffs[1:]:
+        out["not_falling"][d] = [
+            r["anchor"] for r in reports
+            if not r["tutorial"] and d in r["by_difficulty"] and diffs[0] in r["by_difficulty"]
+            and r["by_difficulty"][d]["win_share"] >= r["by_difficulty"][diffs[0]]["win_share"]]
+    return out
+
+
+def print_campaign_win_share(cws: dict, diffs: list[str]) -> None:
+    print(f"\ncampaign win share over {cws['anchors']} anchors "
+          f"(distinct winning builds / distinct builds tried, pooled)")
+    cells = " · ".join(
+        f"{d} {cws['by_difficulty'][d]['win_share']:.1%} "
+        f"({cws['by_difficulty'][d]['won']}/{cws['by_difficulty'][d]['tried']})"
+        for d in diffs)
+    print(f"  {cells}")
+    print(f"  falls strictly across the tiers: "
+          f"{'yes' if cws['falls_strictly'] else 'NO'}   [reported, not asserted]")
+    for d, names in cws["not_falling"].items():
+        if names:
+            print(f"  {d} does not fall below {diffs[0]} on {len(names)} anchor(s): "
+                  f"{', '.join(names)}   [reported, not asserted — only "
+                  f"{TOP_DIFFICULTY} is a problem]")
+
+
+# ─────────────────────────────────────────────────────────────────── selftest ──
+
+def _cell(won: int, tried: int, wins: int | None = None) -> dict:
+    """One difficulty's grade cell, with only the keys `verdict()` reads."""
+    return {"win_count": won if wins is None else wins,
+            "distinct_winning_builds": won, "distinct_builds_tried": tried,
+            "win_share": (won / tried) if tried else 0.0}
+
+
+def _table(**cells: tuple) -> dict:
+    return {d: _cell(*v) for d, v in cells.items()}
+
+
+def selftest() -> int:
+    """Drive every branch of `verdict()`, red and green. Prints what it checked.
+
+    The red paths matter more than the green ones here. Three of the four rules cannot
+    fire on any anchor in `data/anchors/`, so the gate's `anchor grades` check — which
+    grades exactly those anchors — only ever sees them pass. Decision 086 and LF-243.
+    """
+    base, top = BASE_DIFFICULTY, TOP_DIFFICULTY
+    assert base != top, f"DIFFICULTIES has one tier ({base!r}); the top-tier rule is vacuous"
+    # Counted, never written into the message as a literal: a hardcoded tally in a line
+    # that claims to be evidence is how this project has twice shipped a count that was
+    # wrong by the time anyone read it (CLAUDE.md, `tier counts`).
+    tally = {"red": 0, "green": 0, "structural": 0}
+
+    def case(name: str, table: dict, want: str | None, tutorial: bool = False) -> None:
+        got = verdict(table, tutorial)
+        if want is None:
+            assert not got, f"{name}: expected no problem, got {got}"
+            tally["green"] += 1
+        else:
+            assert any(want in p for p in got), f"{name}: expected {want!r}, got {got}"
+            tally["red"] += 1
+
+    # 1. GREEN. The shipped campaign's shape: the top tier's share is strictly lower.
+    case("healthy anchor", _table(**{base: (6, 15), top: (3, 15)}), None)
+
+    # 2. RED, equal shares. anchor-23 at the derived ranges is exactly this — 5 of 15 on
+    #    both tiers — and it is the case the old knife-edge rule is blind to, because
+    #    neither tier is anywhere near 1.0.
+    case("top tier equal to base", _table(**{base: (5, 15), top: (5, 15)}),
+         "not harder than the bottom one")
+
+    # 3. RED, top tier strictly more forgiving. anchor-02 at the derived ranges: 6/10
+    #    against 8/11. Also blind to the knife edge.
+    case("top tier above base", _table(**{base: (6, 10), top: (8, 11)}),
+         "not harder than the bottom one")
+
+    # 4. RED, and the proof that the new rule SUBSUMES the old one rather than sitting
+    #    beside it: every table the knife edge catches has the top tier at share 1.0,
+    #    which cannot be below a base tier that is at most 1.0.
+    knife = _table(**{base: (6, 15), top: (14, 14)})
+    got = verdict(knife, False)
+    assert any("not biting" in p for p in got), f"knife edge did not fire: {got}"
+    assert any("not harder than" in p for p in got), f"new rule missed a knife-edge case: {got}"
+    tally["red"] += 1
+
+    # 5. Near miss, GREEN. anchor-21 as shipped: the same absolute count on both tiers,
+    #    passing only because the top tier tried one more build. Recorded as a case
+    #    because it is the campaign's thinnest margin (+1.7 points) and the anchor this
+    #    rule will name first if BAL-04 loosens anything.
+    case("shipped anchor-21 (+1.7pt margin)", _table(**{base: (4, 15), top: (4, 16)}), None)
+
+    # 6. The tutorial relaxation reaches the new rule too, not just the two older ones.
+    case("tutorial is exempt", _table(**{base: (2, 5), top: (3, 5)}), None, tutorial=True)
+    case("non-tutorial is not", _table(**{base: (2, 5), top: (3, 5)}),
+         "not harder than the bottom one")
+
+    # 7. A single-tier grade (`--difficulty standard`) has nothing to compare and must not
+    #    invent a problem — tools/sweep.py and tools/range_derive.py both grade subsets.
+    case("one tier only", _table(**{base: (3, 15)}), None)
+
+    # 8. The older rules still fire, so this refactor did not quietly drop one.
+    case("unwinnable", {base: _cell(0, 15, wins=0)}, "unwinnable")
+    case("single solution", _table(**{base: (1, 15)}), "single-solution level")
+
+    # 9. The tiers come from DIFFICULTIES' order, not from the strings "standard"/"brutal".
+    assert base == list(DIFFICULTIES)[0] and top == list(DIFFICULTIES)[-1]
+    tally["structural"] += 1
+
+    # 10. campaign_win_share pools rather than averages, and names the middle tiers it does
+    #     not assert. Two anchors of very different size, so pooled != mean-of-shares.
+    reports = [
+        {"anchor": "a", "tutorial": False,
+         "by_difficulty": _table(**{base: (1, 2), "mid": (0, 2), top: (0, 2)})},
+        {"anchor": "b", "tutorial": False,
+         "by_difficulty": _table(**{base: (2, 20), "mid": (9, 20), top: (1, 20)})},
+    ]
+    cws = campaign_win_share(reports, [base, "mid", top])
+    assert cws["by_difficulty"][base]["win_share"] == 3 / 22, cws
+    assert cws["not_falling"]["mid"] == ["b"], cws["not_falling"]
+    assert not cws["falls_strictly"], cws          # mid 40.9% is above base 13.6%
+    tally["structural"] += 1
+
+    print(f"sim/run.py selftest: {sum(tally.values())} case(s) ok — verdict() fires on "
+          f"{tally['red']}, stays silent on {tally['green']}, "
+          f"{tally['structural']} structural; tiers {base!r} -> {top!r} "
+          f"read from DIFFICULTIES")
+    return 0
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description="Grade Latticefall anchors headlessly.")
     ap.add_argument("--anchor", help="anchor id (default: all)")
@@ -159,7 +390,13 @@ def main() -> int:
     ap.add_argument("--detail", action="store_true", help="per-policy breakdown")
     ap.add_argument("--jobs", type=int, default=1,
                     help="grade this many anchors at once; 0 for one per core")
+    ap.add_argument("--selftest", action="store_true",
+                    help="drive every branch of the verdict, red and green, without "
+                         "loading content. See selftest() for why this is not optional")
     args = ap.parse_args()
+
+    if args.selftest:
+        return selftest()
 
     ids = [args.anchor] if args.anchor else all_anchor_ids()
     diffs = args.difficulty or list(DIFFICULTIES)
@@ -175,13 +412,14 @@ def main() -> int:
     for r in reports:
         head = f"{r['anchor']}  {r['title']}  ·  act {r['act']}  ·  {r['capacity_mw']:.0f} MW  ·  {r['waves']} waves"
         print(f"\n{head}\n{'─' * len(head)}")
-        print(f"{'difficulty':<11s} {'builds':>8s} {'peak':>12s} {'brownout':>9s}  died on")
+        print(f"{'difficulty':<11s} {'builds':>8s} {'share':>6s} {'peak':>12s} "
+              f"{'brownout':>9s}  died on")
         for diff in diffs:
             d = r["by_difficulty"][diff]
             died = f"wave {d['earliest_death_wave']}" if d["earliest_death_wave"] else "—"
             print(f"{diff:<11s} {d['distinct_winning_builds']:>2d} of {d['distinct_builds_tried']:<3d} "
-                  f"{d['peak_load_mw']:>7.1f} MW {d['peak_load_ratio']:>4.0%} "
-                  f"{d['brownout_fraction']:>8.0%}  {died}")
+                  f"{d['win_share']:>5.0%} {d['peak_load_mw']:>7.1f} MW "
+                  f"{d['peak_load_ratio']:>4.0%} {d['brownout_fraction']:>8.0%}  {died}")
             if d["winning_policies"]:
                 print(f"{'':11s} {', '.join(d['winning_policies'])}")
 
@@ -200,6 +438,9 @@ def main() -> int:
                 print(f"  PROBLEM  {p}")
         else:
             print("\n  ok")
+
+    if len(reports) > 1 and len(diffs) > 1:
+        print_campaign_win_share(campaign_win_share(reports, diffs), diffs)
 
     bad = [r["anchor"] for r in reports if not r["ok"]]
     print(f"\n{len(reports) - len(bad)}/{len(reports)} anchors clean")

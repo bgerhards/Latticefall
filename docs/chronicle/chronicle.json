@@ -7714,6 +7714,240 @@
           "text": "So the lesson is not \"write better checks\". Every one of these five is arithmetically correct about the quantity it computes — the grades really were `ok`, the two engines really did agree on what they were driven through, the slot arithmetic is right, the text really is legible at 200%, the frame really is not blank. Not one of them was computing the quantity that mattered, and no amount of care inside a check can fix that, because a check cannot know what it is failing to look at. **A check earns trust only against an independent look at its subject.** Five green runs, five honest measurements, five things wrong anyway, and the only thing that found any of them was somebody looking at the game."
         }
       ]
+    },
+    {
+      "id": "the-bound-was-not-there",
+      "date": "2026-08-04",
+      "time": "13:50",
+      "title": "The bound the ticket asked for was looked for and is not there, so the claim was weakened until it needed no constant",
+      "summary": "`LF-243`, decision 086, and the first landable slice of `BAL-04`. The ticket asked for win share per difficulty **with a bound on the top tier**. Both campaigns were graded in full — the shipped one and the derived-range one decision 082 refused — and every **shape** statistic came back indistinguishable: pooled share falls strictly in both, the drop ratio is 0.405 against 0.411, the constant-hazard fit 1.143 against 1.121. Only the **level** differs, and bounding a level needs a number fitted to today's data. So there is no bound in what shipped. Three candidate metrics were measured and rejected, and one of them turned out to be **backwards**.",
+      "tags": [
+        "BAL"
+      ],
+      "decisions": [
+        "086"
+      ],
+      "commits": [
+        {
+          "hash": "f06a4a4",
+          "subject": "feat(balance): the grade table could not see brutal dissolve, and the bound it wanted is not there"
+        }
+      ],
+      "body": [
+        {
+          "type": "p",
+          "text": "This is the first piece of `BAL-04`, the campaign re-grade, and it deliberately is not any re-grading. `BAL-04`'s headline acceptance criterion is that all 24 anchors grade `ok` at all three difficulties — and by the time this session opened, the grade table had been proved twice over not to be a valid selector for anything. Decision 081 measured board quality and grade count as **anti-correlated** across five candidate lattice orderings, and withdrew \"every anchor still grades ok\" as a criterion. Decision 082 then graded all 24 shipped anchors at the 48-square derived ranges and got **24/24 ok, unchanged**, while the top difficulty's share of tried builds that win went 25% to 43%. Re-grading first would have produced a green table that means nothing. So the instrument came first."
+        },
+        {
+          "type": "p",
+          "text": "The entry above this one, `the-grade-table-said-nothing`, is where that second proof was written down. This is what was done about it."
+        },
+        {
+          "type": "h3",
+          "text": "What was asked for, and what is not there"
+        },
+        {
+          "type": "p",
+          "text": "`LF-243` asked for a metric — win share per difficulty, `distinct_winning_builds / distinct_builds_tried` — that falls monotonically across the tiers **and holds the top tier under a bound**. The falling half was easy. The bound was looked for, over both campaigns graded in full at 1,440 runs each keeping every per-policy outcome, and it is not there to be found. Every statistic about the shape of the difficulty curve is indistinguishable between the shipped campaign and the one that dissolved:"
+        },
+        {
+          "type": "table",
+          "headers": [
+            "statistic",
+            "shipped campaign",
+            "at the derived ranges"
+          ],
+          "rows": [
+            [
+              "pooled win share, standard / hard / `brutal`",
+              "40.6 / 30.0 / **24.2%**",
+              "54.5 / 46.8 / **42.6%**"
+            ],
+            [
+              "falls strictly across the tiers",
+              "yes",
+              "**yes**"
+            ],
+            [
+              "survival of standard's winners into `brutal`",
+              "45.5%",
+              "60.2%"
+            ],
+            [
+              "drop ratio (`brutal` drop ÷ `hard` drop)",
+              "0.405",
+              "**0.411**"
+            ],
+            [
+              "constant-hazard fit, actual ÷ predicted",
+              "1.143",
+              "**1.121**"
+            ]
+          ]
+        },
+        {
+          "type": "p",
+          "text": "Monotonicity, spacing and curvature all pass on the campaign that dissolved. **Only the level differs.** Which means any test that catches it has to bound a level — and a bound on \"how forgiving is too forgiving\" is a number fitted to today's data, which is precisely the thing decision 067 deleted `PRESSURE_FLOOR` for rather than tune. Hunting for the constant that separates 24.2% from 42.6% would have been fitting to the sample, dressed up as a rule."
+        },
+        {
+          "type": "h3",
+          "text": "The claim that survived"
+        },
+        {
+          "type": "quote",
+          "text": "The top difficulty's win share must fall strictly below the bottom one's, on every anchor. Nothing else.",
+          "attribution": "decision 086"
+        },
+        {
+          "type": "p",
+          "text": "That is the weakest statement about difficulty that is not vacuous, and it contains no number at all. It is also strictly stronger than the rule it joins: the old guard fired only when a tier's win share hit exactly 1.0 — every distinct build tried clears it — which is a knife edge silent one build short of itself, and is how a change that roughly doubled how forgiving the top tier is passed the campaign's own instrument without moving a single verdict."
+        },
+        {
+          "type": "p",
+          "text": "`sim/run.py`'s `verdict()` was extracted as a **pure function of the grade table**, with no `Sim` and no content behind it, for a reason worth stating plainly: three of its four rules cannot fire on any anchor that ships. A gate that grades the shipped 24 and asserts they pass therefore only ever exercises the **green** path of each one. `--selftest` drives 12 synthetic tables — 6 that must produce a problem, 4 that must stay silent, 2 structural — and `tools/check.py` runs it as `grade verdict` at tier 1 in about 220 ms, with no Godot and no content load. It was proved red four ways by breaking behaviour rather than an expectation: comparison inverted, rule deleted, the tutorial exemption widened to every anchor, and the top tier mis-read as the middle one. Same argument as `firing arcs agree` and `verbs agree`, one level up."
+        },
+        {
+          "type": "pre",
+          "text": "campaign win share over 24 anchors (distinct winning builds / distinct builds tried, pooled)\n  standard 40.6% (134/330) · hard 30.0% (100/333) · brutal 24.2% (80/331)\n  falls strictly across the tiers: yes   [reported, not asserted]\n  hard does not fall below standard on 2 anchor(s): anchor-08, anchor-15   [reported, not asserted — only brutal is a problem]\n\n24/24 anchors clean",
+          "caption": "The new footer on a full grade, re-run for this entry at `.venv/bin/python -m sim.run --jobs 8`. The pooled campaign figure is written under `docs/STATE.md`'s grade table by `tools/session.py` on every wrap — labelled `reported, not asserted`, because it falls strictly in both campaigns and so discriminates nothing. It is there as a trend line across sessions, not as a test."
+        },
+        {
+          "type": "h3",
+          "text": "Does it actually catch anything"
+        },
+        {
+          "type": "p",
+          "text": "Yes, and this is where a number in the commit body needs correcting. **0 of 24 shipped anchors fail. 3 of 24 fail at the derived ranges** — anchor-02, anchor-07 and anchor-23. A **fourth** anchor, anchor-01, trips the same rule at the derived ranges (3 of 5 builds win on `standard`, 3 of 5 on `brutal`) and is relaxed because it is declared a tutorial in data, so it reports `ok`. The commit message and decision 086 both compress that to \"4 of 24 fail … and anchor-01, which is exempt as a tutorial\", which does not sit with the tool's own summary line of `21/24 clean`. An exempt anchor does not fail. Recording the discrepancy here rather than editing either document, because both are append-only."
+        },
+        {
+          "type": "pre",
+          "text": "anchor              standard             hard           brutal  verdict\nanchor-01       2->3  of 5       2->2  of 5       1->3  of 5    ok\nanchor-02       5->6  of 10      3->6  of 10      2->8  of 11   brutal: win share 73% (8/11) is not below standard's 60% (6/10) — the top difficulty is not harder than the bottom one\nanchor-07       4->4  of 14      3->5  of 14      3->4  of 14   brutal: win share 29% (4/14) is not below standard's 29% (4/14) — the top difficulty is not harder than the bottom one\nanchor-23       4->5  of 15      3->5  of 15      3->5  of 15   brutal: win share 33% (5/15) is not below standard's 33% (5/15) — the top difficulty is not harder than the bottom one\n\n21/24 clean at the derived ranges, against 24/24 at the authored ones\nregressed or still broken: anchor-02, anchor-07, anchor-23",
+          "caption": "`.venv/bin/python tools/range_derive.py --shipped-impact --jobs 8`, re-run for this entry; the twenty passing rows are omitted. Before this change the same command printed `24/24` on **both** sides — the tool that found the blind spot could not report it. The `anchor-01` row is the tutorial exemption doing real work: without it that line would read as a fourth failure."
+        },
+        {
+          "type": "p",
+          "text": "The exemption carries a trap worth writing down for whoever adds the next rule. It filters the anchor's `problems` list **by substring**, so a new rule whose message happens not to contain a matching phrase is silently **not** relaxed on anchor-01 — and anchor-01 is the one anchor where relaxation is load-bearing, with five distinct builds tried against thirteen to sixteen everywhere else, which quantises its win share into 20-point steps."
+        },
+        {
+          "type": "h3",
+          "text": "Three metrics measured and rejected"
+        },
+        {
+          "type": "p",
+          "text": "All three separate the two campaigns. All three were thrown away, with their numbers, in decision 086 — and the rejections are the more useful record."
+        },
+        {
+          "type": "table",
+          "headers": [
+            "candidate",
+            "shipped",
+            "derived",
+            "why it was rejected"
+          ],
+          "rows": [
+            [
+              "survival of standard's winners into `brutal`, bounded under 50%",
+              "45.5%",
+              "60.2%",
+              "The shipped margin is **4.5 points**, and the pooled figure is carried by three act-2 anchors — anchor-09/10/11, surviving at 0%, 14% and 12% — that `BAL-04` is about to re-tune. A test whose verdict turns on three anchors the next workstream will move is not an instrument."
+            ],
+            [
+              "fewer than 8 distinct winning builds on `brutal` — the 8 read as a per-tier ceiling",
+              "0 of 24 fail",
+              "5 of 24 fail",
+              "Separates cleanly and was the most attractive candidate for hours. It **misreads decision 044**: `ROBUST_ENOUGH = 8` caps `standard_wins + brutal_wins` inside a **scorer** — a point of diminishing returns for a search, never a floor or a ceiling on one tier. Reusing the digit while discarding what it measured is how a number acquires authority it was never given."
+            ],
+            [
+              "a power-discipline gap that widens with difficulty",
+              "**inverted**",
+              "**inverted**",
+              "Not weakly supported. Backwards. See below."
+            ]
+          ]
+        },
+        {
+          "type": "p",
+          "text": "The second of those has a consequence beyond this change. **`BAL-04`'s own acceptance criteria make the same misreading**, from the opposite side: its second bullet asks that every anchor carry **at least** 8 distinct winning builds, citing decision 044. One reading turns the number into a ceiling, the other into a floor, and the shared error is treating a scorer's saturation point as a bound on a tier at all. The shipped campaign does not meet the floor and never has — anchor-01, 02, 03, 04 and 08 are all under it on the sum — so `BAL-04` would be graded against a criterion its own baseline fails. That bullet needs rewriting before the re-grade runs against it, which is `LF-255`. Worth being exact about the scope: two of `BAL-04`'s eight acceptance criteria are phrased in terms of the grade table, not all of them. The other six are capacity saturation, rebased wave density, `PRESSURE_FLOOR`, dialog capacity, wave composition and rules parity, and none of them is touched here."
+        },
+        {
+          "type": "h3",
+          "text": "The one that came back backwards"
+        },
+        {
+          "type": "p",
+          "text": "The third candidate was the session's first hypothesis and by far the most appealing, because it needed no constant of its own. `sim/engine.py`'s `DIFFICULTIES` table carries a comment saying the top tier's 1.55 multiplier was swept to be \"the point where brutal kills the overdraw build but leaves the disciplined one alive\". If that were true, the gap between the win rates of disciplined boards and overdrawing ones should **widen** as difficulty rises — a parameter-free test, handed over by the code itself."
+        },
+        {
+          "type": "p",
+          "text": "Measured over all 1,440 runs of the shipped campaign, splitting on whether a run ever browned out: **runs that brown out win far more often than clean ones.**"
+        },
+        {
+          "type": "table",
+          "headers": [
+            "",
+            "`standard`",
+            "`hard`",
+            "`brutal`"
+          ],
+          "rows": [
+            [
+              "clean runs win",
+              "31.4%",
+              "23.5%",
+              "17.9%"
+            ],
+            [
+              "runs that brown out win",
+              "**53.2%**",
+              "**41.2%**",
+              "**33.5%**"
+            ],
+            [
+              "gap",
+              "−21.8 pts",
+              "−17.6 pts",
+              "−15.6 pts"
+            ]
+          ]
+        },
+        {
+          "type": "p",
+          "text": "Overdrawing the reactor bus is worth roughly twenty points of win rate at every difficulty, and the advantage **narrows** as difficulty rises rather than widening. It is not one greedy policy dominating the sample — 171 to 173 runs per difficulty brown out, out of twenty policies, so many of them do it. The likely mechanism is that the overdraw penalty is priced against a board that is otherwise the same, while an overdrawing board has **more guns on it**, and more guns at reduced output beats fewer guns at full output."
+        },
+        {
+          "type": "p",
+          "text": "That is a real finding about the currency this whole game is built on, and it is filed as `LF-253` rather than acted on here — nothing in what shipped depends on the answer, because the metric it came from was rejected. It belongs to `BAL-04` and should be settled **before** the capacity rebase, since a capacity ladder tuned on top of an inverted incentive tunes the wrong thing. One more wrinkle: at the derived ranges the trend inverts again, the gap going −11.9 to −22.2 and widening, so range interacts with it."
+        },
+        {
+          "type": "h3",
+          "text": "What was deliberately not done"
+        },
+        {
+          "type": "p",
+          "text": "**Only the top tier is asserted.** The middle tiers are reported and not tested, and the reason is measured rather than cautious: `hard` does not fall below `standard` on **anchor-08** (3 of 14 builds win on both) or **anchor-15** (6 of 13 on both) today. Both are real \"hard is not biting here\" findings — on those two anchors the tier's 1.35× enemy health and 0.90× bounty buy nothing, the same builds clear either way — and both are filed as `LF-254`. They are not asserted because a check that is red on arrival gets disabled rather than fixed, which this project has already watched happen (`LF-224`). Instead both anchors are **named on every full grade and every wrap**, in the footer above, so it cannot go quiet."
+        },
+        {
+          "type": "p",
+          "text": "The thinnest passing anchor is worth naming while the margin is known. anchor-21 grades 4 winning builds of 15 tried on `standard` and 4 of 16 on `brutal` — the **same absolute count**, passing only because `brutal` happened to try one more build, on a win-share margin of **+1.7 points** against a campaign median around +11. The count-based form of the same rule fails on anchor-21 and on no other shipped anchor. `LF-256` records it so that when `BAL-04` loosens something and this check goes red there, it is a known thin margin and not a surprise — and so nobody weakens the rule to accommodate it."
+        },
+        {
+          "type": "h3",
+          "text": "The general lesson"
+        },
+        {
+          "type": "quote",
+          "text": "When two candidate states of the world differ only in level and not in shape, no amount of ratio-taking will separate them, and the honest move is to weaken the claim until it needs no constant — not to keep hunting for the constant that happens to fit.",
+          "attribution": "decision 086"
+        },
+        {
+          "type": "p",
+          "text": "The commit records a tier-4 gate across the change: **43 passed, 0 failed, 447,360 ms**, with both parity legs reporting a cached skip because no rule file and no data file moved, so the content digest is unchanged. A cached skip is not a pass, which is why the tally is 43 and not the registry's 45. The same commit records `tools/sweep.py anchor-20` still returning 27 of 27 clean cells under the tightened rule. Neither of those two was re-run for this entry; the two listings above were, and the tier-1 `grade verdict` check re-measured at 220 ms."
+        },
+        {
+          "type": "p",
+          "text": "No screenshot on this one. It is a change to a grading instrument and it has no visual surface in the game at all — the two listings above are the whole of what there is to look at."
+        }
+      ]
     }
   ]
 }

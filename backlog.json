@@ -1,5 +1,5 @@
 {
-  "next_id": 253,
+  "next_id": 257,
   "items": [
     {
       "id": "LF-001",
@@ -2911,11 +2911,11 @@
       "kind": "bug",
       "area": "design",
       "pri": "med",
-      "status": "open",
+      "status": "done",
       "why": "",
       "opened": "2026-08-04",
-      "closed": null,
-      "note": ""
+      "closed": "2026-08-04",
+      "note": "Decision 086. The metric is win_share = distinct_winning_builds / distinct_builds_tried and the rule is that the TOP difficulty win share must fall strictly below the BOTTOM one on every anchor -- no bound, no constant. THE BOUND LF-243 ASKED FOR WAS LOOKED FOR AND IS NOT THERE: both campaigns were graded in full keeping every per-policy run, and every shape statistic is indistinguishable -- pooled share falls strictly in BOTH (40.6/30.0/24.2 against 54.5/46.8/42.6), drop ratio 0.405 against 0.411, constant-hazard fit 1.143 against 1.121. Only the LEVEL differs, and bounding a level needs a fitted number, which is what decision 067 deleted PRESSURE_FLOOR for. So the claim was weakened until it needed no constant. DISCRIMINATES: 0 of 24 shipped anchors fail, 4 of 24 fail at the derived ranges (anchor-02 60->73 pct, anchor-07 29 pct flat, anchor-23 33 pct flat, plus anchor-01 exempt as tutorial). tools/range_derive.py --shipped-impact now prints 21/24 clean at the derived ranges against 24/24 at the authored ones; it printed 24/24 on both sides before. SHIPPED: sim/run.py verdict() extracted as a pure function of the grade table, win_share stored per difficulty, --selftest driving 12 cases (6 red, 4 green, 2 structural), a grade verdict gate check at tier 1 (219 ms) proved red four ways by breaking behaviour, and the campaign figure written under docs/STATE.md grade table by tools/session.py as a trend line labelled reported-not-asserted. Three candidate metrics were measured and REJECTED with their numbers in decision 086: a survival<50 pct bound (carried by three act-2 anchors BAL-04 will move), ROBUST_ENOUGH=8 read as a per-tier ceiling (misreads decision 044 -- see LF-255), and a power-discipline gap (measured INVERTED -- see LF-253). Spun off LF-253, LF-254, LF-255, LF-256."
     },
     {
       "id": "LF-244",
@@ -3021,6 +3021,54 @@
       "pri": "med",
       "status": "open",
       "why": "",
+      "opened": "2026-08-04",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-253",
+      "title": "Overdrawing the bus WINS more than staying under it, at every difficulty, which inverts what decision 022 and the DIFFICULTIES comment both claim. MEASURED over all 1,440 runs of the shipped campaign (24 anchors x 3 difficulties x 20 policies), splitting runs by brownout_fraction > 0: clean runs win 31.4 pct on standard, 23.5 pct on hard, 17.9 pct on brutal; runs that brown out win 53.2 / 41.2 / 33.5 pct. The gap is -21.8 / -17.6 / -15.6 points -- overdrawing is worth roughly 20 points of win rate and the advantage NARROWS as difficulty rises. sim/engine.py DIFFICULTIES says 1.55 was swept to be the point where brutal kills the overdraw build but leaves the disciplined one alive; the data says brutal kills the disciplined build slightly faster. This was found while looking for a parameter-free difficulty metric (decision 086) and the metric was rejected because of it, so nothing depends on the answer yet. WHAT IT IS NOT: the greedy-overdraw policy is only one of twenty and n_brown is 171-173 runs per difficulty, so this is not one policy dominating -- many policies brown out. THE LIKELY MECHANISM is that the brownout penalty min(0.70, (load/cap - 1) x 1.5) is priced per decision 022 against a board that is otherwise the same, but an overdrawing board has MORE GUNS on it, and more guns at 70 pct output beats fewer guns at 100 pct. If true the currency is not really scarce and the power decision the whole game is about is weaker than it reads. BELONGS IN BAL-04, and it should be settled before the density and capacity rebase, because a capacity ladder tuned on top of an inverted incentive tunes the wrong thing. The derived-range campaign inverts the trend again (gap -11.9 / -16.7 / -22.2, widening), so range interacts with it.",
+      "kind": "bug",
+      "area": "design",
+      "pri": "high",
+      "status": "open",
+      "why": "The power economy is the game; if overdrawing dominates, decision 022 priced it wrong",
+      "opened": "2026-08-04",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-254",
+      "title": "hard does not bite on anchor-08 or anchor-15: identical win share to standard on both. MEASURED with the win-share metric decision 086 introduced -- anchor-08 is 3 of 14 on standard and 3 of 14 on hard, anchor-15 is 6 of 13 and 6 of 13. Decision 086 deliberately asserts the falls-strictly rule on the TOP tier only and reports the middle ones, because a check red on arrival gets disabled rather than fixed (LF-224); these two anchors are exactly why it is reported rather than asserted. sim/run.py names them on every full grade and tools/session.py writes them under docs/STATE.md grade table on every wrap, so this cannot go quiet. THE WORK is a balance pass on the two anchors, not a change to the rule: hard multiplies enemy hp by 1.35 and cuts bounty to 0.90, and on these two that buys nothing -- the same six or three builds clear both tiers. Fix inside BAL-04 re-grade and then consider promoting the rule from the top tier to every tier, which is the end state decision 086 wants and cannot have today.",
+      "kind": "bug",
+      "area": "design",
+      "pri": "med",
+      "status": "open",
+      "why": "Two of 24 anchors ship a difficulty tier that changes nothing",
+      "opened": "2026-08-04",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-255",
+      "title": "BAL-04 acceptance criterion misreads decision 044: ROBUST_ENOUGH=8 is a saturation cap inside a SCORER, not a per-anchor floor. docs/issues/BAL-04-regrade-the-campaign.md asks that every anchor have at least the project existing robustness threshold of distinct winning builds (ROBUST_ENOUGH = 8 per decision 044). But tools/sweep.py cell_score() computes min(standard_wins + brutal_wins, 8) -- it caps the BENEFIT of extra builds across two tiers combined, and decision 044 own words are build count now pays up to ROBUST_ENOUGH and stops. It is a point of diminishing returns for a search, never a floor. MEASURED: the shipped campaign does not meet the criterion as written and never has -- anchor-01 (2+1=3), anchor-02 (5+2=7), anchor-03 (4+2=6), anchor-04 (4+2=6) and anchor-08 (3+2=5) are all under 8 on the sum, and on the per-anchor-per-tier reading that STATE.md priority 1 uses (4 distinct winning builds of 16, half decision 044 ROBUST_ENOUGH = 8) every single anchor fails on brutal today. So the criterion would fail the campaign it was written to describe. THE WORK is to rewrite that acceptance bullet before BAL-04 re-grades against it. Decision 086 rejected a candidate metric built on the same misreading for this reason and records the rejection.",
+      "kind": "bug",
+      "area": "design",
+      "pri": "med",
+      "status": "open",
+      "why": "BAL-04 would be graded against a criterion its own baseline fails",
+      "opened": "2026-08-04",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-256",
+      "title": "anchor-21 passes decision 086 falls-strictly rule on a technicality and is the first anchor it will name. MEASURED: anchor-21 grades 4 of 15 on standard and 4 of 16 on brutal -- the SAME absolute count of distinct winning builds, passing only because brutal happened to try one more build. Win-share margin is +1.7 points, against a campaign median around +11 and a next-tightest of +6.7 (anchor-23). The count-based form of the same rule (count(brutal) < count(standard)) fails on anchor-21 and on no other shipped anchor. Recorded so that when BAL-04 loosens anything and grade verdict goes red on anchor-21, it is a known thin margin and not a surprise -- and so nobody weakens the rule to accommodate it. Related: LF-220 already records anchor-02 brutal narrowing in the LF-185 pass, and this is the same class of note.",
+      "kind": "risk",
+      "area": "design",
+      "pri": "low",
+      "status": "open",
+      "why": "A known thin margin is not a surprise when it fires",
       "opened": "2026-08-04",
       "closed": null,
       "note": ""
