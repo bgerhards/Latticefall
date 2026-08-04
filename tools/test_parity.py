@@ -53,13 +53,19 @@ cannot tell the runs apart, and separate cache files are what actually does.
 
 PRC-05 — content-hash gating and cost-balanced sharding
 ---------------------------------------------------------
-This is 1152 simulations through both rule implementations (24 anchors x 16 policies x
-3 difficulties), ~594s measured, and it is the single most expensive thing in the gate.
+This is `len(all_anchor_ids()) * len(standard_policies(...)) * len(DIFFICULTIES)`
+simulations through both rule implementations, and it is the single most expensive thing
+in the gate. The count is written as that product rather than as a number **because the
+number moves and the prose did not**: this line read "1152 simulations (24 anchors x 16
+policies x 3 difficulties)" while the suite had been 1,440 for some time, and LF-245's
+`upgrade-ladder` took it to 1,512. Run `--json` or read the run's own header for today's
+figure. The three other places this docstring stated the same stale count are corrected
+in place, so no literal run count survives in this file's prose.
 Two independent problems, both addressed here:
 
 **Gating.** Parity is a pure function of a small, fixed set of inputs (see
 `parity_inputs_digest()`) — if none of them moved since the last clean run, the answer
-cannot have moved either. A *full* run (no `--anchor`, no `--shard` — the entire 1152)
+cannot have moved either. A *full* run (no `--anchor`, no `--shard` — the entire suite)
 that finds no cached hit runs in full and, if it comes back clean, records its digest in
 `.cache/parity.json`. The next full run hashes those same inputs again and, on a match,
 skips the whole comparison — this must NEVER read as an ordinary pass: it prints
@@ -75,8 +81,8 @@ exactly the unfalsifiable cache the issue warns against). `--json` also bypasses
 cache-hit read — asking for the actual outcome rows means the cache's "trust me, nothing
 changed" answer is not what was asked for.
 
-**Sharding.** `run_python()` times each anchor's own slice of the suite (48 runs: 16
-policies x 3 difficulties) and that wall-clock is the caller's honest proxy for that
+**Sharding.** `run_python()` times each anchor's own slice of the suite (one run per
+policy per difficulty) and that wall-clock is the caller's honest proxy for that
 anchor's total cost — anchor-24 (10 waves, the widest roster) costs far more than
 anchor-01 (6 waves) on both sides of the comparison, and the ratio holds because both
 engines are ticking the same simulation. Recorded to `tools/parity_costs.json`,
@@ -137,7 +143,7 @@ EXACT = ["won", "waves_cleared", "died_on_wave", "lives_left", "leaks", "spend",
 ## anything under scripts/ that is presentation (anchor_view.gd, iso.gd, hud.gd, ...),
 ## everything under tools/ and docs/, and every asset: none of those are read by either
 ## rule engine or by parity.gd's own harness. Getting this list too broad means the cache
-## never earns its keep (a dialog-line commit re-runs 1152 sims); too narrow means a rule
+## never earns its keep (a dialog-line commit re-runs the whole suite); too narrow means a rule
 ## change ships uncompared, which is the one failure mode this whole file exists to
 ## prevent. `scripts/test/parity.gd` is in scope even though it contains no rule of its
 ## own: it is the GDScript harness comparing against, and a change to how it drives

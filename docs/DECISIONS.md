@@ -4092,3 +4092,105 @@ could not see a difficulty dissolve. Decision 087: the discipline gap measured a
 an effect. Here: the acceptance criteria were never checked against the thing they describe.
 Every one was found by pointing the instrument at the campaign and reading what came back —
 none by auditing the instrument. **Run the criterion against the baseline the day you write it.**
+
+---
+
+## 089 — The grader learns to upgrade, and upgrading turns out to be a standard-difficulty strategy
+
+**2026-08-04.** `LF-245`. Extends decision **065** (a grading policy may carry a deterministic
+schedule) with the first policy that spends money on an *upgrade*. Supersedes nothing.
+
+**The hole.** Across the shipped campaign **55–62% of every fund the player earns is never
+spent** — act 1 58%, act 2 55%, act 3 62%, with anchor-24 finishing on 4,358 unspent. (Those
+are **standard** difficulty over the twenty pre-existing policies; anchor-24 is 3,868 on hard
+and 3,563 on brutal. The per-act shares are method-sensitive — 60/55/63 pooled against 58/54/63
+averaged per run — but the 55–62% band holds either way, and anchor-10 and anchor-11 are the
+only anchors that go negative under either.) That is
+not evidence of a dead economy: costing the upgrade of every emplacement on the built board
+absorbs most of it, leaving 22/16/28% unspent by act and taking anchor-10 and anchor-11
+*negative*. The surplus was an artefact of the **grader's repertoire**. `Sim._dispatch_one()`
+has accepted `upgrade` since BAL-01 and **no policy had ever scheduled one** — the same class
+of hole `LF-244` found for five more verbs, and the third time this month a mechanism turned
+out to be untested because nothing in the harness used it.
+
+**Decision. `upgrade-ladder` joins `standard_policies()` as the 21st policy: twelve passes at
+t = 40 + 40p, each walking `upgrade` over indices 0–13 in order.** Its preference list is
+**byte-identical to `cheap-mass`**, so every difference between the two rows is attributable to
+upgrading and to nothing else — the same controlled design the capped-core policies use.
+Mirrored 1:1 in `scripts/test/parity.gd`. **Both platform legs ran fresh at 1,512 runs and came
+back identical** — Linux against the working tree before this commit existed, Windows inside the
+tier-4 run below (936 s). The Linux line in that run's tally is the cached skip, at the same
+digest; stating it as "both freshly verified in one run" would have been wrong.
+
+Every constant is derived rather than picked, per decision 067: the first pass at 40 s is after
+wave 1 has paid out (the cheapest upgrade in `data/towers.json` is 70); twelve passes at 40 s
+spacing cover t = 40–480 against a measured full-run length of 410–460 sim seconds; index 14 is
+one past the largest board the campaign authors (`max_emplacements` 13). **This departs from
+`LF-245`'s prototype, which used three passes ending at t = 84** — the first fifth of the run.
+An upgrade the board could not afford at 84 s is precisely the one kills are meant to pay for
+later.
+
+**What it found, and it is not what the ticket predicted.**
+
+| | `cheap-mass` | `upgrade-ladder` |
+|---|---|---|
+| standard | 9/24 anchors won | **11/24** |
+| hard | 9/24 | **5/24** |
+| brutal | 5/24 | **0/24** |
+| all cells | 23/72 | **16/72** |
+| mean spend | 1,047 | **1,871** (+79%) |
+| mean emplacements | 10.54 | 10.38 |
+
+**Upgrading is a net negative campaign-wide and still worth having.** It wins seven fewer cells
+than the policy it is a clone of, while opening **nine cells `cheap-mass` cannot reach at all** —
+and it adds a winning build to **10 of 72** anchor-by-difficulty cells, reproducing `LF-245`'s
+headline count from a different schedule. No cell lost a winning build. The campaign holds at
+**24/24 `ok`**.
+
+**Board width explains the losses, and — reviewed — explains nothing about the wins.** The
+losing side is visible in one row. anchor-04 standard: `cheap-mass` builds seven turrets and one
+relay and **wins**; the ladder builds six turrets and two relays and **loses**. Upgrade depth is
+bought with emplacement count there, and the harder the tier the more it wants count, because
+brutal multiplies enemy hp by 1.55 while cutting bounty to 0.80. Hence 0/24 on brutal.
+
+But in **all nine** cells the ladder opens, it builds *exactly as many emplacements as
+`cheap-mass` does* — 11 and 11 on anchor-14 standard and hard and on anchor-15, 12 and 12 on
+anchor-17, 18, 19, 20, 22 and 24. **Where board size is unchanged, upgrading is free of the
+trade and simply pays; where the upgrade costs a slot, it loses.** That is a sharper statement
+than "depth is bought with width" and it was found in review, by asking what the mechanism
+predicted about the wins rather than only about the losses.
+
+The tenth added winning build is anchor-01 hard, and it is a different thing again: the ladder
+wins there with **four** emplacements, and so does `cheap-mass` with five — nothing is beaten.
+What the ladder found is a *board no other policy reached*, which is why anchor-01 appears in
+the ten-added count and not in the nine-opened one. This entry said the four-emplacement board
+"beats" the five-emplacement one until review checked `cheap-mass`'s own result on that cell.
+
+**Left open deliberately, as `LF-259`:** whether the upgrade *should* die at the top difficulty.
+The obvious explanation is measurably wrong — an upgrade raises draw (pulse turret 12 → 18 MW)
+but raises damage more (9 → 14), so damage per megawatt *improves*, 0.75 → 0.78. Where it loses
+is money: 190 buys one upgraded turret for 14 damage, 200 buys two plain ones for 18. Since
+money is the abundant resource and power the scarce one, the arithmetic says upgrading should be
+attractive and it is not, which points at build **sequencing** rather than a draw penalty. That
+is a hypothesis. The instrument lands here; the tuning belongs to `BAL-04`'s re-grade, which is
+also where `LF-259` is answered.
+
+**Consequences worth knowing.** `distinct_builds_tried` grew on 8 of 72 cells and the campaign
+win share moved to 42.4 / 30.6 / 24.0% (from 40.6 / 30.0 / 24.2), still falling strictly.
+Decision 086's *reported* set changed with it: `hard` no longer falls below `standard` on
+anchor-04 and anchor-08, where it was anchor-08 and anchor-15 — anchor-15 was **fixed** by the
+new policy and anchor-04 newly appears. That the reported set moves with the grader's
+repertoire and not only with the content is an argument for keeping it reported until `BAL-04`
+settles the policy set, not for asserting it sooner.
+
+**Rejected: adding the policy inside `BAL-04`'s re-grade, as `LF-245` proposed.** The reason
+given was that a 21st policy moves `distinct_builds_tried` everywhere and adds parity rows —
+both true, and both arguments for landing it *before* the content is tuned rather than during.
+Tuning density and capacity against a grader that is about to gain a strategy means tuning
+against the wrong instrument, which is the identical sequencing argument decision 086 made for
+the win-share selector.
+
+**Rejected: a reactive upgrade policy** that reads what is built and upgrades the best target.
+Decision 065 admits a deterministic schedule and still rejects reactive agents; an upgrade on an
+absent, unaffordable or already-upgraded index is already a free no-op, so the naive walk costs
+nothing and stays mirrorable in GDScript as a constant.

@@ -212,6 +212,13 @@ func _policies(ids: Array) -> Array:
 
 		# Mirrors sim/engine.py's "veteran-crews".
 		mk_veterancy.call("veteran-crews", ["pulse-turret", "ion-lance"]),
+
+		# Mirrors sim/engine.py's "upgrade-ladder" (LF-245) — the first policy in the
+		# set that ever spends money on an upgrade. Its preference list is BYTE-IDENTICAL
+		# to "cheap-mass" at the top of this array, deliberately: every difference
+		# between the two rows is then attributable to upgrading and to nothing else.
+		# If you change one, change the other, on both sides.
+		mk_scheduled.call("upgrade-ladder", ["pulse-turret"], _upgrade_ladder_schedule()),
 	]
 
 
@@ -238,6 +245,26 @@ func _overcharge_schedule() -> Array:
 		sched.append([on_t, "ability", {"kind": "overcharge", "active": true}])
 		sched.append([on_t + 7.0, "ability", {"kind": "overcharge", "active": false}])
 	sched.append([5.0 + 7.0, "ability", {"kind": "overcharge", "active": false}])
+	return sched
+
+
+func _upgrade_ladder_schedule() -> Array:
+	## Mirrors sim/engine.py's `_upgrade_ladder_schedule()` exactly, including the four
+	## literals (40.0 first, 40.0 gap, 12 passes, 14 indices) — see that function and
+	## the UPGRADE_LADDER_* constants above it for why each number is that number.
+	##
+	## Twelve passes, each walking `upgrade` over every index a board can hold, in index
+	## order. Every entry in a pass shares one timestamp on purpose: dispatch honours
+	## authored order at equal times (mk_scheduled() sorts on the same total (time,
+	## index) key the Python side uses), so "left to right" is a property of the rules
+	## rather than of either language's sort happening to be stable. Walking off the end
+	## of a smaller board is free — `AnchorSim.upgrade()` returns false on an
+	## out-of-range index, exactly as `Sim.upgrade()` does.
+	var sched: Array = []
+	for p in range(12):
+		var t: float = 40.0 + float(p) * 40.0
+		for i in range(14):
+			sched.append([t, "upgrade", {"index": i}])
 	return sched
 
 

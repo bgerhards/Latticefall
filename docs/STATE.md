@@ -211,52 +211,53 @@ Newest first. Full detail in `CLAUDE.md`.
 ### Gate
 
 ```
-[  ok  ] python syntax          1390ms  65 files
-[  ok  ] json parses             394ms  87 files
-[  ok  ] game data              1634ms  58 documents against 7 schemas (7 exercised) · no warnings
-[  ok  ] wave density            132ms  act 1 32 on screen (100%) · act 2 27 on screen (85%) · act 3 21 on screen (66%)
-[  ok  ] dialog capacity         220ms  24 briefs quote their own capacity
-[  ok  ] banned terms           1970ms  294 files clean
-[  ok  ] tier counts               0ms  44 checks, tiers 1-4 all match the docstring
-[  ok  ] sfx determinism        1302ms  ui_confirm byte-identical
-[  ok  ] music manifest           32ms  14 tracks
-[  ok  ] sfx loudness           2360ms  86 file(s) measured (86 sfx, 0 music) · ALL WITHIN BAND
-[  ok  ] music loudness        85507ms  14 file(s) measured (0 sfx, 14 music) · ALL WITHIN BAND
-[  ok  ] sprite atlas           4655ms  568 cells in 2 pages, in sync
+[  ok  ] python syntax          1035ms  65 files
+[  ok  ] json parses             372ms  87 files
+[  ok  ] game data              1386ms  58 documents against 7 schemas (7 exercised) · no warnings
+[  ok  ] wave density            123ms  act 1 32 on screen (100%) · act 2 27 on screen (85%) · act 3 21 on screen (66%)
+[  ok  ] dialog capacity         228ms  24 briefs quote their own capacity
+[  ok  ] banned terms           1141ms  294 files clean
+[  ok  ] tier counts               0ms  45 checks, tiers 1-4 all match the docstring
+[  ok  ] sfx determinism         875ms  ui_confirm byte-identical
+[  ok  ] music manifest           29ms  14 tracks
+[  ok  ] sfx loudness           1921ms  86 file(s) measured (86 sfx, 0 music) · ALL WITHIN BAND
+[  ok  ] music loudness        86370ms  14 file(s) measured (0 sfx, 14 music) · ALL WITHIN BAND
+[  ok  ] sprite atlas           2392ms  568 cells in 2 pages, in sync
 [  ok  ] sprite coverage           8ms  22 ids drawn from 44 sprites
-[  ok  ] asset coverage           46ms  22 data ids <-> 26 render assets, both directions clean
-[  ok  ] backlog rendered          6ms  89 open
-[  ok  ] chronicle current       151ms  65 entries, 0 commit(s) behind
-[  ok  ] agent models             18ms  6 agents pinned to opus
-[  ok  ] leases wired             26ms  8 launch sites leased
-[  ok  ] issue traceability      240ms  ok: no `Closes:` trailer in 57f4f11a57c0cec66a343dd08c746f7daeb3a9d6..HEAD — nothing claimed, nothing to verify
-[  ok  ] sim determinism        8138ms  deterministic
-[  ok  ] anchor grades         60200ms  24 anchors grade ok at every difficulty (--jobs 8)
-[  ok  ] gdscript parses        2158ms  37 scripts parse clean
-[  ok  ] godot boots            5118ms  main scene loads clean
-[  ok  ] scenario smoke        34567ms  smoke.json: 3 assertion(s) passed
-[  ok  ] scenario abilities    16748ms  abilities.json: 9 assertion(s) passed
-[  ok  ] scenario a11y-worst   10351ms  a11y-worst.json: 8 assertion(s) passed
-[  ok  ] scenario lf161-scroll  13379ms  lf161_edge_scroll_contained.json: 4 assertion(s) passed
-[  ok  ] scenario gamepad      21399ms  gamepad_build.json: 9 assertion(s) passed
-[  ok  ] scenario lf226-fallback  70950ms  lf226_lattice_fallback.json: 30 assertion(s) passed
-[  ok  ] save roundtrip        10658ms  save_roundtrip: OK — took 'salvage-rights' in process 1, process 2 (fresh boot, same on-disk save) read it back: excluded from its own offer, 1 recoveries owned in both, progress.json agrees on disk
-[  ok  ] game renders           9591ms  coverage 0.95, 114 tones
-[  ok  ] menu renders           4842ms  coverage 0.146, 8 anchors listed
-[  ok  ] accessibility         45830ms  198 text items clean, worst contrast 5.08:1
-[  ok  ] terrain parsers agree   2450ms  ok — 2 case(s), python and godot agree with the fixture and each other
-[  ok  ] firing arcs agree      2560ms  ok — 4 emplacement(s) over 280 ticks, 48 shots, python and godot identical and inside the analytic windows
-[  ok  ] verbs agree            2571ms  ok — 7 verb(s) over 320 ticks, 112 shots, python and godot identical and matching the fixture's own arithmetic
-[  ok  ] rules parity         856338ms  1440 runs identical (gdscript vs python) (digest 57f3db358c88, freshly verified — not from cache)
-[  ok  ] rules parity (windows) 909427ms  1440 runs identical (gdscript vs python) [windows] (digest 57f3db358c88, freshly verified — not from cache)
+[  ok  ] asset coverage           42ms  22 data ids <-> 26 render assets, both directions clean
+[  ok  ] backlog rendered          7ms  90 open
+[  ok  ] chronicle current       109ms  68 entries, 1 commit(s) behind
+[  ok  ] agent models             16ms  6 agents pinned to opus
+[  ok  ] leases wired             27ms  8 launch sites leased
+[  ok  ] issue traceability      243ms  ok: no `Closes:` trailer in b4ea598700a620f364e3124ed52289943aa91d7e..HEAD — nothing claimed, nothing to verify
+[  ok  ] sim determinism        8546ms  deterministic
+[  ok  ] anchor grades         64635ms  24 anchors grade ok at every difficulty (--jobs 8)
+[  ok  ] grade verdict           165ms  sim/run.py selftest: 14 case(s) ok — verdict() fires on 6, stays silent on 4, 4 structural; tiers 'standard' -> 'brutal' read from DIFFICULTIES
+[  ok  ] gdscript parses        2164ms  37 scripts parse clean
+[  ok  ] godot boots            5113ms  main scene loads clean
+[  ok  ] scenario smoke        35331ms  smoke.json: 3 assertion(s) passed
+[  ok  ] scenario abilities    16992ms  abilities.json: 9 assertion(s) passed
+[  ok  ] scenario a11y-worst   10475ms  a11y-worst.json: 8 assertion(s) passed
+[  ok  ] scenario lf161-scroll  13457ms  lf161_edge_scroll_contained.json: 4 assertion(s) passed
+[  ok  ] scenario gamepad      21593ms  gamepad_build.json: 9 assertion(s) passed
+[  ok  ] scenario lf226-fallback  71970ms  lf226_lattice_fallback.json: 30 assertion(s) passed
+[  ok  ] save roundtrip        10740ms  save_roundtrip: OK — took 'salvage-rights' in process 1, process 2 (fresh boot, same on-disk save) read it back: excluded from its own offer, 1 recoveries owned in both, progress.json agrees on disk
+[  ok  ] game renders           9745ms  coverage 0.95, 114 tones
+[  ok  ] menu renders           4892ms  coverage 0.146, 8 anchors listed
+[  ok  ] accessibility         46227ms  198 text items clean, worst contrast 5.08:1
+[  ok  ] terrain parsers agree   2462ms  ok — 2 case(s), python and godot agree with the fixture and each other
+[  ok  ] firing arcs agree      2562ms  ok — 4 emplacement(s) over 280 ticks, 48 shots, python and godot identical and inside the analytic windows
+[  ok  ] verbs agree            2579ms  ok — 7 verb(s) over 320 ticks, 112 shots, python and godot identical and matching the fixture's own arithmetic
+[ skip ] rules parity            626ms  parity cached — skipping 1512 runs (digest 0b1a41338aef, covers 4 rule file(s) + 79 data file(s) + godot --version, last verified 2026-08-04T21:26:46.586126+00:00 at commit b4ea598700a6)
+[  ok  ] rules parity (windows) 936361ms  1512 runs identical (gdscript vs python) [windows] (digest 0b1a41338aef, freshly verified — not from cache)
 [  ok  ] safe operations          36ms  5 files clean (scripts/anchor_sim.gd, sim/engine.py, scripts/test/parity.gd, scripts/test/arc_parity.gd, scripts/test/verb_parity.gd)
-[  ok  ] rules autoloads           7ms  clean against 9 autoload(s): Audio, Content, Display, Progress, Recoveries, Sprites, Tuning, Ui, _mcp_game_helper
+[  ok  ] rules autoloads           8ms  clean against 9 autoload(s): Audio, Content, Display, Progress, Recoveries, Sprites, Tuning, Ui, _mcp_game_helper
 [  ok  ] yaw hysteresis            3ms  YAW_HYSTERESIS_FRAC=0.25 (< 0.5)
-[  ok  ] playfield width          10ms  playfield >= 420px at all 6 scales: 1x 940px, 1.1x 765px, 1.25x 556px, 1.5x 828px (undocked), 1.75x 645px (undocked), 2x 508px (undocked)
-[  ok  ] hooks configured       2814ms  4 events wired (PreToolUse, PostToolUse, SubagentStop, SessionEnd) · guard.py --selftest 58/58 ok · +3 more wired (PostCompact, PreCompact, SessionStart), scripts compile
-[  ok  ] facing harness         2701ms  yaw_band.py + facing.gd smoke ok (anchor-07, yaws=4, frac=0)
+[  ok  ] playfield width           8ms  playfield >= 420px at all 6 scales: 1x 940px, 1.1x 765px, 1.25x 556px, 1.5x 828px (undocked), 1.75x 645px (undocked), 2x 508px (undocked)
+[  ok  ] hooks configured       2726ms  4 events wired (PreToolUse, PostToolUse, SubagentStop, SessionEnd) · guard.py --selftest 58/58 ok · +3 more wired (PostCompact, PreCompact, SessionStart), scripts compile
+[  ok  ] facing harness         2700ms  yaw_band.py + facing.gd smoke ok (anchor-07, yaws=4, frac=0)
 
-tier 4 — 44 passed · 0 failed · 0 skipped · 2192939ms
+tier 4 — 44 passed · 0 failed · 1 skipped · 1368446ms
 ```
 
 ### Inventory
@@ -275,39 +276,50 @@ tier 4 — 44 passed · 0 failed · 0 skipped · 2192939ms
 
 | anchor | act | cap | waves | standard | hard | brutal | verdict |
 |---|---|---|---|---|---|---|---|
-| anchor-01 | 1 | 60 MW | 6 | 2/5 | 2/5 | 1/5 | ok |
+| anchor-01 | 1 | 60 MW | 6 | 2/5 | 3/5 | 1/5 | ok |
 | anchor-02 | 1 | 80 MW | 7 | 5/10 | 3/10 | 2/11 | ok |
-| anchor-03 | 1 | 92 MW | 7 | 4/10 | 4/11 | 2/10 | ok |
-| anchor-04 | 1 | 94 MW | 8 | 4/13 | 4/14 | 2/12 | ok |
-| anchor-05 | 1 | 100 MW | 7 | 5/14 | 2/12 | 2/13 | ok |
-| anchor-06 | 1 | 104 MW | 7 | 6/15 | 5/15 | 3/15 | ok |
-| anchor-07 | 1 | 106 MW | 8 | 4/13 | 3/13 | 3/14 | ok |
-| anchor-08 | 1 | 110 MW | 9 | 3/14 | 3/14 | 2/14 | ok |
-| anchor-09 | 2 | 170 MW | 8 | 8/14 | 2/15 | 2/14 | ok |
+| anchor-03 | 1 | 92 MW | 7 | 4/10 | 4/11 | 2/11 | ok |
+| anchor-04 | 1 | 94 MW | 8 | 4/14 | 4/14 | 2/13 | ok |
+| anchor-05 | 1 | 100 MW | 7 | 5/15 | 2/12 | 2/13 | ok |
+| anchor-06 | 1 | 104 MW | 7 | 6/16 | 5/15 | 3/15 | ok |
+| anchor-07 | 1 | 106 MW | 8 | 4/14 | 3/13 | 3/14 | ok |
+| anchor-08 | 1 | 110 MW | 9 | 3/15 | 3/14 | 2/14 | ok |
+| anchor-09 | 2 | 170 MW | 8 | 8/14 | 2/15 | 2/15 | ok |
 | anchor-10 | 2 | 190 MW | 8 | 7/15 | 5/16 | 3/14 | ok |
 | anchor-11 | 2 | 200 MW | 8 | 8/16 | 5/16 | 2/15 | ok |
 | anchor-12 | 2 | 200 MW | 8 | 9/13 | 5/14 | 5/14 | ok |
 | anchor-13 | 2 | 250 MW | 9 | 6/14 | 5/14 | 5/14 | ok |
-| anchor-14 | 2 | 250 MW | 9 | 8/14 | 7/14 | 7/14 | ok |
-| anchor-15 | 2 | 260 MW | 9 | 6/13 | 6/13 | 5/13 | ok |
+| anchor-14 | 2 | 250 MW | 9 | 9/14 | 8/14 | 7/14 | ok |
+| anchor-15 | 2 | 260 MW | 9 | 7/13 | 6/13 | 5/13 | ok |
 | anchor-16 | 2 | 260 MW | 10 | 6/13 | 5/13 | 5/14 | ok |
-| anchor-17 | 3 | 290 MW | 8 | 5/15 | 4/15 | 3/15 | ok |
-| anchor-18 | 3 | 290 MW | 8 | 6/15 | 4/15 | 3/15 | ok |
-| anchor-19 | 3 | 290 MW | 8 | 6/16 | 5/16 | 4/16 | ok |
-| anchor-20 | 3 | 290 MW | 8 | 6/16 | 5/16 | 4/16 | ok |
+| anchor-17 | 3 | 290 MW | 8 | 6/15 | 4/15 | 3/15 | ok |
+| anchor-18 | 3 | 290 MW | 8 | 7/15 | 4/15 | 3/15 | ok |
+| anchor-19 | 3 | 290 MW | 8 | 7/16 | 5/16 | 4/16 | ok |
+| anchor-20 | 3 | 290 MW | 8 | 7/16 | 5/16 | 4/16 | ok |
 | anchor-21 | 3 | 290 MW | 8 | 4/15 | 3/15 | 4/16 | ok |
-| anchor-22 | 3 | 290 MW | 9 | 6/16 | 5/16 | 4/16 | ok |
+| anchor-22 | 3 | 290 MW | 9 | 7/16 | 5/16 | 4/16 | ok |
 | anchor-23 | 3 | 290 MW | 9 | 4/15 | 3/15 | 3/15 | ok |
-| anchor-24 | 3 | 290 MW | 10 | 6/16 | 5/16 | 4/16 | ok |
+| anchor-24 | 3 | 290 MW | 10 | 7/16 | 5/16 | 4/16 | ok |
 
 *Cells are distinct winning builds / distinct builds tried.*
 
+
+Campaign win share, pooled over 24 anchors: **standard** 42.4% (142/335) · **hard** 30.6% (102/333) · **brutal** 24.0% (80/334) — falls strictly: yes. Reported, not asserted (decision 086).
+`hard` does not fall below `standard` on 2 anchor(s): anchor-04, anchor-08. Only the top tier is a graded problem.
+
+Overdraw advantage — does browning out the bus help? Raw, then controlled for **which policy** overdrew (decision 087; reported, not asserted):
+
+| difficulty | raw | within policy | helps on |
+|---|---|---|---|
+| standard | +20.0% | +2.6% | 7/19 policies |
+| hard | +15.4% | +4.6% | 6/19 policies |
+| brutal | +11.9% | -3.5% | 4/19 policies |
+
 ### Backlog
 
-89 open · 163 closed
+91 open · 169 closed
 
 - `high` LF-081 THEATRE SCALE 06. Multi-lane paths and multiple spawn points. The structural blocker: anchor JSON carries a single path array, and anchor_sim.gd and sim/engine.py are both built around one point_at(), one path_length and a leak test of dist >= path_length. Supporting 2-5 simultaneous lanes and up to 4 spawn points is what makes a front line exist at all. Both rule implementations must move together or parity is lost
-- `med` LF-054 PRESSURE_FLOOR in sim/run.py is a dead check: peak load ratio is >=100% of capacity on all 24 anchors x 3 difficulties, and still >=75% everywhere with the greedy-overdraw policy excluded, so 'the player is pressed against capacity' can never fail. Either measure pressure on winning builds only, or raise the floor until it discriminates
 - `med` LF-059 scripts/main.gd is indented with 4 spaces while every other .gd file uses tabs. Cosmetic, but it makes a whole-file diff out of any tool that normalises indentation
 - `med` LF-063 combat_fx.gd/fx_additive.gd failed to parse during a --autoplay --shot anchor-01 sanity run this session ('Cannot infer the type of pos/from/to/screen/d/r variable', then 'Failed to load script ... Parse error' for both files, then 'Invalid call. Nonexistent function bind in base Node2D'), reproduced twice. Both files are unmodified per git diff/status against HEAD, so this was not caused by this session's changes — likely a concurrent agent's in-flight edit or a shared .godot import-cache collision from several agents running Godot on the same working tree at once. Not investigated further: both files are outside this task's ownership (recovery draft feature, scripts/progress.gd + menu.gd + recoveries.gd + draft.gd).
 - `med` LF-072 The --autoplay smoke policy (_autobuild_step in anchor_view.gd) fills every free slot with the single highest-priority-affordable tower in Content.unlocked_at() order, so a board never shows a mix of weapon classes -- confirmed while trying to screenshot a mortar/flak burst for the combat-FX pass: anchor-09, anchor-13, anchor-16 and anchor-21 all built out one tower type (arc-node or anchor-damper) and never touched flak-array or mortar-emplacement even many waves in. This is the same root cause LF-053 already names for grading. A '--build <tower-id> <slot-x>,<slot-y>' CLI hook in main.gd would let --shot verify a specific weapon's FX/behaviour on demand without fighting the autobuild policy.
@@ -413,29 +425,32 @@ SEQUENCING NOTE. Do not start this before the Theatre Scale programme's E3 place
 - `med` LF-240 TIER 2 HAS RE-BREACHED ITS BUDGET AND THE FIX IS MEASURED: move 'sim determinism' from tier 2 to tier 3. NOTE LF-178 is correctly marked done - it was closed by the facing harness move and that closing evidence is real. This is a NEW re-breach caused by PLC-04, not a reopen. THE ANALYSIS, from the seven gate JSON artefacts of 2026-08-03: sim determinism is the ONLY single demotion that clears 28,000 ms on all seven runs (worst tier-2-after 25,375 ms, margin +2,625 / 9.4 pct, 0 of 7 still over). Every other candidate fails on at least one run - godot boots leaves 1 of 7 over, sprite atlas 5 of 7, hooks configured 3 of 7, terrain parsers agree 5 of 7, sfx loudness 7 of 7. Harness overhead beyond the sum of per-check ms is under 1 ms on all seven, so a tier<=2 subtotal exactly predicts a standalone tier-2 duration. WHY THIS CHECK AND NOT THE CHEAPEST: it IS the re-breach. LF-178 recorded sim determinism at 4.8 s; today's median is 8,188 ms, and the jump is locatable to one commit - 6,282 ms at 289f65f, 8,214 ms at e1896da (PLC-04's candidate lattice), +31 pct across that boundary. Tier 2 was 27,225/27,790 ms after the facing harness move and is now ~30,500; sim determinism grew ~3,400 ms. That is the whole regression. Its cost curve is also CONTENT-SCALED, which is the wrong curve for a pre-push tier: it runs sim/run.py --anchor anchor-01 twice and run.py grades every policy x all three difficulties, so cost tracks policy count x lattice candidate count, and LF-222 records that _effective_cap() still falls back to len(slots) - when that fallback goes, candidates per anchor go to ~366-763 and this check breaches again on its own. RISK x FREQUENCY: the only change class that can break run-to-run determinism is a change under sim/, and CLAUDE.md already mandates tier 4 locally for anything touching the rules, so at tier 2 this check is paid on every push and fires only on pushes for which tier 2 is not the prescribed gate. NOTHING IS LOST PER-PR: gate.yml's gate-tier3 job runs tier 3 on every pull_request with no path filter, and tier 3 is a superset of tier 2. NOT RECOMMENDED as a substitute: shrinking it with --difficulty standard - plausible, but no measurement of a single-difficulty run exists in any artefact, so adopting it would be acting on an estimate
 - `med` LF-241 GIVE TIER 3 A --budget OF 480,000 ms, introduced NON-ASSERTING. LF-237 asked whether tier 3 needs a budget; this is the derived answer rather than a fitted one. THE DERIVATION IS EXTERNAL, not a fit to today's data: the binding constraint on tier 3 is that it must run in ONE FOREGROUND BASH CALL, because CLAUDE.md is explicit that a backgrounded command re-invokes the model when it exits and bills a session everyone believed was over - a money bug, not hygiene - and the Bash tool's hard maximum timeout is 600,000 ms. Tier 4 is already past that (2,039,733-2,266,897 ms across five artefacts), which is exactly why it is not a per-PR gate. Tier 3 is the LAST TIER THAT CAN BE WAITED ON IN ONE CALL and that property is what makes it a usable PR gate. Budget at 80 pct of the ceiling, reserving 20 pct so the assertion fires BEFORE the harness backgrounds the run and hides it. NOT RED ON ARRIVAL: today's loaded figure is 355,533 ms = 74 pct, idle-equivalent 340,506 ms = 71 pct, headroom ~124,500 ms - the next 60-80 s check keeps it green, the one after that turns it red. That is precisely the signal LF-237 wants while avoiding LF-224's trap that a check red on arrival gets disabled rather than fixed. SHIP IT NON-ASSERTING FIRST: adding 3: 480_000.0 to TIER_BUDGET_MS is one line and immediately prints the budget line on every tier-3 run; VERIFIED that nothing in the repo passes --budget, so the number costs zero risk and starts a trend line today. DO NOT add --budget to gate.yml's tier-3 step yet - no CI tier-3 duration exists in any artefact, every artefact is the local 16-core WSL2 box, and binding a number against an unmeasured GitHub container is the same error in a new place. gate.yml already uploads gate-tier3.json as an artifact; measure from that first. ALSO WORTH KNOWING: tier 3 did not DRIFT, it absorbed two discrete checks, so a per-check tier-3 ceiling (~90 s) would have named scenario lf226-fallback at 75.8 s on the day it arrived where a wall-clock total names it three checks later. The total matches --budget's existing mechanism so ship that, but the per-check ceiling is the better diagnostic
 - `med` LF-242 restorer.range is dead data in BOTH rules implementations. Sim.capacity_now() (sim/engine.py:608) adds effect_value for every online restorer with no distance test at all, and scripts/anchor_sim.gd mirrors it; the value 1.0 in data/towers.json is never read. PROVED by grading anchor-20 standard with restorer.range at 1.0 and at 40.0 -- by_difficulty identical field for field (tools/range_derive.py --selftest asserts this, and the same assertion returns False when pointed at pulse-turret, so it discriminates). CONSEQUENCE for BAL-04: the range derivation cannot scale it, because scaling nothing is nothing; it is excluded via INERT_RANGE_IDS with the measurement as the reason. THE REAL QUESTION is whether a restorer SHOULD have a radius -- decision 031 prices it as a slot plus a draw for capacity back, and a global effect makes its position free, which is the only emplacement in the game whose siting does not matter. Either give capacity_now() the distance test both engines already have (_covered_by), which is a rules change and needs parity, or delete the range key from the row and say in the note that placement is free. Do not leave a field that reads as tuning and is not.
-- `med` LF-243 The grade table cannot see difficulty dissolution, and BAL-04's range derivation is the second proof. MEASURED: grading all 24 shipped 18x15 anchors at the 48-square derived ranges (tools/range_derive.py --shipped-impact) leaves them 24/24 ok -- unchanged -- while on brutal the share of tried builds that WIN goes 25 pct -> 43 pct, the median anchor's distinct winning builds goes 3 -> 6, and anchor-02/09/11 go from 2 winning builds to 8/7/8. Not one anchor trips sim/run.py's 'difficulty is not biting' rule, because that rule fires only when distinct_winning == distinct_tried exactly; the closest any anchor came was anchor-14 standard at 13 of 14. So a change that roughly doubles how forgiving the top difficulty is passes the campaign's own instrument silently. This is the same finding decision 081 recorded from the other direction (board quality and grade count are anti-correlated, so the grade table did not and could not choose the lattice ordering). THE CANDIDATE METRIC is win SHARE per difficulty -- distinct_winning / distinct_tried, which sim/run.py already computes both halves of -- with the campaign-level requirement that it FALL monotonically standard > hard > brutal and that brutal stay under a bound. Today it is 40/30/25 pct, which is monotone and discriminating; the derived-range campaign is 55/47/43 pct, still monotone but compressed. Needs a derivation and a decision entry superseding 044's ROBUST_ENOUGH=8, not a constant picked to make today's data pass -- that is exactly why PRESSURE_FLOOR was deleted (decision 067).
-- `med` LF-245 Money is idle across the campaign because no policy ever upgrades, and an upgrade-buying policy adds real robustness where BAL-04 needs it. MEASURED on all 24 anchors: 55-62 pct of every fund the player ever has is never spent (act 1 58 pct, act 2 55 pct, act 3 62 pct; anchor-24 ends with 4358 unspent). That is NOT proof the economy is dead -- counting the cost of upgrading every emplacement on the built board absorbs most of it, leaving 22/16/28 pct unspent by act, and anchor-10 and anchor-11 go NEGATIVE (-1 pct, -10 pct), i.e. a fully-upgraded board is unaffordable there. So the surplus is an artefact of the GRADER's repertoire: no policy in standard_policies() has ever bought an upgrade (see LF-243 sibling LF-244). PROTOTYPED an upgrade-ladder policy -- preference identical to cheap-mass, plus a schedule walking upgrade by index in three passes (40 s, then every 22 s) so an unaffordable upgrade is retried once kills have paid for it. It spends 2280 on act-3 anchors against the base mean of 1835 (+24 pct) and ADDS A NEW DISTINCT WINNING BUILD ON 10 OF 72 anchor-by-difficulty cells: anchor-01 hard, 10 brutal, 14 standard+hard, 17/18/19/20/22/24 standard. It never trivialises anything -- no cell reaches distinct_winning == distinct_tried, and it wins only one brutal cell in the whole campaign. Because its preference is byte-identical to cheap-mass, every one of those wins is attributable to upgrading alone, which is the same controlled design the capped-core policies use. LAND IT INSIDE BAL-04's re-grade, not as a drive-by: a 21st policy moves distinct_builds_tried on every anchor and adds 72 rows to the parity set. Also relevant to the sequencing defect issue 17 records -- act 3 stands 97-100 pct of its final board before the first spawn and 1.1-1.4 waves carry any build at all, which upgrades are the only shipped mechanism that could sequence.
 - `med` LF-246 Authored slot POSITIONS are vestigial since PLC-04, so LF-185's re-siting premise and LF-234's 'the level's slot budget is the limit' framing no longer describe the game. The COUNT still binds; the positions do not. EVIDENCE, all in the tree: build_candidate_lattice()'s own docstring says it outright -- 'the grader's candidate set is now a property of the BOARD, not of the anchor's authored slots ... the grader was reasoning about a game that had stopped existing'. _slot_priority() is marked RETAINED FOR ONE CALLER, NOT USED BY THE GRADER and survives only so tools/analysis_lf014.py can reproduce decision 022's numbers. The player builds through the free cursor (anchor_view.gd:1546) and anchor_view.gd:1532 states free placement has no unoccupied-slot check. The only surviving consumers of the positions are DEV paths: anchor_view.gd:346 (--autoplay's autobuild pick) and main.gd:452 (the --build CLI hook). What DOES still bind is the count, through _effective_cap()'s fallback to len(slots), which 23 of 24 anchors take. CONSEQUENCE 1: sim/coverage.py's presence, lane and site-eff columns and verdict()'s '(a) siting' label are all computed over authored slots and therefore describe vestigial data, while uptime, dmg-share, near-zero and board_presence_ceiling come from real lattice placements and remain valid. A verdict of '(a) siting: authored slots reach 52 pct of what this board's slot budget admits' is not a statement about anything a player can experience. CONSEQUENCE 2: LF-185's headline result -- whole-game near-zero 12.71 pct -> 9.53 pct from re-siting 21 slots -- was measured before the grader stopped reading slot positions, so it cannot be reproduced now and must not be cited as evidence that re-siting works. CONSEQUENCE 3: docs/STATE.md's priority 2 (act 1's presence ceilings, anchors 02-05 at 68.3/65.3/50.1/41.8 pct) needs re-reading: board_presence_ceiling is real and low, but site-eff 0.36-0.47 on anchors 03/04/05 is not a defect to fix. THE WORK is to split coverage.py's report into board-real and authored-vestigial halves, or delete the authored half, and to decide whether anchors should keep authoring slot arrays at all now that only their length is read -- decision 063 already made max_emplacements the intended denominator.
 - `med` LF-249 At 200 percent interface scale the undocked threat overlay covers the instrument column rightmost 20 px. Cosmetic. The covered strip is the column padding and scrollbar gutter, not text, and it is deliberate and documented at scripts/hud.gd:854-858 -- the alternative placement pushed 12 px of the threat panel own scrollbar off the right edge of the viewport, which is worse because a scrollbar the player cannot reach is a control they cannot use. From LF-247 and decision 085. Filed because the LF-247 commit message claimed it was already filed and it was not; the chronicler caught that while checking the brief against the tree. No action needed unless someone reports it in play.
 - `med` LF-251 game renders cannot tell a board of dampers from a board of turrets, and the LF-236 fix proves it with a byte-identical result line. MEASURED across the fix in one session: before, tools/shot.py anchor-24 --facings returned 24 FACE lines all anchor_damper (12 emplacements, damage 0); after, 24 FACE lines all pulse_turret (12 emplacements, the game main weapon). The board changed completely. tools/check.py game renders reported coverage 0.95, 114 tones BEFORE and coverage 0.95, 114 tones AFTER -- the same two numbers to the digit. So the check that three captures of the running game rest on is insensitive to what is standing on the board. WHAT IT ACTUALLY MEASURES is that the frame is not blank and carries enough distinct colour: coverage is the fraction of non-background pixels and tones is the count of distinct quantised colours, both dominated by terrain, panels and text rather than by emplacements. That is a real thing to check -- it is what caught blank frames and flat-grey atlas regressions -- but it must not be read as evidence about the board, and its own message line invites exactly that reading. THE WORK: either give game renders an assertion about the BOARD (emplacement count and distinct emplacement ids from the same facing dump --facings already prints, which costs nothing extra because the capture is already running), or reword the message so it says frame is non-blank with N tones and stops implying more. Prefer the former: a capture that already knows what it drew should say so. Fifth instance this session of a check that reports on something other than what its name implies -- see LF-243 the grade table cannot see difficulty dissolution, LF-244 six verbs never dispatched, LF-246 coverage.py reporting on vestigial slots, LF-247 the accessibility audit over a 4 px playfield.
 - `med` LF-252 docs/chronicle/chronicle.json records an image file name and caption but never the command that produced the frame, so the journal cannot be queried for captures affected by a capture-time defect. Surfaced by LF-236/LF-250: --autoplay built only anchor-damper on every anchor from anchor-10 on, so every --autoplay screenshot of an act-2 or act-3 anchor in the journal shows a board with no damage on it -- and there is no way to enumerate which entries those are. The affected captions stand uncorrected, which is right under append-only, but a reader has no way to know which ones to read carefully. THE FIX is a command field on the image block in chronicle.json, written by whoever adds the entry and rendered as a small caption line or a title attribute, so a future capture-time defect can be traced to the frames it touched with a grep instead of a guess. Cheap, additive, and no existing entry needs to change -- an absent field just means unrecorded. tools/chronicle.py plus the schema if one covers chronicle.json. Raised by the chronicler agent while writing entry 65, which is also the right precedent: it declined to guess which entries were affected and said so in the entry instead.
+- `med` LF-254 hard does not bite on anchor-08 or anchor-15: identical win share to standard on both. MEASURED with the win-share metric decision 086 introduced -- anchor-08 is 3 of 14 on standard and 3 of 14 on hard, anchor-15 is 6 of 13 and 6 of 13. Decision 086 deliberately asserts the falls-strictly rule on the TOP tier only and reports the middle ones, because a check red on arrival gets disabled rather than fixed (LF-224); these two anchors are exactly why it is reported rather than asserted. sim/run.py names them on every full grade and tools/session.py writes them under docs/STATE.md grade table on every wrap, so this cannot go quiet. THE WORK is a balance pass on the two anchors, not a change to the rule: hard multiplies enemy hp by 1.35 and cuts bounty to 0.90, and on these two that buys nothing -- the same six or three builds clear both tiers. Fix inside BAL-04 re-grade and then consider promoting the rule from the top tier to every tier, which is the end state decision 086 wants and cannot have today.
+- `med` LF-259 Upgrading is a standard-difficulty strategy that collapses as difficulty rises, and it is not obvious that is intended. MEASURED with the upgrade-ladder policy landed by LF-245, whose preference is byte-identical to cheap-mass so every difference is attributable to upgrading alone: on standard the ladder wins 11 of 24 anchors against cheap-mass 9; on hard 5 against 9; on brutal ZERO against 5. It wins 16 of 72 anchor-by-difficulty cells overall against cheap-mass 23 -- so upgrading is a NET NEGATIVE for the campaign as a whole -- while opening 9 cells cheap-mass cannot reach at all, every one of them on standard or hard. THE MECHANISM is visible on anchor-04 standard: upgrading raises an emplacement draw, so the ladder can afford six turrets and two relays where cheap-mass affords seven turrets and one relay, and cheap-mass wins while the ladder loses. Upgrade depth is bought with board WIDTH. And the harder tiers want width: brutal multiplies enemy hp by 1.55 and cuts bounty to 0.80, so the tier that most needs more guns is the tier where you can least afford to make existing ones better. The counter-example is anchor-01 hard, where a FOUR-emplacement upgraded board beats the five-emplacement unupgraded one -- depth substituting for width, on the one anchor small enough for it. THE QUESTION FOR BAL-04, and it is a design question not a tuning one: should the upgrade be a beginner option that stops working, or should upgrade cost/draw be priced so it stays a live choice at the top difficulty? THE MECHANISM IS NOT ESTABLISHED and the obvious explanation is measurably WRONG: an upgrade does raise draw (pulse-turret 12 -> 18 MW) but it raises damage more (9 -> 14), so damage PER MEGAWATT improves slightly on upgrade, 0.75 -> 0.78. Where it loses is money: 190 buys one upgraded turret for 14 damage at 18 MW, while 200 buys two turrets for 18 damage at 24 MW. Since money is the abundant resource here (55-62 pct unspent) and power is the scarce one, upgrading should be attractive on that arithmetic and is not -- so the real cause is likelier to be SEQUENCING (the ladder spends on upgrades at a fixed time, and is then short at the moment its next emplacement becomes affordable, taking a cheaper one in preference order instead) than a draw penalty. That is a hypothesis, not a measurement. Settle it before pricing anything. Note LF-245 landed the policy without answering this deliberately -- the instrument first, the tuning inside BAL-04 re-grade.
 - `low` LF-086 THEATRE SCALE 11. Per-node power grid, so supply is regional rather than one global capacity_mw. Losing a flank should cost the guns on that flank. Large rules change; check first whether it can be expressed as data plus an existing effect type before adding a new rule shape
 - `low` LF-091 THEATRE SCALE 16. Turret animation: traverse, recoil and reload frames. A turret that visibly turns and recoils sells mass better than any particle effect. Frames are cheap in the atlas and the pivot is already measured, but this multiplies cell count so it interacts with the atlas page budget
 - `low` LF-093 THEATRE SCALE 18. Dynamic score and battlefield mix responding to wave intensity, so pressure is audible before it is visible. The audio director already ducks music on brownout; this extends that idea to the whole fight
 - `low` LF-159 data/scenarios/abilities.json cannot exercise Threshold Surge's 1.5-tile pushback: every enemy in anchor-01's wave 1 (Warden Drone, <=40 hp) dies outright to the falloff floor's own minimum damage (130*0.35=45.5), and pushback only applies to a unit that survives the hit (anchor_sim.gd fire_surge()). Needs a scenario against a tougher early enemy (or a different anchor/wave) that lands a survivable hit, asserting sim.units.<i>.dist decreases by exactly 1.5 (clamped at 0) rather than only hp/alive. Found verifying PRC-12.
 - `low` LF-174 Twelve of the sixteen zero-coverage scripts PRC-18's audit named remain at zero: pause_menu.gd, audio_director.gd (brownout ducking), ui_theme.gd (Ui autoload), cli_args.gd, dialog_view.gd (partially covered as a side effect of gamepad_build.json/abilities.json), abilities.gd (covered via abilities.json)
+- `low` LF-256 anchor-21 passes decision 086 falls-strictly rule on a technicality and is the first anchor it will name. MEASURED: anchor-21 grades 4 of 15 on standard and 4 of 16 on brutal -- the SAME absolute count of distinct winning builds, passing only because brutal happened to try one more build. Win-share margin is +1.7 points, against a campaign median around +11 and a next-tightest of +6.7 (anchor-23). The count-based form of the same rule (count(brutal) < count(standard)) fails on anchor-21 and on no other shipped anchor. Recorded so that when BAL-04 loosens anything and grade verdict goes red on anchor-21, it is a known thin margin and not a surprise -- and so nobody weakens the rule to accommodate it. Related: LF-220 already records anchor-02 brutal narrowing in the LF-185 pass, and this is the same class of note.
+- `low` LF-258 sim/run.py --json silently drops each report runs unless --detail is also passed, so anything computing a per-run statistic off the JSON gets nothing and says nothing. FOUND while wiring decision 087 overdraw figure into tools/session.py: campaign_discipline() needs per-run brownout_fraction and won, main() --json path filters with {k: v for k, v in r.items() if k != runs or args.detail}, and session.py had been calling --json --jobs 0 with no --detail for as long as it has existed. The function now returns {} rather than raising and the grade verdict selftest drives BOTH halves of that guard -- and the second half was DEAD when written: deleting it left the selftest green, which is how it earned a case. session.py now passes --detail; the cost is about 700 KiB more through the pipe and zero extra grading, because the runs already exist. WHAT IS LEFT: the flag is a trap for the next caller, not just for this one. tools/check.py anchor grades calls --json without --detail and is unaffected only because it reads per-anchor ok. Options are to make --json always include runs (simplest, but it is a 700 KiB default for every caller), or to have --json without --detail emit runs: null rather than omitting the key so a consumer sees an explicit absence instead of a missing attribute. Prefer the second. Low priority: the one live consumer is fixed and guarded.
+- `low` LF-260 A policy list divergence between the two rule engines costs 15 minutes to discover, and a name comparison would cost milliseconds. A grading policy is authored in TWO places that must move together: standard_policies() in sim/engine.py and _policies() in scripts/test/parity.gd. VERIFIED THIS IS NOT A SILENT HOLE -- I went looking for one and there is none. tools/test_parity.py _two_way_diffs() computes set(py) - set(gd) and reports "present in python, absent from godot"; _three_way_diffs() reports "present in <sides> only" for any key not in all three. So a missing or extra policy FAILS parity and is named. THE COST IS WALL CLOCK: you learn it after 1,512 simulations through both engines, about 15 minutes locally per platform leg, and on a fresh digest the Windows leg runs too. THE WORK is a tier-1 check in the same family as safe operations and rules autoloads -- pure text analysis, no Godot: extract the policy name literals from parity.gd (they are the first argument to mk.call / mk_core.call / mk_scheduled.call / mk_veterancy.call) and compare the ordered list against [p.name for p in standard_policies(sorted(all tower ids))]. Assert equal lists, in order, because order is load-bearing -- test_parity.py keys rows on (anchor, policy, difficulty) and sim/run.py distinct-build counting is order-independent but the parity harness is not. LOW PRIORITY: parity already tells the truth, this only tells it sooner. Filed while landing LF-245, which added the 21st policy and therefore touched both files.
 
 ### Recent commits
 
 ```
+b4ea598 docs(balance): three of BAL-04's nine acceptance criteria were failed by the baseline they describe (#159)
+54c666b fix(balance): "indiscipline wins" was an artefact of which policies overdraw, and the price stays (#158)
+2940bfc feat(balance): the grade table could not see brutal dissolve, and the bound it wanted is not there (#157)
+3b3b123 docs(state): wrap — four PRs, and five times the instrument was the thing that was wrong (#156)
 57f4f11 fix(engine): autoplay built twelve dampers and the render check reported the same numbers either way (#155)
 a41e997 fix(ui): the playfield was 4 px wide at 200% and every accessibility check passed (#154)
 1e59d71 test(gate): the six verbs nobody graded are the six with a key bound to them (#153)
 0db669d feat(balance): range derived from lane length at 48², and the grade table cannot see what it costs (#152)
-839da75 docs(state): wrap — eleven PRs, and seven of them found the instrument wrong (#151)
-0d0cbe5 fix(data): the schema was a fuse, not a fix (#150)
-0a668c0 fix(chronicle): the output matched the source, and both were wrong (#149)
-0dc676b test(gate): the branch no shipped anchor entered until yesterday (#148)
 ```
 
 <!-- END AUTO -->
