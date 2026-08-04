@@ -1,5 +1,5 @@
 {
-  "next_id": 242,
+  "next_id": 244,
   "items": [
     {
       "id": "LF-001",
@@ -2890,6 +2890,30 @@
       "status": "open",
       "why": "",
       "opened": "2026-08-03",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-242",
+      "title": "restorer.range is dead data in BOTH rules implementations. Sim.capacity_now() (sim/engine.py:608) adds effect_value for every online restorer with no distance test at all, and scripts/anchor_sim.gd mirrors it; the value 1.0 in data/towers.json is never read. PROVED by grading anchor-20 standard with restorer.range at 1.0 and at 40.0 -- by_difficulty identical field for field (tools/range_derive.py --selftest asserts this, and the same assertion returns False when pointed at pulse-turret, so it discriminates). CONSEQUENCE for BAL-04: the range derivation cannot scale it, because scaling nothing is nothing; it is excluded via INERT_RANGE_IDS with the measurement as the reason. THE REAL QUESTION is whether a restorer SHOULD have a radius -- decision 031 prices it as a slot plus a draw for capacity back, and a global effect makes its position free, which is the only emplacement in the game whose siting does not matter. Either give capacity_now() the distance test both engines already have (_covered_by), which is a rules change and needs parity, or delete the range key from the row and say in the note that placement is free. Do not leave a field that reads as tuning and is not.",
+      "kind": "bug",
+      "area": "design",
+      "pri": "med",
+      "status": "open",
+      "why": "",
+      "opened": "2026-08-04",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-243",
+      "title": "The grade table cannot see difficulty dissolution, and BAL-04's range derivation is the second proof. MEASURED: grading all 24 shipped 18x15 anchors at the 48-square derived ranges (tools/range_derive.py --shipped-impact) leaves them 24/24 ok -- unchanged -- while on brutal the share of tried builds that WIN goes 25 pct -> 43 pct, the median anchor's distinct winning builds goes 3 -> 6, and anchor-02/09/11 go from 2 winning builds to 8/7/8. Not one anchor trips sim/run.py's 'difficulty is not biting' rule, because that rule fires only when distinct_winning == distinct_tried exactly; the closest any anchor came was anchor-14 standard at 13 of 14. So a change that roughly doubles how forgiving the top difficulty is passes the campaign's own instrument silently. This is the same finding decision 081 recorded from the other direction (board quality and grade count are anti-correlated, so the grade table did not and could not choose the lattice ordering). THE CANDIDATE METRIC is win SHARE per difficulty -- distinct_winning / distinct_tried, which sim/run.py already computes both halves of -- with the campaign-level requirement that it FALL monotonically standard > hard > brutal and that brutal stay under a bound. Today it is 40/30/25 pct, which is monotone and discriminating; the derived-range campaign is 55/47/43 pct, still monotone but compressed. Needs a derivation and a decision entry superseding 044's ROBUST_ENOUGH=8, not a constant picked to make today's data pass -- that is exactly why PRESSURE_FLOOR was deleted (decision 067).",
+      "kind": "bug",
+      "area": "design",
+      "pri": "med",
+      "status": "open",
+      "why": "",
+      "opened": "2026-08-04",
       "closed": null,
       "note": ""
     }

@@ -3493,3 +3493,98 @@ and a metric that cannot select one look identical from a single number. What se
 was running four structurally different orderings and noticing that *different anchors failed
 each time* while the best-scoring one produced the worst board — the signature of grades co-tuned
 with the thing being replaced, not of a better sort key waiting to be discovered.
+
+---
+
+## 082 — Range is derived from lane length, it scales the support emplacements too, and it lands with the 48-square content rather than before it
+
+**2026-08-04.** `BAL-04` / `LF-187`. Decision 073 moved the board target to 48×48 and decision
+074 raised range on the 18×15 boards while explicitly declining to anticipate the move. This
+takes the range half of `BAL-04`. `tools/range_derive.py` is the derivation and it writes
+nothing.
+
+**The invariant held fixed is own-lane coverage** — the share of *one* lane's length a slot can
+reach, taken as the median over a board's authored slots. Not `sim/coverage.py`'s
+`lane_coverage()`, which is length-weighted across every lane and would therefore divide a
+perfectly-sited gun's score by the lane count and read four lanes as a range problem. Not
+`presence_coverage()` either, despite it being much the better predictor of real uptime (`LF-217`,
+rank correlation **+0.748** against **+0.520**): presence is measured from a live run on the
+board's own slots, so it does not exist until the board has been graded, and this solve has to
+run before there is any content to grade. The geometry is the solve; the grader is the check.
+
+**The derived ladder**, against shipped act 3 (8 anchors, median lane 41 tiles, 96 slots) on a
+generated 48² four-lane board (lanes 68–80 tiles, 78 slots):
+
+| emplacement | authored | shipped median own-lane | derived | × |
+|---|---|---|---|---|
+| shield-wall | 3.6 | 14.3% | **4.9** | 1.36 |
+| arc-node | 3.8 | 16.0% | **5.5** | 1.45 |
+| pulse-turret | 4.0 | 17.4% | **6.0** | 1.50 |
+| flak-array | 4.6 | 23.6% | **7.3** | 1.59 |
+| anchor-damper | 4.5 | 22.9% | **7.2** | 1.60 |
+| scan-relay | 6.0 | 35.4% | **9.8** | 1.63 |
+| ion-lance | 6.2 | 38.1% | **10.2** | 1.65 |
+| mortar-emplacement | 7.0 | 49.1% | **13.0** | 1.86 |
+
+Plus the four `upgrade.range` overrides — 4.4→7.1, 5.4→9.0, 6.8→12.3, 8.0→15.2 — solved the same
+way, because an upgrade whose range does not scale with its base becomes a downgrade.
+
+**Per emplacement, not one multiplier**, and the spread is the argument: 1.36× at the short end
+against 1.86× at the long. A short range on a winding lane sits on the steep part of the coverage
+curve and a long one does not, so a uniform factor is wrong in both directions at once. Decision
+074 reached the same shape on the small board.
+
+**The support emplacements are in the derivation, and decision 074 left them out.** `shield-wall`
+(slow), `scan-relay` (reveal) and `anchor-damper` (damp) have their range tested against **unit**
+positions by `Sim._covered_by()`, with the same squared-distance compare the firing loop uses.
+They are lane-coverage quantities exactly as much as a weapon's range is. Holding them fixed at
+48² would have silently halved the Act II damper decision that decision 027 exists to create —
+a fixed 18 MW spent to deny a variable drain is only a decision while the radius covers a
+meaningful share of the drainers on the lane.
+
+**`restorer` is excluded, on a measurement rather than a judgement.** `Sim.capacity_now()` adds
+`effect_value` for every online restorer with **no distance test at all**, and
+`scripts/anchor_sim.gd:383` mirrors it, so `restorer.range` is never read by either engine.
+Proved by grading anchor-20 at range 1.0 and at 40.0 — `by_difficulty` identical field for field,
+and the same assertion returns `False` when pointed at `pulse-turret`, so it discriminates.
+Scaling it would be scaling nothing. `LF-242` holds the real question, which is whether a
+restorer should have a radius at all: it is the only emplacement in the game whose siting is free.
+
+**The ladder is what makes the generated board gradeable.** On the 48² board at the authored
+ranges, brutal is a **single-solution level** — 1 winning build of 16 — and all three difficulties
+die on wave 8. At the derived ranges it is **4 of 16 at all three**, `ok`, and the death wave
+separates for the first time: 9 / 9 / 8. Peak load sits at 166–168% of capacity with the board in
+permanent brownout at every range tested, which is inherited from `genboard.py`'s 50%-saturation
+capacity rule and is not this decision's to fix.
+
+**Rejected: applying the ladder now.** And the reason it is rejected is *not* the obvious one.
+The obvious argument — a 13-tile mortar on a 41-tile lane would break the shipped campaign — was
+measured and is **wrong**. All 24 shipped anchors grade **24/24 `ok` at the derived ranges,
+unchanged**. What actually happens is that the top difficulty dissolves: on brutal the share of
+tried builds that win goes **25% → 43%**, the median anchor's distinct winning builds **3 → 6**,
+and anchor-02, 09 and 11 go from 2 winning builds to 8, 7 and 8. **Not one anchor trips
+`sim/run.py`'s "difficulty is not biting" rule**, because that rule fires only when *every*
+distinct build clears; the closest was anchor-14 on standard at 13 of 14.
+
+**So this is the second independent proof that the grade table is not a valid selector**, after
+decision 081 found board quality and grade count anti-correlated across five lattice orderings.
+There a green grade could not choose the right answer; here a green grade cannot see the wrong
+one. A 24/24 is not evidence that a balance change is safe, and `LF-243` carries the candidate
+replacement — win *share* per difficulty, required to fall monotonically across the three tiers —
+which needs its own derivation rather than a constant fitted to today's data, for the reason
+decision 067 deleted `PRESSURE_FLOOR`.
+
+**Rejected: making range board-relative in the rules** — a per-anchor multiplier, or a range
+expressed as a fraction of lane length resolved at load. It would let both board sizes coexist in
+one campaign, which is the only thing it buys, and it costs a rules change on the hottest loop in
+the engine, a mirrored change in `scripts/anchor_sim.gd`, a `safe operations` re-registration and
+a full tier-4 re-baseline — to make an emplacement's range something the player cannot read off
+its card. Range is a number on a card. The campaign moves to 48² wholesale, which decision 073
+already accepted when it rejected 32² on the grounds that 32² was the only size where the
+existing anchors could be grown rather than regenerated.
+
+**What this obliges.** The patch in `--patch` is applied in the same change that lands the first
+48² content, not before, and `LF-234`'s act-1 presence ceilings (anchor-02 68.3%, 03 65.3%, 04
+50.1%, 05 41.8%) are re-measured against the derived ladder at that point rather than carried
+forward. Superseded by nothing yet; supersedes the range half of decision 074 for 48² boards
+only — 074's numbers remain what the 18×15 campaign ships.
