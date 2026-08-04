@@ -6717,6 +6717,156 @@
           "text": "**A journal that checks its own output against its own source cannot see a generator that is wrong in a stable, reproducible way.** That is a sentence this journal has already written once, about a different tool — a gate that runs over all shipped content proves nothing about a branch the shipped content never enters. It is now true about the journal itself."
         }
       ]
+    },
+    {
+      "id": "the-schema-was-a-fuse",
+      "date": "2026-08-04",
+      "time": "02:20",
+      "title": "The schema was a fuse, not a fix",
+      "summary": "`LF-219`. `data/schema/anchor.schema.json` typed slot coordinates as `integer`, contradicting `PLC-01`'s continuous positions — both rule engines have modelled position as a float since free placement landed, but a fractional slot in an anchor file was a schema error. Widening it to `number` is four lines. The entry is what widening it exposed: **three integer assumptions in `validate_data.py` that the schema had been keeping unreachable**, one of them a hard crash that names no anchor, and two that would have silently stopped covering the case they exist for. Plus one trap in GDScript found, bounded, and shipped as a warning rather than as silence.",
+      "tags": [
+        "PLC",
+        "PRC"
+      ],
+      "decisions": [],
+      "body": [
+        {
+          "type": "p",
+          "text": "`data/schema/anchor.schema.json` typed a slot coordinate as `integer`. Both rule engines have been continuous end to end since free placement — `sim/content.py` loads slots through `float()` into float64, and `Sim._placement_reason()` accepts any float and always has. So the schema was the **only** thing forcing authored slots onto the integer grid, and it was doing it while `PLC-01`, `PLC-04` and several agent briefs said the opposite."
+        },
+        {
+          "type": "p",
+          "text": "It had already cost something concrete, which is why it was a ticket rather than a note. The `LF-185` re-siting pass was briefed that slots could be fractional, discovered the schema only after it had started, **searched integer positions only**, and may have left better sub-tile positions unreachable on six anchors. The ticket was filed in the pass entry 56 covers — **The generator was not the deliverable. Thirteen tiles was.**, `the-generator-was-not-the-deliverable`."
+        },
+        {
+          "type": "p",
+          "text": "The widening is `integer` to `number` and a rewritten description. **The audit is the entry.**"
+        },
+        {
+          "type": "h3",
+          "text": "Three integer assumptions were hiding behind the schema, and one was a crash"
+        },
+        {
+          "type": "p",
+          "text": "The schema had been doing the validator's job for it. Every one of these was written correctly against a world where a slot is an integer, and every one of them was already sitting in `validate_data.py` waiting for the day it was not. Widening the type without looking would have shipped all three."
+        },
+        {
+          "type": "p",
+          "text": "**A hard crash.** `check_terrain`'s ramp and cliff slot loop calls `height_at(sx, sy)`, which is `grid[ty][tx]`. Measured on a fixture, not predicted: `TypeError: tuple indices must be integers or slices, not float`, raised as a stack trace **with the anchor id nowhere in it** — from the one tool whose entire job is naming the offending anchor. Each slot now resolves to its containing tile first, through a new `slot_tile()` helper: slot coordinates are tile centres, so tile `t` spans `[t-0.5, t+0.5)` and the containing tile is `floor(v + 0.5)`, which is the identity for an integer slot."
+        },
+        {
+          "type": "p",
+          "text": "**Two checks that would have silently stopped covering the thing they are for.** Neither would have crashed, neither would have gone red, and both would have started accepting inputs that both engines refuse:"
+        },
+        {
+          "type": "list",
+          "items": [
+            "Bounds tested `0 <= x < w`. A slot at `(13.1, 3)` on a 14-wide board **passes that** — and `_placement_reason()` refuses it, because a footprint of radius `0.45` at a tile-centre coordinate needs `x + 0.45 <= w - 0.5`, and 13.55 is past 13.5.",
+            "The on-path test was `tuple(s) in all_tiles`. A slot at `(1.0, 5.6)` beside a lane running along y=5 is 0.6 from the centreline — **illegal to both engines**, which want a standoff of `0.95` — and it lands in tile (1,6), which is not a lane tile. So it passed."
+          ]
+        },
+        {
+          "type": "p",
+          "text": "Both are now the engines' own predicate rather than an integer restatement of it: footprint-aware bounds, plus a lane standoff of `lane_half_width + FOOTPRINT_RADIUS`, with `FOOTPRINT_RADIUS` **imported from `sim/engine.py` rather than copied**. For an integer slot the acceptance set is provably identical — an integer point at least one tile off an axis-aligned integer polyline is at distance at least 1.0, and `0 <= x <= w-1` satisfies the footprint interval exactly — and the full validator output is **byte-identical to the pre-change baseline across all 58 documents**. It was also checked against `Sim._placement_reason()` directly on the same three positions, and the two agree at the 0.95 boundary. A duplicated point-to-segment walk in the dead-slot check was collapsed into the same shared function while the file was open; there were two implementations of distance-to-nearest-lane in one validator, which is the drift this project keeps paying for."
+        },
+        {
+          "type": "p",
+          "text": "That is the shape worth naming. **A schema constraint was the only thing keeping three validator bugs from being reachable.** Widening the type did not create them. It exposed them."
+        },
+        {
+          "type": "h3",
+          "text": "The trap that was found and named rather than shipped"
+        },
+        {
+          "type": "p",
+          "text": "`AnchorSim.available_slots()` returns `Vector2i(int(sx), int(sy))`. It **truncates**. It has two callers that matter here — `anchor_view.gd::_next_autobuild_candidate()` and `main.gd`'s `--build` hook — so on a fractional-slot anchor those two site an emplacement at the **floor** of the authored position rather than at it. If the floor happens to be illegal, `build_at()` returns false and the build **silently does not happen**: no hang, because the autobuild loop exits on its own `placed_one` flag, and nothing anywhere is red."
+        },
+        {
+          "type": "p",
+          "text": "That was **not** a reason to refuse the widening. The trap is bounded to two headless verification hooks, no shipped anchor can reach it, and nothing else in GDScript truncates — the rules read only `slots.size()`, the editor overlay already draws through `float(slot[0])`, and the particle code hashes **placed** positions rather than authored slots. But it was not shipped in silence either. `validate_data.py` now emits a **warning** on any fractional slot, naming that exact call site. It is silent for all 24 shipped anchors, which all still author integers, and it fires the moment one does not. `LF-238`."
+        },
+        {
+          "type": "p",
+          "text": "One line of irony worth keeping. `available_slots()` is the same accessor behind `LF-228` — the ward engagement cue that could never fire, written up in entry 57, **The instruments were standing where the player never stands**. Its **name** cost a bug there, and `LF-233` is open to rename it. Its **return type** has now cost one here. One function, twice, for two unrelated reasons."
+        },
+        {
+          "type": "h3",
+          "text": "Proof, both directions"
+        },
+        {
+          "type": "p",
+          "text": "A fixture anchor — anchor-01 with eight **half-tile** slots, every one of them `_placement_reason() == ok` — written into the scratchpad and **never** into `data/anchors/`. Run against HEAD's schema and HEAD's validator in a shadow tree, it fails fourteen ways:"
+        },
+        {
+          "type": "pre",
+          "text": "ERROR anchor-99: /slots/0/1: 3.5 is not of type 'integer'      (x13)\nERROR anchor-99: CRASH in check_anchor: TypeError: tuple indices must be\n                 integers or slices, not float\n-- 14 error(s), 0 warning(s)",
+          "caption": "BEFORE. Thirteen type errors and one crash. Note what the crash line does not contain: any indication of which of the twenty-four anchors produced it."
+        },
+        {
+          "type": "pre",
+          "text": "warn  anchor-99: 8 slot(s) are fractional: [[2.0, 3.5], ...] — the rules and\n      both graders are continuous, but GDScript's AnchorSim.available_slots()\n      truncates to Vector2i, so --build/autobuild will site at the floor of\n      these (LF-219)\n-- 0 error(s), 1 warning(s)",
+          "caption": "AFTER. Legal content, with the one known consumer that has not caught up named in the message rather than left for whoever hits it."
+        },
+        {
+          "type": "p",
+          "text": "The other direction matters more, because a check that accepts everything is not a check. Proved separately, on fractional input: **out-of-bounds, on-path, standoff and duplicate all still fire.** The new predicate is not vacuous — it refuses fractional slots for the same four reasons it refuses integer ones."
+        },
+        {
+          "type": "p",
+          "text": "And the fixture loads and grades, through the real `grade_anchor()` — which is `sim.run.grade()` minus the `data/anchors/` read, so this is the shipping grader on a board whose every build point is a half tile:"
+        },
+        {
+          "type": "pre",
+          "text": "standard  5 of 11   75.6 MW 126%   12%  wave 2\nhard      2 of 11   81.0 MW 135%    8%  wave 2\nbrutal    1 of 10   75.6 MW 126%    6%  wave 2\nok = True",
+          "caption": "Columns are the grader's own: distinct winning builds of distinct builds tried, peak load in MW and as a share of capacity, brownout share, and the earliest wave anything died on. Nothing here is a balance claim about anchor-01 — the board is a fixture that was never in `data/anchors/`. It is evidence that a half-tile board is content the engine will actually play."
+        },
+        {
+          "type": "h3",
+          "text": "What was already float-safe, because that matters too"
+        },
+        {
+          "type": "p",
+          "text": "The audit found more ready than not, and the list is worth recording so the next pass does not re-derive it:"
+        },
+        {
+          "type": "list",
+          "items": [
+            "`sim/content.py`, which has loaded slots as float64 since free placement landed.",
+            "`_placement_reason()`, `_is_placeable()` and `_effective_cap()` in the Python rules.",
+            "`sim/coverage.py` and `tools/density.py`, both of which already do continuous geometry off the authored positions.",
+            "The dead-slot range check, which was already a float distance — the one part of the validator that had been thinking in the right space all along.",
+            "On the GDScript side: the editor overlay draws through `float(slot[0])`, the rules read only `slots.size()`, and the particle code hashes placed positions rather than authored slots."
+          ]
+        },
+        {
+          "type": "p",
+          "text": "**Most of the codebase was ready. The schema and three validator checks were not.**"
+        },
+        {
+          "type": "p",
+          "text": "`tools/genboard.py` changed **only in a docstring**, and that is deliberate. It had cited the old schema as its reason for emitting integer slots, which is no longer a reason at all, so it now cites the real ones: `render()` indexes an ASCII preview grid by slot, the generator binds the **count** far more than the positions, and moving the positions moves every generated board's numbers including the ones `--selftest` asserts byte-identical. Sub-tile emission is real work with its own evidence and is tracked as `LF-239`, not smuggled in behind a schema change."
+        },
+        {
+          "type": "h3",
+          "text": "What this entry does not have"
+        },
+        {
+          "type": "p",
+          "text": "The work sits on `lf/data-fractional-slots` and is uncommitted as this is written, so there are **no commit hashes** here. The gate was run at **tier 1** and nothing above it: **17 passed, 0 failed, 25 skipped**, with `game data` green over **58 documents against 7 schemas and no warnings**, and all 24 shipped anchors validating with output byte-identical to the pre-change baseline. Parity and coverage were not run, and neither was anything that launches Godot — so the `available_slots()` truncation above is read from the source and from its two call sites, and is **not** something this pass watched a running game do. There is no screenshot either: the subject is a type in a schema file and four arithmetic predicates, none of which a frame of the board can show."
+        },
+        {
+          "type": "h3",
+          "text": "A constraint upstream of a bug is a fuse"
+        },
+        {
+          "type": "p",
+          "text": "This is the fourth time in two days that widening or fixing one thing revealed that something else had only ever been correct **by accident**. The grader ordering that worked because authored slots happened to be spread. The ward denominator that worked because autoplay happened to build on slots. The verdict branch that worked because no shipped board had a low ceiling. And now three validator checks that worked because the schema happened to forbid the input that would break them."
+        },
+        {
+          "type": "p",
+          "text": "**A constraint upstream of a bug is not a fix. It is a fuse, and nobody knows it is load-bearing until it is removed.** The practical corollary is what turned a four-line ticket into a day of work: when you widen a type, the job is not the widening. It is finding everything downstream that had quietly been relying on the narrower one."
+        }
+      ]
     }
   ]
 }

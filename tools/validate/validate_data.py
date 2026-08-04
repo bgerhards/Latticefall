@@ -57,6 +57,16 @@ SCHEMA = DATA / "schema"
 sys.path.insert(0, str(ROOT))
 from sim.content import resolve_terrain  # noqa: E402
 
+# LF-219: the same argument, for placement. Slot coordinates are continuous now, so
+# "is this slot in bounds / off the lane" can no longer be answered by integer tile
+# membership -- it has to be the engines' own footprint-aware predicate, and the radius
+# it uses has to come FROM the engine rather than be copied here and drift.
+from sim.engine import FOOTPRINT_RADIUS  # noqa: E402
+
+## PLC-02's default half-width of the lane standoff, mirrored from anchor.schema.json's
+## own `lane_half_width` default. Only used when an anchor omits the key (all 24 today).
+LANE_HALF_WIDTH_DEFAULT = 0.5
+
 ## Capacity as a fraction of "every slot running the hungriest emplacement". Above this the
 ## power decision is thin; at 1.0 it does not exist. Act I sits at 29-38%.
 SATURATION_WARN = 0.80
@@ -187,6 +197,50 @@ def validate_schema(doc: dict, schema_name: str, where: str, rep: Report) -> boo
         rep.err(where, f"{loc}: {e.message}")
         ok = False
     return ok
+
+
+def slot_tile(sx: float, sy: float) -> tuple[int, int]:
+    """The grid tile a slot coordinate falls in.
+
+    LF-219. Slot coordinates are tile CENTRES (the convention `Sim._placement_reason()`
+    pins and `anchor.schema.json` now repeats), so tile `t` spans `[t-0.5, t+0.5)` and the
+    containing tile is `floor(v + 0.5)`. For an integer slot this is the identity, which is
+    why every one of the 24 shipped anchors is unaffected by this existing at all.
+
+    It exists because terrain is a DISCRETE grid and placement is not: a ramp, a cliff face
+    and a lane tile are per-tile facts, and a fractional slot still has to be resolved to one
+    of them. Before this, `grid[ty][tx]` with a float subscript raised `TypeError: tuple
+    indices must be integers` from inside a validator -- a crash, not a data error, with the
+    anchor's name nowhere in the message.
+    """
+    return (math.floor(sx + 0.5), math.floor(sy + 0.5))
+
+
+def dist2_to_lanes(sx: float, sy: float,
+                   lane_points: list[list[tuple[float, float]]]) -> float:
+    """Squared distance from a point to the nearest point on ANY lane polyline.
+
+    Mirrors `Sim._placement_reason()`'s lane test term for term -- point-to-SEGMENT over
+    each lane's own waypoints, `t` clamped to [0,1], degenerate (zero-length) segment
+    falling back to `t = 0` rather than dividing by zero -- and returns the SQUARE, because
+    that is what the rules compare and a `sqrt` here against a squared comparison there is
+    exactly the last-bit disagreement decision 030 exists to avoid.
+
+    WAR-01: minimum over all lanes. A slot near just one of several lanes is still near a
+    lane.
+    """
+    best = float("inf")
+    for pts in lane_points:
+        for (ax, ay), (bx, by) in zip(pts, pts[1:]):
+            abx, aby = bx - ax, by - ay
+            ab2 = abx * abx + aby * aby
+            if ab2 <= 0.0:
+                t = 0.0
+            else:
+                t = min(1.0, max(0.0, ((sx - ax) * abx + (sy - ay) * aby) / ab2))
+            dx, dy = sx - (ax + abx * t), sy - (ay + aby * t)
+            best = min(best, dx * dx + dy * dy)
+    return best
 
 
 def check_terrain(doc: dict, rep: Report) -> None:
@@ -333,8 +387,14 @@ def check_terrain(doc: dict, rep: Report) -> None:
     # PLC-05: `slots` is optional now (free placement authors none at all), so this is a
     # no-op rather than a KeyError on such an anchor -- there is nothing fixed-coordinate
     # to check a ramp/cliff against when every build point is chosen at play time.
+    #
+    # LF-219: slot coordinates are continuous, terrain is a discrete grid, so each slot is
+    # resolved to its containing TILE first (`slot_tile()`). Identity for an integer slot;
+    # before it, a fractional slot subscripted the resolved grid with a float and this
+    # validator died with `TypeError: tuple indices must be integers` -- a stack trace with
+    # no anchor id in it, from the one tool whose job is naming the offending anchor.
     for s in doc.get("slots", []):
-        sx, sy = s[0], s[1]
+        sx, sy = slot_tile(float(s[0]), float(s[1]))
         own = height_at(sx, sy)
         if own is None:
             continue  # out-of-grid slot already reported by check_anchor
@@ -421,17 +481,63 @@ def check_anchor(doc: dict, towers: dict, enemies: dict, rep: Report) -> None:
         lane_points.append([(float(x), float(y)) for x, y in pts])
 
     # PLC-05: optional now -- an anchor authored for free placement carries none at all.
+    #
+    # LF-219: these three tests used to be integer-tile arithmetic (`0 <= x < w`, `t in
+    # all_tiles`), which was exactly right while the schema typed a slot as `integer` and
+    # silently WRONG the moment it did not: a slot at (7, 4.6) beside a lane on y=4 is 0.6
+    # from the centreline -- illegal to both engines -- and lands in tile (7,5), which is not
+    # a lane tile, so tile membership would have passed it. Likewise (11.7, 3) on a 12-wide
+    # board passes `x < w` and is refused by `_placement_reason()`, because a 0.45-radius
+    # footprint must satisfy `x + r <= w - 0.5`. So the bounds and standoff tests are now the
+    # engines' own predicate, minus its third term (overlap, which is between PLACED
+    # emplacements at play time and says nothing about authored slots).
+    #
+    # For an integer slot the acceptance set is IDENTICAL, which is why all 24 shipped
+    # anchors are byte-for-byte unmoved: an integer point at least one tile off an
+    # axis-aligned integer polyline is at distance >= 1.0 >= 0.95, and `0 <= x <= w-1`
+    # satisfies `x - 0.45 >= -0.5 and x + 0.45 <= w - 0.5` exactly.
     slots: list = doc.get("slots", [])
-    seen: set[tuple[int, int]] = set()
+    seen: set[tuple[float, float]] = set()
+    half_width = float(doc.get("lane_half_width", LANE_HALF_WIDTH_DEFAULT))
+    standoff = half_width + FOOTPRINT_RADIUS
+    fractional: list[list] = []
     for s in slots:
-        t = tuple(s)
-        if not (0 <= t[0] < w and 0 <= t[1] < h):
-            rep.err(where, f"slot {t} outside grid {w}x{h}")
-        if t in all_tiles:
-            rep.err(where, f"slot {t} sits on the enemy path")
+        t = (float(s[0]), float(s[1]))
+        if not (t[0] - FOOTPRINT_RADIUS >= -0.5 and t[0] + FOOTPRINT_RADIUS <= w - 0.5
+                and t[1] - FOOTPRINT_RADIUS >= -0.5 and t[1] + FOOTPRINT_RADIUS <= h - 0.5):
+            rep.err(where, f"slot {list(s)} outside grid {w}x{h} — a "
+                           f"{FOOTPRINT_RADIUS}-radius footprint at a tile-centre "
+                           f"coordinate needs the whole interval "
+                           f"[-0.5, {w - 0.5}] x [-0.5, {h - 0.5}]")
+        elif slot_tile(*t) in all_tiles:
+            rep.err(where, f"slot {list(s)} sits on the enemy path")
+        elif (lane_d2 := dist2_to_lanes(t[0], t[1], lane_points)) < standoff * standoff:
+            d = math.sqrt(lane_d2)
+            rep.err(where, f"slot {list(s)} is {d:.3f} from the nearest lane, inside the "
+                           f"{standoff} standoff (lane_half_width {half_width} + "
+                           f"footprint {FOOTPRINT_RADIUS}) — nothing can be built there")
         if t in seen:
-            rep.err(where, f"duplicate slot {t}")
+            rep.err(where, f"duplicate slot {list(s)}")
         seen.add(t)
+        if t != (float(int(t[0])), float(int(t[1]))):
+            fractional.append(list(s))
+
+    # LF-219, and it is a WARNING rather than silence because the capability ships with one
+    # known consumer that has not caught up. `AnchorSim.available_slots()`
+    # (scripts/anchor_sim.gd) is a PRESENTATION accessor and returns `Vector2i(int(sx),
+    # int(sy))` -- it TRUNCATES. Its two callers are `anchor_view.gd`'s autobuild candidate
+    # and `main.gd`'s `--build`, so on a fractional-slot anchor those two verification hooks
+    # site an emplacement at the floor of the authored position instead of at it, and if the
+    # floor happens to be illegal `build_at()` returns false and the build silently does not
+    # happen. Nothing else truncates: the rules (`build_at`/`_is_placeable`/`_occupied`,
+    # `effective_cap`) read only `slots.size()`, the editor overlay draws through
+    # `float(slot[0])`, and both graders are continuous end to end. Silent for all 24
+    # shipped anchors, which all still author integers.
+    if fractional:
+        rep.warn(where, f"{len(fractional)} slot(s) are fractional: {fractional} — the "
+                        f"rules and both graders are continuous, but GDScript's "
+                        f"AnchorSim.available_slots() truncates to Vector2i, so "
+                        f"--build/autobuild will site at the floor of these (LF-219)")
 
     # every wave must reference a real enemy and a lane that exists; and every lane must
     # be spawned into by at least one wave, somewhere in the anchor — a lane nothing ever
@@ -557,22 +663,14 @@ def check_anchor(doc: dict, towers: dict, enemies: dict, rep: Report) -> None:
         best_range = max(t["range"] for t in ranged)
         short_range = min(t["range"] for t in ranged)
 
-        def dist_to_path(sx: float, sy: float) -> float:
-            # WAR-01: minimum distance over ALL lanes — a slot dead to every lane is
-            # dead, but a slot near just one of several lanes is still worth a slot.
-            best = float("inf")
-            for pts in lane_points:
-                for (ax, ay), (bx, by) in zip(pts, pts[1:]):
-                    dx, dy = bx - ax, by - ay
-                    span = dx * dx + dy * dy
-                    t = 0.0 if span == 0 else max(0.0, min(1.0,
-                            ((sx - ax) * dx + (sy - ay) * dy) / span))
-                    best = min(best, math.hypot(sx - (ax + t * dx), sy - (ay + t * dy)))
-            return best
-
+        # LF-219: this was a second, local point-to-segment walk, identical to the one the
+        # standoff test above needed. Two implementations of "distance to the nearest lane"
+        # in one file is the drift this project keeps paying for, so both now call
+        # `dist2_to_lanes()`. WAR-01 (minimum over ALL lanes — a slot dead to every lane is
+        # dead, a slot near just one of several is still worth a slot) lives in there now.
         dead, marginal = [], []
         for s in slots:
-            d = dist_to_path(float(s[0]), float(s[1]))
+            d = math.sqrt(dist2_to_lanes(float(s[0]), float(s[1]), lane_points))
             if d > best_range:
                 dead.append((list(s), round(d, 1)))
             elif d > short_range:
