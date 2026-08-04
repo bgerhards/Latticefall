@@ -1,6 +1,6 @@
 {
   "schema": "scenario",
-  "note": "The worst-case accessibility screen expressed as data instead of tools/check.py's own hand-built argv list (PRC-12's own task: convert the hardest-to-reach screens to scenario files). Anchor-24 at 200% interface scale is the smallest logical viewport (960x540) against the widest instrument column and threat panel this game has (nine unlocked emplacements, the longest wave table) -- decision 048's own worst case. Builds and selects an emplacement so the inspector is populated, scrolls both instrument panels so the scrolled state (not just the top of the scroll region) is what gets captured, then shot+a11y on the same frame, as CLAUDE.md's own pairing rule requires.",
+  "note": "The worst-case accessibility screen expressed as data instead of tools/check.py's own hand-built argv list (PRC-12's own task: convert the hardest-to-reach screens to scenario files). Anchor-24 at 200% interface scale is the smallest logical viewport (960x540) against the widest instrument column and threat panel this game has (nine unlocked emplacements, the longest wave table) -- decision 048's own worst case. Builds and selects an emplacement so the inspector is populated, scrolls both instrument panels so the scrolled state (not just the top of the scroll region) is what gets captured, then shot+a11y on the same frame, as CLAUDE.md's own pairing rule requires. LF-247 added the playfield assertions. This file ran at exactly this scale on exactly this anchor BECAUSE it is the worst case, and passed the whole time the board it is supposed to be auditing was 4 px wide and completely covered by the two instrument panels -- a11y.py audits text items, and a playfield is not a text item. view.strip.w is now asserted directly, and asserted again while the undocked threat overlay is open, so 'the overlay does not take strip width back' is part of the same run. view.strip.zoom_min > 0.05 is the same claim from the camera's side: 0.05 is anchor_view.gd's ZOOM_MIN_FLOOR, a strip too narrow to fit the board clamps to it, so a zoom_min strictly above the floor is proof the board can be framed at all. Frame N+1 for the press assertions, never frame N -- Input.parse_input_event() queues (LF-139).",
   "anchor": "anchor-24",
   "difficulty": "standard",
   "ui_scale": 2.0,
@@ -8,7 +8,16 @@
     { "frame": 1, "action": "build", "args": ["pulse-turret"] },
     { "frame": 2, "action": "select", "args": [1] },
     { "frame": 3, "assert": "==", "expr": "hud.selected", "expect": "pulse-turret" },
+    { "frame": 3, "assert": "==", "expr": "hud.threat_docked", "expect": false },
+    { "frame": 3, "assert": "==", "expr": "hud.threat_open", "expect": false },
+    { "frame": 3, "assert": ">=", "expr": "view.strip.w", "expect": 420 },
+    { "frame": 3, "assert": ">", "expr": "view.strip.zoom_min", "expect": 0.05 },
     { "frame": 4, "action": "scroll", "args": [2] },
+    { "frame": 5, "action": "press", "args": ["lf_threat_toggle"] },
+    { "frame": 7, "assert": "==", "expr": "hud.threat_open", "expect": true },
+    { "frame": 7, "assert": ">=", "expr": "view.strip.w", "expect": 420 },
+    { "frame": 8, "action": "press", "args": ["lf_threat_toggle"] },
+    { "frame": 10, "assert": "==", "expr": "hud.threat_open", "expect": false },
     { "frame": 300, "action": "shot", "args": [".godot/scenario-a11y-worst.png"] },
     { "frame": 300, "action": "a11y", "args": [".godot/scenario-a11y-worst.json"] }
   ]

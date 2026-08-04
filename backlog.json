@@ -1,5 +1,5 @@
 {
-  "next_id": 246,
+  "next_id": 250,
   "items": [
     {
       "id": "LF-001",
@@ -2934,6 +2934,54 @@
       "title": "Money is idle across the campaign because no policy ever upgrades, and an upgrade-buying policy adds real robustness where BAL-04 needs it. MEASURED on all 24 anchors: 55-62 pct of every fund the player ever has is never spent (act 1 58 pct, act 2 55 pct, act 3 62 pct; anchor-24 ends with 4358 unspent). That is NOT proof the economy is dead -- counting the cost of upgrading every emplacement on the built board absorbs most of it, leaving 22/16/28 pct unspent by act, and anchor-10 and anchor-11 go NEGATIVE (-1 pct, -10 pct), i.e. a fully-upgraded board is unaffordable there. So the surplus is an artefact of the GRADER's repertoire: no policy in standard_policies() has ever bought an upgrade (see LF-243 sibling LF-244). PROTOTYPED an upgrade-ladder policy -- preference identical to cheap-mass, plus a schedule walking upgrade by index in three passes (40 s, then every 22 s) so an unaffordable upgrade is retried once kills have paid for it. It spends 2280 on act-3 anchors against the base mean of 1835 (+24 pct) and ADDS A NEW DISTINCT WINNING BUILD ON 10 OF 72 anchor-by-difficulty cells: anchor-01 hard, 10 brutal, 14 standard+hard, 17/18/19/20/22/24 standard. It never trivialises anything -- no cell reaches distinct_winning == distinct_tried, and it wins only one brutal cell in the whole campaign. Because its preference is byte-identical to cheap-mass, every one of those wins is attributable to upgrading alone, which is the same controlled design the capped-core policies use. LAND IT INSIDE BAL-04's re-grade, not as a drive-by: a 21st policy moves distinct_builds_tried on every anchor and adds 72 rows to the parity set. Also relevant to the sequencing defect issue 17 records -- act 3 stands 97-100 pct of its final board before the first spawn and 1.1-1.4 waves carry any build at all, which upgrades are the only shipped mechanism that could sequence.",
       "kind": "feature",
       "area": "design",
+      "pri": "med",
+      "status": "open",
+      "why": "",
+      "opened": "2026-08-04",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-246",
+      "title": "Authored slot POSITIONS are vestigial since PLC-04, so LF-185's re-siting premise and LF-234's 'the level's slot budget is the limit' framing no longer describe the game. The COUNT still binds; the positions do not. EVIDENCE, all in the tree: build_candidate_lattice()'s own docstring says it outright -- 'the grader's candidate set is now a property of the BOARD, not of the anchor's authored slots ... the grader was reasoning about a game that had stopped existing'. _slot_priority() is marked RETAINED FOR ONE CALLER, NOT USED BY THE GRADER and survives only so tools/analysis_lf014.py can reproduce decision 022's numbers. The player builds through the free cursor (anchor_view.gd:1546) and anchor_view.gd:1532 states free placement has no unoccupied-slot check. The only surviving consumers of the positions are DEV paths: anchor_view.gd:346 (--autoplay's autobuild pick) and main.gd:452 (the --build CLI hook). What DOES still bind is the count, through _effective_cap()'s fallback to len(slots), which 23 of 24 anchors take. CONSEQUENCE 1: sim/coverage.py's presence, lane and site-eff columns and verdict()'s '(a) siting' label are all computed over authored slots and therefore describe vestigial data, while uptime, dmg-share, near-zero and board_presence_ceiling come from real lattice placements and remain valid. A verdict of '(a) siting: authored slots reach 52 pct of what this board's slot budget admits' is not a statement about anything a player can experience. CONSEQUENCE 2: LF-185's headline result -- whole-game near-zero 12.71 pct -> 9.53 pct from re-siting 21 slots -- was measured before the grader stopped reading slot positions, so it cannot be reproduced now and must not be cited as evidence that re-siting works. CONSEQUENCE 3: docs/STATE.md's priority 2 (act 1's presence ceilings, anchors 02-05 at 68.3/65.3/50.1/41.8 pct) needs re-reading: board_presence_ceiling is real and low, but site-eff 0.36-0.47 on anchors 03/04/05 is not a defect to fix. THE WORK is to split coverage.py's report into board-real and authored-vestigial halves, or delete the authored half, and to decide whether anchors should keep authoring slot arrays at all now that only their length is read -- decision 063 already made max_emplacements the intended denominator.",
+      "kind": "bug",
+      "area": "design",
+      "pri": "med",
+      "status": "open",
+      "why": "",
+      "opened": "2026-08-04",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-247",
+      "title": "The playfield is 4 px wide at 200 percent interface scale and unusably narrow from 150 percent up, on EVERY anchor, and every accessibility check passes. MEASURED and derived, reproducing the captured value exactly: strip width is vp.x - 2*gutter - COL_W - THREAT_W with COL_W 420 and THREAT_W 528, and the panel widths do not shrink with scale while the logical viewport does. scale 100 pct -> 1920x1080 viewport, 940 px strip (49 pct of width); 125 pct -> 1536x864, 556 px (36 pct); 150 pct -> 1280x720, 300 px (23 pct); 175 pct -> 1097x617, 117 px (11 pct); 200 pct -> 960x540, 4 px (0.4 pct). CAPTURED anchor-24 at 2.0 and the two panels cover the board completely -- the playfield is drawn behind them and there is no visible board at all; captured at 1.5 it is a 340 px slice of a 1440 px frame. THE KNOWLEDGE ALREADY EXISTED AND THE CONSEQUENCE WAS NEVER DRAWN: scripts/display_settings.gd:100 records 'at 200 pct interface scale that strip is measured at 4 px wide on anchor-24 ... they eat nearly all of a 960px-wide design space' and used it only to justify defaulting edge-scroll off. WHY NOTHING CATCHES IT: decision 050 measured the panels' VERTICAL fit exhaustively and made both scroll, which is correct for WCAG SC 1.4.4/1.4.10 and is about TEXT; tools/validate/a11y.py audits text items and a playfield is not a text item, so the `accessibility` check reports 192 items clean and `scenario a11y-worst` -- which runs at ui_scale 2.0 on anchor-24 precisely because it is the worst case -- asserts hud.selected and a text inventory and passes. THE FIX IS NOT TO REMOVE 200 PCT, which would regress the accessibility feature decision 050 deliberately added. It is horizontal reflow: above the scale at which strip width falls below a usable minimum, the threat panel (528 px, the wider of the two, and the one carrying reference information rather than controls) becomes a toggled overlay while the build column keeps the verbs. Plus a gate check asserting a minimum strip width at every offered scale, because the only reason this shipped is that nothing measured the playfield.",
+      "kind": "bug",
+      "area": "engine",
+      "pri": "med",
+      "status": "open",
+      "why": "",
+      "opened": "2026-08-04",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-248",
+      "title": "Decision 073 chose the 48-square board on a zoom-to-fit row that divided by the FULL viewport instead of the playfield strip, and corrected it does not discriminate at all. MEASURED: anchor_view.gd _min_zoom_for_board() fits the board into strip.w = vp.x - 2*gutter - COL_W - THREAT_W, and the two panels are 948 px that do not shrink with interface scale. A captured 48-square board at 100 percent UI comes back at zoom 0.1530, reproducing exactly as 940/6144. Decision 073 tabulated 0.312 at 100 percent and 0.156 at 200 percent, which are 1920/6144 and 960/6144 -- the full viewport, both panels ignored. The error is 2.04x at 100 percent and 223x at 200 percent, where the real strip is 4 px and the measured fit is 0.0007. WHY IT MATTERS: that row is where the decisions sprite-on-screen figures came from, and sprite legibility is the row that REJECTED 64 squared -- decision 073 says 64 squared renders a sprite at 30-60 px, below the threshold at which one enemy type can be told from another. Corrected against the real strip at 100 percent UI, sprite width is 256 * zoom: 32 squared 59 px, 48 squared 39 px, 64 squared 29 px. Every option including the 32-squared one falls inside or below the band 64 squared was rejected for, so the corrected row rejects everything and selects nothing. THE RESOLUTION IS TO STRIKE THE ROW, NOT TO REDO THE ARITHMETIC, and the board size stays 48 squared: decision 073 itself concluded the board is never fully visible in the playfield and that CAM-05s minimap does the wide read, so zoom-to-fit is not a zoom anyone plays at and is the wrong reference for legibility. Legibility should be judged at playing zoom, where a sprite is 256 px at zoom 1.0 regardless of board size. Needs an appended decision entry recording the correction rather than an edit, since 073 is owner-taken and append-only. See LF-247 for the shipped defect the same measurement uncovered.",
+      "kind": "bug",
+      "area": "design",
+      "pri": "med",
+      "status": "open",
+      "why": "",
+      "opened": "2026-08-04",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-249",
+      "title": "At 200 percent interface scale the undocked threat overlay covers the instrument column rightmost 20 px. Cosmetic. The covered strip is the column padding and scrollbar gutter, not text, and it is deliberate and documented at scripts/hud.gd:854-858 -- the alternative placement pushed 12 px of the threat panel own scrollbar off the right edge of the viewport, which is worse because a scrollbar the player cannot reach is a control they cannot use. From LF-247 and decision 085. Filed because the LF-247 commit message claimed it was already filed and it was not; the chronicler caught that while checking the brief against the tree. No action needed unless someone reports it in play.",
+      "kind": "bug",
+      "area": "engine",
       "pri": "med",
       "status": "open",
       "why": "",

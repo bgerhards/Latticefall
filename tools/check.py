@@ -39,12 +39,22 @@ opposite case — they live in `CHECKS`, so they cost nothing to assert — and 
 check below does exactly that on every tier-1 run: a stale count here is a red run, not a
 silent drift. See that check's own docstring for what it caught before it existed.
 
-- **tier 1 (pre-commit), 17 checks:** `python syntax`, `json parses`, `gdscript parses`,
+- **tier 1 (pre-commit), 18 checks:** `python syntax`, `json parses`, `gdscript parses`,
   `game data`, `wave density`, `dialog capacity`, `backlog rendered`, `chronicle current`,
   `agent models`, `leases wired`, `issue traceability`, `banned terms`, `tier counts`,
-  `safe operations`, `rules autoloads`, `yaw hysteresis`, `asset coverage`. No Godot window
-  opens.
-- **tier 2 (pre-push), 26 checks:** tier 1 + `sim determinism`, `sprite atlas`,
+  `safe operations`, `rules autoloads`, `yaw hysteresis`, `asset coverage`,
+  `playfield width`. No Godot window opens.
+
+  **`playfield width` (LF-247) is the newest, and it is here rather than at tier 2 or 3
+  because it costs nothing to run and everything to have skipped.** It asserts that the board
+  is at least `Ui.PLAYFIELD_MIN_W` wide at every scale in `Display.UI_SCALES`, entirely by
+  parsing constants — no Godot, no frame. The bug it closes was a playfield **4 px wide at
+  200% interface scale, on every anchor**, with `accessibility` and `scenario a11y-worst`
+  (which runs at exactly that scale, on exactly that anchor, *because* it is the worst case)
+  both green throughout, because both audit **text** and a playfield is not a text item. Its
+  mirror of the four geometry expressions is pinned verbatim against `scripts/ui_theme.gd`,
+  so the mirror can only go stale loudly.
+- **tier 2 (pre-push), 27 checks:** tier 1 + `sim determinism`, `sprite atlas`,
   `sprite coverage`, `music manifest`, `sfx determinism`, `sfx loudness` (PRC-18 — see
   `_run_loudness_check`'s own comment for why it is `sfx loudness` and not `music loudness`
   that landed here), `godot boots`, `terrain parsers agree`, `hooks configured`.
@@ -81,7 +91,7 @@ silent drift. See that check's own docstring for what it caught before it existe
   trustworthy, and `--budget` turns the figures above into assertions, so an instrument that
   can run backwards is the wrong one to be judging a 0.8% margin with. Only `started_at`
   stays on the wall clock, because a timestamp is not a duration.
-- **tier 3 (PR), 40 checks:** tier 2 + `facing harness` (moved here from tier 2, above) +
+- **tier 3 (PR), 41 checks:** tier 2 + `facing harness` (moved here from tier 2, above) +
   `anchor grades` (LF-224 — the deliberate replacement for the all-anchors-clean assertion
   `sim determinism` was serving by accident until PLC-04; ~62 s, and tier 3 rather than
   tier 2 because tier 2 is over budget and rather than tier 4 because the regression it
@@ -106,7 +116,7 @@ silent drift. See that check's own docstring for what it caught before it existe
   reasoning and for a larger hole** — six of the eight verbs `Sim._dispatch_one()` accepts
   are never scheduled by any shipped policy, and unlike the firing arc the *player* uses
   every one of them; see `check_verb_parity`'s own docstring.
-- **tier 4 (nightly/release), 43 checks — the default:** tier 3 + `music loudness` (see
+- **tier 4 (nightly/release), 44 checks — the default:** tier 3 + `music loudness` (see
   `_run_loudness_check`'s own comment for why it did not join `sfx loudness` at tier 3) +
   `rules parity` (grows with every policy/anchor) + `rules parity (windows)` (BAL-06 — the
   same runs again, against the Windows binary the owner actually plays rather than the Linux
@@ -1227,6 +1237,141 @@ def check_autoload_in_rules() -> Result:
                       f"{', '.join(sorted(autoloads))}")
 
 
+## LF-247. The strip-geometry expressions this check mirrors, pinned verbatim from
+## `scripts/ui_theme.gd`. Whitespace-normalised before comparing, so reindenting is free and
+## changing the arithmetic is not: a rewrite makes this check FAIL by name instead of quietly
+## continuing to evaluate a formula the game no longer uses. That is the whole reason a
+## text-only check is safe to trust here — the mirror cannot silently go stale, only loudly.
+STRIP_FORMULA = {
+    "threat_docked": "return vp.x - 2.0 * COL_X - COL_W - THREAT_W >= PLAYFIELD_MIN_W",
+    "reserved_w":    "return COL_W + (THREAT_W if threat_docked(vp) else 0.0)",
+    "gutter":        "return clampf((vp.x - reserved_w(vp)) / 3.0, 4.0, COL_X)",
+    "strip_w":       "return maxf(vp.x - 2.0 * gutter(vp) - reserved_w(vp), 1.0)",
+}
+
+
+def _gd_float_consts(text: str, names: list[str]) -> dict[str, float]:
+    """`const NAME := <float literal | already-known identifier>` out of a GDScript file.
+
+    The identifier case is not incidental: `PLAYFIELD_MIN_W := COL_W` is the *derivation*
+    LF-247 rests on — the board is at least as wide as the narrowest instrument panel — and
+    resolving it to a literal here would turn a stated relationship back into a magic number,
+    which is the mistake the whole check exists to catch.
+    """
+    out: dict[str, float] = {}
+    for name in names:
+        m = re.search(rf"^const {name}\s*:=\s*([A-Za-z_][A-Za-z_0-9]*|[0-9]*\.?[0-9]+)",
+                      text, re.M)
+        if not m:
+            continue
+        tok = m.group(1)
+        try:
+            out[name] = float(tok)
+        except ValueError:
+            if tok in out:
+                out[name] = out[tok]
+    return out
+
+
+def check_playfield_width() -> Result:
+    """LF-247. The playfield must be at least `Ui.PLAYFIELD_MIN_W` wide at every interface
+    scale the options screen offers. Nothing measured it, and that is the entire reason a
+    4 px board shipped.
+
+    The failure it exists for, in full, because it is instructive. `COL_W` (420) and
+    `THREAT_W` (528) are 948 px of instrument panel that do **not** shrink when the interface
+    scale shrinks the logical viewport, so the strip between them ran 940 px at 100%, 556 at
+    125%, 300 at 150%, 117 at 175% and **4 px at 200%** — the two panels covered the board
+    completely on every anchor and the board was drawn behind them. Every accessibility check
+    passed throughout: decision 050 measured the panels' *vertical* fit exhaustively and made
+    both scroll, which is correct for WCAG SC 1.4.4/1.4.10 and is about **text**;
+    `tools/validate/a11y.py` audits text items, and a playfield is not a text item. So
+    `accessibility` reported 192 items clean and `scenario a11y-worst` — which runs at
+    `ui_scale: 2.0` on anchor-24 *precisely because it is the worst case* — asserted
+    `hud.selected` plus a text inventory and passed. The general lesson is the same one
+    `firing arcs agree` records: a check that runs the whole game proves nothing about a
+    quantity nothing in it ever asserts on.
+
+    Tier 1 and text-only. It parses the constants out of `scripts/ui_theme.gd` and the scale
+    ladder out of `scripts/display_settings.gd`, mirrors the four geometry expressions in
+    `STRIP_FORMULA` above, and pins those expressions verbatim so the mirror cannot drift
+    into vacuous agreement. No Godot, no frame, ~0 ms — which matters, because tier 2 is
+    already over its own budget (LF-178) and the cheapest place for a bound like this is the
+    tier that runs before every commit.
+
+    The viewport width used is `viewport_width / scale`, and that is the worst case rather
+    than an assumption: the project stretches `canvas_items` with aspect `expand`, so an
+    aspect narrower than 16:9 keeps the base width and grows height, and a wider one grows
+    width. Neither can make the strip narrower than this.
+    """
+    ui = ROOT / "scripts" / "ui_theme.gd"
+    disp = ROOT / "scripts" / "display_settings.gd"
+    proj = ROOT / "project.godot"
+    for p in (ui, disp, proj):
+        if not p.exists():
+            return Result(SKIP, f"{p.relative_to(ROOT)} missing")
+    ui_text = ui.read_text()
+
+    consts = _gd_float_consts(ui_text, ["COL_X", "COL_W", "THREAT_W", "PLAYFIELD_MIN_W"])
+    missing = [n for n in ("COL_X", "COL_W", "THREAT_W", "PLAYFIELD_MIN_W")
+               if n not in consts]
+    if missing:
+        return Result(FAIL, f"scripts/ui_theme.gd: could not read {', '.join(missing)} — "
+                            f"LF-247's bound has nothing to check")
+
+    # Pin the formulas before evaluating the mirror of them.
+    drifted = []
+    for fn, expected in STRIP_FORMULA.items():
+        m = re.search(rf"^func {fn}\(.*?^\t(return .*?)$", ui_text, re.M | re.S)
+        got = " ".join(m.group(1).split()) if m else None
+        if got != expected:
+            drifted.append(f"{fn}(): expected `{expected}`, found "
+                           f"{'`' + got + '`' if got else 'no return statement'}")
+    if drifted:
+        return Result(FAIL, "scripts/ui_theme.gd's strip geometry no longer matches the "
+                            "mirror in check.py's STRIP_FORMULA, so this check would be "
+                            "measuring a formula the game does not use — update both "
+                            "together: " + "; ".join(drifted))
+
+    m = re.search(r"const UI_SCALES\s*:\s*Array\[float\]\s*=\s*\[([^\]]*)\]",
+                  disp.read_text())
+    if not m:
+        return Result(FAIL, "scripts/display_settings.gd: no UI_SCALES declaration — the "
+                            "set of scales this check is supposed to cover is unknown")
+    scales = [float(s) for s in m.group(1).replace(" ", "").split(",") if s]
+
+    pm = re.search(r"^window/size/viewport_width=(\d+)", proj.read_text(), re.M)
+    if not pm:
+        return Result(FAIL, "project.godot: no window/size/viewport_width")
+    base_w = float(pm.group(1))
+
+    col_x, col_w = consts["COL_X"], consts["COL_W"]
+    threat_w, floor_w = consts["THREAT_W"], consts["PLAYFIELD_MIN_W"]
+    rows, bad = [], []
+    for s in scales:
+        vp_x = base_w / s
+        docked = vp_x - 2.0 * col_x - col_w - threat_w >= floor_w
+        reserved = col_w + (threat_w if docked else 0.0)
+        gutter = min(max((vp_x - reserved) / 3.0, 4.0), col_x)
+        strip = max(vp_x - 2.0 * gutter - reserved, 1.0)
+        rows.append(f"{s:g}x {strip:.0f}px{'' if docked else ' (undocked)'}")
+        if strip < floor_w:
+            bad.append(f"{s:g}x interface scale: viewport {vp_x:.0f}px wide leaves a "
+                       f"{strip:.0f}px playfield, under Ui.PLAYFIELD_MIN_W={floor_w:.0f}")
+        # The recursion-avoidance argument in `Ui.threat_docked()` — it uses COL_X where
+        # `gutter()` would, and claims the two agree wherever the answer is `true`. Asserted
+        # rather than believed, because if it ever stopped holding the panel would dock at a
+        # width at which docking does not fit, and the symptom would be the original bug.
+        if docked and gutter != col_x:
+            bad.append(f"{s:g}x: threat_docked() assumed a {col_x:.0f}px gutter but "
+                       f"gutter() returns {gutter:.0f} — Ui.threat_docked()'s own "
+                       f"self-consistency note no longer holds")
+    if bad:
+        return Result(FAIL, "; ".join(bad))
+    return Result(OK, f"playfield >= {floor_w:.0f}px at all {len(scales)} scales: "
+                      + ", ".join(rows))
+
+
 def check_yaw_hysteresis() -> Result:
     """LF-141. `YAW_HYSTERESIS_FRAC` in `scripts/iso.gd` is a fraction of a bucket
     (decision 060) rather than a bare degree count, so it survives a `YAW_COUNT` change —
@@ -2153,6 +2298,9 @@ CHECKS = [
     Check("safe operations",   1, check_safe_ops),
     Check("rules autoloads",   1, check_autoload_in_rules),
     Check("yaw hysteresis",    1, check_yaw_hysteresis),
+    ## LF-247: text-only, ~0 ms, and at tier 1 for that reason — see its own docstring for
+    ## why nothing else in this gate could have caught a 4 px playfield.
+    Check("playfield width",   1, check_playfield_width),
     # PRC-06 / LF-142: both measured too expensive for tier 1's 10s budget (each spawns at
     # least one real Godot process — guard.py --selftest spawns two plus a reap.py probe,
     # yaw_band.py spawns one for facing.gd). Measured pushing tier 1 from 5.7s to 10.8s,

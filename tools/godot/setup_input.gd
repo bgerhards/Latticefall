@@ -76,6 +76,22 @@ const ACTIONS := {
 	## binding every pad still has.
 	"lf_hud_toggle": {"keys": [KEY_H], "buttons": [JOY_BUTTON_PADDLE1]},
 
+	## LF-247: shows/hides the threat panel once it has UNDOCKED — above about 137% interface
+	## scale it stops reserving strip width and becomes an overlay, because at 200% the two
+	## docked panels were 948 px of a 960 px design space and the playfield was 4 px wide.
+	## A separate action from `lf_hud_toggle` rather than a reuse: that one hides *everything*
+	## including the verbs and the minimap, and is a "get out of my way" gesture; this one
+	## shows one reference panel on demand and leaves every control on screen. Binding one key
+	## to both meanings would make the H/I distinction depend on interface scale, which is
+	## exactly the kind of mode nobody discovers.
+	##
+	## I for INCOMING, which is the panel's own kicker text and the label on the affordance
+	## `hud.gd` draws while it is closed. T (for THREAT) was already `lf_target`. PADDLE4 is
+	## the last paddle, on the same trade `lf_hud_toggle` (PADDLE1), `lf_camera_reset`
+	## (PADDLE2) and `lf_minimap_focus` (PADDLE3) already made: no face or shoulder button is
+	## free, and the keyboard binding is the one every pad still has.
+	"lf_threat_toggle": {"keys": [KEY_I], "buttons": [JOY_BUTTON_PADDLE4]},
+
 	## Pacing and the bindstone abilities (data/tuning.json `pacing`/`abilities`) — the
 	## answer to "slow" and to "nothing to press". Bound on keys the board actions above do
 	## not already use, with a gamepad mapping on whatever is left over: BACK/select, the

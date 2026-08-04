@@ -81,6 +81,22 @@ const THREAT_INNER_W := THREAT_W - SCROLL_GUTTER - PAD * 2.0
 ## A floor, not a target: below this the dialog is not a line of prose, it is a word ladder.
 const DIALOG_MIN_W := 200.0
 
+## LF-247. The playfield's own floor, and the reason the threat panel is allowed to undock.
+##
+## Derived, not picked: the board may never be narrower than the *narrowest instrument panel
+## this project already treats as usable*. COL_W was solved for the 16 px type ladder and is
+## the smallest width anything in this interface is permitted to be; a board given less than
+## that is being told it matters less than the column beside it, which is backwards — the
+## column is a readout, the board is the game.
+##
+## What it was before: `COL_W + THREAT_W` are 948 px that do NOT shrink when the interface
+## scale shrinks the logical viewport, so the strip between them was 940 px at 100%, 300 px
+## at 150%, 117 px at 175% and **4 px at 200%** — the panels covered the board completely and
+## every accessibility check still passed, because a11y.py audits text items and a playfield
+## is not a text item. `tools/check.py`'s `playfield width` check now asserts this bound at
+## every scale in `Display.UI_SCALES`.
+const PLAYFIELD_MIN_W := COL_W
+
 # ── board readouts ──────────────────────────────────────────────────────────
 # Presentation drawn directly on the board rather than inside an instrument panel, but
 # still accessibility policy per decisions 045/046 — the geometry is named here rather
@@ -120,13 +136,48 @@ func scroller() -> ScrollContainer:
 	return s
 
 
+func threat_docked(vp: Vector2) -> bool:
+	## LF-247. Whether the threat panel *reserves* strip width (docked, at its right edge) or
+	## floats over the board as a toggled overlay that reserves nothing (undocked).
+	##
+	## Derived from the bound, not from a scale number: dock it exactly while docking it still
+	## leaves PLAYFIELD_MIN_W of board. That works out at about 137% today, but writing 1.37
+	## here would be a constant that stops being true the moment COL_W or THREAT_W moves — the
+	## same class of mistake as the hardcoded 1524 the threat panel's own x used to be.
+	##
+	## Uses COL_X rather than `gutter(vp)` to avoid mutual recursion, and it is not an
+	## approximation: whenever this returns true, vp.x is at least COL_W + THREAT_W +
+	## 2*COL_X + PLAYFIELD_MIN_W = 1400, at which width `gutter()` below is already clamped
+	## to COL_X anyway. So the two agree by construction wherever the answer is `true`.
+	return vp.x - 2.0 * COL_X - COL_W - THREAT_W >= PLAYFIELD_MIN_W
+
+
+func reserved_w(vp: Vector2) -> float:
+	## How much of the viewport's width the instrument panels take away from the board.
+	## The column always does; the threat panel only while it is docked.
+	return COL_W + (THREAT_W if threat_docked(vp) else 0.0)
+
+
 func gutter(vp: Vector2) -> float:
 	## The margin around the instrument panels, derived from the viewport rather than fixed
-	## at COL_X. At 200% interface scale the design space is 960 px wide and the two panels
-	## are 420 + 528 of it, so a 16 px margin on each side does not exist to be spent — the
-	## panels would overlap by 20 px and the build bar would be drawn under the threat list.
-	## Squeezing the margin is the cheapest thing to give up; nothing in either panel moves.
-	return clampf((vp.x - COL_W - THREAT_W) / 3.0, 4.0, COL_X)
+	## at COL_X. At 200% interface scale the design space is 960 px wide and the column plus a
+	## docked threat panel are 420 + 528 of it, so a 16 px margin on each side does not exist
+	## to be spent — the panels would overlap by 20 px and the build bar would be drawn under
+	## the threat list. Squeezing the margin is the cheapest thing to give up; nothing in
+	## either panel moves. Since LF-247 the threat panel undocks before it ever gets that
+	## tight, so the 4 px floor is now reached only by a scale the options screen does not
+	## offer (`-- --ui-scale` clamps at 3.0); it stays because a floor that only triggers off
+	## the offered ladder is still cheaper than a crash there.
+	return clampf((vp.x - reserved_w(vp)) / 3.0, 4.0, COL_X)
+
+
+func strip_w(vp: Vector2) -> float:
+	## The width of the playfield — the free region between the instrument column and
+	## whatever is reserved on the right. The one definition; `anchor_view.gd`'s
+	## `_strip_geometry()` reads it rather than re-deriving it, and `tools/check.py`'s
+	## `playfield width` check mirrors this exact expression and fails if this line changes
+	## without the mirror.
+	return maxf(vp.x - 2.0 * gutter(vp) - reserved_w(vp), 1.0)
 
 
 func dialog_h() -> float:

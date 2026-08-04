@@ -442,13 +442,20 @@ func _strip_geometry(vp: Vector2) -> Dictionary:
 	## THREAT_W are different widths (420 vs 528), so the viewport's own centre sits 54px right
 	## of the strip's; see the historical note this replaced in git blame for the full story of
 	## why the asymmetric alternative was wrong.
+	##
+	## LF-247: what is reserved on the *right* is no longer unconditionally THREAT_W. Above
+	## about 137% interface scale the threat panel undocks and becomes a toggled overlay, so
+	## it reserves nothing and the strip stops being 4 px wide at 200%. The decision lives in
+	## `Ui.threat_docked()`/`Ui.reserved_w()`, not here, because `hud.gd` has to make exactly
+	## the same one about where to draw the panel and two copies of that rule is one too many.
 	var g := Ui.gutter(vp)
 	var bottom_reserve := g + Ui.dialog_h() + 8.0
-	var w := vp.x - 2.0 * g - Ui.COL_W - Ui.THREAT_W
+	var right_reserve: float = Ui.reserved_w(vp) - Ui.COL_W
 	var h := vp.y - g - bottom_reserve
-	var centre := Vector2((vp.x + Ui.COL_W - Ui.THREAT_W) * 0.5,
+	var centre := Vector2((vp.x + Ui.COL_W - right_reserve) * 0.5,
 		(g + (vp.y - bottom_reserve)) * 0.5)
-	return {"centre": centre, "w": maxf(w, 1.0), "h": maxf(h, 1.0), "g": g}
+	return {"centre": centre, "w": Ui.strip_w(vp), "h": maxf(h, 1.0), "g": g,
+		"threat_docked": Ui.threat_docked(vp)}
 
 
 func _min_zoom_for_board(strip: Dictionary, gw: int, gh: int) -> float:
@@ -2999,6 +3006,7 @@ func export_state() -> Dictionary:
 			"slot_x": s.x, "slot_y": s.y, "legality": why,
 		})
 	var cam := camera_state()
+	var strip := _strip_geometry(get_viewport_rect().size)
 	return {
 		"sim": {
 			"lives": int(sim.lives), "leaks": int(sim.leaks), "funds": int(sim.funds),
@@ -3019,6 +3027,16 @@ func export_state() -> Dictionary:
 		},
 		"view": {
 			"camera": {"x": cam["x"], "y": cam["y"], "zoom": cam["zoom"]},
+			# LF-247: the playfield's own geometry, so a scenario can assert the board is
+			# actually on screen. Nothing could see this before — `a11y.py` audits text items
+			# and a playfield is not one, which is exactly why a 4 px board at 200% shipped
+			# with `scenario a11y-worst` (which runs at 2.0 on anchor-24 *because* it is the
+			# worst case) reporting green. `zoom_min` is the fit-to-strip floor, the quantity
+			# LF-248 shows decision 073 mis-derived by dividing the full viewport instead.
+			"strip": {
+				"w": float(strip["w"]), "h": float(strip["h"]),
+				"threat_docked": bool(strip["threat_docked"]), "zoom_min": _zoom_min,
+			},
 			"selected_tower": selected_tower,
 			# PLC-06: renamed from "selected_slot" alongside the field rename (`selected_at`,
 			# `has_selection`) -- a scenario asserting the old key should fail loudly rather
