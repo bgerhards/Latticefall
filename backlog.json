@@ -1,5 +1,5 @@
 {
-  "next_id": 249,
+  "next_id": 250,
   "items": [
     {
       "id": "LF-001",
@@ -2970,6 +2970,18 @@
       "title": "Decision 073 chose the 48-square board on a zoom-to-fit row that divided by the FULL viewport instead of the playfield strip, and corrected it does not discriminate at all. MEASURED: anchor_view.gd _min_zoom_for_board() fits the board into strip.w = vp.x - 2*gutter - COL_W - THREAT_W, and the two panels are 948 px that do not shrink with interface scale. A captured 48-square board at 100 percent UI comes back at zoom 0.1530, reproducing exactly as 940/6144. Decision 073 tabulated 0.312 at 100 percent and 0.156 at 200 percent, which are 1920/6144 and 960/6144 -- the full viewport, both panels ignored. The error is 2.04x at 100 percent and 223x at 200 percent, where the real strip is 4 px and the measured fit is 0.0007. WHY IT MATTERS: that row is where the decisions sprite-on-screen figures came from, and sprite legibility is the row that REJECTED 64 squared -- decision 073 says 64 squared renders a sprite at 30-60 px, below the threshold at which one enemy type can be told from another. Corrected against the real strip at 100 percent UI, sprite width is 256 * zoom: 32 squared 59 px, 48 squared 39 px, 64 squared 29 px. Every option including the 32-squared one falls inside or below the band 64 squared was rejected for, so the corrected row rejects everything and selects nothing. THE RESOLUTION IS TO STRIKE THE ROW, NOT TO REDO THE ARITHMETIC, and the board size stays 48 squared: decision 073 itself concluded the board is never fully visible in the playfield and that CAM-05s minimap does the wide read, so zoom-to-fit is not a zoom anyone plays at and is the wrong reference for legibility. Legibility should be judged at playing zoom, where a sprite is 256 px at zoom 1.0 regardless of board size. Needs an appended decision entry recording the correction rather than an edit, since 073 is owner-taken and append-only. See LF-247 for the shipped defect the same measurement uncovered.",
       "kind": "bug",
       "area": "design",
+      "pri": "med",
+      "status": "open",
+      "why": "",
+      "opened": "2026-08-04",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-249",
+      "title": "At 200 percent interface scale the undocked threat overlay covers the instrument column rightmost 20 px. Cosmetic. The covered strip is the column padding and scrollbar gutter, not text, and it is deliberate and documented at scripts/hud.gd:854-858 -- the alternative placement pushed 12 px of the threat panel own scrollbar off the right edge of the viewport, which is worse because a scrollbar the player cannot reach is a control they cannot use. From LF-247 and decision 085. Filed because the LF-247 commit message claimed it was already filed and it was not; the chronicler caught that while checking the brief against the tree. No action needed unless someone reports it in play.",
+      "kind": "bug",
+      "area": "engine",
       "pri": "med",
       "status": "open",
       "why": "",
