@@ -4006,3 +4006,89 @@ selftest green.
 that at the derived ranges the discipline gap "widens" (−11.9 → −22.2). That is the same raw,
 uncontrolled split applied to the second campaign and it is not evidence of anything until it
 is paired within policy. Nothing has measured it; it is filed rather than quietly dropped.
+
+---
+
+## 088 — An acceptance criterion carries the baseline it is judged against, or it is not a criterion
+
+**2026-08-04.** `LF-255`, `LF-257`, `LF-054`. Third and last of the day's instrument entries,
+after **086** (the grade-quality selector) and **087** (the discipline gap). Supersedes nothing;
+**corrects `docs/issues/BAL-04-regrade-the-campaign.md` and retires one sentence in 086.**
+
+**The defect.** `BAL-04` is the campaign re-grade and the largest remaining balance workstream.
+Its acceptance criteria were written before anything was measured against them. Measured now,
+against the campaign they were written to describe:
+
+| criterion | today |
+|---|---|
+| all 24 anchors grade `ok` | **pass**, 24/24 |
+| ≥ `ROBUST_ENOUGH` = 8 distinct winning builds | **fail on 8 of 24** |
+| ≥1 winning build with more than one weapon id | **fail on 7 of 24**, two of them *impossible* |
+| `capacity_mw` under the saturation bound | **pass**, `0 warning(s)` |
+| `wave density` with rebased per-act figures | **pass** today; the rebase is this workstream's own output |
+| `PRESSURE_FLOOR` fixed or removed | **already done** — decision 067, three sessions earlier |
+| `dialog capacity` | **pass**, 24/24 |
+| no act above 10% of spawn entries at `count: 1` | **fail on all three acts** — 10.1 / 29.4 / 33.8% |
+| `rules parity` identical | **pass** |
+
+**Three of the nine criteria were failed by the baseline, and a fourth was already satisfied.**
+(Nine criteria in eight bullets: one bullet was compound, pairing the robustness floor with the
+mixed-weapon requirement. This paragraph said "four failed and a fifth satisfied" until review
+counted the table — conflating *four problems found* with *four failures*, in an entry whose
+subject is a number nobody checked. It is left visible rather than quietly corrected.) None of
+this is a statement about the content. A workstream held to these would have had to argue its
+way out of them at the end, which is the worst moment to discover a criterion was never met.
+
+**Decision. Every acceptance bullet in `BAL-04` now carries its measured baseline and the
+one-liner that reproduces it, and the bar is "no anchor gets worse" against that baseline
+rather than an absolute invented in advance.** Three specific repairs:
+
+**`ROBUST_ENOUGH = 8` is not a floor and the bullet stops pretending it is.** Decision 044
+caps the *benefit* of extra builds at 8 inside `tools/sweep.py`'s `cell_score()`, over
+`standard_wins + brutal_wins` — a point of diminishing returns for a search. Read as a
+per-anchor floor it fails on anchor-01 (3), 02 (7), 03 (6), 04 (6), 05 (7), 07 (7), 08 (5) and
+23 (7). Decision 086 rejected a candidate metric built on the identical misreading; this is the
+same digit borrowed for a third purpose it was never given. `docs/STATE.md`'s priority list
+reads it a *fourth* way, per anchor **per tier**; under that reading no anchor in the campaign
+clears it on brutal, the best being anchor-14 at 7.
+
+**The mixed-weapon bullet gets the condition it always needed.** "At least one winning build on
+each anchor contains more than one weapon id" is **impossible** on anchor-01 and anchor-02,
+which unlock exactly one weapon. Conditioned on "two or more weapon ids unlocked" the baseline
+is **17 of the 22 anchors where it is achievable** met — 17 of 24 unconditioned, and the two
+denominators are worth keeping apart — and the five achievable misses — anchor-03, 04, 05
+(two weapons unlocked) and anchor-07, 08 (three, while anchor-06 with the same three
+succeeds) — become real Act I
+content findings for the workstream instead of permanent red.
+
+**The composition bullet becomes a regression bound, which is what it always meant.** "No act
+above 10% at `count: 1`" was failed by all three acts on the day it was written. Its intent is
+sound and unchanged — 251 of 252 Act III spawn entries once came out at `count: 1` and every
+wave collapsed to "N shards and one of each" — and intent is preserved exactly by pinning each
+act to its own measured share (10.1 / 29.4 / 33.8%) and forbidding a rise.
+
+**`LF-257`: 086's derived-range discipline figure is retired.** 086 recorded that at decision
+082's derived ranges the discipline gap "inverts again and widens", −11.9 → −22.2. 087 showed
+the shipped version of that statistic is an artefact of which policies overdraw. Paired within
+policy, using the function 087 shipped, the derived-range campaign is **−6.9% / −2.2% /
++2.5%**, helping on 5, 5 and 7 of 18 policies — flat, exactly like the shipped campaign's
++6.0 / +5.2 / −3.7 on 7, 6 and 4 of 18. **There is no range-power interaction in that number.**
+Worth noting how badly the uncontrolled statistic behaves: between the two campaigns it not
+only changes magnitude but *reverses its ordering across the difficulties* (+21.8/+17.6/+15.6
+against +11.9/+16.7/+22.2) while the controlled one stays within seven points of zero in both.
+
+**Rejected: leaving the criteria and noting the gaps in the backlog.** They are the bar a
+fifteen-task workstream is judged by — fourteen before this entry added the grade-quality
+selector task that decisions 086 and 087 completed. A bar nobody can clear, sitting in the
+spec, is worse than no bar — it gets quietly reinterpreted at the end by whoever is tired,
+which is exactly how `ROBUST_ENOUGH` acquired four meanings.
+
+**Rejected: relaxing the composition bullet to a number the acts pass.** ~35% would pass today
+and asserts nothing; the regression form has no free parameter and is strictly stronger against
+the failure it was written for.
+
+**The general lesson, and it is the third instance of it today.** Decision 086: the grade table
+could not see a difficulty dissolve. Decision 087: the discipline gap measured a population, not
+an effect. Here: the acceptance criteria were never checked against the thing they describe.
+Every one was found by pointing the instrument at the campaign and reading what came back —
+none by auditing the instrument. **Run the criterion against the baseline the day you write it.**

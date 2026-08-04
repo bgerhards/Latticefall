@@ -643,11 +643,11 @@
       "kind": "bug",
       "area": "design",
       "pri": "med",
-      "status": "open",
+      "status": "done",
       "why": "",
       "opened": "2026-07-28",
-      "closed": null,
-      "note": ""
+      "closed": "2026-08-04",
+      "note": "Closed as already done by decision 067, three sessions ago -- it was DELETED, not raised or repaired. Verified in the tree: nothing under sim/ or tools/ computes PRESSURE_FLOOR, the only occurrences are a tombstone comment in sim/run.py and two prose references in tools/check.py and the decision log. This item survived as open because BAL-04 task list still carried a fix or retire PRESSURE_FLOOR bullet and its acceptance criteria still carried a matching bar; both are corrected by decision 088. The replacement worth building is named in the tombstone and is not this item: time spent within a band of capacity across a WINNING run, or the margin by which the best build clears -- design work with its own evidence, tracked as LF-131."
     },
     {
       "id": "LF-055",
@@ -3055,11 +3055,11 @@
       "kind": "bug",
       "area": "design",
       "pri": "med",
-      "status": "open",
+      "status": "done",
       "why": "BAL-04 would be graded against a criterion its own baseline fails",
       "opened": "2026-08-04",
-      "closed": null,
-      "note": ""
+      "closed": "2026-08-04",
+      "note": "Decision 088. BAL-04 acceptance criteria rewritten, every bullet now carrying the measured baseline it is judged against and the one-liner that reproduces it. THREE OF THE NINE CRITERIA WERE FAILED BY THE BASELINE and a fourth had been satisfied three sessions earlier (nine criteria in eight bullets -- one was compound, pairing the robustness floor with the mixed-weapon requirement). The three failures: ROBUST_ENOUGH>=8 fails on 8 of 24 anchors -- 01 (3), 02 (7), 03 (6), 04 (6), 05 (7), 07 (7), 08 (5), 23 (7), and THIS ITEM ORIGINALLY NAMED ONLY FIVE OF THEM, written from a partial scan and not re-derived before filing, in an item whose entire point was that a number had not been checked; the mixed-weapon bullet fails on 7 of 24 and is IMPOSSIBLE on anchor-01 and anchor-02 which unlock exactly one weapon; and the composition bullet (no act above 10 pct of spawn entries at count 1) is failed by ALL THREE acts at 10.1 / 29.4 / 33.8 pct. The already-satisfied one is PRESSURE_FLOOR fixed-or-removed, done by decision 067 -- see LF-054. THREE REPAIRS: ROBUST_ENOUGH stops being read as a floor and the bar becomes no anchor gets worse against its own baseline; the mixed-weapon bullet is conditioned on two or more weapon ids unlocked, making the baseline 17 of the 22 anchors where it is ACHIEVABLE (17 of 24 unconditioned -- the denominators are different and both are stated) with five achievable misses (anchor-03/04/05 with two weapons, anchor-07/08 with three while anchor-06 on the same three succeeds) that are now real act 1 content findings rather than permanent red; and the composition bullet becomes a REGRESSION BOUND pinned to each act own measured share, preserving its intent (251 of 252 act 3 spawn entries once came out at count 1) with no free parameter. Also verified: count is a required schema key and all 829 spawn entries carry it explicitly, so the composition baseline is not an artefact of a default. The stale PRESSURE_FLOOR task bullet and the PLC-05 gating bullet are both marked done in the issue, and a grade-quality-selector task was added and marked done (decisions 086/087), taking the task list from fourteen to fifteen."
     },
     {
       "id": "LF-256",
@@ -3079,11 +3079,11 @@
       "kind": "question",
       "area": "design",
       "pri": "med",
-      "status": "open",
+      "status": "done",
       "why": "A number in an append-only decision that nothing has controlled for",
       "opened": "2026-08-04",
-      "closed": null,
-      "note": ""
+      "closed": "2026-08-04",
+      "note": "Decision 088. MEASURED and the claim is retired. Pairing the derived-range campaign within policy, using campaign_discipline() as decision 087 shipped it: -6.9 / -2.2 / +2.5 pct, helping on 5, 5 and 7 of 18 policies -- flat, exactly like the shipped campaign +6.0 / +5.2 / -3.7 on 7, 6 and 4 of 18. THERE IS NO RANGE-POWER INTERACTION in that number, and decision 086 sentence that the gap inverts again and widens (-11.9 -> -22.2) must not be cited. Computed from the already-cached derived-range grade, so it cost one script run as predicted. WORTH KEEPING: the uncontrolled statistic does not merely change magnitude between the two campaigns, it REVERSES ITS ORDERING ACROSS THE DIFFICULTIES (+21.8/+17.6/+15.6 against +11.9/+16.7/+22.2) while the controlled one stays within seven points of zero in both. That is the clearest single demonstration in the tree of why the raw split is not an instrument."
     },
     {
       "id": "LF-258",
