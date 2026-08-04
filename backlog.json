@@ -2239,11 +2239,11 @@
       "kind": "chore",
       "area": "design",
       "pri": "med",
-      "status": "open",
+      "status": "done",
       "why": "",
       "opened": "2026-08-01",
-      "closed": null,
-      "note": ""
+      "closed": "2026-08-04",
+      "note": "Decision 082, PR #152. Range re-derived from measured lane length at 48 squared via tools/range_derive.py: own-lane coverage held fixed, bisected per emplacement. Ladder is non-uniform (1.36x short end, 1.86x long) and includes the three support rows decision 074 left out, because Sim._covered_by() tests their range against unit positions exactly as the firing loop does. Mortar 7.0 -> 13.0 reproduces the prior estimate by a different route. The patch is derived and deliberately NOT applied -- it lands with the first 48-square content. Application is BAL-04's."
     },
     {
       "id": "LF-188",
@@ -2827,11 +2827,11 @@
       "kind": "bug",
       "area": "engine",
       "pri": "med",
-      "status": "open",
+      "status": "done",
       "why": "",
       "opened": "2026-08-03",
-      "closed": null,
-      "note": ""
+      "closed": "2026-08-04",
+      "note": "Fixed in PR #155 as LF-250. AUTOBUILD_LEAD constant plus _autobuild_preference() in scripts/anchor_view.gd: pulse-turret first, rest in unlocked_at() order, reproducing cheap-mass. A policy, not a sort -- unlocked_at()'s ordering is a parity input sim/run.py mirrors. Verified with tools/shot.py anchor-24 --facings: 24 FACE lines all anchor_damper before, all pulse_turret after."
     },
     {
       "id": "LF-237",
@@ -2923,11 +2923,11 @@
       "kind": "bug",
       "area": "engine",
       "pri": "med",
-      "status": "open",
+      "status": "done",
       "why": "",
       "opened": "2026-08-04",
-      "closed": null,
-      "note": ""
+      "closed": "2026-08-04",
+      "note": "PR #153, decision 083. data/schema/fixtures/scheduled-verbs.json plus tools/verb_parity.py and scripts/test/verb_parity.gd, driven as a verbs agree check at tier 3 (2.5 s). Five claims, all proved red first, two of them breaking behaviour rather than an expectation. upgrade is proved geometrically -- a probe 4.0 tiles off a lane at range 3.0 cannot fire, and after the merge admits 8.0 it can. speed is proved a no-op by a stripped-actions control run on every invocation. Tier-4 gate green at the new digest, 1440 runs identical on both platforms."
     },
     {
       "id": "LF-245",
@@ -2959,11 +2959,11 @@
       "kind": "bug",
       "area": "engine",
       "pri": "med",
-      "status": "open",
+      "status": "done",
       "why": "",
       "opened": "2026-08-04",
-      "closed": null,
-      "note": ""
+      "closed": "2026-08-04",
+      "note": "PR #154, decision 085. Ui.PLAYFIELD_MIN_W := COL_W plus threat_docked()/reserved_w()/strip_w(); above the derived width (~137pct) the threat panel undocks to a toggled overlay on lf_threat_toggle. Strip at 200pct goes 4 px -> 508 px and zoom-to-fit 0.05-clamped -> 0.2405 with the whole board framed. New playfield width check, tier 1, 9 ms, proved red four ways. Both minimap alternatives the ticket proposed were built, measured and rejected -- the in-column one pushes the nine-button build bar below the fold."
     },
     {
       "id": "LF-248",
@@ -2971,11 +2971,11 @@
       "kind": "bug",
       "area": "design",
       "pri": "med",
-      "status": "open",
+      "status": "done",
       "why": "",
       "opened": "2026-08-04",
-      "closed": null,
-      "note": ""
+      "closed": "2026-08-04",
+      "note": "Decision 084, PR #154. Recorded as an appended correction rather than an edit, since 073 is owner-taken and append-only. The row is STRUCK rather than recomputed: corrected against the real strip, sprite-on-screen at 100pct UI is 32sq 59 px, 48sq 39 px, 64sq 29 px, so every candidate falls inside or below the band 64 squared was rejected for and the row selects nothing. Board size stays 48 squared on the reasons that do not depend on it."
     },
     {
       "id": "LF-249",
@@ -2995,11 +2995,11 @@
       "kind": "bug",
       "area": "engine",
       "pri": "med",
-      "status": "open",
+      "status": "done",
       "why": "",
       "opened": "2026-08-04",
-      "closed": null,
-      "note": ""
+      "closed": "2026-08-04",
+      "note": "PR #155. See LF-236. The fix also produced LF-251: game renders reported coverage 0.95, 114 tones before AND after, across a board that went from twelve dampers to twelve turrets."
     },
     {
       "id": "LF-251",
