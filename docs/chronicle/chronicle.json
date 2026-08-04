@@ -6434,6 +6434,131 @@
           "text": "**A verification layer is not a thing you build once. It is a thing that acquires holes exactly as fast as the code under it changes, and the only defence is noticing when your own fix removed something.**"
         }
       ]
+    },
+    {
+      "id": "the-sound-kept-counting",
+      "date": "2026-08-03",
+      "time": "23:05",
+      "title": "The dialog stopped counting. The sound kept counting.",
+      "summary": "LF-232, and it is the other half of the previous entry. Entry 57 fixed the ward dialog triggers and rewrote three lines so that no cue quotes a count. The audio cue was still counting: _on_built() played ward_engage_%d clamped to 1..6, so the sound effect stopped counting at exactly the number just deleted from the text. anchor-01 authors 8 emplacement slots and anchor-24 authors 12, so both shipped anchors carrying ward cues hit it — builds 7 through 12 all replayed the top note of a six-note phrase written so the sixth is unmistakably the last one. The fix is proportional rather than counted, reusing the existing six-rung bank with no new audio, and it was proved on a 78-emplacement generated board by reading the cue index out of the running game rather than predicting it.",
+      "tags": [
+        "AUD",
+        "PLC"
+      ],
+      "decisions": [],
+      "body": [
+        {
+          "type": "p",
+          "text": "The previous entry — **The instruments were standing where the player never stands**, `where-the-player-never-stands`, merged as **#145** — fixed a ward dialog cue that could never fire, and rewrote three lines of Control's dialog so that **no cue quotes a count**. This is `LF-232`, and it is the other half of that fix. The *audio* cue was still counting."
+        },
+        {
+          "type": "h3",
+          "text": "The cue stopped counting at exactly the number the text stopped quoting"
+        },
+        {
+          "type": "p",
+          "text": "`_on_built()` played `ward_engage_%d` with `clampi(n, 1, 6)` — one sound per emplacement, six sounds in the bank. **anchor-01 authors 8 slots and anchor-24 authors 12**, so both shipped anchors that carry ward cues run off the end of it. Read out of `export_state()` on each build, anchor-24 before the fix:"
+        },
+        {
+          "type": "pre",
+          "text": "n= 1..5 -> ward_engage_1..5\nn= 6/12 -> ward_engage_6\nn= 7/12 -> ward_engage_6      <- bug\nn= 8/12 -> ward_engage_6\nn= 9/12 -> ward_engage_6\nn=10/12 -> ward_engage_6\nn=11/12 -> ward_engage_6\nn=12/12 -> ward_engage_6",
+          "caption": "The count stopped counting at six, which is the number `LF-228` had just removed from the dialog text one entry ago. The text stopped saying it and the sound carried on saying it."
+        },
+        {
+          "type": "h3",
+          "text": "The fix, and the one line that matters"
+        },
+        {
+          "type": "p",
+          "text": "**Proportional, not counted**, reusing the existing `ward_engage_1..6` bank. **No new audio was authored.**"
+        },
+        {
+          "type": "quote",
+          "text": "rung 6 the instant the board is full, otherwise rungs 1..5 spread evenly over the builds before it — `1 + (n - 1) * 5 / (total - 1)`, integer division.",
+          "attribution": "scripts/anchor_view.gd, ward_cue_step()"
+        },
+        {
+          "type": "table",
+          "headers": [
+            "board",
+            "sequence, n = 1..cap"
+          ],
+          "rows": [
+            [
+              "anchor-01, 8 slots",
+              "`1 1 2 3 3 4 5 6`"
+            ],
+            [
+              "anchor-24, 12 slots",
+              "`1 1 1 2 2 3 3 4 4 5 5 6`"
+            ],
+            [
+              "cap 78 (an `LF-080` 48x48 generated board)",
+              "rung 1 on 16 builds, 2 on 15, 3 on 16, 4 on 15, 5 on 15, and **6 exactly once**, at n = 78"
+            ]
+          ]
+        },
+        {
+          "type": "p",
+          "text": "**Why the full-board case is a separate branch rather than a plain `n * 6 / total`.** The bank's `WARD_STEPS` is a rising major pentatonic G3 to E4 at +0.30 dB per rung, with everything except pitch held identical across all six, authored “so the sixth is unmistakably the last one”. The split keeps rung 6 reachable **only** at `n == total`, so the top note lands on the last build and lands once — the same build the `wards-full` dialog line fires on. Both endpoints are pinned deliberately, because the endpoints are where the old bug lived: `n = 1` is always rung 1, and `total <= 1` is rung 6, because a one-emplacement board is full on its only build."
+        },
+        {
+          "type": "p",
+          "text": "And a detail worth recording on its own: **on a six-emplacement board the sequence is 1, 2, 3, 4, 5, 6** — rung for rung identical to the counted cue it replaces. That was the bank's design case, and the proportional mapping reproduces it exactly rather than approximating it."
+        },
+        {
+          "type": "p",
+          "text": "The denominator is `wards_total()`, which is `sim.effective_cap()` — **called, not reimplemented**, the same number entry 57 established as the one the rules and the parity harness already agree on. `anchor_sim.gd` is untouched by this change."
+        },
+        {
+          "type": "h3",
+          "text": "How it was proved, which is the methodological bit"
+        },
+        {
+          "type": "p",
+          "text": "The 78-emplacement row was **measured, not predicted**. `ward_cue_step()` is static and pure, so a temporary `export_state()` field emitted the whole n = 1..78 table from the *running game*, and a scenario assertion printed it. Under the old code the same field read `1,2,3,4,5,6,6,6,…,6` — **73 consecutive top notes** on a board the generator will happily produce. Both the temporary field and the temporary old-mapping line were removed afterwards; a grep for the marker they carried returns nothing, and the shipping diff is only the change itself."
+        },
+        {
+          "type": "p",
+          "text": "One permanent addition survives from that scaffolding: **`view.wards.cue` in `export_state()`** — derived, not stored, so it cannot drift from what was played."
+        },
+        {
+          "type": "h3",
+          "text": "The reason both halves were silent, and it is the same reason"
+        },
+        {
+          "type": "p",
+          "text": "`LF-228` and `LF-232` hid for the same structural cause: **the cue index was visible nowhere outside `_on_built()`.** Filed as `LF-235` — `AudioDirector.sfx()` has no cue log, so **no scenario can assert what the game actually played.** Every audio assertion in this project is really an assertion about the *caller's arithmetic*."
+        },
+        {
+          "type": "p",
+          "text": "A bounded ring buffer of recent cue names would make “the brownout duck fired”, “the deny tone played and not the build tone” and “rung 6 played exactly once” assertable. **None of those can be checked today.** `LF-174` already lists `audio_director.gd` among the zero-coverage scripts; this is the concrete mechanism behind that entry on the list."
+        },
+        {
+          "type": "h3",
+          "text": "The gate, and what this entry does not have"
+        },
+        {
+          "type": "p",
+          "text": "A **tier 4** run finished before this was written: **39 passed · 0 failed · 2 skipped**, out of **41 checks**. The two skips are `rules parity` and `rules parity (windows)`, held back by the content-hash cache at digest `78921592b4c5` because no rule or data file changed in this branch. **That is cached, not run** — it is not a pass, and it is stated that way here for the same reason the gate's own tally line names every check that did not run."
+        },
+        {
+          "type": "p",
+          "text": "The work sits on `lf/aud-proportional-ward-cue` and is uncommitted as this is written, so there are **no commit hashes** here. There is also **no screenshot**, and for once that is not an omission: this entry is about a sound. A frame of the board at n = 7 looks exactly like a frame of the board at n = 7 looked yesterday, and the bug was never anywhere a camera could reach."
+        },
+        {
+          "type": "h3",
+          "text": "Eight entries in one day, and this is the smallest"
+        },
+        {
+          "type": "p",
+          "text": "One expression, one bank reused, no new sound. But it finishes something. Entry 57 fixed a cue the player could never hear and rewrote the lines that would have said the wrong number; this one stops the *sound* saying it."
+        },
+        {
+          "type": "p",
+          "text": "**A fix that lands half of a thing is a fix that leaves the other half looking correct.** The dialog stopped counting and the audio kept counting, and the two halves sat one entry apart in the same file. Only writing them down together made the mismatch obvious."
+        }
+      ]
     }
   ]
 }
