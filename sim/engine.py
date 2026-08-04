@@ -1794,6 +1794,56 @@ def _overcharge_schedule() -> list[tuple[float, str, dict]]:
     return sched
 
 
+## The `upgrade-ladder` policy's shape (LF-245). Named rather than inlined because
+## scripts/test/parity.gd mirrors all four and a bare literal in two files is the drift
+## this project keeps paying for.
+##
+## WHY EACH NUMBER IS THIS NUMBER, since decision 067 deleted a constant for having no
+## argument behind it:
+##  - FIRST_S = 40. The cheapest upgrade in data/towers.json is the scan relay at 70 and
+##    the pulse turret at 90; a policy that schedules an upgrade before the first wave has
+##    paid out is scheduling a no-op. 40 s is after wave 1's payout on every anchor and
+##    before wave 2 on all but the tightest.
+##  - GAP_S = 40, PASSES = 12. Together they cover t = 40..480. Measured, a full run is
+##    ~410-460 sim seconds (anchor-13 `cheap-mass`: 412 standard, 456 brutal), so twelve
+##    passes span the whole fight rather than its opening. This is the one place this
+##    policy departs from LF-245's prototype, which used three passes ending at t = 84 —
+##    the first fifth of the run — and the departure is deliberate: an upgrade the board
+##    could not afford at 84 s is exactly the one kills are supposed to pay for later.
+##  - MAX_INDEX = 14. The largest board the campaign authors is 13 (`max_emplacements`,
+##    and 12 authored slots), so 14 covers every anchor with one to spare. Walking off
+##    the end is free and deliberate: `Sim.upgrade()` returns False on an out-of-range
+##    index via `upgrade_cost()`, so the schedule needs no per-anchor knowledge and stays
+##    a constant, which is what lets parity.gd mirror it as a constant too.
+UPGRADE_LADDER_FIRST_S = 40.0
+UPGRADE_LADDER_GAP_S = 40.0
+UPGRADE_LADDER_PASSES = 12
+UPGRADE_LADDER_MAX_INDEX = 14
+
+
+def _upgrade_ladder_schedule() -> list[tuple[float, str, dict]]:
+    """The `upgrade-ladder` policy's schedule (LF-245). Mirrored 1:1 in
+    scripts/test/parity.gd's `_upgrade_ladder_schedule()`.
+
+    Twelve passes, each walking `upgrade` over every index a board can hold, in index
+    order. A pass is one sweep of "upgrade everything I can currently afford, left to
+    right"; the repeats are what make an upgrade the board could not afford at 40 s
+    happen at 200 s once kills have paid for it. Every entry in a pass shares one
+    timestamp on purpose — dispatch honours authored order at equal times (see
+    `Policy.__init__`'s total (time, index) sort and `_overcharge_schedule`'s
+    same-timestamp proof), so "left to right" is a property of the rules and not of
+    Python's sort happening to be stable.
+
+    Deliberately not reactive. It does not look at what is built, what it costs, or what
+    is already upgraded — decision 065 admits a deterministic schedule and still rejects
+    reactive agents, and an upgrade on an absent, unaffordable or already-upgraded index
+    is already a no-op in `Sim.upgrade()`.
+    """
+    return [(UPGRADE_LADDER_FIRST_S + p * UPGRADE_LADDER_GAP_S, "upgrade", {"index": i})
+            for p in range(UPGRADE_LADDER_PASSES)
+            for i in range(UPGRADE_LADDER_MAX_INDEX)]
+
+
 def standard_policies(tower_ids: list[str], tuning: Tuning | None = None) -> list[Policy]:
     """A small, fixed set of distinct playstyles. Deterministic and ordered.
 
@@ -1940,5 +1990,23 @@ def standard_policies(tower_ids: list[str], tuning: Tuning | None = None) -> lis
         # mid-run button press (see Policy.__init__'s own comment).
         Policy("veteran-crews", rest(has("pulse-turret") + has("ion-lance")),
                veterancy=True),
+
+        # "upgrade-ladder" (LF-245): the first policy in the set that ever spends money
+        # on an upgrade. Measured before it existed, 55-62% of every fund the player
+        # earns across the campaign is never spent (act 1 58%, act 2 55%, act 3 62%;
+        # anchor-24 ends holding 4358) — and that is NOT evidence of a dead economy,
+        # because costing the upgrade of every emplacement on the built board absorbs
+        # most of it, leaving 22/16/28% unspent by act and taking anchor-10 and
+        # anchor-11 NEGATIVE. The surplus was an artefact of the grader's repertoire,
+        # not of the content: `Sim._dispatch_one()` has accepted `upgrade` since BAL-01
+        # and no policy had ever scheduled it (LF-244 found the same hole for five more
+        # verbs).
+        #
+        # Its preference is BYTE-IDENTICAL to "cheap-mass" above, deliberately, and that
+        # is the whole design: every difference between the two rows is attributable to
+        # upgrading and to nothing else. Same controlled shape the capped-core policies
+        # use, and the reason a win here is evidence rather than a coincidence.
+        Policy("upgrade-ladder", rest(has("pulse-turret")),
+               schedule=_upgrade_ladder_schedule()),
     ]
     return out

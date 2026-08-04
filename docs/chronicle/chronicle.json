@@ -8555,6 +8555,289 @@
           "text": "Decision 086: the grade table could not see a difficulty dissolve. Decision 087: the discipline gap measured a population, not an effect. Decision 088: the acceptance criteria were never checked against the thing they describe. Three instruments, three defects, one day — and every one of them surfaced by running the instrument over the real campaign and reading the output, not by reading the instrument's code. A bar nobody can clear, sitting in a spec, is worse than no bar: it gets quietly reinterpreted at the end by whoever is tired, which is precisely how one digit acquired four meanings."
         }
       ]
+    },
+    {
+      "id": "depth-is-bought-with-width",
+      "date": "2026-08-04",
+      "time": "17:20",
+      "title": "Fourth and last of the day — the grader had never once bought an upgrade, and when it learned to, upgrading turned out to be a beginner strategy that dies before the top difficulty",
+      "summary": "`LF-245` and decision 089. The three entries before this one changed how the campaign is **judged**; this one changes what the grader can **do**, and it immediately finds something about the game. Across the shipped campaign **55–62% of every fund the player earns is never spent** — and that is not a dead economy, because costing the upgrade of every emplacement on the built board absorbs most of it and takes two anchors negative. The surplus was an artefact of the grader's repertoire: `Sim._dispatch_one()` has accepted `upgrade` since BAL-01 and no policy had ever scheduled one. `upgrade-ladder` is the 21st policy, a byte-identical clone of `cheap-mass` that also upgrades. It wins **11 of 24** anchors on standard against `cheap-mass`'s 9, **5 against 9** on hard, and **zero against 5** on brutal — a net negative campaign-wide that still opens nine cells nothing else can reach.",
+      "tags": [
+        "BAL"
+      ],
+      "decisions": [
+        "089"
+      ],
+      "commits": [
+        {
+          "hash": "5cdf881",
+          "subject": "feat(balance): the grader learns to upgrade, and upgrading turns out to be a standard-difficulty strategy"
+        }
+      ],
+      "body": [
+        {
+          "type": "p",
+          "text": "Three entries today were about the instrument: `the-bound-was-not-there` (decision 086) found that the grade table could not see a difficulty dissolve, `the-policies-that-overdraw-are-the-strong-ones` (decision 087) found that the discipline gap measured a population rather than an effect, and `the-criteria-were-never-measured` (decision 088) found that the largest balance workstream's acceptance bar had never been run against the campaign it describes. All three are linked at the foot of this page. Every one of them changed how the campaign is **judged** and changed nothing about what the grader can **do**. This one is the other kind, and it is the payoff: it gives the grader a verb it never had, and the first thing that comes back is a statement about the design. One correction owed up front, and it is not a correction to anything — the previous entry is titled \"third and last of the day\" and this is the fourth. It was the last of the three that measured the instrument; it was not the last of the day. The journal is append-only, so that title stands and this sentence is the record."
+        },
+        {
+          "type": "h3",
+          "text": "The money nobody spent"
+        },
+        {
+          "type": "p",
+          "text": "Graded across the shipped campaign, **55–62% of every fund the player earns is never spent**. Read on its own that looks like a dead economy — money with nothing to buy. It is not. Cost the upgrade of every emplacement standing on the board at the end of each run, subtract it from what is left over, and most of the surplus disappears; on two anchors it goes past zero."
+        },
+        {
+          "type": "table",
+          "headers": [
+            "",
+            "act 1",
+            "act 2",
+            "act 3"
+          ],
+          "rows": [
+            [
+              "unspent at the end of the run",
+              "58%",
+              "55%",
+              "62%"
+            ],
+            [
+              "still unspent after costing every upgrade",
+              "**22%**",
+              "**16%**",
+              "**28%**"
+            ]
+          ]
+        },
+        {
+          "type": "p",
+          "text": "anchor-24 finishes holding **4,358**. anchor-10 and anchor-11 go **negative** on the second row — the board they build cannot afford to upgrade itself. So the money is not idle because there is nothing to buy; it is idle because nothing in the harness was buying."
+        },
+        {
+          "type": "p",
+          "text": "Those figures were re-derived independently for this entry rather than copied out of the commit, and the re-derivation is worth recording because it pins down a method the commit does not state. They are **standard difficulty only**, averaged over the twenty policies that existed before this change: on that basis anchor-24's mean closing balance is **4,358** to the unit. The per-act shares reproduce to within a point or two depending on whether the share is pooled across runs (60.2 / 55.3 / 62.5) or averaged per run (57.7 / 53.9 / 62.6), and the same ambiguity accounts for the second row (24.9 / 15.9 / 29.7 pooled, 20.1 / 13.2 / 29.9 per run) against the published 22 / 16 / 28. The band **55–62%** holds under both readings, and anchor-10 and anchor-11 are the only two anchors in the campaign that go negative under either."
+        },
+        {
+          "type": "h3",
+          "text": "The hole was the repertoire, not the content"
+        },
+        {
+          "type": "p",
+          "text": "`Sim._dispatch_one()` has accepted an `upgrade` verb since BAL-01. No policy in `standard_policies()` had ever scheduled one. Every grade this project has taken, every sweep, every acceptance figure quoted in the three entries above, was taken by a grader that could not press the upgrade button — so the unspent money was a property of the instrument that measured it and not of the game it was pointed at."
+        },
+        {
+          "type": "p",
+          "text": "That is the same shape `LF-244` found earlier this month, recorded in `never-pressed-the-sell-button` and closed by a fixture: `data/schema/fixtures/scheduled-verbs.json` names `target_mode`, `sell`, `upgrade`, `set_online`, `build` and the shutter ability as six verbs no policy ever schedules, so every one of that day's 1,440 parity runs exercised the absent branch for all six. `upgrade` was one of those six. This change is the first of them to be scheduled by a real policy rather than probed by a fixture."
+        },
+        {
+          "type": "h3",
+          "text": "The 21st policy, and why it is a clone"
+        },
+        {
+          "type": "p",
+          "text": "`upgrade-ladder` joins `standard_policies()` as policy 21: **twelve passes at t = 40 + 40p, each walking `upgrade` over indices 0–13 in order**. Its preference list is **byte-identical to `cheap-mass`** — `rest(has(\"pulse-turret\"))`, the same expression, deliberately — so every difference between the two rows in the grade table is attributable to upgrading and to nothing else. It is mirrored 1:1 in `scripts/test/parity.gd`, which is what makes it a rules change and not a tooling one."
+        },
+        {
+          "type": "pre",
+          "text": "UPGRADE_LADDER_FIRST_S  = 40.0    # after wave 1 has paid out; cheapest upgrade is 70\nUPGRADE_LADDER_GAP_S    = 40.0\nUPGRADE_LADDER_PASSES   = 12      # t = 40..480, against a measured 410-460 s full run\nUPGRADE_LADDER_MAX_INDEX = 14     # one past max_emplacements 13, the largest board authored",
+          "caption": "Every constant is derived rather than picked, which is what decision 067 asks for. Walking off the end of the board is free and deliberate — an upgrade on an absent, unaffordable or already-upgraded index is a no-op — so the schedule needs no per-anchor knowledge and stays a constant `parity.gd` can mirror as a constant."
+        },
+        {
+          "type": "p",
+          "text": "It **departs from `LF-245`'s prototype**, which used three passes ending at t = 84 — the first fifth of a run measured at 410–460 sim seconds. An upgrade the board could not afford at 84 s is exactly the one kills are meant to pay for later, so a schedule that stops there measures the opening and calls it the fight."
+        },
+        {
+          "type": "h3",
+          "text": "The answer came back the wrong way round"
+        },
+        {
+          "type": "table",
+          "headers": [
+            "",
+            "`cheap-mass`",
+            "`upgrade-ladder`"
+          ],
+          "rows": [
+            [
+              "standard",
+              "9/24 anchors won",
+              "**11/24**"
+            ],
+            [
+              "hard",
+              "9/24",
+              "**5/24**"
+            ],
+            [
+              "brutal",
+              "5/24",
+              "**0/24**"
+            ],
+            [
+              "all cells",
+              "23/72",
+              "**16/72**"
+            ],
+            [
+              "mean spend",
+              "1,047",
+              "**1,871** (+79%)"
+            ],
+            [
+              "mean emplacements",
+              "10.54",
+              "10.38"
+            ]
+          ]
+        },
+        {
+          "type": "p",
+          "text": "**Upgrading is a net negative campaign-wide, and it is still worth having.** It wins seven fewer cells than the policy it is a clone of. It also opens **nine cells `cheap-mass` cannot reach at all**, and it adds a distinct winning build to **10 of 72** anchor-by-difficulty cells — reproducing `LF-245`'s headline count from a completely different schedule. **No cell lost a winning build**, which is structurally guaranteed by adding rather than replacing a policy but worth confirming anyway, and the campaign holds at **24/24 `ok`**."
+        },
+        {
+          "type": "p",
+          "text": "The entire table above was re-derived for this entry from a fresh `sim/run.py --jobs 8 --json --detail` over all 24 anchors, and every figure in it reproduces to the digit — 9/9/5 against 11/5/0, 23 and 16 of 72, mean spend 1046.7 and 1871.2, mean emplacements 10.54 and 10.38, nine cells opened, ten winning builds added, zero lost, 24 of 24 `ok`."
+        },
+        {
+          "type": "h3",
+          "text": "Depth is bought with width — and that is the mechanism of the losses, not of the wins"
+        },
+        {
+          "type": "p",
+          "text": "One row shows it. anchor-04 on standard, the two policies with identical preferences:"
+        },
+        {
+          "type": "table",
+          "headers": [
+            "anchor-04, standard",
+            "board",
+            "spend",
+            "result"
+          ],
+          "rows": [
+            [
+              "`cheap-mass`",
+              "seven pulse turrets, one scan relay",
+              "780",
+              "**wins**"
+            ],
+            [
+              "`upgrade-ladder`",
+              "six pulse turrets, two scan relays",
+              "1,440",
+              "**loses**"
+            ]
+          ]
+        },
+        {
+          "type": "p",
+          "text": "Upgrade depth is bought with board width. And the harder the tier, the more it wants width: brutal multiplies enemy hit points by **1.55** while cutting bounty to **0.80**, so the tier that most needs more guns is the tier where you can least afford to make the existing ones better. Hence 0 of 24 on brutal."
+        },
+        {
+          "type": "p",
+          "text": "One thing worth adding that the commit does not say, found while checking it: **width explains where the ladder loses, and explains nothing about where it wins.** In all nine cells `cheap-mass` cannot reach, the ladder builds exactly as many emplacements as `cheap-mass` does — eleven against eleven on anchor-14 (standard and hard) and anchor-15, twelve against twelve on anchor-17, 18, 19, 20, 22 and 24. The boards are the same size and the upgrades are free of any width cost there, which is precisely why upgrading pays. So the trade is real but it is one-sided: on the boards where a smaller board is affordable, upgrading is a gain; on the boards where it costs an emplacement, it is a loss."
+        },
+        {
+          "type": "p",
+          "text": "The counter-example is anchor-01, and it needs stating more carefully than the commit states it. There, the ladder wins on a **four**-emplacement upgraded board where `cheap-mass` needs five — depth substituting for width, on the one anchor small enough for it. But `cheap-mass` **also wins** anchor-01 on hard, with its five turrets and a spend of 500 against the ladder's 760, so nothing is beaten there; the four-emplacement board simply is a winning build that nothing else in the policy set had found. That is why anchor-01 hard is the tenth cell in the \"adds a winning build\" count while being absent from the nine-cells-opened list. The same 5 → 4 narrowing holds on standard, where it added nothing because another policy had already found that board; on brutal the four-emplacement board loses."
+        },
+        {
+          "type": "h3",
+          "text": "Two things I got wrong on the way here, both caught by measuring"
+        },
+        {
+          "type": "p",
+          "text": "**The draw hypothesis, and it is measurably wrong.** The first explanation for the collapse on brutal was the obvious one: an upgrade raises an emplacement's draw, power is the scarce resource, so upgrading must be starving the bus. Measured against `data/towers.json`, the pulse turret goes 12 → 18 MW on upgrade and 9 → 14 damage, so damage **per megawatt improves**, 0.75 → 0.78. Where it loses is money: 190 buys one upgraded turret for 14 damage, while 200 buys two plain ones for 18. Money is the abundant resource here and power the scarce one, so on that arithmetic upgrading should be attractive and it is not — which points at build **sequencing** rather than a draw penalty. `LF-259` now carries that as a hypothesis and says in as many words that it is not a measurement."
+        },
+        {
+          "type": "p",
+          "text": "**A phantom hole, nearly filed.** A policy is authored in two places that must move together — `standard_policies()` in `sim/engine.py` and `_policies()` in `scripts/test/parity.gd` — and it looked like a divergence between them would pass parity in silence, which would have been a serious finding in a project whose whole rules-safety argument rests on that comparison. It is not true. `_two_way_diffs()` reports \"present in python, absent from godot\" and `_three_way_diffs()` reports \"present in (sides) only\", so a missing or extra policy fails and is **named**. The only cost is wall clock: you learn it after 1,512 simulations and about fifteen minutes per platform leg, where a name comparison would answer in milliseconds. Filed as `LF-260`, a tooling item, not a correctness one."
+        },
+        {
+          "type": "h3",
+          "text": "The reported set moved, which is the argument for reporting it"
+        },
+        {
+          "type": "p",
+          "text": "Decision 086 asserts that win share falls strictly from `standard` to `brutal` on the top tier only, and **reports** rather than asserts the middle tier, because a check that is red on arrival gets disabled instead of fixed. Adding one policy moved the reported list:"
+        },
+        {
+          "type": "table",
+          "headers": [
+            "anchor",
+            "`standard`",
+            "`hard`",
+            "before this change"
+          ],
+          "rows": [
+            [
+              "anchor-04",
+              "4/14",
+              "4/14",
+              "not reported"
+            ],
+            [
+              "anchor-08",
+              "3/15",
+              "3/14",
+              "reported"
+            ],
+            [
+              "anchor-15",
+              "7/13",
+              "6/13",
+              "reported — **fixed** by the new policy"
+            ]
+          ]
+        },
+        {
+          "type": "p",
+          "text": "So `hard` no longer fails to bite on anchor-08 and anchor-15; it fails to bite on anchor-04 and anchor-08. One anchor was repaired by giving the grader a strategy, and one newly appeared for the same reason. **The reported set moves with the grader's repertoire and not only with the content** — which is the strongest argument yet for leaving it reported until the policy set settles, rather than promoting it to an assertion. Campaign win share moved to **42.4 / 30.6 / 24.0%** from 40.6 / 30.0 / 24.2, still falling strictly; both figures were re-derived here as 142/335, 102/333 and 80/334."
+        },
+        {
+          "type": "h3",
+          "text": "A run count in prose that had been wrong for some time"
+        },
+        {
+          "type": "p",
+          "text": "`tools/test_parity.py`'s docstring described the suite as \"1152 simulations (24 anchors x 16 policies x 3 difficulties)\". The policy set had been **20** for some time, making the real figure 1,440, and this change takes it to **1,512** — 24 × 21 × 3. The docstring now states the product rather than a literal and no run count survives anywhere in that file's prose. It is a small thing and it is the same failure the tier table in `CLAUDE.md` has had twice: a number written into prose rots within a day, and the only durable fix is to write the expression that produces it."
+        },
+        {
+          "type": "h3",
+          "text": "What was verified"
+        },
+        {
+          "type": "p",
+          "text": "**Parity: 1,512 runs identical on both platforms.** The Windows leg — the build the owner actually plays, and the reason decision 078 exists — ran fresh inside the gate at **936,361 ms** and came back identical. The Linux leg is worth describing precisely rather than summarising, because the gate tally does not read the way the claim does: the fresh 1,512-run Linux comparison was recorded at 21:26:46 UTC against digest `0b1a41338aef` with the change present in the working tree, and the gate run that follows it therefore reports `rules parity` as a **cached skip** — that skip is the \"1 skipped\" in the tally below. So both legs were freshly verified; only one of them was freshly verified **inside** the run whose numbers are quoted."
+        },
+        {
+          "type": "pre",
+          "text": "[ skip ] rules parity            626ms  parity cached — skipping 1512 runs (digest 0b1a41338aef, ...)\n[  ok  ] rules parity (windows) 936361ms  1512 runs identical (gdscript vs python) [windows]\n\ntier 4 — 44 passed · 0 failed · 1 skipped · 1368446ms",
+          "caption": "The gate at tier 4, from `docs/STATE.md`. A cached skip is never a pass and the tally names it, which is exactly why the distinction above can be made at all."
+        },
+        {
+          "type": "p",
+          "text": "Independently for this entry: a fresh full grade (24 anchors, 21 policies, 3 difficulties, `--jobs 8`) reproduces the headline table to the digit, the nine opened cells by name, the ten added winning builds by name, zero lost, 24/24 `ok`, the campaign win share to one decimal, the three anchors in the reported table, and the anchor-04 and anchor-01 build rows. The unspent-funds figures were re-derived from a separate run reading each simulation's closing balance, with the method caveat recorded above. `data/towers.json` confirms the upgrade arithmetic and the 70-credit cheapest upgrade; `data/anchors/anchor-11.json` confirms `max_emplacements` 13; `sim/engine.py`'s `DIFFICULTIES` confirms 1.55 / 0.80 on brutal and 1.35 / 0.90 on hard. `docs/STATE.md`'s grade table and both reported tables were regenerated in the commit."
+        },
+        {
+          "type": "p",
+          "text": "**No screenshot.** There is no visual surface to any of this — it is a policy added to a headless grader, and the tables are the whole of what there is to look at. The one image that would have helped does not exist and was never captured: nobody has ever seen the ladder's four-turret anchor-01 board in the running game, because the grader has no renderer and the game has no autoplay that upgrades."
+        },
+        {
+          "type": "h3",
+          "text": "The lesson, and it is the day's fourth variation on one theme"
+        },
+        {
+          "type": "quote",
+          "text": "A gate that runs the whole game proves nothing about a branch the shipped data never enters.",
+          "attribution": "`CLAUDE.md`, on decision 078's firing-arc check"
+        },
+        {
+          "type": "p",
+          "text": "That line was written about a rule no shipped tower row exercised. It turns out to have a sibling one level up: **a grader that runs every policy proves nothing about a verb no policy schedules.** Three entries today found instruments that measured the wrong thing; this one found an instrument that could not reach part of the game at all, and the moment it could, it said something nobody had predicted — that upgrading is a strategy for the difficulty the player starts on, and stops working by the one they finish on. Whether that is the intended shape of the economy is a design question, and it is deliberately left open."
+        }
+      ]
     }
   ]
 }
