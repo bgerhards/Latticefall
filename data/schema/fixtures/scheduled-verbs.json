@@ -1,0 +1,154 @@
+{
+  "description": "LF-244's scheduled-verb probe. Not validated by tools/validate/validate_data.py -- it lives under data/schema/, which discover_documents() excludes, the same way the schema files, the TER-02/TER-08 terrain fixtures and PLC-03's firing-arc fixture are excluded. Sim._dispatch_one() accepts eight verbs; across all 20 distinct policies standard_policies() ever returns, only `call_wave` and `ability` (surge and overcharge) are ever scheduled. So every one of the 1,440 rules-parity runs executes the ABSENT branch for target_mode, sell, upgrade, set_online, build and the shutter ability, and says nothing at all about the present one -- the same hole PLC-03's firing-arc fixture exists to plug, for a much larger set of verbs. tools/verb_parity.py drives sim/engine.py over this document; scripts/test/verb_parity.gd drives scripts/anchor_sim.gd over the identical document; the two are diffed tick for tick and each is checked against arithmetic derived from the numbers below rather than read off either engine.",
+
+  "difficulty": "standard",
+  "ticks": 320,
+
+  "anchor": {
+    "id": "verb-probe",
+    "act": 1,
+    "title": "Scheduled-verb probe",
+    "capacity_mw": 400.0,
+    "starting_funds": 2000,
+    "lives": 100,
+    "max_emplacements": 8,
+    "grid": { "w": 20, "h": 9 },
+    "paths": [
+      { "id": "main", "waypoints": [[0, 4], [19, 4]] }
+    ],
+    "slots": [],
+    "waves": []
+  },
+
+  "towers": [
+    {
+      "id": "verb-probe-gun",
+      "name": "Probe Gun",
+      "cost": 100,
+      "draw_mw": 10.0,
+      "damage": 1.0,
+      "range": 6.0,
+      "fire_interval": 0.2,
+      "targets": ["ground"],
+      "note": "The control. No upgrade block, never sold, never taken offline -- it fires from tick 0 to the last tick and its only job is to be the row whose behaviour changes when `target_mode` switches under it."
+    },
+    {
+      "id": "verb-probe-reach",
+      "name": "Probe Reach",
+      "cost": 200,
+      "draw_mw": 20.0,
+      "damage": 1.0,
+      "range": 3.0,
+      "fire_interval": 0.2,
+      "targets": ["ground"],
+      "upgrade": { "cost": 150, "range": 8.0 },
+      "note": "The upgrade probe, and the reason its range numbers are what they are. It is built at (10, 0), a 4.0-tile standoff from a lane running along y=4 -- STRUCTURALLY unable to fire at range 3.0, no matter where any unit stands. After `upgrade` merges range 8.0 it reaches sqrt(8^2 - 4^2) = 6.9282 tiles of lane either side of x=10. So `upgrade` is proved by an emplacement going from cannot-possibly-fire to firing inside a window computed from the geometry, not by reading a stat back out of an engine that might be wrong in both."
+    },
+    {
+      "id": "verb-probe-toggle",
+      "name": "Probe Toggle",
+      "cost": 300,
+      "draw_mw": 30.0,
+      "damage": 1.0,
+      "range": 6.0,
+      "fire_interval": 0.2,
+      "targets": ["ground"],
+      "note": "Taken offline and back on. Its draw is deliberately unlike every other row's so the bus-load drop while it is off identifies THIS emplacement and could not be produced by any other combination of rows going quiet."
+    },
+    {
+      "id": "verb-probe-late",
+      "name": "Probe Late",
+      "cost": 400,
+      "draw_mw": 40.0,
+      "damage": 1.0,
+      "range": 6.0,
+      "fire_interval": 0.2,
+      "targets": ["ground"],
+      "note": "Built mid-run by the `build` verb and sold by the `sell` verb. Its cost is chosen so the refund -- floor(400 * SELL_REFUND) -- is an exact integer with no rounding ambiguity between the two runtimes: 400 * 0.6 = 240.0 exactly in IEEE-754."
+    }
+  ],
+
+  "enemies": [
+    {
+      "id": "verb-probe-walker",
+      "name": "Probe Walker",
+      "faction": "swarm",
+      "hp": 1000000.0,
+      "speed": 2.0,
+      "bounty": 0,
+      "kind": "ground",
+      "note": "A million hit points and zero bounty on purpose. It must survive every shot, so a fire pattern is never a statement about a kill; and it must pay nothing, so the funds trajectory is decided entirely by the verbs and can be predicted exactly. Speed 2.0 at DT=1/30 covers 0.0667 tiles per tick."
+    }
+  ],
+
+  "builds": [
+    { "tower": "verb-probe-gun",    "x": 5.0,  "y": 2.0 },
+    { "tower": "verb-probe-reach",  "x": 10.0, "y": 0.0 },
+    { "tower": "verb-probe-toggle", "x": 14.0, "y": 2.0 }
+  ],
+
+  "spawns": [
+    { "tick": 0,   "enemy": "verb-probe-walker", "lane": 0 },
+    { "tick": 60,  "enemy": "verb-probe-walker", "lane": 0 },
+    { "tick": 200, "enemy": "verb-probe-walker", "lane": 0 }
+  ],
+
+  "actions": [
+    { "tick": 30,  "verb": "speed",       "args": { "mult": 3.0 } },
+    { "tick": 60,  "verb": "target_mode", "args": { "index": 0, "mode": "last" } },
+    { "tick": 90,  "verb": "set_online",  "args": { "index": 2, "on": false } },
+    { "tick": 120, "verb": "set_online",  "args": { "index": 2, "on": true } },
+    { "tick": 150, "verb": "upgrade",     "args": { "index": 1 } },
+    { "tick": 180, "verb": "build",       "args": { "tower": "verb-probe-late", "slot": [8.0, 6.0] } },
+    { "tick": 200, "verb": "speed",       "args": { "mult": 1.0 } },
+    { "tick": 210, "verb": "ability",     "args": { "kind": "shutter", "active": true } },
+    { "tick": 240, "verb": "ability",     "args": { "kind": "shutter", "active": false } },
+    { "tick": 270, "verb": "sell",        "args": { "index": 3 } }
+  ],
+
+  "expected": {
+    "note": "Every number here is arithmetic on the fixture above, not a value observed from a run. tools/verb_parity.py checks each against BOTH engines, so two engines wrong the same way still fail -- which is the whole reason this file is not merely a diff.",
+
+    "funds": [
+      { "after_tick": 0,   "funds": 1400, "why": "2000 starting, minus 100 + 200 + 300 for the three up-front builds" },
+      { "after_tick": 150, "funds": 1250, "why": "minus the 150 upgrade cost" },
+      { "after_tick": 180, "funds": 850,  "why": "minus the 400 mid-run build" },
+      { "after_tick": 270, "funds": 1090, "why": "plus floor(400 * 0.6) = 240 refund; the sold row was never upgraded so upgrade_paid is 0" }
+    ],
+
+    "spend": [
+      { "after_tick": 269, "spend": 1150, "why": "100 + 200 + 300 + 150 + 400. A sell refunds funds and does NOT reduce spend -- see Sim.sell(), which adds to funds and returns, leaving `spend` alone. If either engine ever starts decrementing spend on a sell, this row is what says so." }
+    ],
+
+    "placed_count": [
+      { "at_tick": 0,   "count": 3 },
+      { "at_tick": 179, "count": 3 },
+      { "at_tick": 180, "count": 4 },
+      { "at_tick": 269, "count": 4 },
+      { "at_tick": 270, "count": 3 }
+    ],
+
+    "offline_load_drop_mw": 30.0,
+    "offline_from_tick": 90,
+    "offline_to_tick": 120,
+    "offline_why": "Bus load while emplacement 2 is offline must be exactly 30.0 MW below what the same board draws with it online. No other subset of {10, 20, 40} sums to 30, so this identifies the row.",
+
+    "shutter_draw_mw": 55.0,
+    "shutter_hold_tiles": 2.5,
+    "shutter_from_tick": 210,
+    "shutter_to_tick": 240,
+    "shutter_why": "data/tuning.json's shutter block. While it is down the bus carries an extra 55 MW and anything within 2.5 tiles of the entrance is held at zero speed -- the walker spawned at tick 200 is at 0.667 tiles when it comes down, so it must not advance at all until tick 240.",
+
+    "reach_build": 1,
+    "reach_upgrade_tick": 150,
+    "reach_base_range": 3.0,
+    "reach_upgraded_range": 8.0,
+    "reach_position": [10.0, 0.0],
+    "reach_min_shots_after": 20,
+    "reach_why": "Zero shots before tick 150, because the nearest point of the lane is 4.0 tiles away and the base range is 3.0. After tick 150, every tick it fires on must have some unit within 8.0 of (10, 0) -- and none within 3.0, which is what proves the merged range and not merely that something changed.",
+
+    "target_mode_build": 0,
+    "target_mode_tick": 60,
+    "target_mode_why": "Emplacement 0 switches from `first` (greatest progress) to `last` (least distance). The walker spawned at tick 0 leads the one spawned at tick 60 by 4.0 tiles for the rest of the run, so after the switch every point of damage emplacement 0 deals must land on the TRAILING unit. Before the switch there is only one unit alive, so the mode cannot be inferred -- which is why the switch is timed to the second spawn."
+  }
+}
