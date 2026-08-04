@@ -161,6 +161,39 @@ def anchors() -> list[dict]:
         return []
 
 
+def _win_share_lines(ancs: list[dict]) -> list[str]:
+    """The campaign win-share trend line under the grade table. LF-243, decision 086.
+
+    Imports `sim.run` rather than re-deriving the ratio here, for the reason CLAUDE.md
+    keeps recording: a second copy of a rule drifts from the first, and this file already
+    reads the same reports `sim/run.py` produced. Degrades to no lines rather than failing
+    a wrap if the sim is not importable — a missing trend line must never be what stops
+    `docs/STATE.md` being written.
+    """
+    try:
+        sys.path.insert(0, str(ROOT))
+        from sim.engine import DIFFICULTIES
+        from sim.run import campaign_win_share
+        diffs = [d for d in DIFFICULTIES if all(d in a["by_difficulty"] for a in ancs)]
+        if len(diffs) < 2 or len(ancs) < 2:
+            return []
+        cws = campaign_win_share(ancs, diffs)
+    except Exception:
+        return []
+    cells = " · ".join(
+        f"**{d}** {cws['by_difficulty'][d]['win_share']:.1%} "
+        f"({cws['by_difficulty'][d]['won']}/{cws['by_difficulty'][d]['tried']})"
+        for d in diffs)
+    out = [f"Campaign win share, pooled over {cws['anchors']} anchors: {cells} — "
+           f"falls strictly: {'yes' if cws['falls_strictly'] else '**NO**'}. "
+           f"Reported, not asserted (decision 086)."]
+    for d, names in cws["not_falling"].items():
+        if names:
+            out.append(f"`{d}` does not fall below `{diffs[0]}` on {len(names)} anchor(s): "
+                       f"{', '.join(names)}. Only the top tier is a graded problem.")
+    return ["", *out, ""]
+
+
 def inventory() -> dict:
     def n(pattern: str, base: Path) -> int:
         return len(list(base.glob(pattern))) if base.exists() else 0
@@ -213,6 +246,13 @@ def build(no_window: bool = False, gate_from: Path | None = None,
             L.append(f"| {a['anchor']} | {a['act']} | {a['capacity_mw']:.0f} MW | "
                      f"{a['waves']} | {cells[0]} | {cells[1]} | {cells[2]} | {verdict} |")
         L += ["", "*Cells are distinct winning builds / distinct builds tried.*", ""]
+        # LF-243 / decision 086. The per-anchor rule that IS asserted lives in
+        # sim/run.py's verdict(); this is the campaign figure it deliberately does not
+        # assert, written here because a wrap is where a slow drift across sessions
+        # becomes visible and a single run is not. Falls strictly in both the shipped
+        # campaign and the derived-range one decision 082 refused, so it discriminates
+        # nothing on its own — it is a trend line, and it is labelled as one.
+        L += _win_share_lines(ancs)
 
     if bl:
         L += ["### Backlog", "", f"{bl['open']} open · {bl['closed']} closed", ""]
