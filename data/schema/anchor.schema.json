@@ -102,13 +102,13 @@
     "slots": {
       "type": "array",
       "minItems": 1,
-      "description": "Fixed build points. Optional now (PLC-05): free placement (PLC-01) authors an anchor with no `slots` array at all, relying on `max_emplacements` as the emplacement-count cap instead. An anchor that DOES author `slots` may still omit `max_emplacements`; validate_data.py then falls back to len(slots), reproducing today's numbers exactly.",
+      "description": "Fixed build points, as tile-CENTRE coordinates in the convention `Sim._placement_reason()` pins: a board `w` tiles wide has interior `[-0.5, w-0.5]`, so tile (0,0)'s centre is `[0, 0]`. Optional now (PLC-05): free placement (PLC-01) authors an anchor with no `slots` array at all, relying on `max_emplacements` as the emplacement-count cap instead. An anchor that DOES author `slots` may still omit `max_emplacements`; validate_data.py then falls back to len(slots), reproducing today's numbers exactly. LF-219: coordinates are `number`, not `integer` -- both rule engines have modelled position continuously since PLC-01 (`sim/content.py` loads these through `float()`, `Sim._placement_reason()` accepts any float), and PLC-04's candidate lattice works at half-tile pitch, so the schema was the ONLY thing forcing authored slots onto the integer grid. It said so wrongly for long enough that the LF-185 re-siting pass searched integer positions only. `minimum: 0` stays: it is looser than the real bound (a footprint of radius 0.45 needs `x >= -0.05`), and validate_data.py applies the engines' own footprint-aware bounds and lane-standoff predicate on top.",
       "items": {
         "type": "array",
         "minItems": 2,
         "maxItems": 2,
         "items": {
-          "type": "integer",
+          "type": "number",
           "minimum": 0
         }
       }

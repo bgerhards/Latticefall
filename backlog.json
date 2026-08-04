@@ -2623,11 +2623,11 @@
       "kind": "bug",
       "area": "data",
       "pri": "med",
-      "status": "open",
+      "status": "done",
       "why": "",
       "opened": "2026-08-03",
-      "closed": null,
-      "note": ""
+      "closed": "2026-08-03",
+      "note": "closed at 0a668c0"
     },
     {
       "id": "LF-220",

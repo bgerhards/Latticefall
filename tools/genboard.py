@@ -290,10 +290,15 @@ def place_slots(lanes: list[list[tuple[int, int]]], w: int, h: int,
                 n_slots: int) -> list[tuple[int, int]]:
     """`n_slots` integer build points beside the lanes, spread by arclength.
 
-    Integer, not fractional, because `data/schema/anchor.schema.json` types slot
-    coordinates as `integer` (LF-219) even though both rule engines accept floats. The
-    schema is the binding constraint on generated content, so this generates what the
-    schema admits and LF-219 is where the widening belongs.
+    Still integer, but no longer because it has to be: LF-219 widened
+    `data/schema/anchor.schema.json` from `integer` to `number`, so the schema now admits
+    the sub-tile positions both rule engines have accepted since PLC-01. What kept this
+    integer is a different argument -- `render()` below indexes an ASCII grid by slot
+    (`cell[y][x]`), the count rather than the positions is what this generator actually
+    binds (`_effective_cap()`'s fallback; see LF-222), and moving the positions moves every
+    generated board's numbers including `--selftest`'s. Emitting a half-tile lattice here is
+    real work with its own evidence, tracked separately, not a side effect of the schema
+    widening.
 
     The walk is per-lane and interleaved by arclength so the sites are spread along every
     lane rather than packed on the longest one, and each candidate tries the offsets in
