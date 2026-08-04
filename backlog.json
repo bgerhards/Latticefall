@@ -1,5 +1,5 @@
 {
-  "next_id": 252,
+  "next_id": 253,
   "items": [
     {
       "id": "LF-001",
@@ -3005,6 +3005,18 @@
       "id": "LF-251",
       "title": "game renders cannot tell a board of dampers from a board of turrets, and the LF-236 fix proves it with a byte-identical result line. MEASURED across the fix in one session: before, tools/shot.py anchor-24 --facings returned 24 FACE lines all anchor_damper (12 emplacements, damage 0); after, 24 FACE lines all pulse_turret (12 emplacements, the game main weapon). The board changed completely. tools/check.py game renders reported coverage 0.95, 114 tones BEFORE and coverage 0.95, 114 tones AFTER -- the same two numbers to the digit. So the check that three captures of the running game rest on is insensitive to what is standing on the board. WHAT IT ACTUALLY MEASURES is that the frame is not blank and carries enough distinct colour: coverage is the fraction of non-background pixels and tones is the count of distinct quantised colours, both dominated by terrain, panels and text rather than by emplacements. That is a real thing to check -- it is what caught blank frames and flat-grey atlas regressions -- but it must not be read as evidence about the board, and its own message line invites exactly that reading. THE WORK: either give game renders an assertion about the BOARD (emplacement count and distinct emplacement ids from the same facing dump --facings already prints, which costs nothing extra because the capture is already running), or reword the message so it says frame is non-blank with N tones and stops implying more. Prefer the former: a capture that already knows what it drew should say so. Fifth instance this session of a check that reports on something other than what its name implies -- see LF-243 the grade table cannot see difficulty dissolution, LF-244 six verbs never dispatched, LF-246 coverage.py reporting on vestigial slots, LF-247 the accessibility audit over a 4 px playfield.",
       "kind": "bug",
+      "area": "tooling",
+      "pri": "med",
+      "status": "open",
+      "why": "",
+      "opened": "2026-08-04",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-252",
+      "title": "docs/chronicle/chronicle.json records an image file name and caption but never the command that produced the frame, so the journal cannot be queried for captures affected by a capture-time defect. Surfaced by LF-236/LF-250: --autoplay built only anchor-damper on every anchor from anchor-10 on, so every --autoplay screenshot of an act-2 or act-3 anchor in the journal shows a board with no damage on it -- and there is no way to enumerate which entries those are. The affected captions stand uncorrected, which is right under append-only, but a reader has no way to know which ones to read carefully. THE FIX is a command field on the image block in chronicle.json, written by whoever adds the entry and rendered as a small caption line or a title attribute, so a future capture-time defect can be traced to the frames it touched with a grep instead of a guess. Cheap, additive, and no existing entry needs to change -- an absent field just means unrecorded. tools/chronicle.py plus the schema if one covers chronicle.json. Raised by the chronicler agent while writing entry 65, which is also the right precedent: it declined to guess which entries were affected and said so in the entry instead.",
+      "kind": "chore",
       "area": "tooling",
       "pri": "med",
       "status": "open",
