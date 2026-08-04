@@ -2969,24 +2969,52 @@ func export_state() -> Dictionary:
 			"lane": int(u["lane"]), "kind": String(u["kind"]["id"]),
 		})
 	var placed: Array = []
+	# LF-226: how many standing emplacements are on a position the player would be REFUSED.
+	# See the `legality` key below for why "overlap" is the healthy answer here.
+	var illegal := 0
 	for p in sim.placed:
 		# PLC-01: placed records carry x/y floats now, not a slot -- the exported key
 		# names ("slot_x"/"slot_y") are unchanged, so no scenario JSON needs an edit.
 		var s := Vector2(float(p["x"]), float(p["y"]))
+		# LF-226: the reason THIS emplacement's own position gives today, so a scenario can
+		# hold an autobuilt placement to the same `_placement_reason()` a player is held to
+		# instead of only proving that something appeared. Reading the reason rather than
+		# re-deriving bounds and standoff here is the same argument `_buildable_tiles()`
+		# makes above, and for the same reason (PLC-02 has one seam, not two).
+		#
+		# REASON_OVERLAP is the healthy answer, not a fault: `_placement_reason()` runs
+		# bounds -> lane standoff -> overlap in a fixed order and returns the FIRST failure,
+		# and an emplacement always overlaps its own footprint -- so reaching the overlap
+		# test at all is proof that both position-only tests still pass. REASON_OUT_OF_BOUNDS
+		# or REASON_LANE_STANDOFF here would mean something is standing where nothing could
+		# legally have been built, which is exactly the failure a lattice fallback candidate
+		# could introduce without any other symptom.
+		var why := String(sim._placement_reason(s.x, s.y))
+		if why != AnchorSimScript.REASON_OVERLAP and why != AnchorSimScript.REASON_OK:
+			illegal += 1
 		placed.append({
 			"tower": String(p["tower"]["id"]), "online": bool(p["online"]),
 			"kills": int(p.get("kills", 0)),
 			"target_mode": String(p.get("target_mode", Tuning.targeting_default())),
-			"slot_x": s.x, "slot_y": s.y,
+			"slot_x": s.x, "slot_y": s.y, "legality": why,
 		})
 	var cam := camera_state()
 	return {
 		"sim": {
 			"lives": int(sim.lives), "leaks": int(sim.leaks), "funds": int(sim.funds),
 			"bus_load": sim.bus_load(), "capacity": sim.capacity(),
+			# LF-226: `bus_load` is what the METER reads — emplacement draw plus whatever the
+			# live wave is stealing — so it cannot answer "was there room for one more
+			# emplacement". `online_draw()` is the quantity `_autobuild_step()` actually
+			# tests against `capacity()`, and exporting it is what lets a scenario prove that
+			# a run which stopped building stopped because `effective_cap()` bound, not
+			# because the bus was full. Without it, "it stopped at 13" and "it ran out of
+			# megawatts at 13" are the same observation.
+			"online_draw": sim.online_draw(),
 			"penalty": sim.penalty_now(), "brownout": bool(sim.brownout),
 			"wave": wave_number(), "phase": phase(), "units_alive": _units_alive_count(),
 			"chain_count": chain_count, "chain_active": chain_active(),
+			"cap": sim.effective_cap(), "placed_illegal": illegal,
 			"units": units, "placed": placed,
 		},
 		"view": {

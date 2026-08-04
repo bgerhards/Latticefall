@@ -81,25 +81,29 @@ silent drift. See that check's own docstring for what it caught before it existe
   trustworthy, and `--budget` turns the figures above into assertions, so an instrument that
   can run backwards is the wrong one to be judging a 0.8% margin with. Only `started_at`
   stays on the wall clock, because a timestamp is not a duration.
-- **tier 3 (PR), 38 checks:** tier 2 + `facing harness` (moved here from tier 2, above) +
+- **tier 3 (PR), 39 checks:** tier 2 + `facing harness` (moved here from tier 2, above) +
   `anchor grades` (LF-224 — the deliberate replacement for the all-anchors-clean assertion
   `sim determinism` was serving by accident until PLC-04; ~62 s, and tier 3 rather than
   tier 2 because tier 2 is over budget and rather than tier 4 because the regression it
   catches arrives as a data-only PR, see `check_anchor_grades`) +
   `game renders`, `menu renders`, `accessibility`,
   `scenario smoke`, `scenario abilities`, `scenario a11y-worst`, `scenario lf161-scroll`,
-  `scenario gamepad` (PRC-18 split what used to be one `scenarios pass` check hardcoding
-  `smoke.json` into one check per `data/scenarios/*.json` file — see `SCENARIO_FILES`/
-  `_run_scenario_check`'s own doc for why a failure should name the exact file rather than
-  share one check across all five), and `save roundtrip` (`tools/save_roundtrip.py` — a
+  `scenario gamepad`, `scenario lf226-fallback` (PRC-18 split what used to be one
+  `scenarios pass` check hardcoding `smoke.json` into one check per `data/scenarios/*.json`
+  file — see `SCENARIO_FILES`/`_run_scenario_check`'s own doc for why a failure should name
+  the exact file rather than share one check across all six; LF-226 added the sixth, the only
+  check anywhere in this file that reaches `anchor_view.gd`'s `_lattice_fallback_candidate()`
+  — a branch no shipped anchor could enter until anchor-11's `max_emplacements` was authored
+  above its slot count, and the same shape of hole `firing arcs agree` exists to plug),
+  and `save roundtrip` (`tools/save_roundtrip.py` — a
   genuine two-process save/load round trip and the recovery draft, neither reachable through
   a scenario file at all). PR tier is meant to be where a coverage regression is caught
-  before merge, and every one of these nine launches Godot exactly like the three that were
+  before merge, and every one of these ten launches Godot exactly like the three that were
   here before PRC-18. PLC-03 added `firing arcs agree` here too — a headless, windowless
   Godot like `terrain parsers agree`, put at this tier rather than at tier 2 because tier 2
   is already over its own budget (LF-178) and the branch it covers is inert in shipped data;
   see `check_firing_arcs`'s own docstring.
-- **tier 4 (nightly/release), 41 checks — the default:** tier 3 + `music loudness` (see
+- **tier 4 (nightly/release), 42 checks — the default:** tier 3 + `music loudness` (see
   `_run_loudness_check`'s own comment for why it did not join `sfx loudness` at tier 3) +
   `rules parity` (grows with every policy/anchor) + `rules parity (windows)` (BAL-06 — the
   same runs again, against the Windows binary the owner actually plays rather than the Linux
@@ -1988,7 +1992,8 @@ def check_sprite_atlas() -> Result:
 ## not the guarantee.
 RENDERED = {"game renders", "menu renders", "accessibility",
             "scenario smoke", "scenario abilities", "scenario a11y-worst",
-            "scenario lf161-scroll", "scenario gamepad", "save roundtrip"}
+            "scenario lf161-scroll", "scenario gamepad", "scenario lf226-fallback",
+            "save roundtrip"}
 
 
 @dataclass(frozen=True)
@@ -2058,6 +2063,12 @@ CHECKS = [
     Check("scenario lf161-scroll", 3,
           lambda: _run_scenario_check("lf161_edge_scroll_contained.json")),
     Check("scenario gamepad",     3, lambda: _run_scenario_check("gamepad_build.json")),
+    # LF-226: the only check in this file that enters anchor_view.gd's
+    # `_lattice_fallback_candidate()` at all. See the scenario's own `note` for why nothing
+    # else could, and `_run_scenario_check`'s doc for why this is its own check rather than
+    # another iteration of a loop.
+    Check("scenario lf226-fallback", 3,
+          lambda: _run_scenario_check("lf226_lattice_fallback.json")),
     # PRC-18: not a scenario (scenario.gd's timeline is scoped to main.tscn's AnchorView) —
     # a separate tool because a save/load round trip needs two separate Godot PROCESSES, and
     # the recovery draft is a different scene with its own CLI flags. See both docstrings.

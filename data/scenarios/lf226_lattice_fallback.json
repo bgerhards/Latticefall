@@ -1,0 +1,56 @@
+{
+  "schema": "scenario",
+  "note": "LF-226. anchor-11 is the first shipped anchor whose `max_emplacements` (13) EXCEEDS its authored slot count (10), which is the only condition under which anchor_view.gd's `_next_autobuild_candidate()` reaches `_lattice_fallback_candidate()`. That branch was written for exactly this case (LF-202, decision 063) and, until LF-223 authored the cap, no shipped anchor could enter it -- so it had never once run. `rules parity` proves the RULES half on anchor-11 (60/60 identical), but it sources its candidates from the two rule engines, not from anchor_view.gd, so it says nothing at all about this branch. Same shape of hole as the one `firing arcs agree` exists to plug: a gate that runs the whole game proves nothing about a branch the shipped data never enters.\n\nWHAT THE BOARD IS AND WHY. Ten Pulse Turrets go onto anchor-11's ten authored slots by hand, at frame 1, out of the anchor's own 1150 starting funds (10 x 100 = 1000, no BUILD-GRANT anywhere in this run -- the sim's economy is untouched). That empties `available_slots()`, which is the precondition the fallback needs. The `autobuild` verb then arms `AnchorView.autobuild()` at frame 3 and it stays armed, re-running at the start of every wave exactly as `--autoplay` does.\n\nThe verb rather than the flag is load-bearing, and it is why LF-226 added it. `--autoplay` fires from `_ready()`, before frame 0, so its greedy first-affordable-tower pass spends the whole starting purse before a scenario can place anything: MEASURED on anchor-11, that buys four Anchor Dampers (270 each, 18 MW each, zero damage) and leaves 70 credits, and the board arrives at its thirteenth emplacement drawing 194 of 200 MW. At 6 MW of headroom the cheapest emplacement in the game (Scan Relay, 8 MW) no longer fits, so capacity and `max_emplacements` stop the run at the same instant and the scenario cannot tell which one did it -- which is the only interesting question here. Placing the board first leaves 170 of 200 MW and 100+ credits at thirteen, where a Pulse Turret plainly still fits and is plainly affordable, so `effective_cap()` is the only thing left that can be binding.\n\nWHAT IS ASSERTED, in the order the timeline makes the argument: (1) the premise -- cap 13, ten emplacements standing, `available_slots()` therefore empty; (2) the fallback is ENTERED -- one frame after arming there is an eleventh emplacement, and it is at (0,0), which is not one of the ten authored slots (every authored slot has y in {1,4,8}); (3) every fallback placement is LEGAL by the same `_placement_reason()` a player is held to -- `legality` reads `overlap` for each, which is the healthy answer, since that predicate tests bounds then lane standoff then overlap in a fixed order and returns the FIRST failure, so reaching the overlap test at all (an emplacement always overlaps its own footprint) is proof both position-only tests passed; `out_of_bounds` or `too_close_to_lane` would mean the fallback put something where nothing could legally be built; (4) the run reaches 13 and STOPS -- no fourteenth emplacement exists after two further wave-start autobuild passes, while `online_draw` is 170 against a 200 MW capacity and funds are over 100, i.e. a Pulse Turret both fits and is affordable and was still refused.\n\nThe fallback's own scan is a deterministic 1-tile sweep of the board interior, first legal hit wins, so (0,0), (1,0), (2,0) is not a coincidence to be re-derived by hand every time -- it is the scan order, and pinning it is what makes a silent change to that order visible. Runs at 3x, the fastest authored game speed (data/tuning.json), so 3000 frames is 150 seconds of anchor time: through the start of wave 5.",
+  "anchor": "anchor-11",
+  "difficulty": "standard",
+  "timeline": [
+    { "frame": 1, "action": "speed", "args": [3.0] },
+
+    { "frame": 1, "action": "build", "args": ["pulse-turret", 2, 4] },
+    { "frame": 1, "action": "build", "args": ["pulse-turret", 6, 4] },
+    { "frame": 1, "action": "build", "args": ["pulse-turret", 10, 4] },
+    { "frame": 1, "action": "build", "args": ["pulse-turret", 14, 4] },
+    { "frame": 1, "action": "build", "args": ["pulse-turret", 2, 8] },
+    { "frame": 1, "action": "build", "args": ["pulse-turret", 6, 8] },
+    { "frame": 1, "action": "build", "args": ["pulse-turret", 10, 8] },
+    { "frame": 1, "action": "build", "args": ["pulse-turret", 8, 4] },
+    { "frame": 1, "action": "build", "args": ["pulse-turret", 4, 1] },
+    { "frame": 1, "action": "build", "args": ["pulse-turret", 4, 4] },
+
+    { "frame": 2, "assert": "==", "expr": "sim.cap", "expect": 13 },
+    { "frame": 2, "assert": "==", "expr": "view.wards.total", "expect": 13 },
+    { "frame": 2, "assert": "==", "expr": "view.wards.engaged", "expect": 10 },
+    { "frame": 2, "assert": "==", "expr": "sim.capacity", "expect": 200 },
+    { "frame": 2, "assert": "==", "expr": "sim.online_draw", "expect": 120 },
+    { "frame": 2, "assert": "==", "expr": "sim.funds", "expect": 150 },
+    { "frame": 2, "assert": "==", "expr": "sim.placed_illegal", "expect": 0 },
+    { "frame": 2, "assert": "==", "expr": "sim.placed.9.slot_x", "expect": 4 },
+    { "frame": 2, "assert": "==", "expr": "sim.placed.9.slot_y", "expect": 4 },
+    { "frame": 2, "assert": "==", "expr": "sim.placed.10.slot_x", "expect": null },
+
+    { "frame": 3, "action": "autobuild", "args": [] },
+
+    { "frame": 4, "assert": "==", "expr": "view.wards.engaged", "expect": 11 },
+    { "frame": 4, "assert": "==", "expr": "sim.placed.10.tower", "expect": "pulse-turret" },
+    { "frame": 4, "assert": "==", "expr": "sim.placed.10.slot_x", "expect": 0 },
+    { "frame": 4, "assert": "==", "expr": "sim.placed.10.slot_y", "expect": 0 },
+    { "frame": 4, "assert": "==", "expr": "sim.placed.10.legality", "expect": "overlap" },
+    { "frame": 4, "assert": "==", "expr": "sim.placed_illegal", "expect": 0 },
+    { "frame": 4, "assert": "==", "expr": "sim.online_draw", "expect": 132 },
+
+    { "frame": 2000, "assert": "==", "expr": "view.wards.engaged", "expect": 13 },
+    { "frame": 2000, "assert": "==", "expr": "sim.placed_illegal", "expect": 0 },
+
+    { "frame": 3000, "assert": "==", "expr": "view.wards.engaged", "expect": 13 },
+    { "frame": 3000, "assert": "==", "expr": "sim.placed_illegal", "expect": 0 },
+    { "frame": 3000, "assert": "==", "expr": "sim.placed.11.slot_x", "expect": 1 },
+    { "frame": 3000, "assert": "==", "expr": "sim.placed.11.slot_y", "expect": 0 },
+    { "frame": 3000, "assert": "==", "expr": "sim.placed.11.legality", "expect": "overlap" },
+    { "frame": 3000, "assert": "==", "expr": "sim.placed.12.slot_x", "expect": 2 },
+    { "frame": 3000, "assert": "==", "expr": "sim.placed.12.slot_y", "expect": 0 },
+    { "frame": 3000, "assert": "==", "expr": "sim.placed.12.legality", "expect": "overlap" },
+    { "frame": 3000, "assert": "==", "expr": "sim.placed.13.slot_x", "expect": null },
+    { "frame": 3000, "assert": "<=", "expr": "sim.online_draw", "expect": 188 },
+    { "frame": 3000, "assert": ">=", "expr": "sim.funds", "expect": 100 }
+  ]
+}
