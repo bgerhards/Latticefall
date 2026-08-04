@@ -62,6 +62,15 @@ const RESOLUTIONS: Array[Vector2i] = [
 ## They reflow now. Both instrument panels scroll vertically with their controls pinned
 ## outside the scroll region, so no control ever leaves the screen, and
 ## `tools/validate/a11y.py` proves it at 200% on anchor-24 as part of the gate. Decision 048.
+##
+## LF-247: that paragraph is about **height**, and it was the whole answer for too long.
+## Vertically the panels reflow; horizontally they did not — 420 + 528 px of panel is fixed
+## while the viewport shrinks, so the *board* was 4 px wide at 200%. They reflow in both axes
+## now: above the scale at which the two docked panels would take the playfield below
+## `Ui.PLAYFIELD_MIN_W`, the threat panel undocks into a toggled overlay (`lf_threat_toggle`)
+## and the minimap moves into the instrument column. The threshold is derived from the
+## widths, not written here as a number, for the same reason the panel's x is derived from
+## the live viewport rather than hardcoded at 1524.
 const UI_SCALES: Array[float] = [1.0, 1.1, 1.25, 1.5, 1.75, 2.0]
 
 const GLOW_LABELS := {0.0: "OFF", 0.5: "REDUCED", 1.0: "FULL"}
@@ -96,13 +105,23 @@ var shake: float = 1.0
 ##
 ## 1. The margin is measured from the *strip's* own edge (anchor_view.gd's own doc on why —
 ##    the instrument panels are opaque and sit at the window edge), so the strip is the
-##    entire safe zone. At 200% interface scale that strip is measured at 4 px wide on
-##    anchor-24 (the two panels' own widths, COL_W + THREAT_W = 948, do not shrink with
-##    scale, so they eat nearly all of a 960px-wide design space), which is smaller than
-##    `EDGE_SCROLL_MARGIN` (48px) by an order of magnitude: there is no non-edge region
-##    left to rest the pointer in at all. No margin tuning fixes this — the strip itself is
-##    the problem — so "off unless asked for" is the only setting that behaves the same at
-##    every scale this game supports.
+##    entire safe zone, and at 200% interface scale that strip used to be **4 px wide** on
+##    anchor-24 — smaller than `EDGE_SCROLL_MARGIN` (48px) by an order of magnitude, with no
+##    non-edge region left to rest the pointer in at all.
+##
+##    **That measurement was right and the conclusion drawn from it was much too small.**
+##    LF-247: a 4 px strip does not merely break edge-scroll, it means there is no visible
+##    board — the two panels covered the playfield completely, on every anchor, at every
+##    scale from 150% up, and this file recorded the number and used it only to justify a
+##    default. Fixed in `Ui.threat_docked()`: the threat panel stops reserving strip width
+##    above the scale at which reserving it would take the board below `Ui.PLAYFIELD_MIN_W`,
+##    so the worst case is now a 508 px strip rather than a 4 px one, and `tools/check.py`'s
+##    `playfield width` asserts that at every scale in `UI_SCALES` below. The lesson is worth
+##    more than the fix: a number measured in a comment is not a number anything checks.
+##
+##    Edge-scroll still defaults off, on reason 2 below plus LF-161's direct owner report —
+##    508 px is a real strip but it is still less than a third of the 1920 px one the
+##    48 px margin was tuned against.
 ## 2. It was also outright broken (unbounded, not merely large): `_edge_scroll()` measured
 ##    depth into the margin without first checking the pointer was inside the strip, so
 ##    every position past the strip's edge — including deep into a panel — clamped to a

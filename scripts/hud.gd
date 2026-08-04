@@ -95,6 +95,17 @@ const VERBS_H := 10.0 + VERB_H + VERBS_GAP + POWER_H + PAD
 const MinimapScript := preload("res://scripts/minimap.gd")
 const MINIMAP_MAP_W := 220.0
 const MINIMAP_MAP_H := 110.0
+## LF-200: WASD pans unconditionally; "M FOCUS · ARROWS PAN" is the minimap-focused mode.
+## A `const` rather than a literal at the one call site because `minimap_h()` has to measure
+## how many lines it wraps to — the panel is THREAT_W wide docked and COL_W wide undocked
+## (LF-247), and this string is 427 px of 16 px condensed sans, which is one line inside
+## THREAT_INNER_W (504) and two inside INNER_W (396).
+const MINIMAP_LEGEND := "■ ONLINE   □ OFFLINE   ·   WASD PAN · M FOCUS · ARROWS PAN"
+## LF-247. What replaces the threat panel and the minimap under it once they undock: the one
+## thing on screen saying they still exist and which key brings them back. Same job and same
+## construction as LF-057's HUD-hidden hint. Named here rather than written at its one call
+## site because `_build_threat()` measures its own width from it.
+const THREAT_HINT := "INCOMING · MAP — I"
 
 var _buttons: Array[Button] = []
 var _root: Control
@@ -103,6 +114,9 @@ var _threat_scroll: ScrollContainer
 var _verbs_panel: Control
 var _hint_panel: Control
 var _minimap_panel: Control
+## LF-247's affordance: the only thing that says the threat panel still exists while it is
+## undocked and closed. Same job, and the same construction, as `_hint_panel` above.
+var _threat_hint: Control
 ## Untyped deliberately: `minimap.gd` is preloaded, never referenced by `class_name` (see
 ## CLAUDE.md's note on why a new `class_name` is invisible until the editor has imported —
 ## the same reasoning `sim`'s own declaration in `anchor_view.gd` rests on), so a `Control`
@@ -116,6 +130,13 @@ var _hud_hidden := false
 ## CAM-04. Survives `_build_ui()` rebuilds for the same reason `_hud_hidden` does — reapplied
 ## to the fresh `_minimap` node in `_build_minimap()` rather than reset here.
 var _minimap_focused := false
+## LF-247. Whether the *undocked* threat panel is currently drawn over the board. Ignored
+## entirely while `Ui.threat_docked()` is true, because a docked panel is always shown — it
+## has its own reserved width and covers nothing. Survives `_build_ui()` rebuilds for the
+## same reason the two flags above do, which matters more here than for either of them: an
+## interface-scale change is exactly the event that rebuilds this HUD, and it is also exactly
+## the event that flips the panel between docked and undocked.
+var _threat_open := false
 
 
 func _make_label(size: int, col: Color, mono: bool = false, bold: bool = false) -> Label:
@@ -156,6 +177,13 @@ func bind(v: Node2D) -> void:
 	# `_unhandled_input()` before `AnchorView`'s for a shared action — an engine-ordering
 	# question, not a CAM-04-specific one.
 	var argv := OS.get_cmdline_user_args()
+	# LF-247 deliberately does NOT add a `--threat-open` boot flag beside these two. They
+	# exist only because `--press-at` predates LF-139 and could not reach a HUD node's own
+	# `_unhandled_input()`; it can now (`main.gd::_dispatch_action_press()` goes through
+	# `Input.parse_input_event()`), so `-- --press-at 5 lf_threat_toggle` reaches
+	# `toggle_threat()` through the real input pipeline, which is strictly better evidence
+	# than a bespoke flag that bypasses the binding it is supposed to be testing. Remember
+	# the event lands on frame N+1, never N.
 	if argv.has("--minimap-focus"):
 		toggle_minimap_focus()
 	for i in range(argv.size()):
@@ -184,7 +212,15 @@ func export_state() -> Dictionary:
 			selected = String(view.sim.placed[idx]["tower"]["id"])
 		else:
 			selected = view.selected_tower
-	return {"selected": selected, "hud_hidden": _hud_hidden, "minimap_focused": _minimap_focused}
+	# LF-247: `threat_docked` is derived from the live viewport, `threat_open` is this file's
+	# own flag. Both exported because the pair is what a scenario has to assert to prove the
+	# reflow happened — "the strip is wide" and "the panel is off the strip" are the same
+	# fact seen from the two sides, and `view.strip.w` alone could be satisfied by a HUD that
+	# simply failed to build.
+	var vp := get_viewport().get_visible_rect().size
+	return {"selected": selected, "hud_hidden": _hud_hidden,
+		"minimap_focused": _minimap_focused, "threat_docked": Ui.threat_docked(vp),
+		"threat_open": _threat_open}
 
 
 ## LF-150: PRC-12's `-- --profile <frames>` used to instrument only the four board layers
@@ -227,6 +263,12 @@ func _build_ui() -> void:
 		remove_child(_root)
 		_root.queue_free()
 	_buttons.clear()
+	# LF-247: cleared explicitly because it is the one panel reference this file assigns
+	# *conditionally* — a docked rebuild never creates it. Every other `_*_panel` here is
+	# rebuilt unconditionally, so this is the only one that could otherwise be left pointing
+	# at a node from the previous layout, and `_apply_hud_visibility()` would then touch a
+	# freed instance rather than skip a null.
+	_threat_hint = null
 
 	var vp := get_viewport().get_visible_rect().size
 	_root = Control.new()
@@ -378,6 +420,13 @@ func _build_ui() -> void:
 	# anchor-01 the moment the abilities panel gave the column enough content to feel it.
 	# The only bound left is the viewport bottom itself, mirroring the top gutter.
 	col.custom_minimum_size = Vector2(COL_W - Ui.SCROLL_GUTTER, col_h)
+	# LF-247 deliberately leaves this column's geometry alone at every interface scale — see
+	# `_build_minimap()` for the measurement that decided it. Relocating the minimap in here
+	# when the threat panel undocks was tried and rejected: it costs 203 px of a 540 px
+	# viewport at 200%, which drops the scroll budget from 426 to 223 and pushes the nine-
+	# button build bar (which ends at y=383 in this content) below the fold. Decision 050's
+	# rule is that controls stay reachable and readouts scroll; the build bar is nine
+	# controls and the minimap is a readout, so trading the first for the second is backwards.
 	var col_budget := maxf(vp.y - g - VERBS_H, 80.0)
 	_col_scroll = Ui.scroller()
 	_col_scroll.position = Vector2(g, g)
@@ -386,7 +435,7 @@ func _build_ui() -> void:
 	_root.add_child(_col_scroll)
 
 	_build_verbs(_root, Vector2(g, g + _col_scroll.size.y))
-	_build_threat(_root, vp, g)
+	_build_threat(_root, vp, g, Ui.threat_docked(vp))
 
 	# LF-057's way back: the only thing on screen while the HUD is hidden. Backed by
 	# C_PANEL like every other label in this file rather than floating over the board, so
@@ -467,14 +516,25 @@ func _apply_hud_visibility() -> void:
 	## The end-of-anchor banner and its action buttons are deliberately not part of this —
 	## they are not "the instrument panels", they are the one thing the game must still say
 	## regardless of what the player has hidden.
+	##
+	## LF-247 adds a second flag, and the two compose rather than fight: `_hud_hidden` is the
+	## player hiding everything, `_threat_open` is whether the *undocked* threat panel is
+	## currently drawn. A docked panel ignores `_threat_open` entirely — it reserves its own
+	## width and covers nothing, so there is nothing to toggle.
+	var docked := Ui.threat_docked(get_viewport().get_visible_rect().size)
 	if _col_scroll != null:
 		_col_scroll.visible = not _hud_hidden
 	if _threat_scroll != null:
-		_threat_scroll.visible = not _hud_hidden
+		_threat_scroll.visible = (not _hud_hidden) and (docked or _threat_open)
+	if _threat_hint != null:
+		_threat_hint.visible = (not _hud_hidden) and (not docked) and (not _threat_open)
 	if _verbs_panel != null:
 		_verbs_panel.visible = not _hud_hidden
 	if _minimap_panel != null:
-		_minimap_panel.visible = not _hud_hidden
+		# Travels with the threat panel, docked or not — see `_build_minimap()` for the
+		# measurement behind that, which is the one call in LF-247 that went against the
+		# issue's own suggestion.
+		_minimap_panel.visible = (not _hud_hidden) and (docked or _threat_open)
 	if _hint_panel != null:
 		_hint_panel.visible = _hud_hidden
 
@@ -688,7 +748,7 @@ func _on_power_pressed() -> void:
 		view.toggle_at(view.selected_at)
 
 
-func _build_threat(root: Control, vp: Vector2, g: float) -> void:
+func _build_threat(root: Control, vp: Vector2, g: float, docked: bool) -> void:
 	## What is coming, and when. A tower defense played without this is a guessing game:
 	## whether the wave carries air decides if a scan relay is worth 8 MW, whether it
 	## carries shielded units decides between a lance and an arc node, and the wave's total
@@ -768,18 +828,46 @@ func _build_threat(root: Control, vp: Vector2, g: float) -> void:
 	# panel, so the panel stops above it and scrolls if the wave needs more room than that
 	# leaves. At 1920x1080 this never engages; at 960x540 it is 78 px of unit rows.
 	#
-	# CAM-04: also bounded by MINIMAP_H, the same way VERBS_H is subtracted from the column's
-	# own scroll budget — the minimap is pinned below this scroll region (see `_build_minimap`'s
-	# own doc for why), so whatever it needs comes out of this budget, not out of the viewport
-	# a second time.
+	# CAM-04: also bounded by the minimap's height, the same way VERBS_H is subtracted from the
+	# column's own scroll budget — the minimap is pinned below this scroll region (see
+	# `_build_minimap`'s own doc for why), so whatever it needs comes out of this budget, not
+	# out of the viewport a second time. True docked or not: LF-247 undocks this panel and the
+	# minimap under it as one block, so their relative geometry never changes.
 	threat.custom_minimum_size = Vector2(THREAT_W - Ui.SCROLL_GUTTER, y)
 	_threat_scroll = Ui.scroller()
 	_threat_scroll.position = Vector2(px, g)
-	_threat_scroll.size = Vector2(THREAT_W, minf(y, vp.y - g - dialog_reserve(vp) - minimap_h()))
+	_threat_scroll.size = Vector2(THREAT_W,
+		minf(y, vp.y - g - dialog_reserve(vp) - minimap_h()))
 	_threat_scroll.add_child(threat)
 	root.add_child(_threat_scroll)
-
 	_build_minimap(root, Vector2(px, g + _threat_scroll.size.y))
+	if docked:
+		return
+
+	# LF-247, undocked: this panel and the minimap under it reserve no strip width and are
+	# drawn only on `lf_threat_toggle`. What is left behind is an affordance saying they
+	# exist — without one, a player at 150% and above has no way to discover that the
+	# incoming wave and the tactical map are still readable at all. Built exactly like
+	# LF-057's `_hint_panel`: backed by C_PANEL rather than floating over the board, so it
+	# holds AA contrast against whatever the board happens to be underneath it.
+	#
+	# The panel is left right-anchored at `px` rather than pushed clear of the column. At
+	# 200% (960 px of design space) that overlaps the column's rightmost 20 px — its padding
+	# and its scrollbar gutter, no text — and the alternative is 12 px of the *threat* panel,
+	# including its own scrollbar, off the right edge of the screen. A covered scrollbar on a
+	# panel the player is not reading beats an unreachable one on the panel they are.
+	_threat_hint = Control.new()
+	_threat_hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var hint_label := _make_label(Ui.SIZE_CAPTION, C_MUTED, false, true)
+	hint_label.text = THREAT_HINT
+	hint_label.position = Vector2(PAD * 0.5, PAD * 0.5)
+	var hint_bg := ColorRect.new()
+	hint_bg.color = C_PANEL
+	hint_bg.size = hint_label.get_minimum_size() + Vector2(PAD, PAD)
+	_threat_hint.position = Vector2(vp.x - g - hint_bg.size.x, g)
+	_threat_hint.add_child(hint_bg)
+	_threat_hint.add_child(hint_label)
+	root.add_child(_threat_hint)
 
 
 func minimap_h() -> float:
@@ -788,8 +876,16 @@ func minimap_h() -> float:
 	## expressions. Called from both `_build_threat()` (to reserve the budget) and
 	## `_build_minimap()` (to size the panel), so the two can never disagree the way two
 	## separate literals could.
+	##
+	## The legend's line count is measured rather than assumed at one, because it is 427 px of
+	## 16 px condensed sans and THREAT_INNER_W is 504 — an 18% margin. `Ui.wrapped_lines()`
+	## is what the emplacement note already uses and for the same reason: a fixed box plus
+	## `clip_text` clips horizontally only, so a legend that grew a word would silently lose
+	## it, or wrap and draw its second line over the dialog band with nothing reserved.
+	var legend_lines := maxi(1, Ui.wrapped_lines(
+		MINIMAP_LEGEND, THREAT_W - PAD * 2.0, Ui.SIZE_CAPTION))
 	return 10.0 + Ui.line_h(Ui.SIZE_CAPTION, false) + 4.0 + MINIMAP_MAP_H \
-		+ 4.0 + Ui.line_h(Ui.SIZE_CAPTION, false) + PAD
+		+ 4.0 + float(legend_lines) * Ui.line_h(Ui.SIZE_CAPTION, false) + PAD
 
 
 func _build_minimap(root: Control, at: Vector2) -> void:
@@ -797,6 +893,30 @@ func _build_minimap(root: Control, at: Vector2) -> void:
 	## legible on at all (decision 056 accepted detail loss at full zoom-out; this is what
 	## that trade was for). Pinned outside the threat panel's scroll region — see the call
 	## site's own note — so it is never one PageDown away from not being there.
+	##
+	## LF-247, and this is the issue's one genuinely contested call, so the measurements are
+	## here rather than in a commit message. Undocking the threat panel raised the question of
+	## whether the minimap travels with it. It does. Both alternatives were measured and both
+	## are worse:
+	##
+	## - **A minimap-only sliver kept docked on the right.** MINIMAP_MAP_W + 2*PAD = 244 px,
+	##   which leaves a 264 px playfield at 200% — it fails `Ui.PLAYFIELD_MIN_W` (420) by
+	##   itself, so it does not solve the bug it would exist to work around.
+	## - **Relocating the minimap into the instrument column, pinned below the verbs.** It
+	##   fits (508 px strip, 420 px column, no overlap) and it looked right in a capture, but
+	##   it costs 203 px of a 540 px viewport: the column's scroll budget drops from 426 px to
+	##   223 px and the build bar, whose content ends at y=383, goes below the fold. That
+	##   trades nine *controls* for one *readout*, which inverts decision 050's own rule —
+	##   controls are pinned precisely so they never need scrolling to; readouts scroll.
+	##   Verified by capture, not argued: `after-2.0.png` from that attempt shows the tactical
+	##   map in the column and no emplacement buttons on screen.
+	##
+	## What CAM-04's risk note actually rejected was the minimap *scrolling* out of view
+	## mid-wave — something the player did not ask for, cannot see happen and cannot undo
+	## except by hunting for a scrollbar. A deliberate toggle on `lf_threat_toggle`, with a
+	## permanent on-screen affordance naming the key, is a different thing, and it is exactly
+	## the status the threat readout beside it now has. The two are read together anyway:
+	## "what is coming" and "where it is".
 	_minimap_panel = Control.new()
 	_minimap_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(_minimap_panel)
@@ -831,7 +951,15 @@ func _build_minimap(root: Control, at: Vector2) -> void:
 	# mode the player is usually in. WASD now pans the board camera directly, unconditionally
 	# (`_keyboard_pan()`); "M FOCUS · ARROWS PAN" stays true for what it always meant — focus
 	# the minimap, then arrows region-step the camera from there.
-	legend.text = "■ ONLINE   □ OFFLINE   ·   WASD PAN · M FOCUS · ARROWS PAN"
+	#
+	# LF-247: wrapped rather than clipped, at exactly the width `minimap_h()` measured it
+	# against. `clip_text` clips horizontally only, so clipping here would have thrown away
+	# half a documented control scheme in the column and reserved a line for it anyway.
+	legend.text = MINIMAP_LEGEND
+	legend.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	legend.size = Vector2(THREAT_W - PAD * 2.0,
+		float(maxi(1, Ui.wrapped_lines(MINIMAP_LEGEND, THREAT_W - PAD * 2.0, Ui.SIZE_CAPTION)))
+			* Ui.line_h(Ui.SIZE_CAPTION, false))
 	legend.position = Vector2(inner_x, y)
 	_minimap_panel.add_child(legend)
 
@@ -865,6 +993,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		scroll_panels(-1)
 	elif event.is_action_pressed("lf_hud_toggle"):
 		toggle_hud()
+	elif event.is_action_pressed("lf_threat_toggle"):
+		toggle_threat()
 	elif event.is_action_pressed("lf_minimap_focus"):
 		toggle_minimap_focus()
 	elif _minimap_focused and event.is_action_pressed("lf_up"):
@@ -894,6 +1024,23 @@ func toggle_hud() -> void:
 	## `lf_next`/`lf_prev`/`lf_target`/`lf_ability_*` — none of them go through a HUD widget,
 	## so none of them go away when the widgets do.
 	_hud_hidden = not _hud_hidden
+	_apply_hud_visibility()
+	Audio.sfx("ui_click")
+
+
+func toggle_threat() -> void:
+	## LF-247. `lf_threat_toggle` (I / gamepad paddle 4). Public for the same reason every
+	## other state toggle in this file is: `-- --threat-open` and `-- --press-at N
+	## lf_threat_toggle` are how a verification run reaches it without a keypress.
+	##
+	## A no-op while the panel is docked, and deliberately silent about it rather than a
+	## refusal: at 100% the panel is already on screen with its own reserved width, so
+	## "toggle" has nothing to mean, and a player who presses I there should not be told off
+	## for it. The affordance (`_threat_hint`) only appears in the mode where the key does
+	## something, which is where the discoverability argument actually bites.
+	if Ui.threat_docked(get_viewport().get_visible_rect().size):
+		return
+	_threat_open = not _threat_open
 	_apply_hud_visibility()
 	Audio.sfx("ui_click")
 

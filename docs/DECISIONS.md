@@ -3678,3 +3678,127 @@ adding it took the digest's data set from 78 files to 79 and forced a full tier-
 re-comparison on both platforms. That is the conservative behaviour `docs/STATE.md` already
 calls correct, and it is noted here so the next person adding a fixture expects the cost
 rather than discovering it.
+
+---
+
+## 084 — Decision 073's zoom-to-fit row divided by the wrong width, and correcting it strikes the row rather than changing the answer
+
+**2026-08-04.** `LF-248`. Decision 073 is owner-taken and append-only, so this records a
+correction to one of its supporting numbers rather than editing it. **The board size does
+not change: it stays 48².**
+
+**073 asked for exactly this.** Its own words: *"Treat 32² and 48² as arithmetic on a
+measurement, not as measurements — if either becomes load-bearing for a further decision,
+take the frame directly."* The frame has now been taken.
+
+**What is wrong.** `anchor_view.gd`'s `_min_zoom_for_board()` fits a board into the **strip
+between the instrument panels**, `vp.x − 2·gutter − COL_W − THREAT_W`, and those panels are
+948 px that do not shrink when the interface scale shrinks the logical viewport. Decision
+073's table gives 48² a zoom-to-fit of **0.312×** at 100% and **0.156×** at 200%. Those are
+`1920/6144` and `960/6144` — **the full viewport, with both panels ignored.** A real capture
+of a generated 48² board comes back at **0.1530**, which is `940/6144` exactly.
+
+| | 073's table | measured strip |
+|---|---|---|
+| 48², 100% UI | 0.312 | **0.1530** — 2.04× out |
+| 48², 200% UI | 0.156 | **0.0007** — 223× out |
+
+**Why it matters, and it is not pedantry.** That row is where the table's *sprite on screen*
+figures come from, and sprite legibility is the row that **rejected 64²** — 073 says 64²
+draws a sprite at 30–60 px, "below the threshold at which one enemy type can be told from
+another". Corrected against the real strip at 100% UI, sprite width is `256 × zoom`:
+
+| board | measured zoom-to-fit | sprite px |
+|---|---|---|
+| 32² | 0.2295 | 59 |
+| **48²** | **0.1530** | **39** |
+| 64² | 0.1147 | 29 |
+
+**Every option, including the 32² one 073 called "the only size that needs no concession at
+all", now falls inside or below the band 64² was rejected for.** A row that rejects all three
+candidates selects nothing.
+
+**Decision: strike the row, do not redo the arithmetic.** Zoom-to-fit is the wrong reference
+for legibility, and decision 073 supplies the reason itself — it concluded that at 48² *"the
+board is never fully visible in the playfield"* and that `CAM-05`'s minimap does the wide
+read. Nobody plays at the zoom floor. Legibility belongs at **playing** zoom, where a sprite
+is 256 px at zoom 1.0 on a board of any size, and board dimension does not enter it.
+
+**So 073's conclusion survives its own broken premise, and that is worth saying rather than
+quietly banking.** 48² was chosen on legibility-at-fit, that basis was wrong, and the answer
+happens to be unchanged because the discriminator was never valid for any candidate. The
+live reasons to prefer 48² over 64² are the ones 073 lists elsewhere and which do not depend
+on this row: `Iso.TILE_W` cannot grow (`LF-102`, `calibrate()` will not converge at 384 or
+1024 px cells), decision 066 refused a larger atlas cell on a measured 630 MB VRAM
+projection, and 64² would commit the project to silhouette-first art.
+
+**What this obliges.** `ZOOM_MIN` is derived per board at run time and always was, so nothing
+in the code carried the wrong number — only the decision's prose did. `LF-247` is the shipped
+defect the same measurement uncovered, and decision 085 fixes it.
+
+---
+
+## 085 — The playfield is a bounded quantity, and the threat panel undocks to keep it
+
+**2026-08-04.** `LF-247`. Extends decisions 048 and 050 into the horizontal axis; supersedes
+nothing.
+
+**The defect.** The strip the board is drawn into is `vp.x − 2·gutter − 420 − 528`, and those
+948 px of instrument panel do not shrink when the interface scale shrinks the logical
+viewport. Measured on every anchor:
+
+| scale | logical viewport | playfield strip | % of width |
+|---|---|---|---|
+| 100% | 1920×1080 | 940 | 49.0% |
+| 125% | 1536×864 | 556 | 36.2% |
+| 150% | 1280×720 | 300 | 23.4% |
+| 175% | 1097×617 | 117 | 10.7% |
+| **200%** | 960×540 | **4** | **0.4%** |
+
+At 200% the two panels cover the board completely — it is drawn behind them, and a
+zoom-to-fit clamps to `ZOOM_MIN_FLOOR` and shows nothing. **200% is an offered, shipped
+setting on which the game cannot be played.**
+
+**Decision. The playfield may never be narrower than `Ui.PLAYFIELD_MIN_W`, defined as
+`COL_W`** — the board is at least as important as the narrowest instrument panel the project
+already treats as usable — **and above the width at which docking both panels would breach
+that, the threat panel stops reserving strip width and becomes a toggled overlay on
+`lf_threat_toggle`.** The threshold is derived from the widths and never written as a scale
+number; it lands near 137%. The instrument column keeps its verbs, because those are
+controls and the threat list is readout — the same inversion decision 050 made vertically.
+
+| scale | strip before | strip after | zoom-to-fit before | after |
+|---|---|---|---|---|
+| 150% | 300 | **828** | 0.1420 | **0.3920** |
+| 175% | 117 | **645** | 0.0554 | **0.3055** |
+| 200% | **4** | **508** | clamped to 0.05, board invisible | **0.2405**, whole board framed |
+
+Every measured zoom reproduces the computed strip exactly (`0.2405 × 2112 = 507.9`), so the
+running game and the gate's arithmetic agree.
+
+**The minimap travels with the overlay, against both alternatives this issue proposed, and
+both were built and measured before being rejected.** A minimap-only sliver is 244 px wide
+and would still leave the board at 264 px — it fails the bound on its own. Relocating the
+minimap into the instrument column fits horizontally but costs 203 px of a 540 px viewport,
+dropping the column's scroll budget from 426 to 223 px and pushing the nine-button build bar
+below the fold: **nine controls traded for one readout**, which inverts decision 050's own
+rule. `CAM-04`'s risk note objects to the minimap scrolling away *unbidden*; a deliberate
+toggle with a permanent `INCOMING · MAP — I` affordance is the same status the threat readout
+now has, and the two are read together.
+
+**Rejected: capping the interface scale at 137%.** It would regress the accessibility feature
+decision 050 deliberately added, and 050's vertical work is correct and stays.
+
+**Rejected: shrinking `COL_W`/`THREAT_W` with scale.** Both were solved against the 16 px type
+ladder (decisions 045/046); shrinking them re-opens contrast and size decisions that were
+measured, to fix a layout problem.
+
+**The general lesson, which outlives the fix.** Decision 050 measured these panels' *vertical*
+fit exhaustively and made both scroll — correct, and about **text**. `tools/validate/a11y.py`
+audits text items, and a playfield is not a text item. So `accessibility` reported 192 items
+clean and `scenario a11y-worst` — which runs at 200% on anchor-24 *precisely because it is the
+worst case* — passed for months over a 4 px board. Worse: `scripts/display_settings.gd` had
+**already measured the 4 px** and used it only to justify defaulting edge-scroll off. **A
+number written into a comment is not a number anything checks.** Hence `playfield width`:
+tier 1, text-only, 9 ms, asserting the bound at every offered scale, and proved red four
+separate ways before it was trusted.
