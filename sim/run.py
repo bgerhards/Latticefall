@@ -259,6 +259,86 @@ def campaign_win_share(reports: list[dict], diffs: list[str]) -> dict:
     return out
 
 
+def campaign_discipline(reports: list[dict], diffs: list[str]) -> dict:
+    """Is overdrawing the bus a judgement call, or an obvious yes? LF-253, decision 087.
+
+    Decision 022 replaced a flat −40% brownout penalty with a priced one *specifically* so
+    that overdrawing could sometimes pay — `LF-014` had measured that under the flat penalty
+    no build ever benefited at any difficulty, which collapsed the whole power economy into
+    a build constraint. The mirror question is whether 022 overshot, and the raw number says
+    it did: runs that brown out win **53.2%** on standard against **31.4%** for runs that do
+    not, a 21.8-point advantage for indiscipline.
+
+    **That number is an artefact and this function is here to stop it being read again.**
+    Whether a run browns out is decided by the *policy's* build rules, not by the penalty —
+    the clean/browned split is the same 307/173 runs at every price the slope was swept to.
+    So the raw comparison is mostly "the policies that overdraw are the strong ones": the
+    lance is the game's best weapon and it draws the most, so a lance-led board overdraws.
+    Compare each policy against **itself** — its own browned-out runs against its own clean
+    ones — and three quarters of the effect goes, and the sign flips on brutal: +6.0%, +5.2%,
+    **−3.7%**, helping on 7 of 18, 6 of 18 and **4 of 18** policies that split both ways.
+    A thing that helps on under a third of approaches is a judgement call, which is exactly
+    what decision 022 set out to build.
+
+    Reported, never asserted, for decision 086's reason: bounding it needs a constant, and
+    the honest statement — "helps on a minority" — has two policies of headroom on standard
+    and would be a threshold in all but name. Both the raw and the adjusted figures are
+    printed together, because printing either alone is how this was misread in the first
+    place. Needs `runs`, so `--json` callers must pass `--detail`; returns {} without them.
+    """
+    out: dict = {}
+    for d in diffs:
+        runs = [o for r in reports for o in r.get("runs", []) if o["difficulty"] == d]
+        if not runs or "brownout_fraction" not in runs[0]:
+            return {}
+        clean = [o for o in runs if o["brownout_fraction"] == 0.0]
+        brown = [o for o in runs if o["brownout_fraction"] > 0.0]
+        if not clean or not brown:
+            continue
+        raw = (sum(o["won"] for o in brown) / len(brown)
+               - sum(o["won"] for o in clean) / len(clean))
+        deltas, nc, nb = [], 0, 0
+        for pol in {o["policy"] for o in runs}:
+            c = [o for o in clean if o["policy"] == pol]
+            b = [o for o in brown if o["policy"] == pol]
+            if not c or not b:
+                continue
+            deltas.append(sum(o["won"] for o in b) / len(b)
+                          - sum(o["won"] for o in c) / len(c))
+            nc += len(c)
+            nb += len(b)
+        # Two different populations, named as two different things on purpose. `raw_*` is
+        # every run at this difficulty; `paired_*` counts only the runs belonging to
+        # policies that browned out on some anchors and not others, which is the only
+        # subset the within-policy comparison can use. The first draft of this printed the
+        # paired counts beside the raw delta under one label, which invites exactly the
+        # conflation the whole function exists to prevent — caught in review.
+        out[d] = {"raw_delta": raw, "raw_clean_runs": len(clean), "raw_brown_runs": len(brown),
+                  "split_policies": len(deltas),
+                  "helps_on": sum(1 for x in deltas if x > 0),
+                  "within_policy_delta": (sum(deltas) / len(deltas)) if deltas else 0.0,
+                  "paired_clean_runs": nc, "paired_brown_runs": nb}
+    return out
+
+
+def print_campaign_discipline(cd: dict) -> None:
+    if not cd:
+        return
+    print("\noverdraw advantage — does browning out the bus help? "
+          "(decision 087; reported, not asserted)")
+    print(f"  {'':9s} {'raw':>8s} {'over all runs':>15s}   {'within policy':>14s} "
+          f"{'over the policies that split both ways':>40s}")
+    for d, x in cd.items():
+        print(f"  {d:9s} {x['raw_delta']:>+8.1%} "
+              f"{x['raw_clean_runs']}c/{x['raw_brown_runs']}b runs   "
+              f"{x['within_policy_delta']:>+14.1%} "
+              f"{x['helps_on']}/{x['split_policies']} policies, "
+              f"{x['paired_clean_runs']}c/{x['paired_brown_runs']}b runs")
+    print("  The raw column is confounded by WHICH policies overdraw and must not be read")
+    print("  alone. The two run counts are DIFFERENT populations: the paired one covers only")
+    print("  policies that browned out on some anchors and not others.")
+
+
 def print_campaign_win_share(cws: dict, diffs: list[str]) -> None:
     print(f"\ncampaign win share over {cws['anchors']} anchors "
           f"(distinct winning builds / distinct builds tried, pooled)")
@@ -372,6 +452,41 @@ def selftest() -> int:
     assert not cws["falls_strictly"], cws          # mid 40.9% is above base 13.6%
     tally["structural"] += 1
 
+    # 11. campaign_discipline separates the raw comparison from the within-policy one, which
+    #     is the entire point of decision 087. Two policies, constructed so the RAW figure
+    #     says browning out wins by 50 points while WITHIN each policy it does nothing:
+    #     policy `a` always browns out and always wins, `b` never browns out and never wins,
+    #     and the two policies that DO split both ways are flat. A function that pooled
+    #     instead of pairing would report +50% in both columns.
+    def _run(pol, brown, won):
+        return {"difficulty": base, "policy": pol, "won": won,
+                "brownout_fraction": 0.5 if brown else 0.0}
+    disc = [{"anchor": "x", "tutorial": False, "by_difficulty": _table(**{base: (1, 2)}),
+             "runs": [_run("a", True, True), _run("a", True, True),
+                      _run("b", False, False), _run("b", False, False),
+                      _run("split1", True, True), _run("split1", False, True),
+                      _run("split2", True, False), _run("split2", False, False)]}]
+    cd = campaign_discipline(disc, [base])[base]
+    assert abs(cd["raw_delta"] - 0.5) < 1e-9, cd          # 3/4 brown win vs 1/4 clean
+    assert cd["within_policy_delta"] == 0.0, cd           # both splitters are flat
+    assert (cd["split_policies"], cd["helps_on"]) == (2, 0), cd
+    # The two populations must NOT be the same number: raw covers all eight runs, paired
+    # covers only the four belonging to `split1`/`split2`. Conflating them is the defect
+    # this fixture exists to hold down.
+    assert (cd["raw_clean_runs"], cd["raw_brown_runs"]) == (4, 4), cd
+    assert (cd["paired_clean_runs"], cd["paired_brown_runs"]) == (2, 2), cd
+    # Both halves of the "no detail" guard, because they catch different callers: `--json`
+    # without `--detail` drops `runs` entirely, while a caller that trimmed the run records
+    # to save memory keeps them and loses the key. The second half was NOT covered when this
+    # selftest was first written, and deleting it left the selftest green — found by
+    # breaking it on purpose, which is the only reason it is covered now.
+    bare = {"anchor": "x", "tutorial": False, "by_difficulty": _table(**{base: (1, 2)})}
+    assert campaign_discipline([bare], [base]) == {}, "no `runs` key at all"
+    assert campaign_discipline(
+        [dict(bare, runs=[{"difficulty": base, "policy": "a", "won": True}])],
+        [base]) == {}, "`runs` present but trimmed of brownout_fraction"
+    tally["structural"] += 2
+
     print(f"sim/run.py selftest: {sum(tally.values())} case(s) ok — verdict() fires on "
           f"{tally['red']}, stays silent on {tally['green']}, "
           f"{tally['structural']} structural; tiers {base!r} -> {top!r} "
@@ -441,6 +556,7 @@ def main() -> int:
 
     if len(reports) > 1 and len(diffs) > 1:
         print_campaign_win_share(campaign_win_share(reports, diffs), diffs)
+        print_campaign_discipline(campaign_discipline(reports, diffs))
 
     bad = [r["anchor"] for r in reports if not r["ok"]]
     print(f"\n{len(reports) - len(bad)}/{len(reports)} anchors clean")

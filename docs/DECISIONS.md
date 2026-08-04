@@ -3904,3 +3904,105 @@ shape, no amount of ratio-taking will separate them, and the honest move is to w
 claim until it needs no constant — not to keep hunting for the constant that happens to fit.
 The check that results is deliberately the loosest defensible one, which is what makes a firing
 unambiguous.
+
+---
+
+## 087 — The brownout price stays, and "indiscipline wins" was an artefact of which policies overdraw
+
+**2026-08-04.** `LF-253`. **Confirms decision 022 and supersedes nothing.** Corrects a
+rejection reason stated in decision **086** one commit earlier.
+
+**The claim, and it was mine.** While deriving decision 086 I looked for a parameter-free
+difficulty metric in power discipline, because `sim/engine.py`'s `DIFFICULTIES` comment says
+brutal's 1.55 was swept to be "the point where brutal kills the overdraw build but leaves the
+disciplined one alive". Splitting all 1,440 shipped runs by `brownout_fraction > 0` gave the
+opposite:
+
+| | standard | hard | brutal |
+|---|---|---|---|
+| clean runs win | 31.4% | 23.5% | 17.9% |
+| browned-out runs win | **53.2%** | **41.2%** | **33.5%** |
+| advantage to indiscipline | **+21.8** | **+17.6** | **+15.6** points |
+
+Decision 086 recorded that as "not weakly supported, it is backwards" and rejected the metric.
+The rejection was right. **The reason was wrong**, and this entry says so rather than letting
+086 stand uncorrected — 086 is append-only and is not edited.
+
+**What it actually is.** Whether a run browns out is decided by the **policy's build rules**,
+not by the penalty. Sweeping `BROWNOUT_SLOPE` from 1.5 to 6.0 and re-grading the whole
+campaign at each value, the clean/browned split is **the same runs every time** — standard
+309/171, hard 310/170, brutal 307/173 — and the clean set's win rate does not move at any
+price: **31.4% / 23.5% / 17.9%**. (Those are per-difficulty figures; this paragraph quoted
+brutal's split as if it were one campaign number until the chronicler re-derived it.) So the
+raw comparison is largely "the
+policies that overdraw are the strong ones" — the ion lance is the best weapon in the game and
+draws the most, so a lance-led board overdraws.
+
+Compare each policy against **itself** — its own browned-out runs against its own clean ones —
+and three quarters of the effect goes and the sign flips where it matters:
+
+| | standard | hard | brutal |
+|---|---|---|---|
+| raw | +21.8% | +17.6% | +15.6% |
+| **within policy** | **+6.0%** | **+5.2%** | **−3.7%** |
+| helps on | 7 of 18 | 6 of 18 | **4 of 18** policies |
+
+A thing that helps on under a third of the approaches that try it is a judgement call. **That
+is precisely what decision 022 set out to build**, against the flat −40% penalty `LF-014` had
+measured as making "never exceed capacity" unconditionally correct.
+
+**Decision. `BROWNOUT_SLOPE = 1.5` and `BROWNOUT_MAX_PENALTY = 0.70` are unchanged**, and the
+raw figure is not evidence that they are mispriced.
+
+**And the price is not the lever anyway, which is the measurement worth keeping.** The slope
+sweep, whole campaign re-graded at each value:
+
+| slope | anchors ok | brutal gap | standard gap | brutal win share |
+|---|---|---|---|---|
+| **1.5** (shipped) | **24/24** | +15.6% | +21.8% | 24.2% |
+| 2.5 | 23/24 | +11.0% | +16.0% | 22.0% |
+| 3.0 | 22/24 | +5.8% | +14.8% | 19.5% |
+| 4.0 | **19/24** | +1.2% | +10.7% | 17.4% |
+| 6.0 | **17/24** | −1.7% | **+10.7%** | 16.2% |
+
+The gap reaches zero on brutal near slope 4.2 — where **five anchors no longer grade**. On
+standard and hard it never reaches zero at all: at four times the shipped price it is still
++10.7 and +8.2 points.
+
+**And standard's column is flat between slope 4.0 and 6.0 at +10.7% because
+`BROWNOUT_MAX_PENALTY = 0.70` is what actually binds, not the slope.** The cap takes over at
+`0.70/slope` over capacity — 17.5% over at slope 4.0, 11.7% at 6.0 — and browned-out boards
+sit well past both. So above about slope 4 the price stops rising for any board meaningfully
+in the red, and raising it further removes anchors and changes nothing else. That is a
+stronger statement than "the price is not the lever": past a point there is no price left to
+raise. Found in review, not in the sweep's design. So even if the raw figure had been the real effect, the penalty could
+not have fixed it without the content moving with it. That is `BAL-04`'s joint re-tune, not a
+constant.
+
+**Shipped with this: `sim/run.py` prints both columns together, always.** Printing the raw one
+alone is how this was misread; printing only the adjusted one would hide what was misread.
+`tools/session.py` writes the same table under `docs/STATE.md`'s grade table each wrap.
+Reported, never asserted, for decision 086's reason — "helps on a minority" has two policies
+of headroom on standard and would be a threshold in all but name.
+
+**Rejected: filing `LF-253` as a defect and re-pricing.** It was filed `high` on the raw number
+and is closed on the controlled one. A `high` item closed the same day by its own follow-up
+measurement is a better outcome than a re-priced constant, and the entry stays as the record of
+why.
+
+**Rejected: asserting the within-policy figure in the gate.** It needs a full campaign grade
+(~60 s, already paid by `anchor grades`) *and* a threshold. Decision 086's argument applies
+unchanged.
+
+**The general lesson, and it is the same one twice in one day.** A campaign-wide split of runs
+by an outcome property is a comparison between whatever *populations* that property selects.
+Both times — the win-share level in 086 and the discipline gap here — the honest move was to
+find what the number was actually a statement about before deciding what it meant. The
+`grade verdict` selftest now drives `campaign_discipline`'s red path, including a guard clause
+that was dead when written and only became live because breaking it on purpose left the
+selftest green.
+
+**One figure in decision 086 is left standing that this entry does not clear.** 086 records
+that at the derived ranges the discipline gap "widens" (−11.9 → −22.2). That is the same raw,
+uncontrolled split applied to the second campaign and it is not evidence of anything until it
+is paired within policy. Nothing has measured it; it is filed rather than quietly dropped.

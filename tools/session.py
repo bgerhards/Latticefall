@@ -153,8 +153,12 @@ def anchors() -> list[dict]:
     ## `--jobs 0` is one worker per core. The sim has no RNG and no shared state, so the
     ## parallel run returns the same cells in the same order (CLAUDE.md) — grading 24 anchors
     ## serially here was costing about three and a half minutes of every wrap for nothing.
-    r = subprocess.run([sys.executable, str(ROOT / "sim" / "run.py"), "--json", "--jobs", "0"],
-                       capture_output=True, text=True, cwd=str(ROOT))
+    ## `--detail` keeps each report's per-policy `runs`, which decision 087's overdraw
+    ## figure is computed from — it is a within-POLICY comparison and the per-anchor
+    ## aggregates cannot express it. Costs about 700 KiB through the pipe and no extra
+    ## grading: the runs already exist, `--json` was simply dropping them.
+    r = subprocess.run([sys.executable, str(ROOT / "sim" / "run.py"), "--json", "--detail",
+                        "--jobs", "0"], capture_output=True, text=True, cwd=str(ROOT))
     try:
         return json.loads(r.stdout)
     except Exception:
@@ -173,11 +177,12 @@ def _win_share_lines(ancs: list[dict]) -> list[str]:
     try:
         sys.path.insert(0, str(ROOT))
         from sim.engine import DIFFICULTIES
-        from sim.run import campaign_win_share
+        from sim.run import campaign_discipline, campaign_win_share
         diffs = [d for d in DIFFICULTIES if all(d in a["by_difficulty"] for a in ancs)]
         if len(diffs) < 2 or len(ancs) < 2:
             return []
         cws = campaign_win_share(ancs, diffs)
+        cd = campaign_discipline(ancs, diffs)
     except Exception:
         return []
     cells = " · ".join(
@@ -191,6 +196,17 @@ def _win_share_lines(ancs: list[dict]) -> list[str]:
         if names:
             out.append(f"`{d}` does not fall below `{diffs[0]}` on {len(names)} anchor(s): "
                        f"{', '.join(names)}. Only the top tier is a graded problem.")
+    if cd:
+        # Both columns, always. The raw one alone reads as "indiscipline wins" and is an
+        # artefact of which policies overdraw — decision 087, and the reason that entry
+        # exists at all. Printing the adjusted figure without the raw one would hide what
+        # was misread; printing the raw one without the adjusted one is the misreading.
+        out += ["", "Overdraw advantage — does browning out the bus help? "
+                    "Raw, then controlled for **which policy** overdrew "
+                    "(decision 087; reported, not asserted):", "",
+                "| difficulty | raw | within policy | helps on |", "|---|---|---|---|"]
+        out += [f"| {d} | {x['raw_delta']:+.1%} | {x['within_policy_delta']:+.1%} | "
+                f"{x['helps_on']}/{x['split_policies']} policies |" for d, x in cd.items()]
     return ["", *out, ""]
 
 
