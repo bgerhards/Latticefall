@@ -1,5 +1,5 @@
 {
-  "next_id": 238,
+  "next_id": 240,
   "items": [
     {
       "id": "LF-001",
@@ -2527,11 +2527,11 @@
       "kind": "bug",
       "area": "tooling",
       "pri": "med",
-      "status": "open",
+      "status": "done",
       "why": "",
       "opened": "2026-08-01",
-      "closed": null,
-      "note": ""
+      "closed": "2026-08-03",
+      "note": "closed at 0dc676b"
     },
     {
       "id": "LF-212",
@@ -2767,11 +2767,11 @@
       "kind": "bug",
       "area": "tooling",
       "pri": "med",
-      "status": "open",
+      "status": "done",
       "why": "",
       "opened": "2026-08-03",
-      "closed": null,
-      "note": ""
+      "closed": "2026-08-03",
+      "note": "closed at 0dc676b"
     },
     {
       "id": "LF-232",
@@ -2836,6 +2836,30 @@
     {
       "id": "LF-237",
       "title": "scenario lf226-fallback is the most expensive non-parity check in the gate at 75.8 s local; next is anchor grades at 63.7 s and scenario smoke at 37.4 s. SCENARIO_TIMEOUT_S is 300 s and its comment already records CI being slow enough to force 120 -> 300 once. THE COST IS STRUCTURAL, not a slow implementation: the 12th and 13th emplacements on anchor-11 are funded by wave-2 and wave-3 bounty, so the run cannot end before roughly frame 2900 even at 3x, the fastest authored speed. Two things to do rather than one. First, RE-MEASURE ON CI before assuming the 300 s margin holds - the local figure is 16-core and CI is not. Second, note that tier 3 is now 355 s locally and has absorbed two 60-80 s checks in one day (anchor grades, this one); tier 3 has no asserted budget the way tiers 1 and 2 do, so nothing will tell us when it stops being a usable PR gate. Consider giving tier 3 a --budget assertion like the lower tiers have, which is the only mechanism this project has that reliably catches a tier quietly becoming too slow to use",
+      "kind": "chore",
+      "area": "tooling",
+      "pri": "med",
+      "status": "open",
+      "why": "",
+      "opened": "2026-08-03",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-238",
+      "title": "AnchorSim.available_slots() (scripts/anchor_sim.gd) TRUNCATES a slot to Vector2i(int(sx), int(sy)), so on a fractional-slot anchor the two verification hooks that consume it site an emplacement at the FLOOR of the authored position. Found auditing LF-219 (schema widened from integer to number, so fractional slots are now legal content). Callers: anchor_view.gd _next_autobuild_candidate() (--autoplay/autobuild) and main.gd:452 (--build <tower>). If the floored position is illegal -- e.g. a slot at (7, 4.6) beside a lane on y=4 floors onto the lane tile -- build_at() returns false and the build SILENTLY does not happen; the autobuild loop exits on its placed_one flag rather than hanging, so nothing is red. Nothing else in GDScript truncates: the rules (build_at/_is_placeable/_occupied/effective_cap) read only slots.size(), the editor overlay at anchor_view.gd:2824 draws through float(slot[0]) and is already correct, and fx_additive.gd hashes PLACED x/y not authored slots. board_props.gd:422 also floors slots into its prop-exclusion tile set, which is cosmetic (a prop may draw over a fractional slot). THE FIX: available_slots() should return the authored floats -- but it is a presentation accessor whose Vector2i shape its callers depend on, so this is a small typed change across three files, not a one-liner. Zero shipped anchors are affected (all 24 still author integers); validate_data.py WARNS the moment one does not, naming this call site",
+      "kind": "bug",
+      "area": "engine",
+      "pri": "med",
+      "status": "open",
+      "why": "",
+      "opened": "2026-08-03",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-239",
+      "title": "tools/genboard.py still emits INTEGER slot positions now that LF-219 has widened data/schema/anchor.schema.json to number. Not a bug -- deliberately left, and the docstring on place_slots() now says why rather than citing the old schema constraint. What blocks it: render() indexes an ASCII preview grid by slot (cell[y][x]) and would TypeError on a float; the generator binds the COUNT far more than the positions (_effective_cap()'s fallback -- see LF-222); and moving the positions moves every generated board's numbers, including the byte-identical output --selftest asserts. THE WORK, when PLC-04's lattice or LF-080 wants it: site slots on the same half-tile lattice build_candidate_lattice() uses, floor in render() only, and re-baseline --selftest in the same change. Worth doing then because sim/coverage.py reports per-slot presence off exactly these positions, so an integer-only generator understates what a generated board's best sitings are worth",
       "kind": "chore",
       "area": "tooling",
       "pri": "med",

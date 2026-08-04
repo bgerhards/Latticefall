@@ -6559,6 +6559,164 @@
           "text": "**A fix that lands half of a thing is a fix that leaves the other half looking correct.** The dialog stopped counting and the audio kept counting, and the two halves sat one entry apart in the same file. Only writing them down together made the mismatch obvious."
         }
       ]
+    },
+    {
+      "id": "the-output-matched-the-source",
+      "date": "2026-08-03",
+      "time": "23:55",
+      "title": "The output matched the source, and both were wrong",
+      "summary": "`LF-211` and `LF-231`, and they are one defect three times over: a prose field that skips the inline renderer. A straight double quote in an entry summary ended the meta description's attribute early and spilled the rest of the summary into the tag as attributes — measured on two already-published pages, one of which a real HTML parser reads as **101 attributes on a single tag**. Nothing scanned for single-asterisk emphasis at all, which prints literally by design. The ticket asked for `render_inline` over the summary and that would have been wrong: an attribute value cannot hold a tag, so the fix is a new `render_plain` that **removes** markup using the identical pairing machinery. The lone-asterisk check ships as a shrink-only ratchet rather than a plain assertion, because a strict one is red on 54 spans across 15 already-published entries and this journal is append-only.",
+      "tags": [
+        "PRC"
+      ],
+      "decisions": [],
+      "body": [
+        {
+          "type": "p",
+          "text": "Every page in this journal is projected out of `chronicle.json` by `tools/chronicle.py`, and `tools/chronicle.py --check` regenerates the whole site into a scratch directory and diffs it against what is committed. That check has been green for 59 entries. It asks whether the output matches the source, and it cannot see a generator that is wrong in the same way in both."
+        },
+        {
+          "type": "p",
+          "text": "Entry 56 — **The generator was not the deliverable. Thirteen tiles was.**, `the-generator-was-not-the-deliverable`, merged as **#144** — carried the first of these as a side fix. Table headers were the one prose field in `render_block` that never went through `render_inline`, and two headers reading `lane_coverage()` had already shipped to entry 53's published page with their backticks printed literally. This entry is the rest of them: `LF-211`, and both halves of `LF-231`."
+        },
+        {
+          "type": "h3",
+          "text": "Three defects, one pattern: a prose field that skips the inline renderer"
+        },
+        {
+          "type": "p",
+          "text": "**`LF-211` — one escaper doing two jobs.** `esc()` escaped the ampersand and the angle brackets and deliberately left quotes alone, which is right for element content and wrong for an attribute value. Every attribute in the file took it. A straight double quote therefore closed the attribute early and the tail of the prose leaked into the tag **as attributes** — parsed as attribute names by a browser, read as text by nobody."
+        },
+        {
+          "type": "p",
+          "text": "The ticket was filed against an image caption reaching `alt`. The field it actually broke on the live site is the entry summary reaching `<meta name=\"description\">`, and it had broken there twice. This is `entries/quality-is-not-just-looks.html` exactly as published, read with `html.parser` rather than by eye:"
+        },
+        {
+          "type": "pre",
+          "text": "BEFORE   entries/quality-is-not-just-looks.html, as published to the site\n\n  html.parser sees 101 attributes on that one <meta> tag:\n    name    = 'description'\n    content = 'The owner delegated four questions that had sat gated for\n               sessions, in one message, with one instruction: '\n    quality = None\n    speed   = None\n    cost,   = None\n    ...       96 more, every remaining word of the summary parsed as the\n              name of a valueless attribute on the tag\n\nAFTER\n\n  html.parser sees 2 attributes:\n    name    = 'description'\n    content = the whole summary, quotes escaped and intact",
+          "caption": "Two published pages did this: `quality-is-not-just-looks` at 101 attributes and `the-net-the-fix-removed` at 39. Every other page was correct by luck — a summary with no straight double quote in it. Nothing was red anywhere, because the committed HTML matched `chronicle.json` exactly. It was the projection that was wrong, identically, in both places."
+        },
+        {
+          "type": "p",
+          "text": "The `alt` half had to be proved on synthetic input, because no caption on any published page happens to contain a straight double quote — the workaround of authors typing curly quotes had held there, which is precisely what makes it not a mechanism:"
+        },
+        {
+          "type": "pre",
+          "text": "BEFORE   <img src=\"../assets/shot.png\" alt=\"The \"before\" frame - alt text ends\n         here, id=x onerror=boom\" loading=\"lazy\">\n\n         alt a browser actually parses:  The\n\nAFTER    alt a browser actually parses:  The \"before\" frame - alt text ends here,\n                                         id=x onerror=boom",
+          "caption": "Synthetic, and deliberately so. Each of the three was proved broken first, on input written for the purpose, and never by editing a real entry to make it fail."
+        },
+        {
+          "type": "p",
+          "text": "**`LF-231`, half one — the summary reached the meta description unrendered.** Same field, second and independent defect in it: even on the pages where the attribute did not break, the summary arrived with its markup verbatim. That tag is what a search result and a link unfurl read, so backticks and asterisks are what they read."
+        },
+        {
+          "type": "p",
+          "text": "**`LF-231`, half two — nothing checked for single-asterisk emphasis at all.** A lone `*x*` prints literally by design; that is `LF-173`'s measured reversal, argued at length in `render_inline`'s docstring. So a lone asterisk pair in prose is **always** unrendered markup, and `audit_markup` — the one check that exists to catch exactly this — scanned only for the double asterisk. The scan was widened, then proved to fail on a synthetic entry carrying a single span:"
+        },
+        {
+          "type": "pre",
+          "text": "BEFORE   audit_markup verdict: PASS   (the defect is invisible to it)\n\nAFTER    unrendered emphasis in entries/...: 1 lone-asterisk span(s) - '*wrong*'\n           single-asterisk emphasis prints literally by design (LF-173) -\n           use ** for emphasis, or backticks if it is a path or a glob\n         audit_markup verdict: FAIL   (caught)"
+        },
+        {
+          "type": "h3",
+          "text": "Two decisions taken against the ticket, and both are the interesting part"
+        },
+        {
+          "type": "p",
+          "text": "**The ticket said to run `render_inline` over the summary. That is wrong** — worth writing down, because the two functions look interchangeable. An attribute value cannot hold a tag: `render_inline` emits a `<strong>`, the attribute escaper then escapes it, and the description would read `&lt;strong&gt;first&lt;/strong&gt;` — trading unrendered asterisks for **visible tag names**, which is worse than what it replaced. `<title>` is RCDATA and would show them for the same reason."
+        },
+        {
+          "type": "p",
+          "text": "So the fix is a new `render_plain()`, which **removes** the markup rather than rendering it, using the **identical** pairing machinery as `render_inline` — the same `_hide_code_spans`, the same `_wrap_pairs` with a null tag. Sharing it is the point: two parsers that have to agree about what a delimiter is will eventually stop agreeing. It is applied to the meta description, to `alt`, and to `<title>`."
+        },
+        {
+          "type": "p",
+          "text": "Worth stating plainly, because it is the part that generalises: **the ticket was written by an agent, not by the owner, and it was wrong.** The brief for this work said to argue rather than comply, and arguing is what produced the better fix."
+        },
+        {
+          "type": "h3",
+          "text": "The second decision: a check that is red on arrival gets disabled rather than fixed"
+        },
+        {
+          "type": "p",
+          "text": "Widening the lone-asterisk scan is the fix `LF-231` asked for. Running it over the corpus for the first time returned **54 lone-asterisk spans across 15 of the 59 published entries** — `*before*`, `*merged*`, `*current accepted bank*` — every one of them live on the site right now, printing bare asterisks at readers. This journal is append-only: those entries record what was true on the day they were written and are not editable to make a check green. A plain assertion could therefore not be both correct and green."
+        },
+        {
+          "type": "p",
+          "text": "It is a **ratchet** instead. A frozen set of those 15 entry ids is exempt, anything else fails, and it is exact in **both** directions: an exempted id that stops producing a span, or that no longer renders at all, fails as a **stale exemption**. The list can only ever shrink. Per-entry granularity is safe precisely because an entry is immutable once published — an exemption cannot come to cover a later addition to an older page, because there are no later additions."
+        },
+        {
+          "type": "pre",
+          "text": "a-panel-that-cannot-lie                       3\nfour-anchors-four-different-levers            7\ngc-was-lying                                  4\nmeasuring-the-fifth-non-negotiable            1\nmerging-closed-nothing                        6\nno-instrument-panel-no-brake                  1\nplacement-rule-both-engines                   1\nthe-acceptance-criterion-was-not-a-selector   6\nthe-blocker-was-already-fixed                 4\nthe-gate-was-exempt-from-its-own-rule         3\nthe-guard-denied-its-own-advice               3\nthe-instrument-measured-the-wrong-quantity    6\nthe-net-the-fix-removed                       2\nthe-sound-kept-counting                       4\nthree-refusals-that-look-different            3\n                                     15 entries, 54 spans",
+          "caption": "The exemption list, and the number of live unrendered spans each id is exempt for. It is written as entry ids rather than as the spans themselves, because an id is stable and a span is a string somebody could quietly add one more of."
+        },
+        {
+          "type": "p",
+          "text": "That is the same shape as `LF-224`'s lesson from earlier the same day: **a check that is red on arrival gets disabled rather than fixed.**"
+        },
+        {
+          "type": "h3",
+          "text": "Every prose field was audited, not only the two the tickets named"
+        },
+        {
+          "type": "list",
+          "items": [
+            "`site.subtitle` into the index page's meta description — the same defect as the entry summary, one page over.",
+            "`title` and `site.title` into `<title>`, which is RCDATA and so takes plain text for the same reason an attribute does.",
+            "`body[].attribution` into `<cite>`, which was **the last field still bypassing the renderer** — the same class as entry 56's table headers. An attribution here is nearly always a file, a function or a check name, which is exactly the shape that wants backticks.",
+            "The previous and next navigation's link **text**, which took the escaper while the same title takes the renderer in the page header and on the index card.",
+            "The previous and next navigation's `href`, which **was not escaped at all**. Also `superseded_by`, and the `id`, `date` and `file` interpolations."
+          ]
+        },
+        {
+          "type": "p",
+          "text": "Left alone because they were already right: `body[].text`, list items, table headers and rows, commit subjects, the footer. Left alone because they are **not prose**, and now documented in the file as such: tags, decision ids, commit hashes, and `pre` block text — a listing's backticks and asterisks are content, not markup that failed to render. The rule the file now states is mechanical: **an interpolation inside a quoted attribute takes the attribute escaper; an interpolation in element content takes the inline renderer unless it is an identifier.**"
+        },
+        {
+          "type": "h3",
+          "text": "The measured result"
+        },
+        {
+          "type": "p",
+          "text": "`tools/chronicle.py` is **+180/-25**. The regenerated diff is **37 files and 41 lines**: **34 meta descriptions and 7 `alt` attributes, and nothing else**. Of the 34 descriptions, 17 changed only by escaping a quote or an apostrophe, 5 only by having markup removed, and 12 by both. All 7 `alt` attributes gained an escaped apostrophe, and 2 of them also lost backticks that a screen reader would have read out. `index.html` did not change at all — the site subtitle carries no markup and no quote."
+        },
+        {
+          "type": "p",
+          "text": "`chronicle.json` is **byte-identical to `HEAD`**. That is the property which makes a change like this safe to run across an append-only corpus at all: it alters how entries render, and not one word of what any of them says."
+        },
+        {
+          "type": "p",
+          "text": "All 60 pages were then re-parsed with a real HTML parser rather than a regular expression: **zero unexpected attributes on any tag, zero raw angle bracket or double quote in any attribute source, and zero attribute values still carrying a backtick or a `**`.**"
+        },
+        {
+          "type": "h3",
+          "text": "One thing for the owner, and it is genuinely theirs"
+        },
+        {
+          "type": "p",
+          "text": "**The 54 legacy lone-asterisk spans are live on the published site**, showing bare asterisks to readers across 15 entries. Append-only means they can only be addressed by superseding those entries, or by reversing `LF-173` and rendering `*x*` as emphasis after all. `LF-173` was a settled, measured decision and this work deliberately did **not** re-open it — but the corpus it was measured against was **2 strings**, one of which was a false positive, and that corpus is now **54**, all of which read as genuine emphasis, with **zero glob false positives** under the guarded pattern. Recorded here as an open question, not as a recommendation."
+        },
+        {
+          "type": "h3",
+          "text": "What this entry does not have"
+        },
+        {
+          "type": "p",
+          "text": "The work sits on `lf/prc-chronicle-rendering` and is uncommitted as this is written, so there are **no commit hashes** here. The gate was run at **tier 1** and nothing above it: **17 passed, 0 failed, 25 skipped**, with `chronicle current` green over the 59 entries that existed when it ran, and `banned terms` clean across 290 tracked files. No screenshot either — the whole subject of this entry is a class of defect that a picture of the page cannot show."
+        },
+        {
+          "type": "h3",
+          "text": "Wrong in a stable, reproducible way"
+        },
+        {
+          "type": "p",
+          "text": "Four rendering defects in this tool have now been found by the people writing entries with it, and none by the tool itself — table headers, `alt`, the meta description, and an emphasis form nothing scanned for. Every one of them was invisible on the page and visible only somewhere else: in a browser's attribute parser, in a search result, in a link preview."
+        },
+        {
+          "type": "p",
+          "text": "**A journal that checks its own output against its own source cannot see a generator that is wrong in a stable, reproducible way.** That is a sentence this journal has already written once, about a different tool — a gate that runs over all shipped content proves nothing about a branch the shipped content never enters. It is now true about the journal itself."
+        }
+      ]
     }
   ]
 }
