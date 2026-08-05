@@ -174,12 +174,26 @@ def build_tower_ids(built: list[str]) -> list[str]:
     return [b.split("@", 1)[0] for b in built]
 
 
+def weapon_ids(tower_ids: list[str], towers: dict[str, Tower]) -> set[str]:
+    """The distinct *weapon* ids in a list of bare tower ids. `is_weapon` is `damage > 0`,
+    so scan relays, dampers, shield walls and restorers are excluded — a board of a turret
+    and three support emplacements is one weapon class, not four.
+
+    Split out of weapon_ids_in_build() when `tools/criteria.py` became the first caller
+    (LF-278) and needed the same predicate over a list that is **not** a build: an anchor's
+    `unlocked` roster, which BAL-04's multi-weapon criterion conditions on. Passing that
+    roster through build_tower_ids() would have worked by accident — a bare id survives the
+    `@` split unchanged — and would have been the wrong thing to read in six months. One
+    predicate, two entry points, no third copy.
+    """
+    return {t for t in tower_ids if t in towers and towers[t].is_weapon}
+
+
 def weapon_ids_in_build(built: list[str], towers: dict[str, Tower]) -> set[str]:
-    """The distinct *weapon* ids in a graded run's build. `is_weapon` is `damage > 0`, so
-    scan relays, dampers, shield walls and restorers are excluded — a build of a turret and
-    three support emplacements is one weapon class, not four. Pairs with build_tower_ids();
-    see LF-270 there for why this is not written inline at each call site."""
-    return {t for t in build_tower_ids(built) if t in towers and towers[t].is_weapon}
+    """The distinct weapon ids in a graded run's build — `weapon_ids()` over
+    `build_tower_ids()`. Pairs with build_tower_ids(); see LF-270 there for why the `@`
+    split is not written inline at each call site."""
+    return weapon_ids(build_tower_ids(built), towers)
 
 
 def saturation_stats(a: Anchor, towers: dict[str, Tower]) -> dict[str, float | str]:

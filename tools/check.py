@@ -39,11 +39,22 @@ opposite case — they live in `CHECKS`, so they cost nothing to assert — and 
 check below does exactly that on every tier-1 run: a stale count here is a red run, not a
 silent drift. See that check's own docstring for what it caught before it existed.
 
-- **tier 1 (pre-commit), 20 checks:** `python syntax`, `json parses`, `gdscript parses`,
+- **tier 1 (pre-commit), 21 checks:** `python syntax`, `json parses`, `gdscript parses`,
   `game data`, `wave density`, `dialog capacity`, `dialog figures`, `backlog rendered`,
   `chronicle current`, `agent models`, `leases wired`, `issue traceability`, `banned terms`,
   `tier counts`, `safe operations`, `rules autoloads`, `yaw hysteresis`, `asset coverage`,
-  `playfield width`, `grade verdict`. No Godot window opens.
+  `playfield width`, `grade verdict`, `grade criteria`. No Godot window opens.
+
+  **`grade criteria` (LF-270/LF-278) is the newest, and it is `grade verdict`'s argument
+  applied to a second instrument.** `tools/criteria.py` prints BAL-04's acceptance-criteria
+  table against `tools/bal04_baseline.json`, and on the shipped campaign it prints six `ok`s
+  — the state in which a comparator that can only say `ok` looks exactly like one that
+  works. This drives all six red as well as green over synthetic grade tables in ~0.2 s. It
+  is also the *only* caller of `tools/density.py`'s `build_tower_ids()` and
+  `weapon_ids_in_build()`, which is the other half of why it exists: a `built` entry is
+  `"<tower-id>@<x>,<y>`", so a membership test against bare ids matches nothing and answers
+  a confident **zero** without raising — the helpers exist to hold that down and had no
+  caller to notice if they stopped.
 
   **`dialog figures` is the newest, and what it says about mechanical checks over prose is
   worth more than the check.** `dialog capacity` already covers the bus figure a brief reads
@@ -76,7 +87,7 @@ silent drift. See that check's own docstring for what it caught before it existe
   both green throughout, because both audit **text** and a playfield is not a text item. Its
   mirror of the four geometry expressions is pinned verbatim against `scripts/ui_theme.gd`,
   so the mirror can only go stale loudly.
-- **tier 2 (pre-push), 29 checks:** tier 1 + `sim determinism`, `sprite atlas`,
+- **tier 2 (pre-push), 30 checks:** tier 1 + `sim determinism`, `sprite atlas`,
   `sprite coverage`, `music manifest`, `sfx determinism`, `sfx loudness` (PRC-18 — see
   `_run_loudness_check`'s own comment for why it is `sfx loudness` and not `music loudness`
   that landed here), `godot boots`, `terrain parsers agree`, `hooks configured`.
@@ -113,7 +124,7 @@ silent drift. See that check's own docstring for what it caught before it existe
   trustworthy, and `--budget` turns the figures above into assertions, so an instrument that
   can run backwards is the wrong one to be judging a 0.8% margin with. Only `started_at`
   stays on the wall clock, because a timestamp is not a duration.
-- **tier 3 (PR), 43 checks:** tier 2 + `facing harness` (moved here from tier 2, above) +
+- **tier 3 (PR), 44 checks:** tier 2 + `facing harness` (moved here from tier 2, above) +
   `anchor grades` (LF-224 — the deliberate replacement for the all-anchors-clean assertion
   `sim determinism` was serving by accident until PLC-04; ~62 s, and tier 3 rather than
   tier 2 because tier 2 is over budget and rather than tier 4 because the regression it
@@ -138,7 +149,7 @@ silent drift. See that check's own docstring for what it caught before it existe
   reasoning and for a larger hole** — six of the eight verbs `Sim._dispatch_one()` accepts
   are never scheduled by any shipped policy, and unlike the firing arc the *player* uses
   every one of them; see `check_verb_parity`'s own docstring.
-- **tier 4 (nightly/release), 46 checks — the default:** tier 3 + `music loudness` (see
+- **tier 4 (nightly/release), 47 checks — the default:** tier 3 + `music loudness` (see
   `_run_loudness_check`'s own comment for why it did not join `sfx loudness` at tier 3) +
   `rules parity` (grows with every policy/anchor) + `rules parity (windows)` (BAL-06 — the
   same runs again, against the Windows binary the owner actually plays rather than the Linux
@@ -1819,6 +1830,47 @@ def check_grade_verdict() -> Result:
                   else "selftest ok (no output)")
 
 
+def check_criteria_selftest() -> Result:
+    """`tools/criteria.py --selftest`: drive every BAL-04 acceptance comparator, red and green.
+
+    The third member of the family above, and here for the same reason as `grade verdict`.
+    `tools/criteria.py` prints BAL-04's acceptance-criteria table against the baselines in
+    `tools/bal04_baseline.json`, and run against the shipped campaign it prints six `ok`s —
+    which is exactly the state in which a comparator that can only ever say `ok` is
+    indistinguishable from one that works (`LF-229`, decision 078). The selftest drives all
+    six red as well as green over synthetic grade tables.
+
+    It also gives `tools/density.py`'s `build_tower_ids()` and `weapon_ids_in_build()` a
+    *tested* caller, which is `LF-278`: a `built` entry is `"<tower-id>@<x>,<y>"`, so a
+    membership test against bare tower ids matches nothing and returns a confident **zero**
+    rather than raising. Those helpers were written with that trap documented and had no
+    caller at all, so nothing would have noticed them regressing — and every criterion in
+    `criteria.py` would have stayed green while the multi-weapon count silently became 0 of
+    22. The selftest pins the helper directly for that reason.
+
+    **Tier 1**: ~0.2 s, no Godot, no Sim, no content load — the comparators are pure
+    functions of a grade table and a baseline dict, which is the same argument that put
+    `grade verdict` and `playfield width` at this tier. Note the check deliberately does
+    *not* grade the campaign: `tools/criteria.py` with no `--selftest` needs a full
+    `sim/run.py` pass (~65 s at `--jobs 8`) and that is `anchor grades`' territory at tier 3.
+    """
+    tool = ROOT / "tools" / "criteria.py"
+    if not tool.exists():
+        return Result(SKIP, "tools/criteria.py not written (LF-270)")
+    r = run(PY, str(tool), "--selftest", timeout=120)
+    if r.returncode != 0:
+        # The human table prints only the FIRST line of a detail, so the failing assertion
+        # goes there and the traceback below it — a detail that opens with a newline reads
+        # as a failure with no message at all, which is how this was first written and how
+        # it was caught while proving the check red.
+        blob = r.stderr.strip() or r.stdout.strip()
+        last = blob.splitlines()[-1] if blob else "(no output)"
+        return Result(FAIL, f"tools/criteria.py --selftest failed "
+                             f"(exit {r.returncode}): {last}\n{blob[-600:]}")
+    return Result(OK, r.stdout.strip().splitlines()[-1] if r.stdout.strip()
+                  else "selftest ok (no output)")
+
+
 def check_gdscript_parses() -> Result:
     """Parse-check every tracked GDScript file in isolation. See `tools/validate/gdscript.py`
     for the why: a parse error here is a hang or a blank frame with no error at the failure
@@ -2484,6 +2536,10 @@ CHECKS = [
     # 24 and so only ever exercises the green path of every rule in `sim/run.py`'s
     # `verdict()`. See check_grade_verdict's own docstring.
     Check("grade verdict",     1, check_grade_verdict),
+    # LF-270 / LF-278. Sibling of `grade verdict` directly above: the red half of a table
+    # that is six `ok`s on the shipped campaign, and the only caller of tools/density.py's
+    # two build-parsing helpers. See check_criteria_selftest's own docstring.
+    Check("grade criteria",    1, check_criteria_selftest),
     Check("gdscript parses",   1, check_gdscript_parses),
     Check("godot boots",       2, check_godot_boots),
     # PRC-18: one check per data/scenarios/*.json file, not one check that loops over all of

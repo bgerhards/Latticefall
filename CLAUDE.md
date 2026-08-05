@@ -79,6 +79,11 @@ docs/            STATE, BACKLOG, DECISIONS, NOMENCLATURE, STORY
 .venv/bin/python tools/validate/validate_data.py   # schemas + cross-references
 .venv/bin/python tools/density.py                  # units, leak, hp, drain and screen
                                                    # presence per anchor and per act
+.venv/bin/python tools/criteria.py --jobs 8 --verbose  # BAL-04's six acceptance criteria
+                                                   # against tools/bal04_baseline.json.
+                                                   # --rebaseline moves the bar (refuses on a
+                                                   # regression unless told); --selftest is
+                                                   # the tier-1 `grade criteria` check
 .venv/bin/python tools/sweep.py anchor-20 --jobs 8 # grade a grid, one cell per core
 .venv/bin/python -m sim.run --jobs 8               # grade every anchor, one per core
 .venv/bin/python tools/validate/a11y.py <report.json> --shot <frame.png> --all

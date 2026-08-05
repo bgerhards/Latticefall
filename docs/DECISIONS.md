@@ -4559,3 +4559,75 @@ slice that moved both the instrument and the content could attribute neither. `L
 constant. The right move was to ask what the constant had ever separated, and the answer was a
 gap 0.159 wide that no state of this campaign has ever landed in. **A threshold with a history
 is defended by its history, not by today's measurement.**
+
+## 094 — The acceptance criteria get a tool and a baseline artefact, because five slices hand-rolled them and each rediscovered the same lie
+
+**2026-08-05.** `LF-270` and `LF-278`. Adds `tools/criteria.py`, `tools/bal04_baseline.json`
+and the tier-1 `grade criteria` check. Extends decision **088**, which wrote the criteria;
+this makes them runnable.
+
+**The problem is a count.** Decisions 088, 089, 090, 091 and 093 each recomputed `BAL-04`'s
+multi-weapon and per-anchor `standard + brutal` figures from `sim/run.py`'s JSON in a scratch
+script, five times, and each had to rediscover the same three traps:
+
+- **`built` entries are `"<tower-id>@<x>,<y>"`.** A membership test against bare tower ids
+  matches nothing and **answers zero rather than raising** — it does not fail, it lies.
+- **`--json` silently drops each report's `runs` unless `--detail` is also passed** (`LF-258`),
+  so a per-run statistic computed off the artefact gets nothing and says nothing.
+- **"Achievable" means ≥2 *weapon* ids** (`damage > 0`) unlocked at or before the anchor. That
+  is the difference between **17/22** and 17/24, and getting it wrong makes anchor-01 and
+  anchor-02 permanent failures — the exact error decision 088 had to correct.
+
+Decision 093 added the `@`-splitting helpers to `tools/density.py` but **nothing called them**,
+which is `LF-278`: an uncalled helper is not a fixture, it is a claim nobody checks.
+
+**Decision: `tools/criteria.py`, not extra fields on `sim/run.py --json`.** The grader's report
+is *per anchor*; four of the six criteria are not. Three compare the whole campaign against a
+stored baseline, and the `count: 1` share is computed from `data/anchors/` and never touches a
+grade at all. Putting them behind `--json` would make every consumer of that instrument carry
+`BAL-04`'s specification plus a baseline file it never asked for, and would give
+`sim determinism` — which diffs two grade runs byte for byte — a second thing to be sensitive
+to. Consuming the grade rather than extending it also escapes `LF-258` structurally: with no
+`--grade` the tool grades in-process, so `runs` is always present and the `--detail` trap
+cannot be reached.
+
+**The bar is an artefact, not a literal.** `tools/bal04_baseline.json` stores the baseline and
+**carries the commit it was taken on** — the discipline `LF-271` asked for after `LF-218`'s
+quoted figures stopped reproducing. `--rebaseline` moves it and **refuses on a regression**
+unless `--accept-regressions` is passed, naming what it would bake in; it refuses outright on a
+partial grade, so a one-anchor run can never become the campaign's bar.
+
+**One detail worth keeping: the `count: 1` shares are stored as `{count_one, entries}` integers
+and compared by cross-multiplication.** A stored `0.079` would have admitted 16/203 = 7.882% as
+"no rise" — a regression passing as a rounding artefact. The same class of error as the
+"browned-out runs win by 21.8 points" population confound in decision 087: the number was right
+and the comparison was not.
+
+**Criterion 4 delegates rather than recomputing**, deliberately. The `PLC-05` saturation
+denominator already has three copies (`validate_data.py`, `tools/sweep.py`,
+`density._tower_max_draw`), each carrying a comment telling the next person to move the other
+two; a fourth is a fourth thing to drift, and the criterion as `BAL-04` writes it *is* that
+tool's verdict. `wave density`, `dialog capacity` and `rules parity` are deliberately **absent**
+— they are gate checks that already fail loudly, and a second weaker copy is worse than none.
+
+**Proved against a known answer and then proved red.** On `a4702df` it reproduces the record
+exactly: 24/24 `ok`, multi-weapon 22/22 achievable (22/24 unconditioned), win share
+44.8/31.2/25.1 falling strictly, act 1 `count: 1` 7.9%. All six criteria were then driven to
+failure — a not-`ok` anchor, a partial grade, a grade missing brutal, one anchor losing a build,
+an anchor's winners going single-weapon, an artefact with no `runs`, capacity at 85% and 110% of
+saturation, one spawn entry moved to `count: 1`, brutal made forgiving, and a top tier equal to
+its base. The gate check was proved red three ways, including by **removing the `@` split**,
+which is the trap the whole tool exists for. Restores were **asserted**: a `git ls-files` +
+`sha256sum` manifest over all 1,519 tracked files diffs clean before and after.
+
+**A stale bar found by building the tool.** `docs/issues/BAL-04-regrade-the-campaign.md`'s
+acceptance section still stated multi-weapon 17/22 and act 1 10.1%, both superseded by decisions
+090 and 091, and its per-anchor list was decision 088's at `54c666b` — five of whose eight
+anchors have since improved. Anyone reading the issue as the live bar under-measures by up to
+four builds on anchor-04. The issue now points at the artefact and keeps the old numbers marked
+as superseded rather than deleting them, per the append-only rule.
+
+**The general lesson.** Decision 088 said a criterion carries the baseline it is judged against.
+This is the mechanical half: **a baseline that lives in prose is a baseline that goes stale
+between the session that writes it and the session that reads it.** Five hand-rolled scripts is
+what that costs.

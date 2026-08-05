@@ -1,0 +1,117 @@
+{
+  "anchors": 24,
+  "campaign_win_share": {
+    "brutal": {
+      "tried": 335,
+      "won": 84
+    },
+    "hard": {
+      "tried": 333,
+      "won": 104
+    },
+    "standard": {
+      "tried": 335,
+      "won": 150
+    }
+  },
+  "commit": "a4702df",
+  "count_one": {
+    "1": {
+      "count_one": 15,
+      "entries": 191
+    },
+    "2": {
+      "count_one": 106,
+      "entries": 361
+    },
+    "3": {
+      "count_one": 108,
+      "entries": 320
+    }
+  },
+  "difficulties": [
+    "standard",
+    "hard",
+    "brutal"
+  ],
+  "multi_weapon": {
+    "achievable": [
+      "anchor-03",
+      "anchor-04",
+      "anchor-05",
+      "anchor-06",
+      "anchor-07",
+      "anchor-08",
+      "anchor-09",
+      "anchor-10",
+      "anchor-11",
+      "anchor-12",
+      "anchor-13",
+      "anchor-14",
+      "anchor-15",
+      "anchor-16",
+      "anchor-17",
+      "anchor-18",
+      "anchor-19",
+      "anchor-20",
+      "anchor-21",
+      "anchor-22",
+      "anchor-23",
+      "anchor-24"
+    ],
+    "met": [
+      "anchor-03",
+      "anchor-04",
+      "anchor-05",
+      "anchor-06",
+      "anchor-07",
+      "anchor-08",
+      "anchor-09",
+      "anchor-10",
+      "anchor-11",
+      "anchor-12",
+      "anchor-13",
+      "anchor-14",
+      "anchor-15",
+      "anchor-16",
+      "anchor-17",
+      "anchor-18",
+      "anchor-19",
+      "anchor-20",
+      "anchor-21",
+      "anchor-22",
+      "anchor-23",
+      "anchor-24"
+    ]
+  },
+  "recorded_at": "2026-08-05T20:01:14.677909+00:00",
+  "schema": "latticefall-bal04-baseline",
+  "source": "tools/criteria.py --rebaseline; grade from sim/run.py at the commit above. Every figure here is BAL-04's measured bar, per decision 088: an acceptance criterion carries the baseline it is judged against.",
+  "standard_plus_brutal": {
+    "anchor-01": 3,
+    "anchor-02": 7,
+    "anchor-03": 7,
+    "anchor-04": 10,
+    "anchor-05": 8,
+    "anchor-06": 10,
+    "anchor-07": 8,
+    "anchor-08": 6,
+    "anchor-09": 11,
+    "anchor-10": 10,
+    "anchor-11": 10,
+    "anchor-12": 15,
+    "anchor-13": 11,
+    "anchor-14": 16,
+    "anchor-15": 12,
+    "anchor-16": 12,
+    "anchor-17": 9,
+    "anchor-18": 10,
+    "anchor-19": 11,
+    "anchor-20": 11,
+    "anchor-21": 8,
+    "anchor-22": 11,
+    "anchor-23": 7,
+    "anchor-24": 11
+  },
+  "version": 1
+}

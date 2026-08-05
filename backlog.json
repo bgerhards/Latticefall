@@ -3234,11 +3234,11 @@
       "kind": "chore",
       "area": "tooling",
       "pri": "high",
-      "status": "open",
+      "status": "done",
       "why": "four PRs have hand-rolled the same computation and rediscovered the same trap",
       "opened": "2026-08-05",
-      "closed": null,
-      "note": ""
+      "closed": "2026-08-05",
+      "note": "closed at a4702df"
     },
     {
       "id": "LF-271",
@@ -3330,12 +3330,24 @@
       "kind": "chore",
       "area": "tooling",
       "pri": "high",
-      "status": "open",
+      "status": "done",
       "why": "the helpers landed with no caller, so LF-270 is not closed and the new code is untested",
+      "opened": "2026-08-05",
+      "closed": "2026-08-05",
+      "note": "closed at a4702df"
+    },
+    {
+      "id": "LF-279",
+      "title": "sim/run.py --json should ERROR when a consumer needs runs and --detail was not passed, rather than silently emitting reports with no runs. LF-258 records that --json drops each report's runs unless --detail is also given, so anything computing a per-run statistic off the JSON gets nothing and says nothing -- a confident zero rather than a failure. tools/criteria.py now routes around it: with no --grade it grades in-process so runs is always present, and when handed an artefact that lacks runs it fails loudly with cannot be computed ... drops runs unless --detail is also passed. That protects one consumer; the trap is still live for the next hand-rolled script, and five of them have been written already (decisions 088, 089, 090, 091, 093). THE WORK is small: either make --json imply --detail, or emit an explicit marker in the artefact so a consumer can tell an empty runs list from an omitted one. Prefer the marker -- --detail exists because the full run list is large, and forcing it on every consumer trades one silent failure for a size problem. Amends LF-258 rather than replacing it.",
+      "kind": "bug",
+      "area": "tooling",
+      "pri": "med",
+      "status": "open",
+      "why": "the silent-zero trap survived five hand-rolled scripts and is still live for the sixth",
       "opened": "2026-08-05",
       "closed": null,
       "note": ""
     }
   ],
-  "next_id": 279
+  "next_id": 280
 }
