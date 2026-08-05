@@ -3282,10 +3282,10 @@
       "kind": "bug",
       "area": "design",
       "pri": "med",
-      "status": "open",
+      "status": "dropped",
       "why": "the one Act III anchor outside its own act band, found while deriving the leak budget",
       "opened": "2026-08-05",
-      "closed": null,
+      "closed": "2026-08-05",
       "note": ""
     },
     {
