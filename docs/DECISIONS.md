@@ -4676,3 +4676,40 @@ a grade delta can be attributed.
 is evidence about the band as much as about the anchor. Before moving the one value that
 disagrees, plot the other twenty-three — the "outlier" here was the only point making an act
 boundary continuous.
+
+## 096 — Correcting decision 095's superlative: anchor-16 → anchor-17 is the smoothest act BOUNDARY, not the smoothest transition
+
+**2026-08-05.** Supersedes **two figures** in decision 095, written minutes earlier, and nothing
+else. The refusal 095 records still stands and its conclusion is unchanged; this exists because
+`docs/DECISIONS.md` is append-only and a future reader searching for "smoothest transition"
+would otherwise find the wrong claim in the authoritative file first. Caught by the chronicler
+recomputing the figures from `data/` rather than transcribing them.
+
+**Decision 095 said** anchor-16 → anchor-17 (+0.0004) is *"the smoothest transition in the
+entire campaign."* **It is the third smallest of the 23 steps.** Two mid-act steps are smaller:
+
+- `anchor-18 → anchor-19` is **exactly 0.00000** — both are 26 lives over 122 `leak_cost`,
+  literally identical
+- `anchor-10 → anchor-11` is **−0.00029**
+
+**The true claim is narrower and is the one the argument actually rests on: it is the smoothest
+act boundary.** The campaign has exactly two — `anchor-08 → anchor-09` at **−0.03186** and
+`anchor-16 → anchor-17` at **+0.00041**, a factor of 78 apart. Decision 095 never needed the
+stronger form; it needed the act II → III boundary to be *continuous*, and it is, by a wide
+margin over the only other boundary in the game.
+
+**And the second figure: the jump would be +0.054, not +0.053.** `24/112 − 42/262 =
+0.21429 − 0.16031 = 0.05398`.
+
+**Why this is worth an entry rather than a shrug.** A superlative is a claim about a whole
+population and is therefore the easiest kind of sentence to write without checking — decision
+095 checked the boundary and then reached for "in the entire campaign" without ranking the other
+22 steps. That is the same shape as decision 087's confounded split and decision 088's
+unmeasured criteria: **the number was right and the quantifier was not.** The rule that follows
+is small and cheap — *before writing "the most" or "the only", rank the set.*
+
+**Everything else in decision 095 reproduces exactly**, verified independently: the band
+arithmetic `[23.18, 23.86]`, 23 → 0.2054 and 24 → 0.2143, act spreads 0.042 / 0.073 / 0.006,
+anchor-14 +0.069, anchor-15 −0.039, anchor-16 +0.042, anchor-18 +0.052, and the act I → II step
+at −0.032. Decision 047's `leak_cost` rule was also checked against the stored fields — all 14
+enemies agree, so the derivation underneath all of it is sound.
