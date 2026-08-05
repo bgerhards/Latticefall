@@ -39,11 +39,26 @@ opposite case — they live in `CHECKS`, so they cost nothing to assert — and 
 check below does exactly that on every tier-1 run: a stale count here is a red run, not a
 silent drift. See that check's own docstring for what it caught before it existed.
 
-- **tier 1 (pre-commit), 19 checks:** `python syntax`, `json parses`, `gdscript parses`,
-  `game data`, `wave density`, `dialog capacity`, `backlog rendered`, `chronicle current`,
-  `agent models`, `leases wired`, `issue traceability`, `banned terms`, `tier counts`,
-  `safe operations`, `rules autoloads`, `yaw hysteresis`, `asset coverage`,
+- **tier 1 (pre-commit), 20 checks:** `python syntax`, `json parses`, `gdscript parses`,
+  `game data`, `wave density`, `dialog capacity`, `dialog figures`, `backlog rendered`,
+  `chronicle current`, `agent models`, `leases wired`, `issue traceability`, `banned terms`,
+  `tier counts`, `safe operations`, `rules autoloads`, `yaw hysteresis`, `asset coverage`,
   `playfield width`, `grade verdict`. No Godot window opens.
+
+  **`dialog figures` is the newest, and what it says about mechanical checks over prose is
+  worth more than the check.** `dialog capacity` already covers the bus figure a brief reads
+  aloud; every *other* number the briefs speak had no cover, and one was wrong — anchor-04
+  told the player the shield wall costs "forty of those ninety-four" megawatts when it draws
+  **26**, stale since `LF-032` lowered it from 40. Two mechanical designs were tried against
+  the corpus first and **both fail**: a regex over "<number> megawatts" *misses this exact
+  bug*, because "forty" carries no unit word; and "every spoken number must be a live figure"
+  false-positives on "reaches across four lanes" and on the *deliberately* unexplained
+  figures in anchor-08 and anchor-17 ("about nine megawatts that isn't going anywhere I can
+  find"), which are narrative and must stay unexplained. So the dependency is **declared, not
+  inferred** — a line carries `quotes`, dotted paths into `towers.json`/`enemies.json`, and
+  the check asserts the live value is among the numbers the line says. It is opt-in by
+  construction and therefore cannot prove a line *should* have been annotated; what it
+  guarantees is that a declared figure can never be silently invalidated by a tuning change.
 
   **`grade verdict` (LF-243) is the newest, and it is the red half of a tier-3 check.**
   `anchor grades` grades the shipped 24 and asserts they pass, so every rule in
@@ -61,7 +76,7 @@ silent drift. See that check's own docstring for what it caught before it existe
   both green throughout, because both audit **text** and a playfield is not a text item. Its
   mirror of the four geometry expressions is pinned verbatim against `scripts/ui_theme.gd`,
   so the mirror can only go stale loudly.
-- **tier 2 (pre-push), 28 checks:** tier 1 + `sim determinism`, `sprite atlas`,
+- **tier 2 (pre-push), 29 checks:** tier 1 + `sim determinism`, `sprite atlas`,
   `sprite coverage`, `music manifest`, `sfx determinism`, `sfx loudness` (PRC-18 — see
   `_run_loudness_check`'s own comment for why it is `sfx loudness` and not `music loudness`
   that landed here), `godot boots`, `terrain parsers agree`, `hooks configured`.
@@ -98,7 +113,7 @@ silent drift. See that check's own docstring for what it caught before it existe
   trustworthy, and `--budget` turns the figures above into assertions, so an instrument that
   can run backwards is the wrong one to be judging a 0.8% margin with. Only `started_at`
   stays on the wall clock, because a timestamp is not a duration.
-- **tier 3 (PR), 42 checks:** tier 2 + `facing harness` (moved here from tier 2, above) +
+- **tier 3 (PR), 43 checks:** tier 2 + `facing harness` (moved here from tier 2, above) +
   `anchor grades` (LF-224 — the deliberate replacement for the all-anchors-clean assertion
   `sim determinism` was serving by accident until PLC-04; ~62 s, and tier 3 rather than
   tier 2 because tier 2 is over budget and rather than tier 4 because the regression it
@@ -123,7 +138,7 @@ silent drift. See that check's own docstring for what it caught before it existe
   reasoning and for a larger hole** — six of the eight verbs `Sim._dispatch_one()` accepts
   are never scheduled by any shipped policy, and unlike the firing arc the *player* uses
   every one of them; see `check_verb_parity`'s own docstring.
-- **tier 4 (nightly/release), 45 checks — the default:** tier 3 + `music loudness` (see
+- **tier 4 (nightly/release), 46 checks — the default:** tier 3 + `music loudness` (see
   `_run_loudness_check`'s own comment for why it did not join `sfx loudness` at tier 3) +
   `rules parity` (grows with every policy/anchor) + `rules parity (windows)` (BAL-06 — the
   same runs again, against the Windows binary the owner actually plays rather than the Linux
@@ -524,6 +539,116 @@ def check_dialog_capacity() -> Result:
     if wrong:
         return Result(FAIL, "\n".join(wrong))
     return Result(OK, f"{len(all_anchor_ids())} briefs quote their own capacity")
+
+
+def _all_spoken_numbers(text: str) -> set[int]:
+    """Every integer a line says, spelled or in digits — not only the ones next to
+    "megawatts".
+
+    `_spoken_numbers()` deliberately anchors on the unit word, because `dialog capacity`
+    is asking "does this brief state its own bus figure". That anchor is exactly what made
+    anchor-04's error invisible for the whole life of the project: the line read "forty of
+    those ninety-four if you raise it", and only "ninety-four" sits next to "megawatts", so
+    the wrong number was never in the set being compared. Here the caller already knows
+    which figure it is looking for, so the widest possible extraction is the safe one.
+    """
+    import re                                                  # noqa: PLC0415
+
+    found = {int(d) for d in re.findall(r"\b\d+\b", text)}
+    # Chunk on anything that is not a letter, a space or an ASCII hyphen, so a full stop or
+    # an em dash ENDS a number and a hyphen does not. Without this, "Anchor fourteen.
+    # Ninety-four megawatts" reads as one run and accumulates to 108 — measured, not
+    # hypothetical; it was the first output of this function.
+    for chunk in re.split(r"[^A-Za-z \-]+", text.lower()):
+        current = 0
+        seen = False
+        for w in re.split(r"[ \-]+", chunk):
+            if w in ("a", "and") and seen:
+                continue
+            if w == "hundred":
+                current = max(current, 1) * 100
+                seen = True
+            elif w in _WORD_NUM:
+                current += _WORD_NUM[w]
+                seen = True
+            else:                   # any other word ends the run and banks it
+                if seen:
+                    found.add(current)
+                current, seen = 0, False
+        if seen:
+            found.add(current)
+    return found
+
+
+def check_dialog_figures() -> Result:
+    """A line that reads a data figure aloud declares which one, and this checks it.
+
+    `dialog capacity` already covers the bus figure, and that check exists because
+    `sweep.py --apply` moves `capacity_mw` without touching prose. Every *other* number a
+    brief speaks had no such cover, and one was wrong: anchor-04 told the player the shield
+    wall costs "forty of those ninety-four" megawatts. It draws **26**. It drew 40 until
+    `LF-032` lowered it, and the brief was never updated — a figure the player is read
+    before the level, wrong by 14 MW, for the whole life of the project.
+
+    Two obvious mechanical designs were tried against the corpus first and BOTH fail:
+
+    - A regex over "<number> megawatts" **misses this exact bug**, because "forty" carries
+      no unit word — the unit is implied by the "ninety-four" it is compared against.
+    - "Every spoken number must be a live figure" false-positives immediately: anchor-06
+      says the ion lance "reaches across four lanes", and anchor-08 and anchor-17 both
+      speak deliberately *unexplained* figures ("about nine megawatts that isn't going
+      anywhere I can find") which are narrative, not data, and must stay unexplained.
+
+    So the dependency is **declared, not inferred**. A line carries `quotes`, a list of
+    dotted paths into `towers.json` or `enemies.json`, and the check asserts the live value
+    is among the numbers the line actually says. That survives any rewording — the writer
+    can move the figure anywhere in the sentence — and it says nothing at all about lines
+    that quote nothing, which is most of them.
+
+    This is opt-in by construction, so it cannot prove a line *should* have been annotated.
+    What it does guarantee is that once a figure is declared, a tuning change can never
+    silently invalidate the prose — which is the failure that actually happened.
+    """
+    sys.path.insert(0, str(ROOT))
+    from sim.content import DATA, all_anchor_ids               # noqa: PLC0415
+
+    rows: dict[str, dict] = {}
+    for fname, key in (("towers.json", "towers"), ("enemies.json", "enemies")):
+        for row in json.loads((DATA / fname).read_text())[key]:
+            rows[row["id"]] = row
+
+    wrong, checked = [], 0
+    for aid in all_anchor_ids():
+        p = DATA / "dialog" / f"{aid}.json"
+        if not p.exists():
+            continue
+        for line in json.loads(p.read_text())["lines"]:
+            said = None
+            for ref in line.get("quotes", []):
+                ident, _, path = ref.partition(".")
+                node = rows.get(ident)
+                if node is None:
+                    wrong.append(f"{aid}: `{ref}` names no emplacement or unit")
+                    continue
+                for part in path.split("."):
+                    if not isinstance(node, dict) or part not in node:
+                        node = None
+                        break
+                    node = node[part]
+                if not isinstance(node, (int, float)):
+                    wrong.append(f"{aid}: `{ref}` does not resolve to a number")
+                    continue
+                if said is None:
+                    said = _all_spoken_numbers(line["text"])
+                checked += 1
+                if int(node) not in said:
+                    heard = ", ".join(str(s) for s in sorted(said)) or "no figure at all"
+                    wrong.append(
+                        f"{aid}: `{ref}` is {int(node)} but the line says {heard} — "
+                        f'"{line["text"][:70]}"')
+    if wrong:
+        return Result(FAIL, "\n".join(wrong))
+    return Result(OK, f"{checked} quoted figure(s) match the data they name")
 
 
 def check_sprite_coverage() -> Result:
@@ -2269,6 +2394,7 @@ CHECKS = [
     Check("game data",         1, check_game_data),
     Check("wave density",      1, check_wave_density),
     Check("dialog capacity",   1, check_dialog_capacity),
+    Check("dialog figures",    1, check_dialog_figures),
     Check("banned terms",      1, check_banned_terms),
     # PRC-16: the module docstring's own '## Tiers' table names a check count per tier —
     # assert it against this same registry rather than let it rot unchallenged. See

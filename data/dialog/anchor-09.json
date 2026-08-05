@@ -16,6 +16,7 @@
     { "trigger": "brief", "speaker": "ferrar",
       "text": "I'm standing in an anchor. Ownership is what we're negotiating. Take a moment with it — I'm not in a hurry." },
     { "trigger": "brief", "speaker": "okonkwo",
+      "quotes": ["flak-array.draw_mw"],
       "text": "Flak array's cleared for the board. Twenty-two megawatts and it bursts over a lane instead of picking one target — but it still cannot see air on its own." },
 
     { "trigger": "wave-start:1", "speaker": "ferrar",
@@ -31,6 +32,7 @@
     { "trigger": "wave-clear:2", "speaker": "vasquez", "critical": false,
       "text": "Pulling how much?" },
     { "trigger": "wave-clear:2", "speaker": "okonkwo", "critical": false,
+      "quotes": ["reach-sapper.drains_mw"],
       "text": "Eight megawatts a man. They walk in, they cost you, and they don't have to reach the ring to do it." },
 
     { "trigger": "wave-clear:4", "speaker": "ferrar", "critical": false,

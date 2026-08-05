@@ -17,6 +17,9 @@
           "speaker": {"enum": ["vasquez", "okonkwo", "control", "ferrar"]},
           "text": {"type": "string", "minLength": 1},
           "beat": {"type": "string", "description": "stage direction, not shown"},
+          "quotes": {"type": "array", "minItems": 1, "uniqueItems": true,
+            "items": {"type": "string", "pattern": "^[a-z][a-z0-9-]*\\.[a-z_]+(\\.[a-z_]+)*$"},
+            "description": "Data figures this line reads aloud, as dotted paths into towers.json or enemies.json — e.g. shield-wall.draw_mw, restorer.effect.value, reach-sapper.drains_mw. The `dialog figures` gate check resolves each and asserts the live value is spoken in `text`. DECLARED rather than parsed, because neither parsing strategy works: 'forty of those ninety-four' carries no unit word so a regex over 'N megawatts' misses it, and a blanket rule that every spoken number be a live figure fails on 'four lanes' and on anchor-08's deliberately unexplained nine megawatts. The writer names the dependency; the check does the arithmetic."},
           "critical": {"const": false,
             "description": "mid-wave lines are interruptible, so no line may be critical"}
         }
