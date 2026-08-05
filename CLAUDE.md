@@ -423,9 +423,12 @@ window it considered occluded**, stalling `await RenderingServer.frame_post_draw
 Decision 052; `tools/shot.py` is the everyday way to reach this from a session.
 
 `tools/check.py --no-window` still exists, but it is now a **speed** option: skipping the
-Godot-launching checks in `RENDERED` — nine as of `PRC-18` (`game renders`, `menu renders`,
-`accessibility`, the five per-scenario checks and `save roundtrip`); run `--list` for the live
-set — on an otherwise fast gate, not a courtesy to whoever is at the machine.
+Godot-launching checks in `RENDERED` (`game renders`, `menu renders`, `accessibility`, the
+per-scenario checks and `save roundtrip`) — on an otherwise fast gate, not a courtesy to
+whoever is at the machine. **Run `--list` and count `renders a frame` for the live number;**
+this sentence said "nine as of `PRC-18`" while there were ten, because a sixth scenario check
+landed and the prose did not follow — exactly the rot the "a count written into prose here
+rots within a day" rule above is about, in the file that states the rule.
 Reach for it when time matters more than completeness — not out of politeness. A machine
 with no native Linux Godot build or no `xvfb-run` installed falls back to a real, visible
 window exactly as before, so the old caution still applies there.

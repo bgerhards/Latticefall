@@ -2032,16 +2032,149 @@ def check_godot_boots() -> Result:
     return Result(OK, "main scene loads clean")
 
 
+## The anchor `game renders` photographs, pinned rather than inherited. Without it the run
+## takes whatever `Progress.selected_anchor` happens to be (`scripts/main.gd` line 194),
+## which is only "anchor-01" because nothing has written it yet — a save format that ever
+## persisted it would silently change what the gate is looking at. The board assertion below
+## reads this anchor's authored slot list, so "which anchor" has to be a declared input.
+GAME_RENDERS_ANCHOR = "anchor-01"
+
+## How many distinct emplacements the frame is asked to draw. Three, because one proves
+## nothing about the id→sprite mapping (any single id would draw *something*) and the
+## anchors with the fewest authored slots still have room for three. The *ids* are never
+## written here — see `_board_builds()`.
+GAME_RENDERS_BUILDS = 3
+
+
+def _board_builds() -> list[str]:
+    """The emplacement ids `game renders` asks the board to draw, taken from the content.
+
+    Deliberately data-derived and not a literal: the check must not carry a tower id, and
+    the assertion it feeds must not encode which towers today's autobuild policy happens to
+    like. `--build` goes through `main.gd`'s `_build_one()`, which grants funds and bypasses
+    the palette's unlock gate, so any id in `data/towers.json` is placeable at any anchor —
+    that is what makes the requested set a free choice rather than an anchor-dependent one.
+    Capped by the anchor's authored slot count because `_build_one()` places on the next
+    free authored slot and warns instead of building when they run out.
+    """
+    ids = [t["id"] for t in json.loads((ROOT / "data" / "towers.json").read_text())["towers"]]
+    anchor = json.loads(
+        (ROOT / "data" / "anchors" / f"{GAME_RENDERS_ANCHOR}.json").read_text())
+    return ids[:min(GAME_RENDERS_BUILDS, len(anchor.get("slots", [])))]
+
+
+def _emplacements_drawn(blob: str) -> tuple[dict[str, int], dict[str, int], list[str]]:
+    """Split a `--facings` dump into (base sprites, head sprites, sprites of neither shape).
+
+    **Field 3 is the sprite; field 2 is the drawable class.** `FACE tower pulse_turret_head
+    bucket=10/16 at=(714,260)` — an `awk '{print $2}'` over this buckets the entire board
+    into `tower`/`unit` and reports one distinct value no matter what is standing on it,
+    which has already cost this project time. The keys returned are the *ids* (`pulse_turret`),
+    with the `_base`/`_head` suffix stripped, so the two halves of one emplacement can be
+    matched against each other.
+
+    Only `kind == "tower"` lines are read. `anchor_view.gd`'s `_build_drawables()` emits
+    exactly two per placed emplacement (ART-01/LF-157: a 4-bucket base and a 16-bucket head,
+    separate sprites at the same screen point), so a name ending in neither suffix means the
+    renderer changed shape under a check that would otherwise silently count zero.
+    """
+    base: dict[str, int] = {}
+    head: dict[str, int] = {}
+    odd: list[str] = []
+    for raw in blob.splitlines():
+        if not raw.startswith("FACE "):
+            continue
+        fields = raw.split()
+        if len(fields) < 3 or fields[1] != "tower":
+            continue
+        sprite = fields[2]
+        if sprite.endswith("_base"):
+            base[sprite[:-5]] = base.get(sprite[:-5], 0) + 1
+        elif sprite.endswith("_head"):
+            head[sprite[:-5]] = head.get(sprite[:-5], 0) + 1
+        else:
+            odd.append(sprite)
+    return base, head, odd
+
+
+def _board_verdict(blob: str, want: list[str], known: set[str],
+                   frame_note: str) -> tuple[str | None, dict[str, int], int]:
+    """Everything `game renders` asserts about the board, as one predicate over one dump.
+
+    Returns `(failure message or None, ids drawn with their base counts, tower drawables)`.
+    Split out from the check itself so a red proof can drive *this* code against a dump
+    shaped like the failure, rather than a re-implementation of it that could agree with a
+    bug — the same reason `firing arcs agree` exists (decision 078): a check the shipped data
+    never pushes into its failing branch has not been shown to have one.
+    """
+    base, head, odd = _emplacements_drawn(blob)
+    faces = sum(base.values()) + sum(head.values()) + len(odd)
+    if odd:
+        return ("drawable is neither a base nor a head — the emplacement sprite pair "
+                f"changed shape: {sorted(set(odd))}", base, faces)
+    if faces == 0:
+        seen = "no FACE lines at all" if "FACE " not in blob else "no tower FACE lines"
+        return (f"no emplacement was drawn on the board — {frame_note} is terrain and "
+                f"panels only. asked for {want or '(nothing — anchor has no slots)'}; "
+                f"{seen}", base, faces)
+    unknown = sorted((set(base) | set(head)) - known)
+    if unknown:
+        return ("board drew emplacement sprites data/towers.json does not define: "
+                f"{unknown}", base, faces)
+    if base != head:
+        halves = sorted(set(base) | set(head))
+        return ("emplacement drawn without its matching half (base/head): "
+                + ", ".join(f"{k} base={base.get(k, 0)} head={head.get(k, 0)}"
+                            for k in halves if base.get(k, 0) != head.get(k, 0)),
+                base, faces)
+    missing = [t for t in want if base.get(t.replace("-", "_"), 0) < 1]
+    if missing:
+        return (f"asked the board for {want}, and {missing} never reached it — "
+                f"drawn: {sorted(base)}", base, faces)
+    return (None, base, faces)
+
+
 @with_artifacts("game-renders")
 def check_game_renders(out: Path) -> Result:
-    """Run the real renderer and assert the frame is not blank.
+    """Run the real renderer and assert the board has the right emplacements on it.
 
     `check_godot_boots` runs headless and only greps for script errors, so it passes
     happily on a scene that draws nothing at all — which is how scenes/main.tscn stayed
     a childless Node2D for several sessions while the gate stayed green. The build
-    reports `FRAME coverage=… distinct=…` alongside its self-screenshot; measured here,
-    a healthy anchor-01 frame is ~0.39 coverage and a board that failed to load is
-    ~0.03, so the bar sits between them with room on both sides.
+    reports `FRAME coverage=… distinct=…` alongside its self-screenshot, and the floor
+    below sits between a healthy frame and a board that failed to load.
+
+    **The coverage figure is about the frame, not about the board, and it must not be read
+    as though it were** (LF-251). It is the fraction of non-background pixels over the whole
+    1440x810 image — terrain, the two instrument panels and every label included — so it is
+    dominated by furniture that is there whether or not a single emplacement rendered.
+    Measured across the LF-236 fix in one session: the board went from twelve `anchor_damper`
+    emplacements to twelve `pulse_turret` ones, a complete change of what was standing on it,
+    and this check reported `coverage 0.95, 114 tones` on both sides — the same two numbers
+    to the digit. It was a real check and it caught real regressions (blank frames, the
+    flat-grey atlas), but on its own it is evidence about the *frame* only.
+
+    So the run also passes `--build` and `--facings`, and asserts against the facing dump.
+    `--facings` costs nothing extra — the capture is already running — and it is the one
+    output that names what was actually drawn. What is asserted:
+
+      * every requested emplacement id appears, as a **base and a head** (the pair
+        `_build_drawables()` emits per placement — a head that stopped being drawn is
+        LF-157's regression and is invisible in coverage);
+      * bases and heads balance across the whole board, so no emplacement is half-drawn;
+      * every drawn id exists in `data/towers.json` — a sprite name the content does not
+        know is a wrong board, not a stylistic difference.
+
+    What is deliberately **not** asserted is an emplacement count fitted to one capture, or
+    the identity of what the autobuild policy chooses. The board here is *requested*, not
+    observed: `_board_builds()` names the ids from the content file and the assertion is that
+    those ids came back, which is causal rather than fitted and stays true when the policy,
+    the anchor's economy or the wave table move. A "subset of what this anchor unlocked"
+    assertion was considered and rejected twice over — `--build` legitimately bypasses the
+    unlock gate, so it would be asserting something about the hook rather than the board, and
+    at anchor-01 the unlocked set is a single id, which makes it nearly vacuous anyway.
+    Extra emplacements beyond the requested ones are tolerated (a future anchor may
+    pre-place one); everything drawn still has to be a real tower, drawn whole.
 
     GL Compatibility renders nothing readable under `--headless`, so this needs a real,
     GPU-backed window — but not a *visible* one. `toolpaths.godot_argv(..., want_window=
@@ -2054,9 +2187,15 @@ def check_game_renders(out: Path) -> Result:
         return Result(SKIP, "godot not installed")
 
     MIN_COVERAGE, MIN_DISTINCT = 0.15, 12
+    want = _board_builds()
+    known = {t["id"].replace("-", "_")
+             for t in json.loads((ROOT / "data" / "towers.json").read_text())["towers"]}
     shot = out / "gate-frame.png"
-    argv = toolpaths.godot_argv(ROOT, ["--fixed-fps", "60", "--", "--display-defaults",
-                                      "--shot", str(shot), "120"], want_window=False)
+    extra: list[str] = ["--display-defaults", "--anchor", GAME_RENDERS_ANCHOR]
+    for tid in want:
+        extra += ["--build", tid]
+    extra += ["--facings", "--shot", str(shot), "120"]
+    argv = toolpaths.godot_argv(ROOT, ["--fixed-fps", "60", "--", *extra], want_window=False)
     r = run(*argv)
     blob = r.stdout + r.stderr
 
@@ -2074,8 +2213,17 @@ def check_game_renders(out: Path) -> Result:
         return Result(FAIL,
                       f"frame is effectively blank: coverage={coverage:.4f} "
                       f"(min {MIN_COVERAGE}), distinct={distinct} (min {MIN_DISTINCT})")
+
+    bad, base, faces = _board_verdict(
+        blob, want, known, f"coverage {coverage:.4f} over {distinct} tones")
+    if bad is not None:
+        return Result(FAIL, bad)
+
     shot.unlink(missing_ok=True)
-    return Result(OK, f"coverage {coverage:.2f}, {distinct} tones")
+    return Result(OK, f"{len(base)} emplacement ids on the board ({', '.join(sorted(base))}), "
+                      f"{faces} base+head drawables, all in towers.json; "
+                      f"frame coverage {coverage:.2f} over {distinct} tones "
+                      f"(whole image — terrain and panels dominate it)")
 
 
 @with_artifacts("menu-renders")

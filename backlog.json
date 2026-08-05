@@ -3002,13 +3002,13 @@
     },
     {
       "area": "tooling",
-      "closed": null,
+      "closed": "2026-08-05",
       "id": "LF-251",
       "kind": "bug",
-      "note": "",
+      "note": "closed at a050ad8",
       "opened": "2026-08-04",
       "pri": "med",
-      "status": "open",
+      "status": "done",
       "title": "game renders cannot tell a board of dampers from a board of turrets, and the LF-236 fix proves it with a byte-identical result line. MEASURED across the fix in one session: before, tools/shot.py anchor-24 --facings returned 24 FACE lines all anchor_damper (12 emplacements, damage 0); after, 24 FACE lines all pulse_turret (12 emplacements, the game main weapon). The board changed completely. tools/check.py game renders reported coverage 0.95, 114 tones BEFORE and coverage 0.95, 114 tones AFTER -- the same two numbers to the digit. So the check that three captures of the running game rest on is insensitive to what is standing on the board. WHAT IT ACTUALLY MEASURES is that the frame is not blank and carries enough distinct colour: coverage is the fraction of non-background pixels and tones is the count of distinct quantised colours, both dominated by terrain, panels and text rather than by emplacements. That is a real thing to check -- it is what caught blank frames and flat-grey atlas regressions -- but it must not be read as evidence about the board, and its own message line invites exactly that reading. THE WORK: either give game renders an assertion about the BOARD (emplacement count and distinct emplacement ids from the same facing dump --facings already prints, which costs nothing extra because the capture is already running), or reword the message so it says frame is non-blank with N tones and stops implying more. Prefer the former: a capture that already knows what it drew should say so. Fifth instance this session of a check that reports on something other than what its name implies -- see LF-243 the grade table cannot see difficulty dissolution, LF-244 six verbs never dispatched, LF-246 coverage.py reporting on vestigial slots, LF-247 the accessibility audit over a 4 px playfield.",
       "why": ""
     },
@@ -3347,7 +3347,31 @@
       "opened": "2026-08-05",
       "closed": null,
       "note": ""
+    },
+    {
+      "id": "LF-280",
+      "title": "game renders asserts nothing about UNITS, one layer over the LF-251 hole it just closed. LF-251 gave the check a board assertion -- it now requests three emplacements by id through --build and asserts each came back as a base and a head, that bases and heads balance, and that every drawn id exists in data/towers.json. The --facings dump ALSO emits FACE unit <sprite> lines and data/enemies.json has the id set, so the same assertion is available for units and would close the same class of blindness. WHAT BLOCKS IT: the capture stops at frame 120, which is phase=prep -- no unit has spawned yet -- so a unit assertion needs a later frame or a --speed bump, and both cost capture time on a check that already runs a real Godot. Worth doing when someone is next in check_game_renders. Note the shape of the win from LF-251 that argues for it: an EMPTY board reproduced the old check's green message exactly, coverage 0.9499 over 114 tones, so the check could not tell a board of twelve turrets from no board at all.",
+      "kind": "chore",
+      "area": "tooling",
+      "pri": "low",
+      "status": "open",
+      "why": "the same blindness one layer over, and the dump already carries the data",
+      "opened": "2026-08-05",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-281",
+      "title": "anchor_view.gd's _autobuild_preference() docstring claims game renders drives --autoplay --anchor anchor-24 for all three of its captures. It never did. game renders is ONE capture, at the default anchor, with no --autoplay at all -- verified while closing LF-251. The check that actually drives three captures is accessibility (tools/check.py around line 2157). Doc-only and in a shared file, so it was left untouched by the LF-251 change. WHY IT MATTERS beyond tidiness: the claim is the kind a future reader uses to decide what a check covers, and it overstates game renders by a factor of three while pointing at the wrong anchor -- someone reasoning about coverage from that comment concludes the busiest anchor in the game is captured every gate run, and it is not. Same class as LF-251 itself: a description that invites a stronger reading than the thing it describes supports. ALSO menu renders reports coverage 0.146, 8 anchors listed -- its button count IS a real assertion so it does not have LF-251's defect, but its coverage half reads the same way and should carry the same whole frame wording.",
+      "kind": "bug",
+      "area": "engine",
+      "pri": "low",
+      "status": "open",
+      "why": "a docstring overstating what a check covers is how coverage gets believed rather than checked",
+      "opened": "2026-08-05",
+      "closed": null,
+      "note": ""
     }
   ],
-  "next_id": 280
+  "next_id": 282
 }

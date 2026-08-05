@@ -10135,6 +10135,85 @@
           "text": "**No screenshot, and that is not an omission: nothing visual changed.** Gate at tier 1: 21 passed, 0 failed. No parity run and none needed — no rule file and nothing under `data/` moved."
         }
       ]
+    },
+    {
+      "id": "it-could-not-tell-twelve-turrets-from-an-empty-board",
+      "date": "2026-08-05",
+      "time": "17:05",
+      "title": "The render check could not tell twelve turrets from an empty board, so the board is now requested rather than described",
+      "summary": "`LF-251`, filed a day earlier by `twelve-dampers-and-the-same-two-numbers` and closed after the day's wrap had already been written. `game renders` is one of the ten gate checks that launch a real Godot, and it reported `coverage 0.95, 114 tones`. Driving the same capture with an **empty board** reproduces that message exactly — `coverage 0.9499`, `114 tones`. The fix is not a bigger number: the board is now **requested**, with the ids read from `data/towers.json`, and the assertion is that what was asked for came back drawn whole.",
+      "tags": [
+        "PRC"
+      ],
+      "decisions": [
+        "097"
+      ],
+      "commits": [
+        {
+          "hash": "e50a127",
+          "subject": "fix(gate): game renders requests the board it wants rather than describing the one it got"
+        }
+      ],
+      "body": [
+        {
+          "type": "p",
+          "text": "The seventh entry of the day, and the only one that landed after `docs/STATE.md` had been wrapped. `the-outlier-was-holding-the-boundary-together` closed out the day's balance work at 16:06; this is `LF-251`, which was not filed by an audit but fell out of yesterday's `LF-236` fix, and it is small enough to be worth writing down precisely because of what it says about the other checks."
+        },
+        {
+          "type": "p",
+          "text": "`game renders` launches the real renderer under `Xvfb` and reads the build's own `FRAME` line: `coverage`, the fraction of non-background pixels over the whole 1440x810 image, and `distinct`, the count of quantised colours. Both are dominated by terrain, the two instrument panels and every label on them. **Measured across the `LF-236` fix inside one session**, the board went from twelve `anchor_damper` emplacements — damage 0, a board that cannot kill anything — to twelve `pulse_turret` ones, and the check reported the same two numbers to the digit."
+        },
+        {
+          "type": "pre",
+          "text": "board standing on the frame                what `game renders` reported\n-----------------------------------------  ----------------------------\n12 anchor_damper   (24 tower drawables)     coverage 0.95,   114 tones\n12 pulse_turret    (24 tower drawables)     coverage 0.95,   114 tones\nnothing at all     ( 0 tower drawables)     coverage 0.9499, 114 tones",
+          "caption": "Three completely different boards, one message. The first two rows are the two sides of the LF-236 fix, measured the same day; the third was driven deliberately, and it is the proof rather than the claim. The floors the check enforces — coverage 0.15, 12 tones — were never wrong; they sit so far below anything a loaded frame produces that an empty board clears them with room to spare."
+        },
+        {
+          "type": "h3",
+          "text": "The board is requested, not observed"
+        },
+        {
+          "type": "p",
+          "text": "The capture now passes `--anchor anchor-01 --build <id> --build <id> --build <id> --facings`. The ids are read from `data/towers.json` in file order — `pulse-turret`, `arc-node`, `ion-lance` — and capped by the anchor's authored slot count, so **no tower id is ever written into the check**. `--facings` costs nothing extra, because the capture is already running, and it is the one output that names what was actually drawn. Four things are then asserted:"
+        },
+        {
+          "type": "list",
+          "items": [
+            "every requested id came back as **a base and a head** — `_build_drawables()` emits exactly two per placement (`ART-01`/`LF-157`), so a head that quietly stopped being drawn now fails instead of passing as coverage;",
+            "bases and heads balance across the whole board, so nothing is drawn half;",
+            "every drawn id exists in `data/towers.json` — a sprite the content does not define is a wrong board, not a stylistic difference;",
+            "every tower drawable ends in `_base` or `_head`, so a change to the renderer's shape fails loudly rather than silently counting zero."
+          ]
+        },
+        {
+          "type": "p",
+          "text": "**Why requested rather than expected is the whole point.** A requested board is **causal**, so the assertion encodes nothing about the autobuild policy, the anchor's economy or the wave table. The `LF-236` change that motivated the item could not have moved it, and neither can the next policy change. A hardcoded \"expect 12 emplacements of 1 distinct id\" would have been a number fitted to one capture and red on arrival the next time the policy moved — and a check that is red on arrival gets disabled rather than fixed (`LF-224`). Extra emplacements beyond the requested set are tolerated, since a future anchor may pre-place one, but everything drawn still has to be a real tower drawn whole."
+        },
+        {
+          "type": "p",
+          "text": "**Rejected, twice over: \"the drawn ids are a subset of what the anchor has unlocked.\"** `--build` goes through `_build_one()`, which grants funds and **bypasses the unlock gate deliberately** — that is what makes the requested set a free choice — so the assertion would be describing the hook rather than the board. And at anchor-01 the unlocked set is exactly one id, which makes it near-vacuous anyway."
+        },
+        {
+          "type": "p",
+          "text": "**`--anchor anchor-01` is now pinned, and that is a fix in itself.** It had been inherited from `Progress.selected_anchor`, which is `anchor-01` only because nothing has ever written it. The board assertion reads that anchor's slot list to cap the request, so which anchor it is has to be a **declared input** rather than a leftover."
+        },
+        {
+          "type": "p",
+          "text": "**Proved red before being trusted green.** The predicate was split out of the check as `_board_verdict()` for exactly this, and all five of its failure branches were driven: a drawable that is neither base nor head, no tower drawables at all, a sprite `towers.json` does not define, a head missing from its base, and a requested id that never reached the board. Three had to be driven against the real dump with one field mutated, because a real board cannot reach them without editing `data/` or `anchor_view.gd` — **which is precisely the hole decision 078 records for the firing arc**. The tree was restored afterwards and **asserted** byte-identical, with a `git ls-files` plus `sha256sum` manifest over all 1,523 tracked files."
+        },
+        {
+          "type": "p",
+          "text": "The green message now says what it checked: `3 emplacement ids on the board (arc_node, ion_lance, pulse_turret), 6 base+head drawables, all in towers.json; frame coverage 0.95 over 139 tones (whole image — terrain and panels dominate it)`. Two things are filed rather than fixed. `LF-280`: the check still asserts nothing about **units**, because the capture stops at frame 120 with the anchor still in its prep phase, so it needs a later frame or a speed bump. `LF-281`: `anchor_view.gd` carries a docstring claiming `game renders` drives `--autoplay --anchor anchor-24` for all three of its captures — it never did, that is `accessibility` — and the file is shared, so it was left alone."
+        },
+        {
+          "type": "p",
+          "text": "**The closing lesson, and it is this session's fifth instance of one shape.** A check whose output invites a stronger reading than its assertion supports is worse than a check with no output at all, because the green is spent. `LF-243`, where the grade table could not see a difficulty dissolve; `LF-244`, six verbs never dispatched; `LF-246`, coverage measured over vestigial slots; `LF-247`, an accessibility audit over a 4 px playfield; and now this. **Ask what the check would still say if the thing it names were absent.** Here the answer was: exactly the same two numbers."
+        },
+        {
+          "type": "p",
+          "text": "**No screenshot, deliberately — the gate had already spent a Godot capture on this frame and a second one would prove nothing new.** Gate at tier 3: 44 passed, 0 failed, with `game renders` itself at 9864 ms. Tier 1: 21 passed. `tier counts` still reports 47 checks across four tiers, because this strengthens a check rather than adding one. No parity run and none needed — `wrap_gate.py` reported the digest cached."
+        }
+      ]
     }
   ]
 }
