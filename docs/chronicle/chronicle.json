@@ -10061,6 +10061,80 @@
           "text": "**No screenshot with this one, and that is not an omission: nothing visual changed.** Gate at tier 3: 44 passed, 0 failed. Tier 1 is 21 checks and ran in 7521 ms of its 10000 ms budget with `--budget` asserted; `tier counts` reports 47 checks with all four tiers matching the docstring (20/29/43/46 becoming 21/30/44/47). No parity run, and none was needed — `wrap_gate.py` reported the digest cached at `234f711c8e46`, and nothing here is a rule file or under `data/`."
         }
       ]
+    },
+    {
+      "id": "the-outlier-was-holding-the-boundary-together",
+      "date": "2026-08-05",
+      "time": "15:49",
+      "title": "anchor-17 is not outside Act III's band — it is the last point before the plateau, and the only thing making an act boundary continuous",
+      "summary": "Decision 095, and the smallest thing on the board today: a refusal with three measurements and **nothing changed**. `LF-274` said anchor-17's leak budget was mis-authored because it sits at 16.1% where Act III's other seven sit in a 20.7–21.3% band. Plotting all twenty-four showed the band is a description of anchors 18–24 and of nothing else in the game, and that the step into anchor-17 is **+0.000** — an act boundary that is continuous, which raising it to 24 lives would break.",
+      "tags": [
+        "BAL"
+      ],
+      "decisions": [
+        "095"
+      ],
+      "commits": [
+        {
+          "hash": "646b641",
+          "subject": "docs(balance): anchor-17's leak budget is not an outlier, it is the last point before the plateau"
+        }
+      ],
+      "body": [
+        {
+          "type": "p",
+          "text": "Twenty-six minutes after `it-does-not-fail-it-lies`, and the last thing of the day. `LF-274` was filed by decision 093's slice and is **refused** here. No data file moved, no instrument was written, no screenshot was taken — the whole change is a backlog line closing and a decision entry. It is in the journal because the measurement is worth more than the item was."
+        },
+        {
+          "type": "p",
+          "text": "**The claim.** anchor-17 spends **16.1%** of its wave table's total `leak_cost` on lives — 18 of 112 — where Act III's other seven anchors sit in a **20.7–21.3%** band, tight enough to look authored to. That band puts anchor-17 at 23 or 24 lives. It read as an obvious mis-authoring that had simply been held back so a grade delta could be attributed later."
+        },
+        {
+          "type": "h3",
+          "text": "Plot the other twenty-three"
+        },
+        {
+          "type": "p",
+          "text": "`lives` over the wave table's total `leak_cost`, every anchor in the campaign, computed from `data/anchors/` and `data/enemies.json` under decision 047's `max(1, round(hp/130))`. Nobody had ever drawn it."
+        },
+        {
+          "type": "pre",
+          "text": "anchor     lives/leak   step    share of total leak_cost\nanchor-01     10/98    10.2%          #####################\nanchor-02    10/120     8.3%  -0.019  #################\nanchor-03     12/97    12.4%  +0.040  ##########################\nanchor-04    14/112    12.5%  +0.001  ##########################\nanchor-05    10/109     9.2%  -0.033  ###################\nanchor-06    14/135    10.4%  +0.012  #####################\nanchor-07    18/185     9.7%  -0.006  ####################\nanchor-08    24/202    11.9%  +0.022  #########################\n            ------------------------  act II begins\nanchor-09    14/161     8.7%  -0.032  ##################\nanchor-10    12/137     8.8%  +0.001  ##################\nanchor-11    11/126     8.7%  -0.000  ##################\nanchor-12    19/159    11.9%  +0.032  #########################\nanchor-13    13/147     8.8%  -0.031  ##################\nanchor-14    23/146    15.8%  +0.069  #################################\nanchor-15    21/177    11.9%  -0.039  ########################\nanchor-16    42/262    16.0%  +0.042  #################################\n            ------------------------  act III begins\nanchor-17    18/112    16.1%  +0.000  #################################\nanchor-18    26/122    21.3%  +0.052  ############################################\nanchor-19    26/122    21.3%  +0.000  ############################################\nanchor-20    28/135    20.7%  -0.006  ###########################################\nanchor-21    29/138    21.0%  +0.003  ###########################################\nanchor-22    34/164    20.7%  -0.003  ###########################################\nanchor-23    37/178    20.8%  +0.001  ###########################################\nanchor-24    48/228    21.1%  +0.003  ###########################################",
+          "caption": "The leak budget of all 24 anchors. The argument is the two identical bars at anchors 16 and 17 across an act boundary, and the jump one anchor later."
+        },
+        {
+          "type": "list",
+          "items": [
+            "**No integer satisfies the band.** 0.207–0.213 of 112 `leak_cost` is lives in **[23.18, 23.86]**. 23 lives is 0.2054, below the band; 24 is 0.2143, above it. The rule the finding proposes has no solution, which is the first sign it is not the rule.",
+            "**Acts I and II have no band at all.** Spreads: act I **0.042** (0.083–0.125), act II **0.073** (0.087–0.160), act III excluding anchor-17 **0.006**. Only Act III's seven are flat. The other sixteen are ragged, with ordinary swings of 0.03 to 0.07 — anchor-14 +0.069, anchor-15 −0.039, anchor-16 +0.042. So \"sit inside your act's band\" is not a campaign rule; it is a description of anchors 18–24 and of nothing else in the game.",
+            "**The decisive one: anchor-16 to anchor-17 is +0.000.** 0.1603 to 0.1607, a step of four ten-thousandths, **across an act boundary** — against −0.032 at act I to act II. anchor-17 is not an outlier from Act III. It is the last point of the ragged region that runs from anchor-01, and the plateau begins one anchor later at anchor-18, which steps **+0.052**."
+          ]
+        },
+        {
+          "type": "p",
+          "text": "**Change nothing.** Raising anchor-17 to 24 lives turns the campaign's smoothest act boundary into one of its largest steps — **+0.054** at the boundary, second only to anchor-14's +0.069 — in order to match a plateau that starts after it. That is fitting an anchor to a pattern it is not part of, the same move decision 067 rejected when it deleted a pressure floor and decision 093 rejected an hour earlier when it declined to rebase a density floor. anchor-17 also grades `ok` today, so nothing is being tolerated either."
+        },
+        {
+          "type": "p",
+          "text": "What the plot found is worth more than the item: **the campaign's leak budget is ragged by construction for sixteen anchors and flat for the last seven.** Whether Act III should be the only act with a flat leak budget is a real design question, it is now visible, and it is deliberately **not** answered here — answering it means moving up to seven anchors' `lives` and re-grading, which belongs with `BAL-04`'s capacity-ladder slice where a grade delta can be attributed to something."
+        },
+        {
+          "type": "h3",
+          "text": "One correction, recorded rather than patched"
+        },
+        {
+          "type": "p",
+          "text": "Decision 095 and the commit body both call anchor-16 to anchor-17 **the smoothest transition in the entire campaign**. Recomputed for this entry, it is the smoothest **act boundary** but the third-smallest step overall: anchor-18 to anchor-19 is exactly zero (both are 26 lives over 122 `leak_cost`) and anchor-10 to anchor-11 is −0.0003, both of them mid-act. The refusal is untouched by this — the argument only ever needed the boundary to be continuous, and it is. The same recomputation puts the cost of raising anchor-17 at **+0.054** where the decision rounds it to +0.053. Both stand as written in `docs/DECISIONS.md`, because that file and this journal are append-only; this paragraph is the correction."
+        },
+        {
+          "type": "p",
+          "text": "**The lesson, and it is the third refusal of this shape in one session.** An anchor that sits outside a band is evidence about the **band** as much as about the anchor. Before moving the one value that disagrees, plot the other twenty-three — here the \"outlier\" was the only point making an act boundary continuous."
+        },
+        {
+          "type": "p",
+          "text": "**No screenshot, and that is not an omission: nothing visual changed.** Gate at tier 1: 21 passed, 0 failed. No parity run and none needed — no rule file and nothing under `data/` moved."
+        }
+      ]
     }
   ]
 }

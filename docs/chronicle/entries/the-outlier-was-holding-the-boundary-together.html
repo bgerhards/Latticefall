@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>anchor-17 is not outside Act III's band — it is the last point before the plateau, and the only thing making an act boundary continuous — Latticefall build journal</title>
+<meta name="description" content="Decision 095, and the smallest thing on the board today: a refusal with three measurements and nothing changed. LF-274 said anchor-17&#x27;s leak budget was mis-authored because it sits at 16.1% where Act III&#x27;s other seven sit in a 20.7–21.3% band. Plotting all twenty-four showed the band is a description of anchors 18–24 and of nothing else in the game, and that the step into anchor-17 is +0.000 — an act boundary that is continuous, which raising it to 24 lives would break.">
+<link rel="stylesheet" href="../chronicle.css">
+</head>
+<body>
+
+<nav class="entry-nav top"><a class="back" href="../index.html">&larr; the journal</a></nav>
+<article>
+  <header class="entry-header">
+    <time datetime="2026-08-05">August 5, 2026 · 15:49</time>
+    <h1>anchor-17 is not outside Act III's band — it is the last point before the plateau, and the only thing making an act boundary continuous</h1>
+    <div class="chips"><span class="chip chip-epic">BAL</span><span class="chip chip-decision">decision 095</span></div>
+    <p class="summary lede">Decision 095, and the smallest thing on the board today: a refusal with three measurements and <strong>nothing changed</strong>. <code>LF-274</code> said anchor-17's leak budget was mis-authored because it sits at 16.1% where Act III's other seven sit in a 20.7–21.3% band. Plotting all twenty-four showed the band is a description of anchors 18–24 and of nothing else in the game, and that the step into anchor-17 is <strong>+0.000</strong> — an act boundary that is continuous, which raising it to 24 lives would break.</p>
+    
+  </header>
+  <div class="entry-body">
+    <p>Twenty-six minutes after <code>it-does-not-fail-it-lies</code>, and the last thing of the day. <code>LF-274</code> was filed by decision 093's slice and is <strong>refused</strong> here. No data file moved, no instrument was written, no screenshot was taken — the whole change is a backlog line closing and a decision entry. It is in the journal because the measurement is worth more than the item was.</p><p><strong>The claim.</strong> anchor-17 spends <strong>16.1%</strong> of its wave table's total <code>leak_cost</code> on lives — 18 of 112 — where Act III's other seven anchors sit in a <strong>20.7–21.3%</strong> band, tight enough to look authored to. That band puts anchor-17 at 23 or 24 lives. It read as an obvious mis-authoring that had simply been held back so a grade delta could be attributed later.</p><h3>Plot the other twenty-three</h3><p><code>lives</code> over the wave table's total <code>leak_cost</code>, every anchor in the campaign, computed from <code>data/anchors/</code> and <code>data/enemies.json</code> under decision 047's <code>max(1, round(hp/130))</code>. Nobody had ever drawn it.</p><figure class="listing"><div class="pre-wrap"><pre><code>anchor     lives/leak   step    share of total leak_cost
+anchor-01     10/98    10.2%          #####################
+anchor-02    10/120     8.3%  -0.019  #################
+anchor-03     12/97    12.4%  +0.040  ##########################
+anchor-04    14/112    12.5%  +0.001  ##########################
+anchor-05    10/109     9.2%  -0.033  ###################
+anchor-06    14/135    10.4%  +0.012  #####################
+anchor-07    18/185     9.7%  -0.006  ####################
+anchor-08    24/202    11.9%  +0.022  #########################
+            ------------------------  act II begins
+anchor-09    14/161     8.7%  -0.032  ##################
+anchor-10    12/137     8.8%  +0.001  ##################
+anchor-11    11/126     8.7%  -0.000  ##################
+anchor-12    19/159    11.9%  +0.032  #########################
+anchor-13    13/147     8.8%  -0.031  ##################
+anchor-14    23/146    15.8%  +0.069  #################################
+anchor-15    21/177    11.9%  -0.039  ########################
+anchor-16    42/262    16.0%  +0.042  #################################
+            ------------------------  act III begins
+anchor-17    18/112    16.1%  +0.000  #################################
+anchor-18    26/122    21.3%  +0.052  ############################################
+anchor-19    26/122    21.3%  +0.000  ############################################
+anchor-20    28/135    20.7%  -0.006  ###########################################
+anchor-21    29/138    21.0%  +0.003  ###########################################
+anchor-22    34/164    20.7%  -0.003  ###########################################
+anchor-23    37/178    20.8%  +0.001  ###########################################
+anchor-24    48/228    21.1%  +0.003  ###########################################</code></pre></div><figcaption>The leak budget of all 24 anchors. The argument is the two identical bars at anchors 16 and 17 across an act boundary, and the jump one anchor later.</figcaption></figure><ul><li><strong>No integer satisfies the band.</strong> 0.207–0.213 of 112 <code>leak_cost</code> is lives in <strong>[23.18, 23.86]</strong>. 23 lives is 0.2054, below the band; 24 is 0.2143, above it. The rule the finding proposes has no solution, which is the first sign it is not the rule.</li><li><strong>Acts I and II have no band at all.</strong> Spreads: act I <strong>0.042</strong> (0.083–0.125), act II <strong>0.073</strong> (0.087–0.160), act III excluding anchor-17 <strong>0.006</strong>. Only Act III's seven are flat. The other sixteen are ragged, with ordinary swings of 0.03 to 0.07 — anchor-14 +0.069, anchor-15 −0.039, anchor-16 +0.042. So "sit inside your act's band" is not a campaign rule; it is a description of anchors 18–24 and of nothing else in the game.</li><li><strong>The decisive one: anchor-16 to anchor-17 is +0.000.</strong> 0.1603 to 0.1607, a step of four ten-thousandths, <strong>across an act boundary</strong> — against −0.032 at act I to act II. anchor-17 is not an outlier from Act III. It is the last point of the ragged region that runs from anchor-01, and the plateau begins one anchor later at anchor-18, which steps <strong>+0.052</strong>.</li></ul><p><strong>Change nothing.</strong> Raising anchor-17 to 24 lives turns the campaign's smoothest act boundary into one of its largest steps — <strong>+0.054</strong> at the boundary, second only to anchor-14's +0.069 — in order to match a plateau that starts after it. That is fitting an anchor to a pattern it is not part of, the same move decision 067 rejected when it deleted a pressure floor and decision 093 rejected an hour earlier when it declined to rebase a density floor. anchor-17 also grades <code>ok</code> today, so nothing is being tolerated either.</p><p>What the plot found is worth more than the item: <strong>the campaign's leak budget is ragged by construction for sixteen anchors and flat for the last seven.</strong> Whether Act III should be the only act with a flat leak budget is a real design question, it is now visible, and it is deliberately <strong>not</strong> answered here — answering it means moving up to seven anchors' <code>lives</code> and re-grading, which belongs with <code>BAL-04</code>'s capacity-ladder slice where a grade delta can be attributed to something.</p><h3>One correction, recorded rather than patched</h3><p>Decision 095 and the commit body both call anchor-16 to anchor-17 <strong>the smoothest transition in the entire campaign</strong>. Recomputed for this entry, it is the smoothest <strong>act boundary</strong> but the third-smallest step overall: anchor-18 to anchor-19 is exactly zero (both are 26 lives over 122 <code>leak_cost</code>) and anchor-10 to anchor-11 is −0.0003, both of them mid-act. The refusal is untouched by this — the argument only ever needed the boundary to be continuous, and it is. The same recomputation puts the cost of raising anchor-17 at <strong>+0.054</strong> where the decision rounds it to +0.053. Both stand as written in <code>docs/DECISIONS.md</code>, because that file and this journal are append-only; this paragraph is the correction.</p><p><strong>The lesson, and it is the third refusal of this shape in one session.</strong> An anchor that sits outside a band is evidence about the <strong>band</strong> as much as about the anchor. Before moving the one value that disagrees, plot the other twenty-three — here the "outlier" was the only point making an act boundary continuous.</p><p><strong>No screenshot, and that is not an omission: nothing visual changed.</strong> Gate at tier 1: 21 passed, 0 failed. No parity run and none needed — no rule file and nothing under <code>data/</code> moved.</p>
+  </div>
+  <section class="commits"><h4>Commits</h4><ul class="commit-list"><li><code>646b641</code> docs(balance): anchor-17's leak budget is not an outlier, it is the last point before the plateau</li></ul></section>
+</article>
+<nav class="entry-nav bottom">
+  <span><a class="back" href="../index.html">&larr; the journal</a></span> <span><a class="prev" href="it-does-not-fail-it-lies.html">&larr; Five slices hand-rolled the same count, and the trap all five rediscovered does not fail — it lies</a></span>
+</nav>
+
+</body>
+</html>

@@ -4631,3 +4631,85 @@ as superseded rather than deleting them, per the append-only rule.
 This is the mechanical half: **a baseline that lives in prose is a baseline that goes stale
 between the session that writes it and the session that reads it.** Five hand-rolled scripts is
 what that costs.
+
+## 095 — anchor-17's leak budget is not an outlier, it is the last point before the plateau, and raising it would break the campaign's smoothest act transition
+
+**2026-08-05.** `LF-274`, filed by decision 093's slice and **refused here with the measurement
+that was missing**. Nothing changed. Supersedes nothing.
+
+**The claim.** anchor-17 runs at 16.1% of its total `leak_cost` (18 lives / 112) where Act III's
+other seven anchors sit in a **20.7–21.3%** band — tight enough to have been authored to. The
+band puts anchor-17 at 23 or 24 lives rather than 18, so it looked like a mis-authored anchor
+held back only because decision 093's slice would not move content and instrument together.
+
+**Three measurements kill it.**
+
+**1. No integer satisfies the band.** 0.207–0.213 over 112 `leak_cost` is lives in
+**[23.18, 23.86]**. 23 lives is 0.2054 — *below* the band; 24 is 0.2143 — *above* it. The rule
+the finding proposes has no solution, which is the first sign it is not the rule.
+
+**2. Acts I and II have no band at all, so "sit inside your act's band" is not a campaign rule.**
+Spreads: act 1 **0.042** (0.083–0.125), act 2 **0.073** (0.087–0.160), act 3 excluding
+anchor-17 **0.006**. Act III's seven are flat; the other sixteen anchors are ragged, with normal
+swings of ±0.03 to ±0.07 (anchor-14 +0.069, anchor-15 −0.039, anchor-16 +0.042). The flat
+stretch is anchors 18–24 and nothing else in the game.
+
+**3. The decisive one: anchor-16 → anchor-17 is +0.000.** 0.160 → 0.161. **That is the smoothest
+transition in the entire campaign, and it is an act boundary** — smoother than act I → II, which
+steps −0.032. anchor-17 is not an outlier from Act III; it is the last point of the ragged region
+that runs from anchor-01, and the plateau begins one anchor later at anchor-18 (+0.052).
+
+**Decision: change nothing.** Raising anchor-17 to 24 lives would turn the campaign's smoothest
+act transition into one of its largest (+0.053 at the boundary) in order to match a plateau that
+starts after it. That is fitting an anchor to a pattern it is not part of — the same move decision
+067 rejected when it deleted `PRESSURE_FLOOR`, and decision 093 rejected when it declined to
+rebase `DENSITY_FLOOR`. It also grades `ok` today, so nothing is being tolerated.
+
+**What was actually found, and it is worth more than the original item.** The campaign's leak
+budget is **ragged by construction for sixteen anchors and flat for the last seven**. Nobody had
+plotted it. Whether Act III *should* be the only act with a flat leak budget is a real design
+question and it is now visible; it is not answered here, because answering it means moving up to
+seven anchors' `lives` and re-grading, which belongs with `BAL-04`'s capacity-ladder slice where
+a grade delta can be attributed.
+
+**The general lesson, and it is the third time this session.** An anchor that sits outside a band
+is evidence about the band as much as about the anchor. Before moving the one value that
+disagrees, plot the other twenty-three — the "outlier" here was the only point making an act
+boundary continuous.
+
+## 096 — Correcting decision 095's superlative: anchor-16 → anchor-17 is the smoothest act BOUNDARY, not the smoothest transition
+
+**2026-08-05.** Supersedes **two figures** in decision 095, written minutes earlier, and nothing
+else. The refusal 095 records still stands and its conclusion is unchanged; this exists because
+`docs/DECISIONS.md` is append-only and a future reader searching for "smoothest transition"
+would otherwise find the wrong claim in the authoritative file first. Caught by the chronicler
+recomputing the figures from `data/` rather than transcribing them.
+
+**Decision 095 said** anchor-16 → anchor-17 (+0.0004) is *"the smoothest transition in the
+entire campaign."* **It is the third smallest of the 23 steps.** Two mid-act steps are smaller:
+
+- `anchor-18 → anchor-19` is **exactly 0.00000** — both are 26 lives over 122 `leak_cost`,
+  literally identical
+- `anchor-10 → anchor-11` is **−0.00029**
+
+**The true claim is narrower and is the one the argument actually rests on: it is the smoothest
+act boundary.** The campaign has exactly two — `anchor-08 → anchor-09` at **−0.03186** and
+`anchor-16 → anchor-17` at **+0.00041**, a factor of 78 apart. Decision 095 never needed the
+stronger form; it needed the act II → III boundary to be *continuous*, and it is, by a wide
+margin over the only other boundary in the game.
+
+**And the second figure: the jump would be +0.054, not +0.053.** `24/112 − 42/262 =
+0.21429 − 0.16031 = 0.05398`.
+
+**Why this is worth an entry rather than a shrug.** A superlative is a claim about a whole
+population and is therefore the easiest kind of sentence to write without checking — decision
+095 checked the boundary and then reached for "in the entire campaign" without ranking the other
+22 steps. That is the same shape as decision 087's confounded split and decision 088's
+unmeasured criteria: **the number was right and the quantifier was not.** The rule that follows
+is small and cheap — *before writing "the most" or "the only", rank the set.*
+
+**Everything else in decision 095 reproduces exactly**, verified independently: the band
+arithmetic `[23.18, 23.86]`, 23 → 0.2054 and 24 → 0.2143, act spreads 0.042 / 0.073 / 0.006,
+anchor-14 +0.069, anchor-15 −0.039, anchor-16 +0.042, anchor-18 +0.052, and the act I → II step
+at −0.032. Decision 047's `leak_cost` rule was also checked against the stored fields — all 14
+enemies agree, so the derivation underneath all of it is sound.
