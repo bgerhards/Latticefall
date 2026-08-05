@@ -60,8 +60,9 @@ while, and Act I's hit points per unit moved 46.9 → 58.2 without a single anch
 
 ## What the last session did
 
-**Six pull requests, #162–#167, seven decisions (090–096), and nineteen backlog items
-(`LF-261`–`LF-279`).** The through-line: **every finding came from pointing an instrument at
+**Eight pull requests, #162–#169, eight decisions (090–097), and twenty-one backlog items
+(`LF-261`–`LF-281`).** *(#168 is this wrap itself; #169 landed after it, which is why the
+table below stops at #167 — see the paragraph under it.)* The through-line: **every finding came from pointing an instrument at
 the content rather than from auditing the instrument**, and three of the six PRs were refusals
 with numbers.
 
@@ -116,6 +117,18 @@ band; acts I and II have no band at all (spreads 0.042 and 0.073 against act III
 −0.032. anchor-17 is the last point of the ragged region, and the plateau starts at anchor-18.
 Decisions **095** and **096** — the second correcting a superlative in the first.
 
+**#169 — `game renders` could not tell twelve turrets from an empty board.** `LF-251`, decision
+**097**, landed after the wrap. The check reported `coverage 0.95, 114 tones`, and driving the
+capture with an **empty board reproduces that green message exactly** — so three of the gate's
+Godot captures rested on something insensitive to what it drew. The board is now **requested,
+not observed**: the capture passes `--build <id>` three times with ids read from
+`data/towers.json`, then asserts each came back as a base *and* a head, that they balance, and
+that every drawn id exists. **Requested rather than expected is the point** — it is causal, so it
+encodes nothing about the autobuild policy and the next policy change cannot move it. Proved red
+on all five failure branches. It also found `CLAUDE.md` claiming `RENDERED` holds "nine" checks
+when it holds **ten** — the exact rot that file's own "a count in prose rots within a day" rule
+warns about; the sentence now names `--list` instead of a number.
+
 ## What is broken or missing, in priority order
 
 1. **`BAL-04`'s capacity-ladder slice** — the biggest remaining piece, and several findings are
@@ -140,8 +153,7 @@ Decisions **095** and **096** — the second correcting a superlative in the fir
    the one exception has a 3-unit flank, so nothing tells you whether multi-lane plays well.
 7. **`LF-261` is done but `LF-218` is not.** Act I now has its unarmoured body; the remaining
    attrition question is a content one.
-8. **`LF-246`** (`coverage.py` reports on vestigial slot data) · **`LF-251`** (`game renders`
-   cannot see the board) · **`LF-227`** (CI's Windows parity leg still skips data-only PRs) ·
+8. **`LF-246`** (`coverage.py` reports on vestigial slot data) · **`LF-227`** (CI's Windows parity leg still skips data-only PRs) ·
    **`LF-240`/`LF-241`** (tier 2 over budget) · **`LF-269`** (anchor-05 is a knife edge on the
    *economy* axis) · **`LF-275`** (the engine records leak count, never which units).
 
