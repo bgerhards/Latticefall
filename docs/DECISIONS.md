@@ -4398,3 +4398,71 @@ anchor-05's multi-weapon build survives `mote+1` and `lives-1` after, where it d
 on it is priced. This is the same move on the other side of the board — **before tuning the wave,
 check whether the roster has the shape the wave needs.** Act I had no way to express "heavy but
 shootable", so every attempt to make it heavier made it armoured instead.
+
+## 092 — Prose that quotes a number declares which number, because both ways of inferring it are wrong
+
+**2026-08-05.** Found while checking whether `LF-262`'s reveal gate is taught to the player.
+It is — anchor-02's brief says *"your guns will not see them without a relay lit"* — but the
+sweep that established it turned up a different defect. Extends decision 044's `dialog
+capacity` check rather than superseding it.
+
+**The defect.** anchor-04's brief tells the player: *"Shield wall's signed off — forty of
+those ninety-four if you raise it."* Vasquez answers *"Forty. For a screen that doesn't
+shoot."* **The shield wall draws 26.** It drew 40 until `LF-032` lowered it, and the prose was
+never updated — a figure the player is read before the level, wrong by 14 MW, for the whole
+life of the project. `dialog capacity` did not catch it because that check asks one question
+only: does the brief state its own `capacity_mw`. It does — ninety-four is correct.
+
+**Both mechanical designs were tried against the corpus and both fail.** This is the part
+worth keeping.
+
+- **A regex over `"<number> megawatts"` misses this exact bug.** "forty" carries no unit word
+  — the unit is implied by the "ninety-four" it is compared against. `_spoken_numbers()`,
+  which anchors on the unit word, returns `{94}` for that line and never sees the 40 at all.
+- **"Every spoken number must be a live figure" false-positives immediately.** anchor-06 says
+  the ion lance *"reaches across four lanes"*; anchor-08 says *"the ring is drawing about nine
+  megawatts that isn't going anywhere I can find"* and anchor-17 *"the bus reading falls about
+  six megawatts a wave and I cannot find where it goes"* — those two are **deliberately
+  unexplained** and are the act's mystery. A check that demands they resolve is a check that
+  demands the story stop being a story.
+
+**Decision. The line declares what it quotes.** A dialog line may carry `quotes`, a list of
+dotted paths into `data/towers.json` or `data/enemies.json` — `shield-wall.draw_mw`,
+`restorer.effect.value`, `reach-sapper.drains_mw`. The new tier-1 check `dialog figures`
+resolves each path and asserts the live value is among the numbers the line actually says,
+spelled or in digits. Ten figures are declared across seven briefs today.
+
+**Why this is the right shape and not a dodge.** It survives any rewording — the writer can
+move the figure anywhere in the sentence, or restructure it entirely, and the check still
+passes as long as the number is spoken (verified: rewriting the line to *"Raising it costs
+twenty-six"* stays green). It says nothing about lines that quote nothing, which is most of
+them. And it makes the dependency **visible in the data**, so someone re-pricing an
+emplacement can grep for who talks about it.
+
+**Its limitation, stated rather than discovered later: it is opt-in, so it cannot prove a line
+*should* have been annotated.** A future brief that quotes a draw without declaring it is
+invisible to this check exactly as anchor-04 was. What it does guarantee is that a **declared**
+figure can never be silently invalidated by a tuning change — which is the failure that
+actually happened, twice now if you count decision 090's stale `shield-wall.note`.
+
+**Proved red four ways before being trusted green**, per the standing rule. A tuning change
+that moves the value (26 → 28) fails; a typo'd id fails with "names no emplacement or unit"; a
+path landing on an object rather than a number fails; and a full rewording that keeps the
+figure stays green. The tree was asserted byte-identical afterwards.
+
+**One real bug in the checker itself, found by running it.** The first implementation of
+`_all_spoken_numbers()` accumulated across sentence boundaries: *"Anchor fourteen.
+Ninety-four megawatts"* came back as **108**, because splitting on non-letters made
+"fourteen" and "ninety" adjacent tokens in one run. It now chunks on anything that is not a
+letter, a space or an ASCII hyphen, so a full stop or an em dash ends a number and a hyphen
+does not. `a hundred and ninety` → 190 and `two hundred and ninety` → 290 are covered.
+
+**The prose fix.** "forty of those ninety-four" → "twenty-six of those ninety-four", and
+Vasquez's echo "Forty." → "Twenty-six." The beat survives the correction: 26 of 94 is still
+over a quarter of the bus for a screen that does not shoot, which is the objection the
+exchange exists to make.
+
+**A note on cost, which is `LF-273`.** This is a data change under `data/`, so
+`parity_inputs_digest()` forced a full 1,512-run comparison on both platforms — for seven
+dialog files and a schema that neither rule engine reads. The digest hashes 52 such files.
+That is a real tax on narrative work and is filed, not fixed here.

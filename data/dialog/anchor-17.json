@@ -11,6 +11,7 @@
     { "trigger": "brief", "speaker": "okonkwo",
       "text": "Deep lattice. Also: the bus reading falls about six megawatts a wave and I cannot find where it goes. Nothing on this deck is drawing it." },
     { "trigger": "brief", "speaker": "control",
+      "quotes": ["restorer.effect.value", "restorer.draw_mw"],
       "text": "Restorer is cleared to your board. Forty-four megawatts back for ten drawn and a slot spent." },
     { "trigger": "brief", "speaker": "vasquez",
       "text": "So we buy the bus back a piece at a time." },

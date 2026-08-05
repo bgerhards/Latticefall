@@ -9,6 +9,7 @@
     { "trigger": "brief", "speaker": "control",
       "text": "Eleven of them. They have been overrun. Their lift is forty minutes out." },
     { "trigger": "brief", "speaker": "okonkwo",
+      "quotes": ["mortar-emplacement.draw_mw"],
       "text": "Mortar emplacement's cleared, for what it's worth. Thirty megawatts, reaches most of this board, and it cannot see air at all." },
     { "trigger": "brief", "speaker": "vasquez",
       "text": "Control, are we ordered to hold for their evacuation?" },

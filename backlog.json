@@ -3263,7 +3263,19 @@
       "opened": "2026-08-05",
       "closed": null,
       "note": ""
+    },
+    {
+      "id": "LF-273",
+      "title": "The parity digest hashes 52 files neither rule engine reads, so a dialog or schema change forces a full 1512-run both-platform re-run for nothing. MEASURED: parity_inputs_digest() in tools/test_parity.py hashes DIGEST_FIXED_FILES plus every tracked file under data/, which today is 79 files -- 24 anchors, enemies.json, towers.json, tuning.json (27 genuine rules inputs) plus 25 dialog, 21 schema and 6 scenario files (52 that are NOT). Neither sim/engine.py nor scripts/anchor_sim.gd nor sim/content.py loads a dialog file, a JSON Schema or a scenario fixture; grep for dialog across all three finds only comments. CONSEQUENCE: fixing one word of a mission brief costs ~16 minutes of Linux parity plus ~18 minutes of Windows parity, and wrap_gate.py escalates the wrap to tier 4 with no rules file touched. That is a direct tax on narrative and content iteration, which is game-facing work. THE DOCSTRING ALREADY STATES THE RIGHT INTENT -- it says the digest covers anything either rule engine or sim/content.py reads and deliberately excludes presentation, tools/, docs/ and assets, citing PRD risk 6 that a hash this wide would never earn a skip. It swept in the other 52 by using everything under data/ as the proxy. THE WORK: narrow _tracked_data_files() to the paths the rules actually load (data/anchors/**, data/enemies.json, data/towers.json, data/tuning.json), and ASSERT the narrowing rather than trusting it -- a test that the excluded set is disjoint from what sim/content.py opens, so the day dialog becomes a rules input the digest notices. Do NOT narrow it by hand without that assertion: this is a safety digest and a silent under-hash is worse than an over-hash.",
+      "kind": "chore",
+      "area": "tooling",
+      "pri": "high",
+      "status": "open",
+      "why": "every narrative or prose change currently pays 35 minutes of parity for files the rules never load",
+      "opened": "2026-08-05",
+      "closed": null,
+      "note": ""
     }
   ],
-  "next_id": 273
+  "next_id": 274
 }

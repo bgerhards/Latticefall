@@ -9,6 +9,7 @@
     { "trigger": "brief", "speaker": "control",
       "text": "The other thirty were strategic. This one pays for the other thirty." },
     { "trigger": "brief", "speaker": "okonkwo",
+      "quotes": ["ion-lance.draw_mw"],
       "text": "Ion lance is cleared. Thirty-four megawatts, and it reaches across four lanes from the middle of this board — that's what you're buying, not the damage.",
       "beat": "names the lance's real differentiator: reach, not damage per megawatt" },
     { "trigger": "brief", "speaker": "vasquez",

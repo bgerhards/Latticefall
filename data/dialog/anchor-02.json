@@ -10,6 +10,7 @@
       "text": "Motes. They run cold and they don't reflect — your guns will not see them without a relay lit.",
       "beat": "states the mechanic as equipment limitation, not as a rule" },
     { "trigger": "brief", "speaker": "vasquez",
+      "quotes": ["scan-relay.draw_mw"],
       "text": "Eight megawatts to see. That's most of a turret.",
       "beat": "the anchor's whole decision, priced, in one line" },
     { "trigger": "brief", "speaker": "okonkwo",

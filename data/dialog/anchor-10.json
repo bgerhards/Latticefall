@@ -5,6 +5,7 @@
     { "trigger": "brief", "speaker": "control",
       "text": "Anchor twenty-two. A hundred and ninety megawatts — twenty more than nineteen, and that is the whole of what Actual could find you. Spend it like it cost something." },
     { "trigger": "brief", "speaker": "okonkwo",
+      "quotes": ["anchor-damper.draw_mw"],
       "text": "Anchor damper's cleared. Eighteen megawatts fixed, and inside its arc it kills most of what they're pulling off the bus. You are spending power to stop losing power." },
     { "trigger": "brief", "speaker": "vasquez",
       "text": "So it pays for itself when they bring enough men." },

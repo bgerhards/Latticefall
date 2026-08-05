@@ -3,9 +3,11 @@
   "anchor": "anchor-04",
   "lines": [
     { "trigger": "brief", "speaker": "control",
-      "text": "Anchor fourteen. Ninety-four megawatts. Shield wall's signed off — forty of those ninety-four if you raise it." },
+      "quotes": ["shield-wall.draw_mw"],
+      "text": "Anchor fourteen. Ninety-four megawatts. Shield wall's signed off — twenty-six of those ninety-four if you raise it." },
     { "trigger": "brief", "speaker": "vasquez",
-      "text": "Forty. For a screen that doesn't shoot." },
+      "quotes": ["shield-wall.draw_mw"],
+      "text": "Twenty-six. For a screen that doesn't shoot." },
     { "trigger": "brief", "speaker": "okonkwo",
       "text": "It buys you time in one place. Whether that's worth browning out everything else is arithmetic, and I'd do the arithmetic first.",
       "beat": "flags the trade honestly — it is currently a bad one, and LF-014 is open on exactly that" },
