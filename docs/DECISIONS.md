@@ -4713,3 +4713,69 @@ arithmetic `[23.18, 23.86]`, 23 → 0.2054 and 24 → 0.2143, act spreads 0.042 
 anchor-14 +0.069, anchor-15 −0.039, anchor-16 +0.042, anchor-18 +0.052, and the act I → II step
 at −0.032. Decision 047's `leak_cost` rule was also checked against the stored fields — all 14
 enemies agree, so the derivation underneath all of it is sound.
+
+## 097 — `game renders` requests the board it wants rather than describing the one it got
+
+**2026-08-05.** `LF-251`. Strengthens the `game renders` gate check; adds no check, so the tier
+counts do not move. Supersedes nothing.
+
+**The defect, proved rather than suspected.** `game renders` reported `coverage 0.95, 114 tones`
+— the fraction of non-background pixels and the count of distinct quantised colours. Both are
+dominated by terrain, panels and text. Measured across the `LF-236` fix in one session: before,
+`--facings` returned 24 lines all `anchor_damper` (12 emplacements, damage 0); after, 24 lines
+all `pulse_turret`. **The board changed completely and the check reported the same two numbers to
+the digit.** Three captures in the gate rested on something insensitive to what it drew, and its
+message line invited exactly the wrong reading.
+
+**The proof is better than the claim.** Driving the capture with an *empty* board reproduces the
+old green message **exactly** — `coverage 0.9499`, `114 tones`. The check could not tell twelve
+turrets from no board at all.
+
+**Decision: the board is *requested*, not observed.** The capture now passes
+`--anchor anchor-01 --build <id> --build <id> --build <id> --facings`, with the ids read from
+`data/towers.json` in file order and capped by the anchor's authored slot count — **never a
+literal in the check**. It then asserts: every requested id came back as **a base and a head**
+(`_build_drawables()` emits exactly two per placement, `ART-01`/`LF-157`); bases and heads
+balance board-wide, so nothing is drawn half; every drawn id exists in `data/towers.json`; and
+every tower drawable ends in `_base` or `_head`, so a shape change fails loudly instead of
+counting zero.
+
+**Why *requested* rather than *expected*, which is the whole point.** A requested board is
+**causal**, so the assertion encodes nothing about the autobuild policy, the anchor's economy or
+the wave table. The `LF-236` change that motivated this item — 12 dampers becoming 12 turrets —
+could not have moved it, and neither can the next policy change. A hardcoded "expect 12
+emplacements of 1 distinct id" would have been a number fitted to one capture, red on the next
+policy change, and a check red on arrival gets disabled rather than fixed (`LF-224`). Same
+reasoning decision 067 used to delete `PRESSURE_FLOOR` and decision 093 used to *keep*
+`DENSITY_FLOOR`.
+
+**Rejected: "the drawn ids are a subset of what the anchor has unlocked."** Twice over. `--build`
+goes through `_build_one()`, which grants funds and **bypasses the unlock gate deliberately**, so
+the assertion would describe the hook rather than the board; and at anchor-01 the unlocked set is
+exactly `{pulse-turret}`, which makes it near-vacuous anyway. Extra emplacements beyond the
+requested set are tolerated — a future anchor may pre-place one — but they must still be real
+towers, drawn whole.
+
+**`--anchor anchor-01` is now pinned, and that is a fix in itself.** It was inherited from
+`Progress.selected_anchor`, which is only `anchor-01` because nothing has ever written it. The
+board assertion reads that anchor's slot list, so which anchor it is has to be a **declared
+input** rather than a leftover.
+
+**Proved red five ways**, three of them through the same predicate the check calls, driven
+against the real dump with one field mutated — because the remaining branches cannot be reached
+from a real board without editing `data/` or `anchor_view.gd`, which is precisely the hole
+decision 078 records for the firing arc. Empty board · three asked for and none drawn · an id
+that never reached the board · an unknown sprite · a head drawable missing (the `LF-157` shape) ·
+a drawable that is neither base nor head. The tree was restored and **asserted** byte-identical
+with a `git ls-files` + `sha256sum` manifest over all 1,523 tracked files.
+
+**And the message says what it checked**, which is half the item: it now names the ids, the
+base+head count and that they are all in `towers.json`, and marks the coverage figure explicitly
+as *whole image — terrain and panels dominate it*.
+
+**The general lesson, and it is this session's fifth instance.** A check whose output invites a
+stronger reading than its assertion supports is worse than one with no output at all, because the
+green is spent. `LF-243` (the grade table could not see a difficulty dissolve), `LF-244` (six
+verbs never dispatched), `LF-246` (coverage over vestigial slots), `LF-247` (an accessibility
+audit over a 4 px playfield) and now this. **Ask what the check would still say if the thing it
+names were absent** — here, the answer was "exactly the same two numbers".
