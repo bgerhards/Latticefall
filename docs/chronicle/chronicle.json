@@ -9619,6 +9619,249 @@
           "text": "Gate at tier 3: 43 passed, 0 failed. `rules parity` 1512 runs identical on Linux, digest `234f711c8e46`, freshly verified, and 1512 identical across 8 shards on Windows. `music loudness` at tier 4 was not run, because no audio file changed. The check counts in `check.py`'s own docstring moved with it — tier 1 from 19 to 20, tier 2 to 29, tier 3 to 43, tier 4 to 46 — and `tier counts` asserts them against the registry, so they cannot drift quietly."
         }
       ]
+    },
+    {
+      "id": "a-threshold-with-a-history",
+      "date": "2026-08-05",
+      "time": "14:24",
+      "title": "The reference moved, so the instinct was to rebase the constant — the right move was to ask what the constant had ever separated",
+      "summary": "Decision 093. `BAL-04`'s own task list says, in as many words, to rebase `DENSITY_FLOOR` and the act comparison — and decision 091 had just moved the busiest act from 1 to 2, so the reference the check measures against was no longer the act it was written for. **Rebasing would have been the mistake.** Decision 067 deleted `PRESSURE_FLOOR` rather than raising it, because a threshold picked to make today's data pass or fail is fitted to that data and proves nothing thereafter. So the constant was measured against every yesterday instead: the ratio recomputed at all **fourteen** commits that have ever touched the anchor data with more than one act on disk. Six observations at 0.344–0.494, eight at 0.653–0.779, and **no observation, ever, anywhere in between**. 0.55 does not move.",
+      "tags": [
+        "BAL",
+        "WAR"
+      ],
+      "decisions": [
+        "093"
+      ],
+      "commits": [
+        {
+          "hash": "f86e079",
+          "subject": "docs(balance): DENSITY_FLOOR stays at 0.55, and the reason it does not move is the finding"
+        }
+      ],
+      "body": [
+        {
+          "type": "p",
+          "text": "The previous entry, `both-ways-of-inferring-it-are-wrong`, was a dialog defect found by checking a claim before building on it. This one is `BAL-04`'s density-and-leak slice, and it is the fourth entry of the day. **No data file changed** — `tools/check.py` and `tools/density.py` only, of which exactly one line is behaviour. Almost all of it is derivation, written down where the constant lives."
+        },
+        {
+          "type": "p",
+          "text": "The question was live and specific. Decision 091 fused three Act I drones into one body and moved Act I's peak concurrency from 32.0 to 26.2, which moved the **busiest act from 1 to 2**. The `wave density` gate check compares every act against the busiest one and fails below `DENSITY_FLOOR = 0.55`, so its reference was suddenly not the act it was written for. `BAL-04`'s task list has the obvious instruction in it: rebase the floor and the act comparison against the new measured figures."
+        },
+        {
+          "type": "h3",
+          "text": "The trap, named first because it is the whole difficulty"
+        },
+        {
+          "type": "p",
+          "text": "This project has already thrown a constant away for exactly this reason. Decision **067** deleted `PRESSURE_FLOOR` rather than raising it, on the grounds that a threshold chosen so today's data passes is fitted to today's data and separates nothing afterwards. Recomputing 0.55 against this afternoon's figures would have converted a constant with a history into **a constant fitted to one afternoon** — and it would have looked like diligence."
+        },
+        {
+          "type": "h3",
+          "text": "So it was measured against every yesterday instead"
+        },
+        {
+          "type": "p",
+          "text": "The rule was stated **before** any measurement was taken, which is the part that makes the result mean anything: the floor must be red on every state of this campaign that `LF-044` called a defect, and green on every state since the defect was fixed. Then the per-act peak concurrency was recomputed at all fourteen commits that have ever touched the anchor data with more than one act on disk."
+        },
+        {
+          "type": "pre",
+          "text": "          act 1 act 2 act 3   min/max\n7378dee   32.4  16.0     -    0.494   Act II opens\n915d5da   32.4  15.6     -    0.483   Act II complete\nc048141   32.4  15.6  11.1    0.344   Act III complete — the LF-044 defect\n5475dfa   32.4  15.6  11.1    0.344\n1cfbeaa   32.4  16.0  11.1    0.344\nb7e38d3   32.4  16.0  11.1    0.344   leak_cost stops being flat (decision 047)\n4aef1cc   32.4  27.4  21.1    0.653   escort units: the fix, and this constant\n668c6b4 … 5021a9e                     four more commits at 0.653\n8c56b5c   32.0  27.1  21.1    0.660\ncd21e6f   32.0  27.1  21.1    0.660   decision 090, arc-node repricing\n901053f   26.2  27.1  21.1    0.779   decision 091, warden-hauler — today",
+          "caption": "The finding is the whitespace. Reproduced verbatim from the comment that now sits above `DENSITY_FLOOR` in `tools/check.py`, so the derivation lives with the number rather than in a session transcript."
+        },
+        {
+          "type": "p",
+          "text": "**Six observed states below the floor, eight above, and nothing anywhere in the open interval (0.494, 0.653).** Every threshold in that gap returns the same verdict on all fourteen states — so the constant is not one point that happens to work, it is any point in a plateau. 0.55 sits inside it with **0.056 of margin below and 0.103 above**, a plateau **0.159 wide**, which is `LF-264`'s own bar for a defensible constant, met by a number nobody had to touch."
+        },
+        {
+          "type": "p",
+          "text": "And the provenance is better than the plateau. 0.55 was placed in `4aef1cc` — the escort-unit commit that fixed the defect — **against the defect still on disk**. It was never fitted to passing data in the first place, because when it was written the data did not pass."
+        },
+        {
+          "type": "p",
+          "text": "One footnote from checking that commit, and it lands on the same point the check does. `4aef1cc`'s own message reports Act III at \"65% of Act I's screen presence, against 38% before\". The 65% is the presence ratio, 21.1 against 32.4. **The 38% is not a presence ratio at all** — it is the units-per-wave ratio, 7.7 against 20.2. The presence ratio in the state immediately before that commit is 0.344, in the table above. The commit that introduced this metric described its own before-state using the unit count, which is exactly the conflation the metric exists to prevent."
+        },
+        {
+          "type": "h3",
+          "text": "Reachable today, not only in history"
+        },
+        {
+          "type": "p",
+          "text": "A floor that only ever fired against states nobody can produce any more is a floor that has quietly retired. That is `LF-229`'s lesson, so it was checked directly, by scaling Act III's spawn counts and re-running the shipped check."
+        },
+        {
+          "type": "table",
+          "headers": [
+            "Act III spawn counts",
+            "verdict",
+            "ratio"
+          ],
+          "rows": [
+            [
+              "×0.75",
+              "**green**",
+              "60%"
+            ],
+            [
+              "×0.70",
+              "**FAIL**",
+              "53%"
+            ],
+            [
+              "×0.60",
+              "**FAIL**",
+              "48%"
+            ]
+          ]
+        },
+        {
+          "type": "p",
+          "text": "Verified twice, deliberately: once by the analyst who did the derivation, and once independently through the shipped `check_wave_density()` rather than a reimplementation of it, with the working tree asserted byte-identical afterwards."
+        },
+        {
+          "type": "h3",
+          "text": "Why this check exists at all, which nobody had ever written down"
+        },
+        {
+          "type": "p",
+          "text": "This is the part of the slice worth the most, and it was not on the task list. The gate already has a grader answering \"is this anchor winnable, and how hard is it\" across 24 anchors and three difficulties. So why does a second check care how many units are on the board at once? The answer is a pair of numbers from `c048141`, the commit where `LF-044`'s defect was at its worst."
+        },
+        {
+          "type": "pre",
+          "text": "act   on screen   units/w   hp/w   hp/unit          today: on screen   hp/w\n  1        32.4      20.2    950      46.9                      26.2    950\n  2        15.6       9.6    734      76.3                      27.1   1113\n  3        11.1       7.7   1562     203.3                      21.1   1668",
+          "caption": "The campaign at `c048141` on the left, and the same acts today on the right. The left-hand figures are what the gate could not see at the time; they were recomputed for this slice."
+        },
+        {
+          "type": "p",
+          "text": "Act III showed **11.1 units on screen against Act I's 32.4** — a third — **while carrying 1562 hit points per wave against 950**, 64% more work for the board to do. Presence and difficulty did not merely vary independently there. They moved in **opposite directions**, so every difficulty instrument in the project correctly reported Act III as the hardest act in the game, which it was. The last act of the campaign was simultaneously the hardest and the emptiest, and nothing in the gate could say so. **Presence is the axis nothing else can see**, and that pair of numbers is the proof."
+        },
+        {
+          "type": "h3",
+          "text": "What screen presence actually is, which was the other half of the slice"
+        },
+        {
+          "type": "p",
+          "text": "`BAL-04` asks it outright: decide what screen presence means now that there is a free camera and more than one lane. The answer is **total units in flight, summed across every lane, with the camera not entering it at all**. Three candidates were on the table and two were rejected on measurements rather than taste."
+        },
+        {
+          "type": "list",
+          "items": [
+            "**Units within the current view is not a property of the content.** `CAM-01` gives free pan and a zoom floor derived per board from the strip that happens to be available, and that strip is 940 px at 100% interface scale and **508 px at 200%** against a 2112 px board. The same wave is therefore anywhere between **24% and 100%** on screen depending on a setting the player chose for legibility. A gate check reading that number would be asserting a fact about the interface's column width.",
+            "**Peak units in one lane** is the `WAR-01` reading. It is measured and now printed for any anchor with more than one lane — four lanes of eight and one lane of thirty-two are the same total and a completely different front line — but it is **deliberately not gated**. 23 of the 24 shipped anchors have exactly one lane, so a bound over it would be a branch the content never enters: decision 078's firing-arc lesson exactly, where 1,440 parity runs all executed the absent branch. Filed as `LF-276`, and it deserves its own worry — anchor-09 is the sole exception, lanes of 37 and 14 tiles peaking at 23 units and 3.",
+            "**Total units in flight** ships, and it ships with a positive argument rather than by elimination."
+          ]
+        },
+        {
+          "type": "p",
+          "text": "That positive argument is the elegant bit. Decision 082 derives every emplacement's range by holding **own-lane coverage** fixed — a gun reaches a constant share of its lane's length, median 17.4% for the pulse turret. So the units inside one gun's envelope are the peak density times the covered length: peak over lane length, times that share, times lane length. **The lane length cancels.** What a gun sees is proportional to the raw peak and independent of how long the lane is, so normalising by lane length would divide out the very term decision 082 holds constant."
+        },
+        {
+          "type": "p",
+          "text": "And it is not a cosmetic difference. Occupancy — units per tile — reads **0.763 / 0.625 / 0.507** per act where the raw peak reads **26.2 / 27.1 / 21.1**, which moves the busiest act from 2 back to 1. Two defensible-sounding metrics, opposite answers to the question the whole check is built on."
+        },
+        {
+          "type": "pre",
+          "text": "act   units/w   on screen   leak/w   hp/w   hp/unit   drain/w   peak bus   sat%\n  1      16.3        26.2     17.7    950      58.2       0.0         0%    31%\n  2      18.1        27.1     18.9   1113      61.6      39.4        29%    40%\n  3      13.6        21.1     17.4   1668     122.7      57.8        39%    50%",
+          "caption": "The campaign as it stands. Act 2 is now the busiest and act 3 sits at 78% of it — a spread of 1.28:1 against a cap of 1.82:1."
+        },
+        {
+          "type": "h3",
+          "text": "No absolute floor was added, and both reasons are measurements"
+        },
+        {
+          "type": "p",
+          "text": "A relative floor cannot see a campaign thinned uniformly. The obvious repair is a second, absolute floor — and it was not added, for two reasons that are measured rather than preferred. **The only absolute floor that can be derived is dead on arrival:** getting one target inside a median turret's envelope needs a peak of 1 / 0.174 = **5.75 units**, against a campaign minimum of **18** on anchor-18. A 3.1× margin is a threshold that can never fire, which is `PRESSURE_FLOOR`'s disease precisely."
+        },
+        {
+          "type": "p",
+          "text": "**And the hole it would cover is already covered.** A uniform thinning does leave this ratio flat — 0.779 falls only to 0.716 at `--weight 0.30` campaign-wide, still comfortably green — but it fails `anchor grades` on **9 of 24 anchors** by weight 0.70, taking campaign win share from 44.8/31.2/25.1 to 61.1/52.9/51.6. Uniform thinning is a difficulty regression before it is ever a presence one, and the grader owns difficulty. What this check owns is the case where the two come apart, which is the case `LF-044` actually was."
+        },
+        {
+          "type": "h3",
+          "text": "The leak budget has three readings and they disagree, so no single figure was adopted"
+        },
+        {
+          "type": "p",
+          "text": "The slice's other deliverable was the per-act leak budget, and it turned out not to be one number. A leak costs the larger of 1 and hit points over 130, rounded (decision 047), so `lives` is spent in a currency whose exchange rate depends on **which** unit gets through — and both obvious denominators are bounds rather than answers. Lives over total leak cost prices every leak at the dearest thing in the wave table; lives over unit count prices every leak at the 1-life minimum. Both are now printed side by side, never one alone."
+        },
+        {
+          "type": "table",
+          "headers": [
+            "act",
+            "budget (worst case)",
+            "bodies (best case)",
+            "median lives left on a winning run",
+            "wins that leak nothing"
+          ],
+          "rows": [
+            [
+              "1",
+              "10.6%",
+              "11.5%",
+              "70%",
+              "34%"
+            ],
+            [
+              "2",
+              "11.3%",
+              "12.0%",
+              "42%",
+              "11%"
+            ],
+            [
+              "3",
+              "20.4%",
+              "26.1%",
+              "48%",
+              "**0 of 123**"
+            ]
+          ]
+        },
+        {
+          "type": "p",
+          "text": "**The realised cost of a leak is close to 1 everywhere**, nowhere near the roster maximum of 4 — so decision 047's weighting is realised at a small fraction of its authored size. Two estimators bracket it and they **disagree in direction**: excluding runs that bottomed out, where lives clamp at 0 and the last leak is truncated, gives 1.50 / 1.06 / 1.06 per act; including them gives 1.10 / 1.15 / 1.41. So **no claim is made about which act's leaks are dearer**, because the data does not support one. `LF-275` is the fix and it is an engine change: the engine records how many units leaked, never which."
+        },
+        {
+          "type": "p",
+          "text": "The figure needing no denominator at all is the keeper. **Median lives left on a winning run is 70 / 42 / 48%** — on that reading Act III is tighter than Act I, not slacker. And the last column explains the whole spread: **no winning Act III run leaks nothing**, 0 of 123, against 34% of Act I's winners. Act III's larger `lives` pool is not generosity, it is the price of admission. A budget phrased as the share of the threat you may ignore assumes ignoring is a choice, and by Act III it has stopped being one."
+        },
+        {
+          "type": "h3",
+          "text": "One line of behaviour changed"
+        },
+        {
+          "type": "p",
+          "text": "The check's message now names the spread — `spread 1.28:1 (cap 1.82:1)` — because decision 091 moved **which** act is the reference, and a message that only ever named a percentage of an unnamed busiest act made a shift in the reference read as a content event. The inequality, the constant and every historical verdict are unchanged."
+        },
+        {
+          "type": "h3",
+          "text": "The failure: the slice reported an item closed, and it is not"
+        },
+        {
+          "type": "p",
+          "text": "The slice reported `LF-270` closed. **It is not, and checking is what found that.** Two helpers, `build_tower_ids()` and `weapon_ids_in_build()`, do now exist in `tools/density.py` with the splitting trap documented at the definition — a built entry carries its coordinates after an `@`, so a membership test against bare tower ids matches nothing and returns **a confident zero rather than an error**. That half is real, and it is the half four previous sessions each rediscovered by hand."
+        },
+        {
+          "type": "p",
+          "text": "But **nothing calls either helper**, so they are untested and can rot silently, and the acceptance-criteria table `LF-270` actually asked for is still hand-rolled in a scratch script. They were kept — the next slice wants them, and the documented trap is itself the point — but the item stays open as `LF-278` rather than being claimed closed. **An uncalled helper is not a fixture; it is a claim nobody checks.**"
+        },
+        {
+          "type": "p",
+          "text": "That deserves a sentence of its own. The first entry of today recorded the third session running in which checking an agent's report, rather than filing it, caught something real. Counted by dispatch rather than by session, this is the **fifth in a row**. The pattern is now worth more than any of the individual catches."
+        },
+        {
+          "type": "h3",
+          "text": "Reported, not changed"
+        },
+        {
+          "type": "p",
+          "text": "The slice held to `BAL-04`'s own discipline: a change that moves the instrument and the content together can attribute neither result. So four findings were filed and none acted on. `LF-274` — anchor-17 runs a 16.1% leak budget where Act III's other seven anchors sit inside a 20.7–21.3% band, tight enough to have been authored to; the act's own band puts it at 23 lives rather than 18, and it grades `ok` at 18. `LF-275`, the engine's leak count without identities. `LF-276`, the multi-lane mechanism shipping with one weak instance. `LF-277`, the sweep flag whose lives percentage takes the worst-case denominator without saying so."
+        },
+        {
+          "type": "p",
+          "text": "**No screenshot with this one, and that is not an omission: nothing visual changed.** The whole diff is two tool files and the backlog. Gate at tier 3: 43 passed, 0 failed. No parity run, and none was needed — the parity digest covers the fixed rules files plus tracked data only, and this change is under `tools/`, so it reported cached at `234f711c8e46`."
+        }
+      ]
     }
   ]
 }
