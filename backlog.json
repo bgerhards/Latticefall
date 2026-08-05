@@ -3275,7 +3275,67 @@
       "opened": "2026-08-05",
       "closed": null,
       "note": ""
+    },
+    {
+      "id": "LF-274",
+      "title": "anchor-17's leak budget is 16.1 percent of total leak_cost where Act III's other seven anchors sit in a 20.7-21.3 percent band. MEASURED on ce01b05 during BAL-04's density slice: anchor-17 has 18 lives against 112 total leak_cost. The other Act III anchors are tight enough to have been authored to a band, and that band puts anchor-17 at 23 lives. It grades ok at 18, so this is a consistency finding rather than a defect. NOT CHANGED in the instrument slice deliberately: a slice that moves both the instrument and the content cannot attribute either result. It belongs with BAL-04's capacity-ladder re-sweep, where a grade delta can be attributed to it. Note the denominator matters here -- see the sibling item on sweep.py --lives, because 16.1 percent is the worst-case reading (every leak priced at the anchor's dearest unit) and the measured realised cost per leak is close to 1.",
+      "kind": "bug",
+      "area": "design",
+      "pri": "med",
+      "status": "open",
+      "why": "the one Act III anchor outside its own act band, found while deriving the leak budget",
+      "opened": "2026-08-05",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-275",
+      "title": "The engine records how MANY units leaked but not WHICH, so the realised cost of a leak can only be bracketed and the two estimators disagree in direction. Outcome carries leaks (a count) and lives_left, and decision 047 prices a leak at max(1, round(hp/130)) -- so the actual lives spent depend on which units got through, and nothing records that. MEASURED on ce01b05 across 24 anchors x 63 runs, two bounds computed from what IS recorded: excluding runs that bottomed out (lives clamped at 0, which truncates the last leak) gives realised cost per leak of 1.50 / 1.06 / 1.06 by act; including them gives 1.10 / 1.15 / 1.41. THE TWO BRACKETS DISAGREE ABOUT WHICH ACT'S LEAKS ARE DEARER, so BAL-04's density slice made no claim about it at all. What is solid: realised cost is close to 1 everywhere and nowhere near the roster maximum of 4, so decision 047's weighting is realised at a small fraction of its authored size. THE WORK is one counter per enemy id in Outcome, mirrored in both rule implementations, which makes it a rules change needing a full parity run. It is the input any future leak-budget derivation needs, and without it the budget can only be stated as a pair of bounds.",
+      "kind": "feature",
+      "area": "engine",
+      "pri": "med",
+      "status": "open",
+      "why": "the leak budget cannot be derived past a bracket without knowing which units leaked",
+      "opened": "2026-08-05",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-276",
+      "title": "WAR-01's multi-lane mechanism ships effectively unexercised: 23 of 24 anchors are single-lane and the one exception has a 3-unit flank. MEASURED on ce01b05 during BAL-04's density slice: anchor-09 is the campaign's only multi-lane anchor, lanes of 37 and 14 tiles, peaking at 23 units and 3 units respectively. CONSEQUENCE 1, and it is why this was found: any per-lane density bound would be a branch the content never enters, plus one weak data point -- the same class decision 078 records for the firing arc (1,440 parity runs all executing the ABSENT branch) and LF-229 for the coverage ceiling. BAL-04's density slice therefore measured per-lane peak, printed it, and deliberately did NOT gate on it. CONSEQUENCE 2 is the bigger one: LF-081 multi-lane paths and multiple spawn points is the structural work that makes a front line exist at all, and it landed with essentially no content using it, so nothing about the shipped campaign tells you whether it plays well. THE WORK belongs with BAL-04's re-sweep or with the 48-squared layout generator (LF-080), where multi-lane boards are the default rather than the exception.",
+      "kind": "risk",
+      "area": "design",
+      "pri": "med",
+      "status": "open",
+      "why": "a shipped mechanism with one weak instance is a mechanism nobody has evaluated",
+      "opened": "2026-08-05",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-277",
+      "title": "sweep.py --lives %N prices every leak at the anchor's dearest unit, and the flag does not say so. It takes lives as a percentage of the anchor's TOTAL leak_cost, which is the worst-case denominator -- it assumes every leak that happens is the most expensive unit in the wave table. MEASURED on ce01b05: realised cost per leak is 1.06-1.50 across the acts while Act III's roster maximum is 4, so the flag's denominator overstates Act III's tolerance by roughly a fifth against the best-case reading. tools/density.py now prints BOTH bounds side by side -- budget (lives / total leak_cost, worst case, what the flag means) and bodies (lives / unit count, best case) -- which is what made the gap visible: act 1 10.6 vs 11.5 percent, act 2 11.3 vs 12.0, act 3 20.4 vs 26.1. THE WORK is small and it is a clarity fix, not a behaviour change: either accept %body as a second form, or document on the flag which bound it means. Right now an author reading 12 percent has no way to know which of two numbers a fifth apart they are setting. See LF-275 -- the true value cannot be computed at all until the engine records which units leaked.",
+      "kind": "chore",
+      "area": "tooling",
+      "pri": "low",
+      "status": "open",
+      "why": "two readings a fifth apart and the flag does not say which one it takes",
+      "opened": "2026-08-05",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-278",
+      "title": "LF-270 partial: the @-splitting helpers now exist in tools/density.py but NOTHING CALLS THEM, so the criteria table is still hand-rolled. BAL-04's density slice added build_tower_ids() and weapon_ids_in_build() to tools/density.py -- the one owned module tools/check.py already imports -- with the trap documented at the definition (a built entry is <tower-id>@<x>,<y>, so a membership test against bare tower ids matches nothing and answers zero rather than raising). That is the trap-avoidance half and it is real. What LF-270 ACTUALLY ASKED FOR is not done: there is still no tool that prints BAL-04's acceptance-criteria table, so the fifth, sixth and seventh slices will each still hand-roll multi-weapon and per-anchor standard-plus-brutal from a scratch script. AND THE HELPERS HAVE NO CALLER, which means they are untested and can rot silently -- an uncalled helper is not a fixture, it is a claim nobody checks. THE WORK, unchanged: put distinct_winning_builds standard-plus-brutal, multi_weapon_met and multi_weapon_achievable next to the existing per-anchor fields in sim/run.py --json, or add tools/criteria.py that reads a grade artefact and prints the table against decision 088's baselines -- and route it through these two helpers so they acquire a caller.",
+      "kind": "chore",
+      "area": "tooling",
+      "pri": "high",
+      "status": "open",
+      "why": "the helpers landed with no caller, so LF-270 is not closed and the new code is untested",
+      "opened": "2026-08-05",
+      "closed": null,
+      "note": ""
     }
   ],
-  "next_id": 274
+  "next_id": 279
 }

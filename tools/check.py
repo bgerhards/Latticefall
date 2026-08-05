@@ -409,9 +409,50 @@ def check_game_data() -> Result:
     return Result(OK, f"{counts} · {warned}" if counts else warned)
 
 
-## No act may run at less than this fraction of the busiest act's screen presence. It is a
-## judgement, not a measurement — but it is the judgement LF-044 was about, and the ratio it
-## guards was 0.38 for most of the project's life without anyone being able to see it.
+## No act may run at less than this fraction of the busiest act's screen presence.
+##
+## BAL-04 asked whether 0.55 still means anything now that decision 091 has moved the busiest
+## act from 1 to 2. It does, and **the number does not move** — the strongest defence against
+## "fitted to today's data" is a threshold that was placed against a measured *defect* and has
+## not been touched since. Decision 067 deleted PRESSURE_FLOOR for being a constant with no
+## argument behind it; this one has one, and it is below rather than in a session transcript.
+##
+## The rule, stated before the measurement: the floor must be red on every state of this
+## campaign that LF-044 named a defect, and green on every state since the defect was fixed.
+## Peak concurrency per act, recomputed at all fourteen commits that have touched
+## data/anchors/ and had more than one act on disk (min/max in the last column):
+##
+##     7378dee   32.4  16.0     -    0.494   Act II opens
+##     915d5da   32.4  15.6     -    0.483   Act II complete
+##     c048141   32.4  15.6  11.1    0.344   Act III complete — the LF-044 defect
+##     5475dfa   32.4  15.6  11.1    0.344
+##     1cfbeaa   32.4  16.0  11.1    0.344
+##     b7e38d3   32.4  16.0  11.1    0.344   leak_cost stops being flat (decision 047)
+##     4aef1cc   32.4  27.4  21.1    0.653   escort units: the fix, and this constant
+##     668c6b4 … 5021a9e                     four more commits at 0.653
+##     8c56b5c   32.0  27.1  21.1    0.660
+##     cd21e6f   32.0  27.1  21.1    0.660   decision 090, arc-node repricing
+##     901053f   26.2  27.1  21.1    0.779   decision 091, warden-hauler — today
+##
+## Six observed states below the floor, eight above, and **no observation anywhere in
+## (0.494, 0.653)**. Every threshold in that open interval returns the same verdict on all
+## fourteen; 0.55 sits inside it with 0.056 of margin below and 0.103 above. That is a
+## plateau 0.159 wide, not a cell — LF-264's bar, met by a constant nobody had to move.
+##
+## Reachable today, not only in history: `sweep.py --weight 0.70` over Act III alone takes the
+## ratio to 0.535 and this check to red. 0.75 leaves it green at 0.604.
+##
+## No ABSOLUTE floor is added alongside it, and both reasons are measurements rather than
+## preferences. The only absolute floor that can be *derived* is dead on arrival: one target
+## inside a median turret's envelope needs a peak of 1 / 0.174 = 5.75 units (decision 082's
+## own-lane coverage), against a campaign minimum of 18 on anchor-18 — a 3.1x margin, which is
+## exactly PRESSURE_FLOOR's disease. And the hole an absolute floor would cover is already
+## covered elsewhere: a *uniform* thinning leaves this ratio flat (0.779 -> 0.716 at
+## `--weight 0.30` campaign-wide, still green) but fails `anchor grades` on 9 of 24 anchors by
+## weight 0.70, with campaign win share going 44.8/31.2/25.1 -> 61.1/52.9/51.6. Uniform
+## thinning is a difficulty regression before it is a presence one, and the grader owns
+## difficulty. What this check owns is the case where the two come apart, which is the one
+## LF-044 actually was — see check_wave_density()'s docstring for those numbers.
 DENSITY_FLOOR = 0.55
 
 
@@ -424,9 +465,25 @@ def check_wave_density() -> Result:
     re-authored wave table; keeping it fixed is one ratio, and it can be undone silently,
     since `sweep.py --weight` scales every spawn count in a level at once.
 
+    **Why the grader cannot stand in for this, measured rather than argued.** At `c048141`,
+    the commit where the defect was worst, Act III showed 11.1 units on screen against Act I's
+    32.4 — a third — while carrying **1562 hit points per wave against Act I's 950**, 64% more
+    work for the board. Presence and difficulty did not merely vary independently there, they
+    moved in opposite directions, so every difficulty instrument in the project reported Act
+    III as the hardest act in the game, which it was. Presence is the axis nothing else sees.
+
     Measured as peak units in flight rather than units per wave: a Column at 0.5 tiles/sec
     holds the board four times as long as a Shard, so the per-wave count understates a slow
-    act. See tools/density.py, which owns the calculation.
+    act. Summed across lanes, not per lane, and not "within the camera" — BAL-04 asked and
+    tools/density.py's docstring carries the answer with the numbers behind it. In one line:
+    a camera-relative count is a function of pan, zoom and the interface scale (940 px of
+    board strip at 100%, 508 px at 200%), so it describes a setting rather than the content.
+
+    The verdict is `min(act) / max(act) >= DENSITY_FLOOR`, which is what the per-act
+    comparison below has always computed; naming the spread in the message as well is BAL-04's
+    only change here, because decision 091 moved *which* act is the reference and a message
+    that only ever named a percentage of an unnamed busiest act made that read as a content
+    event. The inequality, the constant and every historical verdict are unchanged.
     """
     sys.path.insert(0, str(ROOT))
     sys.path.insert(0, str(ROOT / "tools"))
@@ -446,8 +503,10 @@ def check_wave_density() -> Result:
             for act, m in means.items() if m < busiest * DENSITY_FLOOR]
     if thin:
         return Result(FAIL, "; ".join(thin))
+    spread = busiest / min(means.values())
     return Result(OK, " · ".join(f"act {a} {means[a]:.0f} on screen ({means[a]/busiest:.0%})"
-                                for a in sorted(means)))
+                                 for a in sorted(means))
+                  + f" · spread {spread:.2f}:1 (cap {1 / DENSITY_FLOOR:.2f}:1)")
 
 
 ## Spoken numbers, for the dialog-vs-data check. Control reads the bus figure aloud in the
