@@ -464,6 +464,80 @@ def a_warden_heavy():
                         emit=(1.0, 0.28, 0.12), emit_strength=1.3))
 
 
+def a_warden_hauler():
+    # Act I's mid-weight, and the entire reason it exists is that it is NOT armoured —
+    # 110 HP against the heavy's 220, with no armour rating at all. So it must never read
+    # as plated. The heavy already owns "plated", and a player who mistakes the two brings
+    # the wrong weapon to it, which in this game is a real and expensive mistake. The
+    # difference has to be carried by silhouette and mass, never by colour: it is the same
+    # family of machine and wears the same steel and the same red eye as its siblings.
+    #
+    # Three things do that work, and none of them exists on the heavy.
+    #   * The frame is OPEN — two sills and five cross ties with daylight between them,
+    #     where the heavy's hull is a closed stepped box. Armour is a solid outline; a
+    #     freight chassis is a broken one.
+    #   * The load rides on top, exposed, in STONE_WARM — the crate/pallet tone the
+    #     mortar's shell rack and the bulwark's tanks already use, deliberately NOT the
+    #     steel the machine itself is built from. At zoom the mass on its back therefore
+    #     reads as something carried rather than something worn.
+    #   * It stands on eight short stub legs with pads, not tracks. Tracks are the heavy's
+    #     and they draw a continuous skirt; the legs draw a comb of gaps.
+    #
+    # Mass sits between the siblings by construction — long and low rather than tall and
+    # solid — so the three Act I ground units separate on outline before anything else.
+    # Measured off the committed renders at yaw 45 (bbox / lit px):
+    #   drone 65x56 / 2311   ·   hauler 128x90 / 4551   ·   heavy 110x113 / 7883
+    for s in (-1, 1):                                   # sills: the spine, and the reason
+        cube(1.0, (s * 0.185, 0.02, 0.25), scale=(0.09, 1.32, 0.09),   # it is long, not tall
+             material=mat("uhs%d" % s, STEEL, 0.5, 0.55))
+    for i, y in enumerate((-0.56, -0.28, 0.0, 0.28, 0.56)):
+        cube(1.0, (0, y, 0.25), scale=(0.44, 0.06, 0.065),             # open deck, not a hull
+             material=mat("uht%d" % i, STEEL_LT, 0.6, 0.45))
+    for s in (-1, 1):
+        for i, y in enumerate((-0.52, -0.18, 0.18, 0.52)):
+            cube(0.13, (s * 0.235, y, 0.115), scale=(0.55, 0.55, 1.75),
+                 material=mat("uhl%d%d" % (s, i), STEEL, 0.55, 0.5))
+            cyl(6, 0.05, 0.045, (s * 0.235, y, 0.025),
+                material=mat("uhp%d%d" % (s, i), STONE, 0.3, 0.75))
+    # Crated korrite, stepping down toward the front so the sprite says which end leads.
+    # Narrower in X than the sills carry it and spaced ~0.12 apart in Y — both on purpose.
+    # The first cut had the crates flush to the rails and butted end to end, and it read
+    # as one solid slab with strap lines on it, i.e. exactly the plated hull this unit
+    # must not be. Daylight outboard of the load and between its pieces is what makes the
+    # frame underneath visible at all, and the frame is the argument.
+    for i, (y, sy, sz, z) in enumerate(((-0.42, 0.26, 0.28, 0.42),
+                                        (-0.05, 0.24, 0.24, 0.40),
+                                        (0.30, 0.20, 0.20, 0.38))):
+        cube(1.0, (0, y, z), scale=(0.31 - i * 0.01, sy, sz),
+             material=mat("uhc%d" % i, STONE_WARM, 0.2, 0.8))
+        cube(1.0, (0, y, z + sz * 0.5 + 0.006), scale=(0.34 - i * 0.01, sy * 0.22, 0.020),
+             material=mat("uhb%d" % i, BONE, 0.6, 0.4))                # strap over the load
+    cube(0.16, (0, -0.69, 0.27), scale=(0.9, 0.85, 0.75),              # rear hitch
+         material=mat("uhr", STONE, 0.35, 0.7))
+    # Forward cowl, low and squat — the machine looks down its own route rather than over
+    # a turret ring. Nothing sits above or ahead of the eye: at (0.72, 0.54) it clears the
+    # cowl's top by 0.10 and its nose by 0.07, which puts the whole sphere outside the
+    # cowl's silhouette at yaw 45 — the yaw that looks at this unit's *back*, and so the
+    # only one where the eye is the far side of anything. That is the check the drone's
+    # buried eye cost this project a render cycle to learn to do (see a_warden_drone).
+    cube(0.26, (0, 0.53, 0.32), scale=(1.35, 0.95, 0.90),
+         material=mat("uhh", STEEL_LT, 0.6, 0.45))
+    cube(0.08, (0, 0.66, 0.46), scale=(1.0, 1.0, 0.9),                 # neck under the eye
+         material=mat("uhn", STEEL, 0.6, 0.4))
+    sphere(0.085, (0, 0.72, 0.54), segments=12, rings=8,
+           material=mat("uhe", (0.9, 0.3, 0.15), 0.0, 0.3,
+                        emit=(1.0, 0.28, 0.12), emit_strength=1.3))
+    # Running lights along the rail, same hue as the eye and far dimmer. They are what
+    # makes the *glow* pass carry the silhouette too: at gameplay distance the heavy is
+    # one red dot and the hauler is a short row of them, so the two stay apart even when
+    # the albedo is a dark shape on a dark deck.
+    for s in (-1, 1):
+        for i, y in enumerate((-0.33, 0.33)):
+            sphere(0.030, (s * 0.25, y, 0.31), segments=8, rings=6,
+                   material=mat("uhm%d%d" % (s, i), (0.9, 0.3, 0.15), 0.0, 0.3,
+                                emit=(1.0, 0.28, 0.12), emit_strength=0.40))
+
+
 def a_warden_mote():
     # Silhouette pass (LF-021). A lone glowing sphere reads as a light source rather than
     # a unit, and at 100% zoom it was indistinguishable from a slot ring. Two crossed
@@ -786,6 +860,7 @@ ASSETS = {
     "ion_lance": a_ion_lance,
     "warden_drone": a_warden_drone,
     "warden_heavy": a_warden_heavy,
+    "warden_hauler": a_warden_hauler,
     "warden_mote": a_warden_mote,
     "flak_array": a_flak_array,
     "anchor_damper": a_anchor_damper,

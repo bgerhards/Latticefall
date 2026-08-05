@@ -97,8 +97,14 @@
       "spawns": [
         {
           "enemy": "warden-drone",
-          "count": 10,
+          "count": 4,
           "interval": 1.45
+        },
+        {
+          "enemy": "warden-hauler",
+          "count": 2,
+          "interval": 3.4,
+          "delay": 6
         }
       ]
     },
@@ -107,13 +113,19 @@
       "spawns": [
         {
           "enemy": "warden-drone",
-          "count": 11,
+          "count": 5,
           "interval": 1.3
         },
         {
           "enemy": "warden-mote",
           "count": 4,
           "interval": 1.9,
+          "delay": 6
+        },
+        {
+          "enemy": "warden-hauler",
+          "count": 2,
+          "interval": 3.2,
           "delay": 6
         },
         {
@@ -129,13 +141,19 @@
       "spawns": [
         {
           "enemy": "warden-drone",
-          "count": 12,
+          "count": 3,
           "interval": 1.25
         },
         {
           "enemy": "warden-mote",
           "count": 5,
           "interval": 1.8,
+          "delay": 5
+        },
+        {
+          "enemy": "warden-hauler",
+          "count": 3,
+          "interval": 3.1,
           "delay": 5
         },
         {
@@ -151,13 +169,19 @@
       "spawns": [
         {
           "enemy": "warden-drone",
-          "count": 13,
+          "count": 4,
           "interval": 1.2
         },
         {
           "enemy": "warden-mote",
           "count": 7,
           "interval": 1.6,
+          "delay": 5
+        },
+        {
+          "enemy": "warden-hauler",
+          "count": 3,
+          "interval": 2.9,
           "delay": 5
         },
         {
@@ -173,7 +197,7 @@
       "spawns": [
         {
           "enemy": "warden-drone",
-          "count": 14,
+          "count": 5,
           "interval": 1.1
         },
         {
@@ -181,6 +205,12 @@
           "count": 9,
           "interval": 1.4,
           "delay": 4
+        },
+        {
+          "enemy": "warden-hauler",
+          "count": 3,
+          "interval": 2.7,
+          "delay": 5
         },
         {
           "enemy": "warden-heavy",
@@ -195,13 +225,19 @@
       "spawns": [
         {
           "enemy": "warden-drone",
-          "count": 16,
+          "count": 4,
           "interval": 1.05
         },
         {
           "enemy": "warden-mote",
           "count": 11,
           "interval": 1.3,
+          "delay": 4
+        },
+        {
+          "enemy": "warden-hauler",
+          "count": 4,
+          "interval": 2.6,
           "delay": 4
         },
         {
@@ -217,7 +253,7 @@
       "spawns": [
         {
           "enemy": "warden-drone",
-          "count": 18,
+          "count": 6,
           "interval": 1.0
         },
         {
@@ -225,6 +261,12 @@
           "count": 13,
           "interval": 1.2,
           "delay": 3
+        },
+        {
+          "enemy": "warden-hauler",
+          "count": 4,
+          "interval": 2.4,
+          "delay": 4
         },
         {
           "enemy": "warden-heavy",

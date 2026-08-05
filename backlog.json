@@ -3126,11 +3126,11 @@
       "kind": "bug",
       "area": "design",
       "pri": "med",
-      "status": "open",
+      "status": "done",
       "why": "LF-218 is priority 3 in STATE and it is blocked on content that does not exist, not on a knob",
       "opened": "2026-08-05",
-      "closed": null,
-      "note": ""
+      "closed": "2026-08-05",
+      "note": "closed at cd21e6f"
     },
     {
       "id": "LF-262",
@@ -3167,7 +3167,103 @@
       "opened": "2026-08-05",
       "closed": null,
       "note": ""
+    },
+    {
+      "id": "LF-265",
+      "title": "No verification hook can put an arbitrary enemy id on the board, so a unit sprite cannot be photographed in-game until its data row and a wave-table reference both land. FOUND while rendering warden_hauler (LF-261): main.gd has a --build <tower-id> <x>,<y> hook (LF-072) but nothing equivalent for units, and shot.py --facings can only print what actually spawned. CONSEQUENCE: the art half of any new-enemy workstream cannot meet its own verification bar independently of the data half, which forces the two to be serialised or the capture to be deferred to the coordinator. It blocked exactly that on this branch -- the sprite was rendered, masked, packed, imported and proved correct by projecting the eye through the calibrated camera (within 4 px on a 7.8 px sphere at all four yaws), but no frame of the running game could contain it. THE WORK: a -- --spawn <enemy-id> in main.gd, sibling to --build, spawning one unit at the lane entrance on a chosen frame. Same class as LF-127 (no hook to force a specific combat FX to fire) and LF-072 (autobuild never mixes weapon classes): a verification hook for something --fixed-fps has nobody to press a key for.",
+      "kind": "feature",
+      "area": "tooling",
+      "pri": "med",
+      "status": "open",
+      "why": "art verification is currently coupled to the data half for no reason",
+      "opened": "2026-08-05",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-266",
+      "title": "Adding a key to render.py ASSETS invalidates every stored content hash, so the next unqualified build.py re-renders the whole 27-asset library. FOUND while adding warden_hauler (LF-261): the incremental build (PRC-13) hashes _shared_source(), which includes the ASSETS dict itself, so introducing ONE asset marks all 27 stale. The workstream used build.py --only warden_hauler to avoid churning 200-plus committed PNGs while other agents shared the tree, which is the right call but means the staleness is still latent on main. THE QUESTION worth settling on a quiet tree: does a full build.py re-render byte-identical? If EEVEE is deterministic here the answer is a no-op commit and the hashes refresh; if it is NOT, then every new asset silently dirties the entire renders directory and PRC-13 only-what-changed story has a hole in it. Related LF-125: every real render also overwrites the tracked assets/renders/_calibration.png regardless of --only.",
+      "kind": "bug",
+      "area": "art",
+      "pri": "med",
+      "status": "open",
+      "why": "PRC-13 claims only what changed moves; a new asset may move all of it",
+      "opened": "2026-08-05",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-267",
+      "title": "A missing sprite does NOT render flat grey, and the dispatch skill trap note says it does. MEASURED with -- --dump-placeholder while verifying warden_hauler (LF-261): an ordinal unit with no sprite falls back to a filled amber disc, rgb(0.80,0.58,0.22) which is about #cc9438, radius roughly 8 px -- not the flat placeholder grey that .claude/skills/dispatch/SKILL.md and several briefs tell agents to look for. CONSEQUENCE: an agent following the documented trap samples for grey, does not find it, and concludes the sprite loaded when it did not -- the exact inversion of the misdiagnosis the note exists to prevent. THE FIX is one line in the dispatch skill trap list plus wherever else the grey claim is repeated: say sample the pixel against the EXPECTED material colour and against the amber placeholder, and name --dump-placeholder as the way to learn what the fallback actually is for a given faction. Note the correct half of the advice still holds: sample pixel colour rather than looking at the frame.",
+      "kind": "bug",
+      "area": "meta",
+      "pri": "med",
+      "status": "open",
+      "why": "a documented trap that is factually wrong is worse than no trap",
+      "opened": "2026-08-05",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-268",
+      "title": "anchor-02 is the campaign most build-starved non-tutorial anchor and cannot absorb any new content. MEASURED in the LF-261 pass: baseline s/h/b is 5/3/2, so brutal carries only TWO distinct winning builds, and ANY added body takes it to one -- sim/run.py reports brutal: only one distinct build clears it - single-solution level. Tested at five substitution depths, three introduction waves, a single new unit on a single wave, and both a 2:1 and an hp-neutral 3:1 exchange rule. The single cell where it holds is speed 0.85, whose neighbours 0.80 and 0.90 both fail -- a cell, not a plateau, which is exactly what LF-264 says not to ship. CAUSE: 80 MW, 460 starting credits and ONE unlocked weapon leave no room to respond to anything. CONSEQUENCE: warden-hauler ships on anchors 03-08 and skips 02 for this reason rather than for pacing. THE WORK, before Act I is extended again: give anchor-02 headroom on either the capacity/funds tier or the wave table. Note this is the same anchor LF-220 records as having narrowed from 6 to 4 brutal builds in the LF-185 re-siting pass, so it has been trending down for three passes.",
+      "kind": "bug",
+      "area": "design",
+      "pri": "med",
+      "status": "open",
+      "why": "Act I cannot be extended again until anchor-02 has room",
+      "opened": "2026-08-05",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-269",
+      "title": "anchor-05 is a knife edge on the ECONOMY axis specifically, and it is pre-existing. MEASURED on cd21e6f with no new content present: starting_funds +20 -- a 2.9 percent change -- takes it from ok with 6 standard winning builds to NOT ok with 3; +40 gives 2. capacity_mw plus-or-minus 2 also breaks it, and cap+4 gives s+b 5. It holds all twelve drone plus-or-minus 1 perturbations and every warden-hauler stat perturbation, so the fragility is NOT about unit counts. Decision 090 already flagged anchor-05 as its weakest multi-weapon closure at 4 of 9 perturbations; this quantifies which axis is responsible. CONSEQUENCE for BAL-04 re-grade: anchor-05 will be the first anchor to go red when the capacity ladder or the funds ramp is touched, and a sweep that finds an isolated optimum there is fitting to the quantisation LF-264 describes rather than to the content. Judge it by plateau width.",
+      "kind": "bug",
+      "area": "design",
+      "pri": "med",
+      "status": "open",
+      "why": "first anchor that will break when BAL-04 touches the capacity ladder",
+      "opened": "2026-08-05",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-270",
+      "title": "BAL-04 acceptance criteria have no tool: multi-weapon and per-anchor standard-plus-brutal have been hand-rolled in a scratch script four times. Decisions 088, 089, 090 and the LF-261 pass each recomputed them from sim/run.py --json by hand, and each had to rediscover the same trap -- built entries are <tower-id>@<x>,<y> so a distinct-weapon count must split on @ first, and a membership test against bare tower ids matches nothing and reports a confident zero. Also rediscovered each time: --json silently drops each report runs unless --detail is also passed (LF-258), and achievable means at least two WEAPON ids (damage > 0, the Tower.is_weapon predicate in sim/content.py) unlocked at or before the anchor, which is the difference between 17/22 and 17/24. THE WORK: put distinct_winning_builds standard-plus-brutal, multi_weapon_met and multi_weapon_achievable next to the existing per-anchor fields in sim/run.py --json, or add a small tools/criteria.py that reads a grade artefact and prints the BAL-04 criteria table with its baselines. Every future BAL-04 slice needs this table and none of them should have to write it. Note the scratch implementations agree with each other so far, which is luck rather than assurance.",
+      "kind": "chore",
+      "area": "tooling",
+      "pri": "high",
+      "status": "open",
+      "why": "four PRs have hand-rolled the same computation and rediscovered the same trap",
+      "opened": "2026-08-05",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-271",
+      "title": "Every presence or attrition figure in the backlog needs the commit it was measured on, and LF-218 quoted numbers no longer reproduce. LF-218 states act 1 and act 2 attrit early, citing anchor-01 reaching 50 percent cumulative presence by bucket 3, anchor-13 by bucket 4 and anchor-20 by bucket 9. RE-MEASURED on cd21e6f with the same instrument (sim/coverage.py run_instrumented, 200 buckets regrouped into twenty 5 percent buckets, pooled over policies x difficulties as analyze_anchor does): the figures are 5 / 4 / 7. NOT a regression -- sim/coverage.py own comparability rule says a presence profile is only comparable within one content state, and LF-185 re-siting and decision 090 arc-node repricing have both landed since LF-218 was written. THE WORK is small and it is a convention, not a fix: stamp every presence, uptime, near-zero and coverage figure in the backlog with the commit it was taken on, and re-measure LF-218 before acting on it. The same applies to LF-185 12.71 to 9.53 percent headline, which LF-246 has already ruled unreproducible for a different reason. A number without a commit is not a measurement.",
+      "kind": "chore",
+      "area": "tooling",
+      "pri": "med",
+      "status": "open",
+      "why": "LF-218 is priority 3 and its own numbers are stale",
+      "opened": "2026-08-05",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-272",
+      "title": "Act I fragile axis is its ARMOUR share, not its unit count, and every Act I content change should be graded against heavy+1 specifically. MEASURED on two independent perturbation batteries. Decision 090: nine perturbations per anchor, and the single one that breaks a multi-weapon result on anchors 03/05/07/08 is heavy+1, every time. LF-261: fourteen perturbations per anchor on both HEAD and the post-change tree, and the failure set is IDENTICAL on both sides -- heavy+1 fails on 03/04/05 and cap-2 fails on 05/06, while all twelve drone plus-or-minus 1 and every warden-hauler stat perturbation hold on all six anchors. THE ARITHMETIC that predicts it, from decision 090: warden-heavy armour 4 is FLAT, so it cuts the pulse turret 9 to 5 and the arc node 6 to 2, and brutal multiplies hp by 1.55 on top -- so one extra armoured body raises difficulty superlinearly AND deletes the second weapon class at once. CONSEQUENCE, and this is the actionable part: an Act I content change graded only against unit-count perturbations will look robust and is not. Add heavy+1 to the standing battery for any Act I pass. Worth considering whether flat armour is the right model at all, but that is a rules change and a much larger question.",
+      "kind": "risk",
+      "area": "design",
+      "pri": "low",
+      "status": "open",
+      "why": "two independent batteries agree and a future pass will otherwise re-derive it",
+      "opened": "2026-08-05",
+      "closed": null,
+      "note": ""
     }
   ],
-  "next_id": 265
+  "next_id": 273
 }

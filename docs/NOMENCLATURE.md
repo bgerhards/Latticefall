@@ -97,6 +97,7 @@ gets abstract nouns only, since nothing in the game ever says what it is.
 | **Warden Drone** | Ordinal | Act I baseline. |
 | **Warden Mote** | Ordinal | Act I air. Unseen without a scan relay. |
 | **Warden Heavy** | Ordinal | Act I armour. |
+| **Warden Hauler** | Ordinal | Act I mid. Freight, not armour — the unplated body. |
 | **Reach Picket** | Sable Reach | Act II escort. The one Reach unit carrying no tap. |
 | **Reach Sapper** | Sable Reach | Act II. The largest single drain in the act. |
 | **Reach Skiff** | Sable Reach | Act II air. |
