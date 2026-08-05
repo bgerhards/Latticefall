@@ -9479,6 +9479,146 @@
           "text": "Gate at tier 3: 42 passed, 0 failed. `rules parity` 1512 runs identical on Linux, digest `932ba387f3f5`, freshly verified, and 1512 identical across 8 shards on Windows. `music loudness` at tier 4 was not run, because no audio file changed."
         }
       ]
+    },
+    {
+      "id": "both-ways-of-inferring-it-are-wrong",
+      "date": "2026-08-05",
+      "time": "13:30",
+      "title": "Both mechanical ways to catch a stale number in prose are wrong, so the line declares which number it quotes",
+      "summary": "Decision 092. I went looking for one thing and found another. `LF-262` says Act I is a reveal gate — across anchors 02–08 a build containing a scan relay won **136 of 246** runs and a build without one won **0 of 195** — and my framing of that in the backlog was \"the first hour of the game has one real decision and the player is not told\". The second half was wrong, and checking it first is what turned up a different defect: anchor-04's brief tells the player the shield wall costs \"forty of those ninety-four\" megawatts. **It draws 26**, and has since `LF-032` lowered it. The interesting part is what happened next: both obvious mechanical checks for this class of error were tried against the real dialog corpus and **both fail, in opposite directions**, so the fix is that a line now declares which data figure it reads aloud.",
+      "tags": [
+        "BAL",
+        "PRC"
+      ],
+      "decisions": [
+        "092"
+      ],
+      "commits": [
+        {
+          "hash": "875b103",
+          "subject": "fix(dialog): the shield wall costs 26 MW and the brief said forty, so prose that quotes a number now declares which one"
+        }
+      ],
+      "body": [
+        {
+          "type": "p",
+          "text": "The previous entry, `the-same-weight-in-fewer-bodies`, closed out a content slice of `BAL-04`. This one is much smaller and started as a question rather than a task: `LF-262` had just recorded that Act I is decided by one binary — across anchors 02–08, a build containing a scan relay won **136 of 246** runs and a build without one won **0 of 195**, because the Warden's air unit cannot be targeted at all until something reveals it. The backlog item's justification line read \"the first hour of the game has one real decision in it and the player is not told\"."
+        },
+        {
+          "type": "p",
+          "text": "**The second half of that was wrong, and it was checked before anything was built on it.** anchor-02's brief has Okonkwo say \"Motes. They run cold and they don't reflect — your guns will not see them without a relay lit\", at exactly the anchor where the scan relay unlocks, and Vasquez answers it with the price. The gate is taught, by the right character, at the right moment. What remains open in `LF-262` is purely the design question the item already states — whether a mandatory 8 MW relay should be a tax or a trade — and nothing about it needed writing."
+        },
+        {
+          "type": "h3",
+          "text": "The sweep that settled it found a different defect"
+        },
+        {
+          "type": "p",
+          "text": "anchor-04's brief tells the player: \"Shield wall's signed off — forty of those ninety-four if you raise it\", and Vasquez answers \"Forty. For a screen that doesn't shoot.\" **The shield wall draws 26.** It drew 40 until `LF-032` lowered it as overpriced, and the prose was never updated — a figure the player is read before the level, wrong by **14 MW**, for the whole life of the project."
+        },
+        {
+          "type": "p",
+          "text": "`dialog capacity` is a check that exists precisely because tuning moves numbers that prose quotes, and it did not catch this, because it asks exactly one question: does the brief state its own `capacity_mw`. It does. Ninety-four is correct."
+        },
+        {
+          "type": "h3",
+          "text": "Both obvious checks are wrong, in opposite directions"
+        },
+        {
+          "type": "p",
+          "text": "This is what the entry is actually about. Two mechanical designs were tried against the real dialog corpus before either was implemented, and **both fail**:"
+        },
+        {
+          "type": "list",
+          "items": [
+            "**A regex over \"<number> megawatts\" misses this exact bug.** \"forty\" carries no unit word at all — the unit is implied by the \"ninety-four\" it is compared against. The existing `_spoken_numbers()` helper, which anchors on the unit word, returns `{94}` for that line and never sees the 40.",
+            "**\"Every spoken number must be a live data figure\" false-positives immediately.** anchor-06 says the ion lance \"reaches across four lanes\". anchor-08 says \"the ring is drawing about nine megawatts that isn't going anywhere I can find\", and anchor-17 says \"the bus reading falls about six megawatts a wave and I cannot find where it goes\"."
+          ]
+        },
+        {
+          "type": "p",
+          "text": "Those last two are **deliberately unexplained**. They are the act's mystery. A check that demands they resolve to a data figure is a check that demands the story stop being a story — and that is the argument against inferring the dependency at all, not a tuning problem in the regex."
+        },
+        {
+          "type": "h3",
+          "text": "So the line declares what it quotes"
+        },
+        {
+          "type": "p",
+          "text": "A dialog line may now carry `quotes`, a list of dotted paths into `data/towers.json` or `data/enemies.json` — `shield-wall.draw_mw`, `restorer.effect.value`, `reach-sapper.drains_mw`. The new tier-1 check `dialog figures` resolves each path and asserts the live value is among the numbers the line actually says, spelled or in digits. **Ten figures are declared across seven anchors' dialog files** today. The writer names the dependency; the check does the arithmetic."
+        },
+        {
+          "type": "pre",
+          "text": "data/dialog/anchor-04.json\n\n-     { \"trigger\": \"brief\", \"speaker\": \"control\",\n-       \"text\": \"... Shield wall's signed off — forty of those ninety-four if you raise it.\" },\n+     { \"trigger\": \"brief\", \"speaker\": \"control\",\n+       \"quotes\": [\"shield-wall.draw_mw\"],\n+       \"text\": \"... Shield wall's signed off — twenty-six of those ninety-four if you raise it.\" },\n\ndata/towers.json      shield-wall.draw_mw = 26\ntools/check.py        dialog figures: 10 quoted figure(s) match the data they name",
+          "caption": "The whole shape of the fix in one line of data. The declaration is what makes the dependency greppable as well as checkable: someone re-pricing an emplacement can now find who talks about it."
+        },
+        {
+          "type": "p",
+          "text": "**The limitation, stated here rather than discovered later: it is opt-in, so it cannot prove a line should have been annotated.** A future brief that quotes a draw without declaring it is invisible to this check exactly as anchor-04 was. What it does guarantee is that a **declared** figure can never be silently invalidated by a tuning change — which is the failure that actually happened, twice now if you count decision 090's stale note on the same emplacement."
+        },
+        {
+          "type": "h3",
+          "text": "Proved red four ways before being trusted green"
+        },
+        {
+          "type": "table",
+          "headers": [
+            "injected fault",
+            "result",
+            "why it is in the list"
+          ],
+          "rows": [
+            [
+              "a tuning change moves the value, 26 → 28",
+              "**FAIL**",
+              "the real failure mode, reproduced"
+            ],
+            [
+              "a typo'd emplacement id",
+              "**FAIL**",
+              "\"names no emplacement or unit\""
+            ],
+            [
+              "a path landing on an object, not a number",
+              "**FAIL**",
+              "a silently-unresolvable path is a silently-absent check"
+            ],
+            [
+              "a full rewording that keeps the figure",
+              "**ok**",
+              "the design claim, not a formality"
+            ]
+          ]
+        },
+        {
+          "type": "p",
+          "text": "The last row is the one that matters. The check has to survive a writer moving the figure anywhere in the sentence, or the next narrative pass will start working around it — rewriting the line to \"Raising it costs twenty-six\" stays green. The tree was asserted byte-identical after all four injections."
+        },
+        {
+          "type": "p",
+          "text": "**One real bug in the checker, found by running it.** The first `_all_spoken_numbers()` accumulated across sentence boundaries: \"Anchor fourteen. Ninety-four megawatts\" came back as **108**, because splitting on non-letters made \"fourteen\" and \"ninety\" adjacent tokens in one run. It now chunks on anything that is not a letter, a space or an ASCII hyphen, so a full stop or an em dash ends a number and a hyphen does not. Covered afterwards by \"a hundred and ninety\" → 190, \"two hundred and ninety\" → 290, and \"forty-four megawatts back for ten drawn\" → 44 and 10."
+        },
+        {
+          "type": "h3",
+          "text": "A diff-discipline failure worth recording"
+        },
+        {
+          "type": "p",
+          "text": "The first pass at annotating the seven dialog files wrote them back with `json.dumps(indent=2)` and produced **858 insertions** of pure formatting churn against this project's compact house style, for eleven lines of actual content. Rebuilt from `git show HEAD:` with surgical inserts instead: **11 insertions, 2 deletions**. Same content, a diff 78 times smaller — and the difference between a change a reader can check at a glance and one nobody will read."
+        },
+        {
+          "type": "p",
+          "text": "**The prose fix keeps the beat.** \"forty of those ninety-four\" became \"twenty-six of those ninety-four\", and Vasquez's echo \"Forty.\" became \"Twenty-six.\" 26 of 94 is still over a quarter of the bus for a screen that does not shoot, which is the objection the exchange exists to make, so the correction cost the scene nothing."
+        },
+        {
+          "type": "p",
+          "text": "**And the cost of shipping it, filed as `LF-273`.** This is a data change under `data/`, so the parity digest forced a full **1,512-run** comparison on **both** platforms — for seven dialog files and a schema that neither rule engine reads. The digest hashes 52 such files (25 dialog, 21 schema, 6 scenario) against 27 genuine rules inputs. That is roughly a 35-minute tax on changing one word of a mission brief, and it is filed rather than fixed here."
+        },
+        {
+          "type": "p",
+          "text": "Gate at tier 3: 43 passed, 0 failed. `rules parity` 1512 runs identical on Linux, digest `234f711c8e46`, freshly verified, and 1512 identical across 8 shards on Windows. `music loudness` at tier 4 was not run, because no audio file changed. The check counts in `check.py`'s own docstring moved with it — tier 1 from 19 to 20, tier 2 to 29, tier 3 to 43, tier 4 to 46 — and `tier counts` asserts them against the registry, so they cannot drift quietly."
+        }
+      ]
     }
   ]
 }
