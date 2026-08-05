@@ -4466,3 +4466,96 @@ exchange exists to make.
 `parity_inputs_digest()` forced a full 1,512-run comparison on both platforms — for seven
 dialog files and a schema that neither rule engine reads. The digest hashes 52 such files.
 That is a real tax on narrative work and is filed, not fixed here.
+
+## 093 — `DENSITY_FLOOR` stays at 0.55, and the reason it does not move is the whole finding
+
+**2026-08-05.** `BAL-04`'s density-and-leak slice. Rebases nothing; **answers** `BAL-04`'s
+"decide what screen presence means" bullet and confirms decision 044's constant. No data file
+changed.
+
+**Why it was asked.** Decision 091 moved Act I's peak concurrency 32.0 → 26.2, which moved the
+busiest act from 1 to 2 — so the reference `wave density` compares against is not the act it
+was written for. `BAL-04` has three open bullets amounting to "is 0.55 still meaningful."
+
+**The trap, named first because it is the whole difficulty.** Decision **067** deleted
+`PRESSURE_FLOOR` rather than raising it, because a threshold picked to make today's data pass
+or fail is fitted to that data and proves nothing thereafter. The temptation here was to
+"rebase" 0.55 against the new figures, which would have converted a constant with a history
+into a constant fitted to one afternoon.
+
+**Decision: the number does not move, and the defence is historical rather than current.** The
+rule was stated before measuring — *the floor must be red on every state of this campaign that
+`LF-044` called a defect, and green on every state since the defect was fixed* — and then the
+metric was recomputed at all **fourteen** commits that have touched `data/anchors/` with more
+than one act on disk:
+
+- six observations at **0.344 – 0.494**, spanning the `LF-044` defect
+- eight at **0.653 – 0.779**, from the escort-unit fix (`4aef1cc`) to decision 091 today
+- **no observation anywhere in the open interval (0.494, 0.653)**
+
+Every threshold in that interval returns the same verdict on all fourteen states. 0.55 sits
+inside it with 0.056 of margin below and 0.103 above — **a plateau 0.159 wide, not a cell**,
+which is `LF-264`'s bar met by a constant nobody had to touch. It was placed in `4aef1cc`
+*against the defect still on disk*, so it was never fitted to passing data in the first place.
+
+**Reachable today, not only historically**, which is `LF-229`'s lesson: scaling Act III's spawn
+counts to ×0.75 leaves it green at 60%, ×0.70 fails at 53%, ×0.60 fails at 48% — verified twice,
+once by the analyst and once independently through the shipped `check_wave_density()` with the
+tree asserted byte-identical afterwards.
+
+**Screen presence is total units in flight, summed across lanes; the camera does not enter it.**
+Two candidates were rejected on measurement rather than taste.
+
+- *Units within the current view* is not a property of the content. `CAM-01` gives free pan and
+  a zoom floor derived per board from the live strip, and the strip is **940 px at 100%
+  interface scale and 508 px at 200%** against a 2112 px board — so the same wave is anywhere
+  between 24% and 100% on screen depending on an accessibility setting. A gate reading it would
+  be asserting a fact about `Ui.COL_W`.
+- *Peak units in one lane* is the `WAR-01` reading and is now **printed but deliberately not
+  gated**: 23 of 24 anchors are single-lane, so a bound over it is a branch the content never
+  enters — decision 078's firing-arc lesson exactly. `LF-276`.
+- *Total in flight* ships with a positive argument, not merely by elimination. Decision 082
+  derives range by holding **own-lane coverage** fixed at a constant share `c` of lane length
+  (median 17.4% for the pulse turret), so units inside one gun's envelope are
+  `(peak / len) · c · len = c · peak` — proportional to raw peak and **independent of lane
+  length**. Normalising by length would divide out the very term decision 082 holds constant,
+  and it is not cosmetic: occupancy reads 0.763 / 0.625 / 0.507 per act against raw peaks of
+  26.2 / 27.1 / 21.1, which moves the busiest act back to 1.
+
+**No absolute floor is added, for two measured reasons.** The only *derivable* one is dead on
+arrival: one target inside a median turret's envelope needs a peak of `1 / 0.174 = 5.75` units,
+against a campaign minimum of **18** — a 3.1× margin, which is `PRESSURE_FLOOR`'s disease
+exactly. And the hole it would cover is already covered: a *uniform* thinning leaves the ratio
+flat (0.779 → 0.716 at `--weight 0.30`, still green) but fails `anchor grades` on **9 of 24**
+anchors by weight 0.70, taking campaign win share 44.8/31.2/25.1 → 61.1/52.9/51.6. Uniform
+thinning is a difficulty regression before it is a presence one, and the grader owns difficulty.
+
+**Why the check exists at all, which nobody had written down.** At `c048141` — `LF-044`'s defect
+at its worst — Act III showed **11.1 units on screen against Act I's 32.4 while carrying 1562
+hit points per wave against 950**. Presence and difficulty moved in *opposite* directions, so
+every difficulty instrument in the project correctly reported Act III as the hardest act. Presence
+is the axis nothing else in the gate can see, and that pair of numbers is the proof.
+
+**The leak budget has three readings and they disagree, so no single figure is adopted.**
+`lives / total leak_cost` prices every leak at the dearest unit in the table; `lives / unit
+count` prices it at the 1-life minimum. Both are now printed (act 1 10.6 / 11.5%, act 2 11.3 /
+12.0%, act 3 20.4 / 26.1%). The realised cost per leak is close to **1** everywhere and nowhere
+near the roster maximum of 4 — so decision 047's weighting is realised at a small fraction of
+its authored size. Two estimators bracket it and **disagree in direction** (1.50/1.06/1.06
+excluding runs that bottomed out, 1.10/1.15/1.41 including them), so **no claim is made about
+which act's leaks are dearer**. `LF-275` is the fix: the engine records how many units leaked,
+never which.
+
+The denominator-free figure is the one worth keeping: **median lives left on a winning run is
+70 / 42 / 48%**, and **0 of 123 winning Act III runs leak nothing** against 34% in Act I. Act
+III's larger pool is the price of admission, not slack — a budget phrased as "the share you may
+ignore" assumes ignoring is a choice, and by Act III it is not.
+
+**Reported, not changed:** anchor-17 runs at 16.1% where Act III's other seven sit in a
+20.7–21.3% band; the act's own band puts it at 23 lives rather than 18. It grades `ok`, and a
+slice that moved both the instrument and the content could attribute neither. `LF-274`.
+
+**The general lesson.** The instinct on being told "the reference moved" is to rebase the
+constant. The right move was to ask what the constant had ever separated, and the answer was a
+gap 0.159 wide that no state of this campaign has ever landed in. **A threshold with a history
+is defended by its history, not by today's measurement.**

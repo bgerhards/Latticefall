@@ -31,6 +31,108 @@ or above 100%.
 
     .venv/bin/python tools/density.py               # every anchor, act summary
     .venv/bin/python tools/density.py anchor-20     # per-wave detail
+
+## WHAT "SCREEN PRESENCE" IS — BAL-04 asked and this is the answer
+
+**Total units in flight, summed across every lane. The camera does not enter it.** Three
+candidates were on the table and the other two were rejected on measurements, not taste.
+
+*Units within the current view* is the reading BAL-04 was really asking about, and it is not
+a property of the content at all. `scripts/anchor_view.gd` (CAM-01) gives the player a free
+camera — middle-drag pan, WASD, edge-scroll, cursor-follow — and a zoom over
+`[_min_zoom_for_board(), 1.0]` whose floor is **derived per board from the strip that happens
+to be available right now**. So the count would depend on where the player last dragged, and
+on a setting in the options menu: the board strip is 940 px at 100% interface scale and
+**508 px at 200%** (the `playfield width` gate check prints the ladder), against a board
+`(w + h) * 128 / 2` = 2112 px wide at zoom 1.0 for an 18x15 anchor. The same wave is
+somewhere between 24% and 100% on screen depending on a scale the player chose for
+legibility. A gate check reading that number would be asserting a fact about `Ui.COL_W`.
+
+*Peak units in one lane* is the WAR-01 reading, it is measured, and it is deliberately not
+the gated one. `peak_concurrent_per_lane()` below prints it for any anchor with more than one
+lane, because "four lanes of eight" and "one lane of thirty-two" are a completely different
+front line — but it answers "what must one defended lane hold", which is a difficulty
+question the grader already owns. It is also untestable as a gate today: **23 of the 24
+shipped anchors have exactly one lane**, so a bound over it would be a branch the content
+never enters, which is LF-229's and decision 078's lesson. (anchor-09 is the one exception,
+lanes of 37 and 14 tiles, peaking at 23 and 3.)
+
+*Total units in flight* ships, and the argument for it is stronger than "the other two lose".
+Decision 082 derives every emplacement's range by holding **own-lane coverage** fixed: a gun
+reaches a constant share `c` of its lane's length, median 17.4% for the pulse turret. The
+units inside one gun's envelope are therefore `(peak / lane_len) * c * lane_len = c * peak` —
+**proportional to the raw peak and independent of how long the lane is**. Normalising by lane
+length (occupancy, units per tile) would divide out exactly the term decision 082 holds
+constant, and it is not a cosmetic difference: occupancy reads 0.763 / 0.625 / 0.507 per act
+where the raw peak reads 26.2 / 27.1 / 21.1, which moves the busiest act from 2 back to 1.
+
+## PER-ACT DENSITY, MEASURED ON `ce01b05`
+
+    act   units/w   on screen   leak/w   hp/w   hp/unit   drain/w   peak bus   sat%
+      1      16.3        26.2     17.7    950      58.2       0.0         0%    31%
+      2      18.1        27.1     18.9   1113      61.6      39.4        29%    40%
+      3      13.6        21.1     17.4   1668     122.7      57.8        39%    50%
+
+Act 1's figures are decision 091's (`warden-hauler`, three drones fused into one body, so
+`hp/w` is unchanged at 950 while units and presence fall); act 2 is now the busiest act and
+act 3 sits at 78% of it. `tools/check.py`'s `DENSITY_FLOOR` is what holds that spread, and
+the derivation for why the constant did **not** move is in the comment above it.
+
+Presence is an axis nothing else in the gate can see, and the LF-044 defect is the proof.
+Recomputed at `c048141`, the commit where Act III was complete and thin:
+
+    act   on screen   units/w   hp/w   hp/unit          today: on screen   hp/w
+      1        32.4      20.2    950      46.9                      26.2    950
+      2        15.6       9.6    734      76.3                      27.1   1113
+      3        11.1       7.7   1562     203.3                      21.1   1668
+
+Act III showed **a third of Act I's units while carrying 64% more hit points per wave**.
+Difficulty and presence did not merely vary independently there, they moved in *opposite*
+directions — so a grader asking "is this winnable, and is it hard" reported Act III as the
+hardest act in the game, which it was. That is why the measurement exists in this file
+rather than as a line in a grade table.
+
+## THE LEAK BUDGET HAS THREE READINGS, AND THEY DISAGREE
+
+A leak costs `max(1, round(hp/130))` (decision 047), so `lives` is spent in a currency whose
+exchange rate depends on which unit gets through. Two bounds are pure data and are printed:
+
+    budget      lives / total leak_cost — the WORST case, every leak the dearest thing here.
+                This is the authoring denominator, and the form `sweep.py --lives %12` takes.
+    bodies      lives / total unit count — the BEST case, every leak at the 1-life minimum.
+
+The truth is between them and was measured, on the `ce01b05` grade (24 anchors x 63 runs):
+
+    act    budget   bodies      median lives left      leak-free
+           (worst)  (best)      on a winning run       wins
+      1     10.6%    11.5%              70%              34%
+      2     11.3%    12.0%              42%              11%
+      3     20.4%    26.1%              48%               0%
+
+**The realised cost of a leak is close to 1 everywhere, nowhere near the roster maximum.**
+Two estimators bracket it and they are both reported because they disagree in *direction*:
+excluding runs that bottomed out (lives clamped at 0, which truncates the last leak) gives
+1.50 / 1.06 / 1.06 per act; including them gives 1.10 / 1.15 / 1.41. Act III's dearest unit
+costs 4. So decision 047's weighting is realised at a small fraction of its authored size,
+and **no claim is made here about which act's leaks are dearer** — the estimators do not
+support one.
+
+The figure that needs no denominator at all is the margin, and it is the one to read: the
+**median share of `lives` still standing when a winning run ends** — 70 / 42 / 48%. On that
+reading Act III is not slack; it is tighter than Act I.
+
+And the number that explains the whole spread is the last column. **No winning run in Act III
+leaks nothing** — 0 of 123, against 34% of Act I's winners. Act III's larger `lives` pool is
+not generosity, it is the price of admission: a budget phrased as "the share of the threat you
+may ignore" assumes ignoring is a choice, and by Act III it has stopped being one. That is
+why `budget` roughly doubles across the campaign without Act III getting easier.
+
+**One anchor is out of band on every reading and is reported, not changed** (BAL-04's slice
+discipline: an instrument change and a content change cannot be attributed together).
+anchor-17 carries 18 lives against a total leak_cost of 112 — a 16.1% budget where the other
+seven Act III anchors sit inside 20.7-21.3%, a band tight enough to have been authored to.
+Act III's own band puts anchor-17 at 23 lives. It grades `ok` at 18 and nothing here changes
+it.
 """
 
 from __future__ import annotations
@@ -54,6 +156,30 @@ def _tower_max_draw(t: Tower) -> float:
     one of the three copies changes, move the other two with it."""
     up = t.upgrade.get("draw_mw") if t.upgrade else None
     return max(t.draw_mw, up) if up is not None else t.draw_mw
+
+
+def build_tower_ids(built: list[str]) -> list[str]:
+    """The tower ids in a graded run's `built` list, one per placement, order preserved.
+
+    LF-270. A `built` entry is `"<tower-id>@<x>,<y>"`, so a membership test against bare
+    tower ids matches **nothing** and reports a confident zero — which is the whole failure:
+    it does not raise, it answers. That had been hand-rolled four times in four sessions by
+    the time BAL-04 asked for it a fifth, so it lives here, next to the other "measure the
+    shipped content" helpers and in the one tools module `tools/check.py` already imports.
+
+    Split on the FIRST `@` only. Tower ids are kebab-case and coordinates are digits and a
+    comma, so a second `@` cannot occur today — but `rsplit` would be the wrong choice the
+    day a slot label carries one, and this is the kind of thing nobody re-reads.
+    """
+    return [b.split("@", 1)[0] for b in built]
+
+
+def weapon_ids_in_build(built: list[str], towers: dict[str, Tower]) -> set[str]:
+    """The distinct *weapon* ids in a graded run's build. `is_weapon` is `damage > 0`, so
+    scan relays, dampers, shield walls and restorers are excluded — a build of a turret and
+    three support emplacements is one weapon class, not four. Pairs with build_tower_ids();
+    see LF-270 there for why this is not written inline at each call site."""
+    return {t for t in build_tower_ids(built) if t in towers and towers[t].is_weapon}
 
 
 def saturation_stats(a: Anchor, towers: dict[str, Tower]) -> dict[str, float | str]:
@@ -225,8 +351,14 @@ def main() -> int:
             print(f"{r['wave']:>4.0f} {r['units']:>6.0f} {r['leak']:>5.0f} {r['hp']:>6.0f} "
                   f"{r['drain']:>6.0f} {r['cap']:>5.0f} {r['bus']:>5.0%}")
         tot = sum(r["leak"] for r in anchor_rows(a, enemies))
-        print(f"\nlives {a.lives} · total leak_cost {tot:.0f} · "
-              f"leak budget {a.lives / tot:.1%} of the anchor")
+        units = sum(r["units"] for r in anchor_rows(a, enemies))
+        # Both bounds, never one: `budget` prices every leak at the dearest unit here and
+        # `bodies` at the 1-life minimum, and the realised figure is between. See the
+        # docstring — on Act III they differ by a fifth, so quoting either alone as "the"
+        # leak budget is how a fifth of the margin goes missing.
+        print(f"\nlives {a.lives} · {units:.0f} units · total leak_cost {tot:.0f} · "
+              f"leak budget {a.lives / tot:.1%} (worst case) to "
+              f"{a.lives / units:.1%} (every leak a 1)")
         # WAR-01: "four lanes of eight" and "one lane of thirty-two" are the same total
         # onscreen count and a completely different front line — this is what tells them
         # apart. A single-lane anchor prints exactly one row, equal to the total below.
@@ -240,7 +372,7 @@ def main() -> int:
 
     print(f"{'anchor':>9s} {'act':>3s} {'waves':>5s} {'units/w':>7s} {'onscreen':>8s} "
           f"{'leak/w':>6s} {'hp/w':>6s} {'drain/w':>7s} {'peak bus':>8s} {'lives':>5s} "
-          f"{'budget':>6s} {'terrain':>7s} {'sat%':>5s}")
+          f"{'budget':>6s} {'bodies':>6s} {'terrain':>7s} {'sat%':>5s}")
     acts: dict[int, list[dict]] = {}
     for aid in all_anchor_ids():
         a = load_anchor(aid)
@@ -251,6 +383,12 @@ def main() -> int:
         agg["onscreen"] = float(peak_concurrent(a, enemies))
         agg["lives"] = a.lives
         agg["budget"] = a.lives / sum(r["leak"] for r in rows)
+        # BAL-04. `budget`'s denominator assumes every leak costs the dearest thing in the
+        # anchor; `bodies`' assumes every leak costs the 1-life minimum. They bracket the
+        # realised figure, which the docstring records as measured (it needs a graded run
+        # and this tool must stay pure data — `tools/check.py` imports peak_concurrent()
+        # from here on every tier-1 gate). On Act III the two differ by a fifth.
+        agg["bodies"] = a.lives / sum(r["units"] for r in rows)
         t = terrain_stats(a)
         agg["terrain_pct"] = t["raised_pct"]
         s = saturation_stats(a, towers)
@@ -259,18 +397,20 @@ def main() -> int:
         print(f"{aid:>9s} {a.act:>3d} {n:>5d} {agg['units']:>7.1f} {agg['onscreen']:>8.0f} "
               f"{agg['leak']:>6.1f} {agg['hp']:>6.0f} {agg['drain']:>7.1f} "
               f"{agg['peak_bus']:>7.0%} {a.lives:>5d} {agg['budget']:>5.1%} "
-              f"{agg['terrain_pct']:>6.0%} {agg['sat_frac']:>4.0%}")
+              f"{agg['bodies']:>5.1%} {agg['terrain_pct']:>6.0%} {agg['sat_frac']:>4.0%}")
 
     print(f"\n{'act':>9s} {'units/w':>7s} {'onscreen':>8s} {'leak/w':>6s} {'hp/w':>6s} "
-          f"{'drain/w':>7s} {'peak bus':>8s} {'budget':>6s} {'sat%':>5s}")
+          f"{'hp/unit':>7s} {'drain/w':>7s} {'peak bus':>8s} {'budget':>6s} {'bodies':>6s} "
+          f"{'sat%':>5s}")
     for act in sorted(acts):
         rs = acts[act]
         m = {k: sum(r[k] for r in rs) / len(rs)
              for k in ("units", "onscreen", "leak", "hp", "drain", "peak_bus", "budget",
-                       "sat_frac")}
+                       "bodies", "sat_frac")}
         print(f"{'act ' + str(act):>9s} {m['units']:>7.1f} {m['onscreen']:>8.1f} "
-              f"{m['leak']:>6.1f} {m['hp']:>6.0f} {m['drain']:>7.1f} {m['peak_bus']:>7.0%} "
-              f"{m['budget']:>5.1%} {m['sat_frac']:>4.0%}")
+              f"{m['leak']:>6.1f} {m['hp']:>6.0f} {m['hp'] / m['units']:>7.1f} "
+              f"{m['drain']:>7.1f} {m['peak_bus']:>7.0%} "
+              f"{m['budget']:>5.1%} {m['bodies']:>5.1%} {m['sat_frac']:>4.0%}")
     return 0
 
 
