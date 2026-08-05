@@ -98,7 +98,7 @@
         "ground"
       ],
       "unlocked_at": "anchor-04",
-      "note": "Slows hard over a wide arc and shoots nothing. Ties the arc node as the biggest draw in Act I, so it is the emplacement most likely to push a tuned bus into overdraw \u2014 which is the point. At 40 MW with a 0.45x slow in radius 2.0 it was never worth building (LF-032): a 42% overdraw bought a slow across two tiles of a forty-tile path.",
+      "note": "Slows hard over a wide arc and shoots nothing. At 26 MW it is the heaviest thing in Act I that does no damage, so it is the emplacement most likely to push a tuned bus into overdraw \u2014 which is the point. (It used to claim it tied the arc node as the biggest draw in Act I; that was already loose, since the ion lance unlocks at anchor-06 at 34 MW, and decision 090 took the arc node to 18.) At 40 MW with a 0.45x slow in radius 2.0 it was never worth building (LF-032): a 42% overdraw bought a slow across two tiles of a forty-tile path.",
       "effect": {
         "type": "slow",
         "value": 0.28
