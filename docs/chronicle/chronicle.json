@@ -9862,6 +9862,205 @@
           "text": "**No screenshot with this one, and that is not an omission: nothing visual changed.** The whole diff is two tool files and the backlog. Gate at tier 3: 43 passed, 0 failed. No parity run, and none was needed — the parity digest covers the fixed rules files plus tracked data only, and this change is under `tools/`, so it reported cached at `234f711c8e46`."
         }
       ]
+    },
+    {
+      "id": "it-does-not-fail-it-lies",
+      "date": "2026-08-05",
+      "time": "15:23",
+      "title": "Five slices hand-rolled the same count, and the trap all five rediscovered does not fail — it lies",
+      "summary": "Decision 094. `BAL-04`'s acceptance criteria had been recomputed from the grader's JSON in a scratch script **five times across two days**, and each time the same three traps had to be found again — chief among them that a `built` entry carries its coordinates, so a membership test against bare tower ids matches nothing and **answers a confident zero without raising**. They now have `tools/criteria.py`, a stored baseline artefact that **carries the commit it was taken on**, and a tier-1 gate check that drives all six comparators red as well as green. **No data file changed.**",
+      "tags": [
+        "BAL",
+        "PRC"
+      ],
+      "decisions": [
+        "094"
+      ],
+      "commits": [
+        {
+          "hash": "edaef36",
+          "subject": "feat(balance): BAL-04's acceptance criteria get a tool and a baseline artefact, after five slices hand-rolled them"
+        }
+      ],
+      "body": [
+        {
+          "type": "p",
+          "text": "The previous entry, `a-threshold-with-a-history`, ended by reporting one of its own items as **not** closed: two build-parsing helpers now existed in `tools/density.py` and nothing anywhere called them. This entry is that item, an hour later, and it is the **fifth and last of the day**. `tools/criteria.py` and `tools/bal04_baseline.json` are new; `tools/check.py`, `tools/density.py` and the docs are the rest of it. **No data file changed**, so nothing about the game moved — what moved is what the project can now assert about it."
+        },
+        {
+          "type": "h3",
+          "text": "The problem is a count"
+        },
+        {
+          "type": "p",
+          "text": "Decisions 088 and 089 on the 4th, then 090, 091 and 093 today, each recomputed `BAL-04`'s multi-weapon coverage and its per-anchor `standard + brutal` distinct-winning-build figures out of `sim/run.py`'s JSON in a scratch script. **Five slices, five scripts, and each one had to rediscover the same three traps.**"
+        },
+        {
+          "type": "list",
+          "items": [
+            "**A `built` entry is `\"<tower-id>@<x>,<y>\"`.** A membership test against bare tower ids matches nothing and reports a confident **zero**. That is the whole danger and it is worth stating flatly: **it does not fail, it lies.** Nothing raises, nothing comes back empty, and the number that arrives looks exactly like a finding.",
+            "**`sim/run.py --json` silently drops each report's `runs` unless `--detail` is also passed** (`LF-258`). A per-run statistic computed off such an artefact gets nothing and says nothing.",
+            "**\"Achievable\" means at least two weapon ids unlocked** — `damage > 0` — at or before the anchor. That is the difference between **17 of 22** and 17 of 24 as decision 088 recorded it, and getting it wrong makes anchor-01 and anchor-02 **permanent failures**, since each unlocks exactly one weapon. It is the exact error decision 088 had to correct."
+          ]
+        },
+        {
+          "type": "p",
+          "text": "And decision 093 — an hour before this one — added the `@`-splitting helpers to `tools/density.py` but **nothing called them**, which is `LF-278`. An uncalled helper is not a fixture; it is a claim nobody checks."
+        },
+        {
+          "type": "h3",
+          "text": "Why a tool, and not more fields on the grader"
+        },
+        {
+          "type": "p",
+          "text": "The obvious cheaper move is to have `sim/run.py --json` emit these figures directly. It was rejected, and the argument is good enough to keep. **The grader's report is per anchor, and four of the six criteria are not.** Three compare the whole campaign against a stored baseline; the `count: 1` share is computed from `data/anchors/` and never touches a grade at all. Putting them behind `--json` would make every consumer of that instrument carry `BAL-04`'s specification plus a baseline file it never asked for, and would give `sim determinism` — which diffs two grade runs byte for byte — a second thing to be sensitive to. The grader answers \"is this anchor sound\"; this answers \"did the campaign get worse than the day we wrote the bar down\", and those are different questions with different inputs."
+        },
+        {
+          "type": "p",
+          "text": "Consuming the grade instead of extending it also escapes `LF-258` **structurally** rather than by remembering a flag. With no `--grade` the tool grades in-process, so `runs` is always present and the `--detail` trap cannot be reached. Handed a saved artefact that has no `runs`, the multi-weapon criterion **fails loudly** instead of reporting 0 of 22."
+        },
+        {
+          "type": "h3",
+          "text": "The bar is an artefact, and it carries the commit it was taken on"
+        },
+        {
+          "type": "p",
+          "text": "`tools/bal04_baseline.json` is a tracked file next to `tools/parity_costs.json`, which is the same idea for a different measurement. Nothing in the tool hardcodes a per-anchor number, because decision 088's finding is precisely that the bar is **per anchor and measured** rather than a flat constant. It records the commit it was taken on — the discipline `LF-271` asked for after `LF-218`'s quoted figures stopped reproducing — and `--rebaseline` is the only way it moves. That flag writes improvements without ceremony, **refuses to write a regression** unless `--accept-regressions` is passed and names each one it would bake in, and refuses outright on a partial grade, so a one-anchor run can never become the campaign's bar."
+        },
+        {
+          "type": "table",
+          "headers": [
+            "#",
+            "criterion",
+            "read from",
+            "the bar today"
+          ],
+          "rows": [
+            [
+              "1",
+              "every anchor grades `ok`, at every difficulty",
+              "the grade",
+              "24 of 24"
+            ],
+            [
+              "2",
+              "per-anchor `standard + brutal` distinct winning builds",
+              "the grade",
+              "the artefact, one integer per anchor"
+            ],
+            [
+              "3",
+              "a multi-weapon winning build where achievable",
+              "the grade's `runs`",
+              "22 of 22 achievable (22 of 24 unconditioned)"
+            ],
+            [
+              "4",
+              "`capacity_mw` inside the `PLC-05` saturation bound",
+              "**delegated** to `validate_data.py`",
+              "that tool's own verdict"
+            ],
+            [
+              "5",
+              "per-act share of spawn entries at `count: 1`",
+              "`data/anchors/`",
+              "the artefact, as integer pairs"
+            ],
+            [
+              "6",
+              "campaign win share falls strictly, plus decision 086's rule",
+              "the grade",
+              "44.8 / 31.2 / 25.1%"
+            ]
+          ]
+        },
+        {
+          "type": "h3",
+          "text": "The detail most worth keeping: integers, compared by cross-multiplication"
+        },
+        {
+          "type": "p",
+          "text": "The `count: 1` shares are stored as `{count_one, entries}` **integers** and compared by cross-multiplication, never as a stored percentage. Act I's bar is 15 of 191 spawn entries. A stored `0.079` would have admitted **16 of 203 = 7.882%** as \"no rise\" — a regression passing as a rounding artefact. Same class of error as decision 087's population confound: the number was right and the **comparison** was not."
+        },
+        {
+          "type": "h3",
+          "text": "Criterion 4 delegates, and three checks are deliberately absent"
+        },
+        {
+          "type": "p",
+          "text": "The `PLC-05` saturation denominator already has **three copies** in this repository — `validate_data.py`, `tools/sweep.py`, and `density._tower_max_draw` — each carrying a comment telling the next person to move the other two. A fourth would be a fourth thing to drift, and the criterion as `BAL-04` writes it **is** that tool's verdict, so criterion 4 runs it and reports what it said. The measured headroom is printed beside it as context and is not asserted."
+        },
+        {
+          "type": "p",
+          "text": "For the same reason, three of `BAL-04`'s remaining acceptance bullets are **absent** rather than implemented: `wave density`, `dialog capacity` and `rules parity` are gate checks that already fail loudly on their own, and **a second, weaker copy of a check that exists is worse than no copy.** The restraint is the point — a tool that covers everything covers some of it badly."
+        },
+        {
+          "type": "h3",
+          "text": "One helper became two, and the reason is in the docstring"
+        },
+        {
+          "type": "p",
+          "text": "Giving the helpers a caller turned up something the helpers themselves could not have known. `BAL-04`'s multi-weapon criterion conditions on an anchor's `unlocked` roster, which is a list of **bare** tower ids and not a build. Passing it through `build_tower_ids()` would have worked — a bare id survives the `@` split unchanged — and would have been **the wrong thing to read in six months**. So the weapon predicate was split out as `weapon_ids()`, and `weapon_ids_in_build()` became one line on top of it: one predicate, two entry points, no third copy. Code that is correct by accident is a defect with a delay on it."
+        },
+        {
+          "type": "h3",
+          "text": "Proved against a known answer, then proved red"
+        },
+        {
+          "type": "p",
+          "text": "It reproduces the record exactly on `a4702df`: **24/24 `ok`**, multi-weapon **22/22 achievable**, campaign win share **44.8 / 31.2 / 25.1** falling strictly, act 1 `count: 1` at **7.9%**. Two further known-answer checks were run rather than assumed. The per-anchor table is greater than or equal to decision 088's eight figures on all eight, consistent with decision 090's \"nine anchors improved\"; and multi-weapon is 22/22 under **both** readings of the criterion's wording — \"any winning run\" and \"standard only\" — so the looser phrasing is not currently hiding anything."
+        },
+        {
+          "type": "p",
+          "text": "Then all six criteria were **driven to failure**: a not-`ok` anchor, a partial grade, a grade missing brutal, one anchor losing a build, an anchor's winners going single-weapon, an artefact with no `runs`, capacity at 85% and at 110% of saturation, one spawn entry moved to `count: 1`, brutal made forgiving, and a top tier equal to its base. The gate check was proved red three ways as well — a comparator hardwired to `ok`, a stale docstring count, and **by removing the `@` split, which is the trap the whole tool exists for.**"
+        },
+        {
+          "type": "p",
+          "text": "Restores were **asserted, not assumed**. A `git ls-files` plus `sha256sum` manifest over all **1,519** tracked files diffs clean before and after. Perturbations ran against copies in the scratchpad, and the two that had to read `data/` ran inside an isolated `git worktree`, so the shared working tree was never written — which matters on a machine where the owner plays out of the same directory an agent edits."
+        },
+        {
+          "type": "pre",
+          "text": "$ .venv/bin/python tools/criteria.py --selftest\n28 case(s) ok — comparators fire on 8, stay silent on 6, 14 structural;\ntiers 'standard' -> 'brutal' read from DIFFICULTIES;\nbaseline bal04_baseline.json at a4702df",
+          "caption": "The tier-1 `grade criteria` check, re-run live while writing this entry. Every comparator is a pure function of a grade table and a baseline dict, so all of them go red and green over synthetic reports in about a fifth of a second, with no content load and no Sim. Criterion 4 is a subprocess and has no pure part to drive — the selftest says nothing about it, and its docstring says so."
+        },
+        {
+          "type": "h3",
+          "text": "A stale bar, found by building the tool"
+        },
+        {
+          "type": "p",
+          "text": "`docs/issues/BAL-04-regrade-the-campaign.md` is where these criteria were written down, and its acceptance section was still quoting multi-weapon **17/22** and act 1 at **10.1%** — both superseded, by decisions 090 and 091 respectively. Its per-anchor list was decision 088's, measured at `54c666b`, and **five of those eight anchors have since improved**."
+        },
+        {
+          "type": "pre",
+          "text": "anchor   decision 088 (54c666b)   artefact (a4702df)\n  01              3                      3\n  02              7                      7\n  03              6                      7\n  04              6                     10\n  05              7                      8\n  07              7                      8\n  08              5                      6\n  23              7                      7",
+          "caption": "Distinct winning builds at `standard + brutal`. Anyone reading the issue as the live bar under-measures anchor-04 by four builds — and would read an improvement as an unchanged result."
+        },
+        {
+          "type": "p",
+          "text": "The issue now points at the artefact and keeps the superseded numbers **marked rather than deleted**, per the same append-only rule this journal runs on. `CLAUDE.md`'s Commands block gains the tool."
+        },
+        {
+          "type": "h3",
+          "text": "Filed, not fixed"
+        },
+        {
+          "type": "p",
+          "text": "`LF-279`. `sim/run.py --json` should **error** when a consumer needs `runs` and `--detail` was absent, rather than emitting reports that quietly have none. `tools/criteria.py` routes around it by grading in-process, which means the trap is closed for this tool and **still live for the next hand-rolled script**. Routing around a trap is not the same as removing it, and the difference is worth a ticket."
+        },
+        {
+          "type": "h3",
+          "text": "The lesson, which is the mechanical half of decision 088"
+        },
+        {
+          "type": "p",
+          "text": "Decision 088 said that an acceptance criterion carries the baseline it is judged against, or it is not a criterion. This is the other half of that sentence: **a baseline that lives in prose is a baseline that goes stale between the session that writes it and the session that reads it.** Five hand-rolled scripts, three rediscovered traps and one issue quoting three superseded figures is what that costs — and none of it was ever visible as a failure, because a hand-rolled count that is wrong looks exactly like a hand-rolled count that is right."
+        },
+        {
+          "type": "p",
+          "text": "**No screenshot with this one, and that is not an omission: nothing visual changed.** Gate at tier 3: 44 passed, 0 failed. Tier 1 is 21 checks and ran in 7521 ms of its 10000 ms budget with `--budget` asserted; `tier counts` reports 47 checks with all four tiers matching the docstring (20/29/43/46 becoming 21/30/44/47). No parity run, and none was needed — `wrap_gate.py` reported the digest cached at `234f711c8e46`, and nothing here is a rule file or under `data/`."
+        }
+      ]
     }
   ]
 }
