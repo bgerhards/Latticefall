@@ -24,6 +24,16 @@
       "leak_cost": 2
     },
     {
+      "id": "warden-hauler",
+      "name": "Warden Hauler",
+      "faction": "ordinal",
+      "hp": 120,
+      "speed": 0.9,
+      "bounty": 36,
+      "kind": "ground",
+      "note": "Act I mass, unplated \u2014 three drones of hull in one body, worth three drones of bounty, and one third of the bodies on the lane. Freight moving a route it was given before the site had a name; it carries nothing that can shoot back and does not slow down for you. One pulse turret cannot finish one on a single pass through its envelope. Two can."
+    },
+    {
       "id": "warden-mote",
       "name": "Warden Mote",
       "faction": "ordinal",

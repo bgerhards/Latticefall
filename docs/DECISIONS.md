@@ -4286,3 +4286,115 @@ a tax rather than a trade, and whether that is right is a design question.
 this was not a sweep over the anchors. It was dividing damage by megawatts for nine rows of
 `data/towers.json` and noticing one row was in the wrong band. **Before tuning the level, check
 whether the piece placed on it is priced.**
+
+## 091 — Act I's problem was never how much weight it fields, it was that the weight is spread over bodies that die in the first fifth of the lane
+
+**2026-08-05.** `LF-261`, closing the blocker decision 090 identified under `LF-218`. Adds one
+enemy, `warden-hauler`, to `data/enemies.json` and to anchors 03–08. Supersedes nothing.
+
+**The premise is decision 090's refusal.** `LF-218` says acts 1 and 2 attrit the wave in the
+first fifth of the lane and act 3 does not, and that the lever is hit points per unit — act 1
+**46.9** against act 3's **122.7**. Decision 090 tried to raise it inside the existing roster and
+refused with numbers: at three `warden-drone`→`warden-heavy` substitution depths on all six Act I
+anchors, every depth that moved hp/unit meaningfully took brutal to `unwinnable` or
+`single-solution`, or destroyed the anchor's multi-weapon winning build. The cause is that Act I's
+only unit with mass carries **flat armour 4**, which cuts the pulse turret 9 → 5 and the arc node
+6 → 2, so raising the armoured share raises brutal difficulty superlinearly *and* deletes the
+second weapon class at the same time.
+
+**The gap is defined by the roster's own pattern, not invented.** Every act has a tough
+*unarmoured* body except Act I: act II has `reach-sapper` 70 and `reach-breacher` 160, act III has
+`hollow-echo` 150. Act I had `warden-drone` 40, `warden-mote` 22 (air) and `warden-heavy` 220
+(armour 4) — light, light, and plated, with nothing between.
+
+**Decision. `warden-hauler`: 120 hp, speed 0.9, bounty 36, ground, and no `armour` key at all.**
+`leak_cost` is omitted because decision 047's rule gives `max(1, round(120/130)) = 1`, the default.
+
+**The derivation is one sentence: a hauler is three drones fused into one body.** hp 120 = 3 × 40,
+bounty 36 = 3 × 12, and the wave rule pays for each hauler with exactly three drones. So **every
+Act I wave's total hit points and total bounty are byte-identical to baseline** — `hp/w` stays at
+950. The only things that change are how many bodies carry that weight, how fast they walk, and
+that the mass is now unplated. That is `LF-218`'s thesis expressed as a unit rather than as a
+tuning direction.
+
+**What makes it read as mass.** A pulse turret does 9 damage per 0.75 s over a 7.75-tile chord at
+range 4.0 — twelve shots, 108 damage in one pass. 108 < 120, and 2 × 108 = 216 > 186 (brutal). So
+**one turret cannot finish a hauler in a single pass and two can, at every difficulty**, where a
+drone (40, brutal 62) dies to one turret with room to spare. That is the distinction the roster
+was missing, and it is arithmetic rather than feel.
+
+**The wave rule is one integer expression with no per-anchor parameters**, applied to every wave
+of anchors 03–08: `h = drone_count // 4`, clamped to `(drone_count - 2) // 3`, written only when
+`h >= 2`; then `drone_count -= 3 * h`. Integer and not a percentage **deliberately**: `round()` is
+banker's rounding and `10 * 0.15` is `1.4999999999999998`, so a "15%" rule silently means 10% on
+every wave of ten. The `h >= 2` clause adds **zero** `count: 1` entries — a lone heavy body is what
+`warden-heavy` is for.
+
+**Pacing falls out of the rule rather than being seeded.** The hauler debuts on anchor-03 wave 2,
+one wave before `warden-heavy` arrives on wave 3, so the player's first encounter with mass is the
+unarmoured one. anchor-01 is excluded as the tutorial. **anchor-02 is excluded by measurement, not
+taste** — see the refusal below.
+
+**What it did.** 24/24 `ok`. Per-anchor `standard / hard / brutal` and `standard + brutal` are
+**identical on all 24 anchors — not one cell moved in either direction**. Multi-weapon stays
+22/22 achievable. Campaign win share 44.6/31.2/25.1 → **44.8/31.2/25.1**, still falling strictly.
+`validate_data.py` `ok — 0 warning(s)`. No `capacity_mw`, `starting_funds` or `lives` moved on any
+anchor, so no dialog line moved. `rules parity` 1512 runs identical on **both** platforms.
+
+**It is not a no-op, and that was checked specifically.** Every Act I anchor's peak bus load and
+brownout fraction move — anchor-04 standard peak 1.55 → 1.75 of capacity, anchor-08 standard
+1.73 → 1.84 — and anchor-03 brutal's `distinct_builds_tried` goes 10 → 11. Acts II and III move by
+exactly nothing, which is the control.
+
+| | units/wave | on screen | hp/wave | **hp/unit** |
+|---|---|---|---|---|
+| act 1 before | 20.2 | 32.0 | 950 | **46.9** |
+| **act 1 after** | **16.3** | **26.2** | **950** | **58.2** |
+| act 2 | 18.1 | 27.1 | 1113 | 61.6 |
+| act 3 | 13.6 | 21.1 | 1668 | 122.7 |
+
+hp/unit closes **80% of the gap to act 2** while on-screen presence *falls* and hp/wave is
+unchanged. `LF-218`'s own metric moves the right way on every carrier: presence in the last quarter
+of the lane rises on all six, and anchors 07 and 08 cross a whole 5% bucket (b50 5 → 6). **Anchors
+01 and 02, which did not get the unit, are unchanged to three decimal places** — the control this
+needed.
+
+**`wave density`'s reference act rebased, and that is recorded rather than worked around.** Act 1's
+peak fell below act 2's, so act 2 is now the busiest and the check reads `act 1 26 (97%) · act 2 27
+(100%) · act 3 21 (78%)` against a 0.55 floor, where act 3 previously sat at 66% of act 1's 32. The
+acts are *more* comparable after, which is the check's stated purpose — but the reference moving is
+a real semantic event and `BAL-04`'s task list already anticipates rebasing this check.
+
+**Rejected: putting the unit on anchor-02.** Baseline `s/h/b` is 5/3/2, so brutal carries **two**
+distinct winning builds and any added body takes it to one — `single-solution level`. Tested at five
+substitution depths, three introduction waves, a single hauler on a single wave, and both the 2:1
+and the hp-neutral 3:1 exchange. The one cell where it holds is speed 0.85, whose neighbours 0.80
+and 0.90 both fail — **a cell, not a plateau**, which is exactly what `LF-264` says not to ship.
+`LF-268`.
+
+**anchor-05 nearly refused, and finding out why produced the final design.** Under a 2:1 exchange —
+which *adds* hit points — it lost a standard build in 11 of 12 cells, the one survivor again being
+an isolated speed cell. Under the hp-neutral 3:1 exchange it is `+0` in all 18 cells swept. **Its
+problem was added hit points, not the new unit**, and that is what redirected the design from
+"trade drones for a tougher body" to "redistribute the same weight into fewer bodies." The refusal
+did not stop the work; it changed what the work was.
+
+**Every shipped stat sits on a plateau, per `LF-264`.** hp 120 — clean at 95 through 125, cliff
+between 125 and 130. speed 0.9 — clean 0.85–1.00, fails at 0.80 and 1.05, and 0.9 is the slower
+interior value because freight should be slower than a drone (it also matches `hollow-vessel`).
+divisor 4 — clean at 4, 5, 6, fails at 3. **bounty 36 is the exception and is stated as one:** clean
+at 36, 39, 42 and failing at 33, so it sits at the *lower edge* of a one-sided plateau. It is the
+derived money-neutral value, which is why it was kept.
+
+**Robustness, and the honest comparison is that the failure set did not change.** Fourteen
+perturbations × six anchors, run on `HEAD` *and* on the post-change tree: `heavy+1` fails on
+03/04/05 and `cap-2` on 05/06, **identically on both sides**. The hauler's own axes are the most
+robust in the battery — `hauler_hp ±10`, `hauler_speed ±0.05`, `hauler_bounty ±3` and
+`hauler_count +1` all hold `ok` on all six anchors — and in two places the after-state is *better*:
+anchor-05's multi-weapon build survives `mote+1` and `lives-1` after, where it did not before.
+`LF-272` records that Act I's fragile axis is its **armour share**, not its unit count.
+
+**The general lesson.** Decision 090 said: before tuning the level, check whether the piece placed
+on it is priced. This is the same move on the other side of the board — **before tuning the wave,
+check whether the roster has the shape the wave needs.** Act I had no way to express "heavy but
+shootable", so every attempt to make it heavier made it armoured instead.

@@ -1384,44 +1384,64 @@
           11,
           22
         ],
-        "warden_heavy|y045": [
+        "warden_hauler|y045": [
           0,
           0,
           23
         ],
-        "warden_heavy|y135": [
+        "warden_hauler|y135": [
           0,
           1,
           23
         ],
-        "warden_heavy|y225": [
+        "warden_hauler|y225": [
           0,
           2,
           23
         ],
-        "warden_heavy|y315": [
+        "warden_hauler|y315": [
           0,
           3,
           23
         ],
-        "warden_mote|y045": [
+        "warden_heavy|y045": [
           0,
           4,
           23
         ],
-        "warden_mote|y135": [
+        "warden_heavy|y135": [
           0,
           5,
           23
         ],
-        "warden_mote|y225": [
+        "warden_heavy|y225": [
           0,
           6,
           23
         ],
-        "warden_mote|y315": [
+        "warden_heavy|y315": [
           0,
           7,
+          23
+        ],
+        "warden_mote|y045": [
+          0,
+          8,
+          23
+        ],
+        "warden_mote|y135": [
+          0,
+          9,
+          23
+        ],
+        "warden_mote|y225": [
+          0,
+          10,
+          23
+        ],
+        "warden_mote|y315": [
+          0,
+          11,
           23
         ]
       },
@@ -2806,44 +2826,64 @@
           11,
           22
         ],
-        "warden_heavy|y045": [
+        "warden_hauler|y045": [
           0,
           0,
           23
         ],
-        "warden_heavy|y135": [
+        "warden_hauler|y135": [
           0,
           1,
           23
         ],
-        "warden_heavy|y225": [
+        "warden_hauler|y225": [
           0,
           2,
           23
         ],
-        "warden_heavy|y315": [
+        "warden_hauler|y315": [
           0,
           3,
           23
         ],
-        "warden_mote|y045": [
+        "warden_heavy|y045": [
           0,
           4,
           23
         ],
-        "warden_mote|y135": [
+        "warden_heavy|y135": [
           0,
           5,
           23
         ],
-        "warden_mote|y225": [
+        "warden_heavy|y225": [
           0,
           6,
           23
         ],
-        "warden_mote|y315": [
+        "warden_heavy|y315": [
           0,
           7,
+          23
+        ],
+        "warden_mote|y045": [
+          0,
+          8,
+          23
+        ],
+        "warden_mote|y135": [
+          0,
+          9,
+          23
+        ],
+        "warden_mote|y225": [
+          0,
+          10,
+          23
+        ],
+        "warden_mote|y315": [
+          0,
+          11,
           23
         ]
       }
@@ -2860,7 +2900,7 @@
       "albedo": "assets/renders/atlas/albedo.png",
       "glow": "assets/renders/atlas/glow.png"
     },
-    "source_digest": "494125eede3de30df932ab1c02f401b8bc1c7aacf4e1735395025cabdb336d7d"
+    "source_digest": "ea0dca274937a8627fd4757998a0258ae0e0eee343bfb3729faec4a6eb04a6fc"
   },
   "blender_version": "5.2.0 LTS",
   "cell": 256,
@@ -2890,6 +2930,7 @@
     "tile_path": "dba2b454ce0ce38a924b3a585ba21cdf62c4ae2c1d6b79d1dee9c0d08bbb0ef5",
     "tile_slot": "344f6a1221e66f521f379d27a1996172066e465cdea9154f6f5e97558f94f460",
     "warden_drone": "10b7a24b43d7468c861ed2829d44343716f794958852e469132469a97b571dbe",
+    "warden_hauler": "763becfaf12ea420d0daacef47683840328e13b371ba1cef911633ee5a2b15d4",
     "warden_heavy": "51d65d1039127814dc7a6eb50124546ec83acc92fd175dd2af861e0445a78f3c",
     "warden_mote": "1dc4e7a1fbc6728be48ccdf17e96beec9e12759881e2efc925ae4c3b62cd8956"
   },
@@ -4085,6 +4126,24 @@
       "y315": {
         "albedo": "assets/renders/warden_drone_y315_albedo.png",
         "glow": "assets/renders/warden_drone_y315_glow.png"
+      }
+    },
+    "warden_hauler": {
+      "y045": {
+        "albedo": "assets/renders/warden_hauler_y045_albedo.png",
+        "glow": "assets/renders/warden_hauler_y045_glow.png"
+      },
+      "y135": {
+        "albedo": "assets/renders/warden_hauler_y135_albedo.png",
+        "glow": "assets/renders/warden_hauler_y135_glow.png"
+      },
+      "y225": {
+        "albedo": "assets/renders/warden_hauler_y225_albedo.png",
+        "glow": "assets/renders/warden_hauler_y225_glow.png"
+      },
+      "y315": {
+        "albedo": "assets/renders/warden_hauler_y315_albedo.png",
+        "glow": "assets/renders/warden_hauler_y315_glow.png"
       }
     },
     "warden_heavy": {
