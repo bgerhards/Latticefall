@@ -88,7 +88,23 @@ earlier** — see decision 088 and `LF-255`. (Nine criteria in eight bullets; on
 compound.) A criterion invented before the measurement is a criterion this workstream would
 have had to argue its way out of at the end, which is the worst possible time to discover it.
 
-Baselines are the shipped 18×15 campaign as of `54c666b`, reproducible with
+> **The live bar is `tools/bal04_baseline.json`, not the prose below.** `LF-270`/`LF-278`:
+> five slices hand-rolled this table from `sim/run.py`'s JSON before it got a tool, and each
+> rediscovered the same traps. Run it:
+>
+> ```bash
+> .venv/bin/python tools/criteria.py --jobs 8 --verbose    # all six criteria vs the artefact
+> ```
+>
+> **Three numbers written below have since been superseded and are kept for the record only** —
+> multi-weapon is **22/22** achievable, not 17/22 (decision **090**); act 1's `count: 1` share
+> is **7.9%**, not 10.1% (decision **091**); and the per-anchor `standard + brutal` list is
+> decision 088's at `54c666b`, five of whose eight anchors have since improved (03 6→7, 04
+> 6→10, 05 7→8, 07 7→8, 08 5→6). Reading the prose as the live bar under-measures by up to four
+> builds on anchor-04. The artefact carries the commit it was taken on; re-baseline with
+> `--rebaseline`, which refuses on a regression unless you say so explicitly.
+
+Baselines below are the shipped 18×15 campaign as of `54c666b`, reproducible with
 `.venv/bin/python -m sim.run --jobs 8` and the one-liners in each bullet.
 
 - **All 24 anchors grade `ok`, at all three difficulties.** Baseline **24/24**. Note this is
