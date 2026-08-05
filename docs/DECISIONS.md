@@ -4194,3 +4194,95 @@ the win-share selector.
 Decision 065 admits a deterministic schedule and still rejects reactive agents; an upgrade on an
 absent, unaffordable or already-upgraded index is already a free no-op, so the naive walk costs
 nothing and stays mirrorable in GDScript as a constant.
+
+## 090 — The arc node was paying a heavy weapon's power price for a light weapon's profile, and that was the whole of Act I's multi-weapon problem
+
+**2026-08-05.** First content slice of `BAL-04`. Supersedes nothing; **supersedes by reference
+the arc-node draw figure in decision 074's range table** and the "draws 2.2× for its chain and
+faster fire" sentence in it.
+
+**The defect.** Five of `BAL-04`'s achievable multi-weapon misses were Act I, and decision 088
+called them "real content findings for this workstream". They were one tower's stat. Damage per
+megawatt, unarmoured: pulse-turret 1.000, arc-node 0.577. Against `warden-heavy`'s flat armour
+4: pulse 0.556, arc **0.192** — 6 damage a shot against armour 4 is 2 net. Range 3.8 against
+4.0, the shortest in the game. The roster's dps/MW ladder ran pulse 1.000 ≫ flak 0.661 >
+ion-lance 0.588 ≈ **arc 0.577** > mortar 0.433, and the arc node bought *nothing* for sitting in
+the ion-lance band: no range, no splash, no shield targeting, the worst armour penetration in
+the game. It appeared in **0 winning builds on all six Act I anchors where it is unlocked**, and
+54 instances campaign-wide against pulse-turret's 2,492. Its own note said the draw "is high
+enough that two of them force a real decision"; the decision it forced was to never build one.
+
+**Why no anchor lever could reach it.** Act I capacity per slot is 9.2–11.0 MW against a 12 MW
+turret, so **power binds strictly and slots never do**. Under a strictly power-bound board,
+damage per megawatt is the only figure of merit, and a 1.73:1 ratio is not movable by a wave
+table, a lives count or a slot layout. Five anchors were carrying a criterion failure for a
+tower they could not have fixed.
+
+**Decision. `arc-node.draw_mw` 26 → 18 and `upgrade.draw_mw` 38 → 26, derived and not swept.**
+The rule is that the arc node must stay strictly *less* power-efficient than the pulse turret
+against every enemy in the game, measured in kills per second per megawatt **with overkill
+counted** — integer shots to kill, not raw dps, because a 6-damage weapon wastes less on a 22 hp
+target than a 9-damage one. Parity thresholds: `warden-mote` 16.88 MW, `warden-drone` 16.07,
+`hollow-drift` 15.75, `hollow-shard` 15.00, `reach-picket` 14.06. The binding one is 16.88, so
+draw ≥ 17, and every draw in `data/towers.json` is an even number of megawatts → **18**. Same
+derivation on the upgrade: 25.0 and 22.5 → **26**.
+
+**What it did.** 24/24 `ok`, **zero** per-anchor `standard + brutal` regressions, nine anchors
+improved. Multi-weapon **17/22 → 22/22** achievable anchors. `hard` stops failing to bite on
+anchor-04 and anchor-08, leaving only tutorial-exempt anchor-01. Campaign win share 42.4/30.6/
+24.0 → 44.6/31.2/25.1, still falling strictly. No wave table, capacity, lives or dialog line
+moved, so the `count: 1` shares (10.1/29.4/33.8%), `wave density` (32/27/21) and
+`dialog capacity` (24/24) are provably identical, and `validate_data.py` stays at 0 warnings.
+Lowering the max draw shrinks the `PLC-05` saturation denominator on anchors 03/04/05 (380 →
+260), moving Act I's saturation share 29% → 31%, far below the 80% warn.
+
+**The band was graded, not just the point.** 15–18 MW is a plateau: 24/24 `ok` and zero
+regressions at all four values, multi-weapon 20–21 of 22. 19 MW and above regresses anchor-12
+or anchor-10. The one-anchor wobble *inside* the plateau is quantisation noise (`LF-264`) and is
+not claimed as signal.
+
+**anchor-04 needed a second, separate number, and it was money.** `starting_funds` 620 → 590.
+At 620, `rapid` affords a third 100-credit turret before the 80-credit relay, reaching 90 of 94
+MW and leaving **4 MW — less than the relay's 8** — so it plays the anchor blind to air and dies
+on wave 4. 94 MW is the only capacity in [88, 106] that leaves less than a relay after a
+weapon-first fill. **The mechanism is derived; the value is not.** 584–596 is one verified
+plateau — every value `ok` at all three difficulties, carrying a multi-weapon winner, with
+`hard` biting, at s+b 9–10 — and 590 is its midpoint. The campaign's own funds ramp (starting
+funds as a fraction of the reference board: 60.0/67.6/71.8/**79.5**/87.2/93.2/106.8/102.3%
+across Act I) puts anchor-04 exactly on the 03↔05 interpolation and does *not* pick 590. Said
+plainly rather than dressed up as a derivation.
+
+**Robustness was measured, not assumed.** Nine perturbations per anchor — capacity ±2, drone
+±1, mote ±1, heavy +1, lives −1. `ok` holds 7–9 of 9 on every Act I anchor; the multi-weapon
+result holds 9/9 on anchor-06, 7–8/9 on 03/04/07/08, and **4/9 on anchor-05**, which is the
+weakest closure and is flagged rather than rounded up. The single perturbation that breaks it is
+`heavy+1` every time — exactly what the armour arithmetic predicts.
+
+**Rejected: closing the misses with per-anchor capacity.** It works on anchor-03 (104 MW, s+b
+6 → 9, robust to 8 of 8 perturbations) and nowhere else. The monotone ladder then forces every
+later Act I anchor up, and anchor-07 cannot take it: 116 MW gives s+b 9 with no multi-weapon;
+112 and 124 give multi-weapon but flatten all three tiers to identical win shares and drop s+b
+below its baseline of 7. anchor-04 at 112 and anchor-05 at 120 each lose their multi-weapon
+build under a ±1 change to a single spawn entry. Buying one robust closure and two knife edges
+with +12 to +30 MW across six anchors is the trap `CLAUDE.md` names — **density must never be
+paid for with reactor capacity**, and no `capacity_mw` moved in this change at all.
+
+**Rejected: raising Act I hp per unit for `LF-218` in this pass.** Graded at three
+drone→heavy substitution depths on all six anchors, unit counts falling so screen presence does
+not rise; every depth that moved hp/unit meaningfully took brutal to `unwinnable` or
+`single-solution`, or destroyed the multi-weapon result, on every anchor. Act I's only unit with
+mass carries armour 4, which is flat, so raising the armoured share raises brutal difficulty
+superlinearly (hp ×1.55) *and* deletes the second weapon class at the same time. `LF-218` needs
+a **new Act I enemy** — armour 0, ~90–130 hp, ground — which is content, not a knob. `LF-261`.
+
+**Found and left for later, because a balance pass is not where they belong.** `LF-262`: Act I
+is a *reveal* gate — across anchors 02–08 a build with a scan relay won 136 of 246 runs and a
+build without one won **0 of 195**, dying on wave 3–4 at every difficulty, because `warden-mote`
+is `kind: air`. That is *why* `hard` could not bite: 35% more hit points cannot move an outcome
+decided by whether a unit can be shot at all. The relay costs 8 MW of a 92–110 MW bus, so it is
+a tax rather than a trade, and whether that is right is a design question.
+
+**The general lesson, and it is decision 088's from the other side.** The measurement that found
+this was not a sweep over the anchors. It was dividing damage by megawatts for nine rows of
+`data/towers.json` and noticing one row was in the wrong band. **Before tuning the level, check
+whether the piece placed on it is priced.**

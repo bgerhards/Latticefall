@@ -34,7 +34,7 @@
       "id": "arc-node",
       "name": "Arc Node",
       "cost": 190,
-      "draw_mw": 26,
+      "draw_mw": 18,
       "damage": 6,
       "range": 3.8,
       "fire_interval": 0.4,
@@ -43,7 +43,7 @@
         "air"
       ],
       "unlocked_at": "anchor-03",
-      "note": "Chains. Draw is high enough that two of them force a real decision.",
+      "note": "Chains. Fast and shallow — more damage per emplacement than a turret, less per megawatt, and 6 a shot barely scratches armour. The answer to numbers, never to weight.",
       "fx": {
         "class": "arc",
         "colour": "#bfe8ff",
@@ -52,7 +52,7 @@
       },
       "upgrade": {
         "cost": 160,
-        "draw_mw": 38,
+        "draw_mw": 26,
         "damage": 9,
         "fire_interval": 0.36
       }

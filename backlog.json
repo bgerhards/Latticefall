@@ -3038,13 +3038,13 @@
     },
     {
       "area": "design",
-      "closed": null,
+      "closed": "2026-08-05",
       "id": "LF-254",
       "kind": "bug",
       "note": "UPDATED by the upgrade-ladder policy (LF-245). The pair is now anchor-04 and anchor-08, not anchor-08 and anchor-15. anchor-15 was FIXED: it gained a standard winning build (6 -> 7 of 13) when the 21st policy landed, so hard 6/13 now falls below standard 7/13. anchor-04 is NEW and arrives by the other route -- it gained a TRIED build on standard (13 -> 14) without gaining a winning one, because upgrading raises an emplacement draw and the ladder can afford one fewer turret there (cheap-mass builds 7 turrets + 1 relay and WINS; the ladder builds 6 turrets + 2 relays and LOSES), so standard falls to 4/14 = 28.6 pct against hard 4/14 = 28.6 pct and the two are equal. anchor-08 is unchanged at 3/14 on both tiers. The count is still two of 24 and the rule is still reported rather than asserted (decision 086). WHAT THIS SHOWS: the reported set is sensitive to the grader repertoire, not only to the content -- a 21st policy moved one anchor off the list and another on. That is an argument for keeping it reported until BAL-04 re-grade settles the policy set, not for asserting it sooner.",
       "opened": "2026-08-04",
       "pri": "med",
-      "status": "wip",
+      "status": "done",
       "title": "hard does not bite on anchor-08 or anchor-15: identical win share to standard on both. MEASURED with the win-share metric decision 086 introduced -- anchor-08 is 3 of 14 on standard and 3 of 14 on hard, anchor-15 is 6 of 13 and 6 of 13. Decision 086 deliberately asserts the falls-strictly rule on the TOP tier only and reports the middle ones, because a check red on arrival gets disabled rather than fixed (LF-224); these two anchors are exactly why it is reported rather than asserted. sim/run.py names them on every full grade and tools/session.py writes them under docs/STATE.md grade table on every wrap, so this cannot go quiet. THE WORK is a balance pass on the two anchors, not a change to the rule: hard multiplies enemy hp by 1.35 and cuts bounty to 0.90, and on these two that buys nothing -- the same six or three builds clear both tiers. Fix inside BAL-04 re-grade and then consider promoting the rule from the top tier to every tier, which is the end state decision 086 wants and cannot have today.",
       "why": "Two of 24 anchors ship a difficulty tier that changes nothing"
     },
@@ -3119,7 +3119,55 @@
       "opened": "2026-08-04",
       "closed": null,
       "note": ""
+    },
+    {
+      "id": "LF-261",
+      "title": "Act I has no tough unarmoured enemy, and that is what blocks LF-218. Act 1 hp/unit is 47 against act 3 123 and cannot be raised: its only three units are warden-drone 40, warden-mote 22 and warden-heavy 220, and the only one with mass carries armour 4. MEASURED in the BAL-04 Act I pass -- drone-to-heavy substitution at three depths on all six Act I anchors (hp/unit 47.4 to 56.1 to 65.5 on anchor-04, 46.5 to 63.9 on anchor-03, unit counts falling so screen presence does not rise): every depth that moved hp/unit meaningfully took brutal to unwinnable or single-solution, or destroyed the anchor multi-weapon winning build, on every anchor. Armour 4 is flat, so it cuts the pulse turret 9 to 5 and the arc node 6 to 2: raising the armoured share raises brutal difficulty superlinearly (hp x1.55) while deleting the second weapon class at the same time. LF-218 lever is real but it needs a NEW Act I enemy -- armour 0, roughly 90-130 hp, ground -- not a wave-table edit. Blocks the LF-218 half of BAL-04.",
+      "kind": "bug",
+      "area": "design",
+      "pri": "med",
+      "status": "open",
+      "why": "LF-218 is priority 3 in STATE and it is blocked on content that does not exist, not on a knob",
+      "opened": "2026-08-05",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-262",
+      "title": "Act I is a reveal gate: 0 of 195 relay-less runs win on anchors 02-08. MEASURED on the shipped campaign in the BAL-04 Act I pass: a build containing a scan-relay won 136 of 246 runs across anchors 02-08; a build without one won 0 of 195, and the relay-less boards die on wave 3-4 at EVERY difficulty. warden-mote is kind: air and untargetable without reveal, and it appears in every Act I wave from anchor-03 wave 2 onward. That single binary decides the anchor, which is WHY hard could not bite on anchor-04 and anchor-08 -- multiplying enemy hp by 1.35 cannot move an outcome decided by whether a unit can be shot at all. The relay costs 8 MW of a 92-110 MW bus, so it is a trivial tax rather than a trade. Act III is the mirror image: 118/445 without a relay, 5/59 with one. THE DESIGN QUESTION: should the relay be mandatory-and-cheap (today), mandatory-and-expensive, or optional with mote leaks as the price? Unchanged by the BAL-04 Act I pass, which fixed what the SECOND weapon costs, not what the FIRST decision is.",
+      "kind": "question",
+      "area": "design",
+      "pri": "med",
+      "status": "open",
+      "why": "the first hour of the game has one real decision in it and the player is not told",
+      "opened": "2026-08-05",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-263",
+      "title": "Overlapping slow fields make the slow WEAKER, because _covered_by takes max() over a value that is a speed MULTIPLIER. VERIFIED in both engines, so parity is clean and this is a shared design defect rather than a divergence: sim/engine.py:1299-1304 and scripts/anchor_sim.gd:663-670 both do best = max(best, effect_value), and both apply it as speed = kind.speed * slow (engine.py:1529, anchor_sim.gd:971). For damp (0.6 -> 0.8) and restore (44 -> 70) higher IS stronger and max() is right. For slow, LOWER is stronger -- 0.20 means the unit moves at 20 percent speed -- so max() returns the WEAKEST field covering the point. CONSEQUENCE: a unit standing in an upgraded shield-wall field (0.20) that also overlaps a base one (0.28) is slowed to 0.28, and the 200 credits and 10 MW spent on the upgrade are silently discarded. The docstring on both copies says Best effect value covering a point, which for slow it is not. NOT REACHABLE before decision 089: every shield wall was 0.28 until upgrade-ladder became the first policy that ever dispatches an upgrade, so this is newly live. Low impact today -- shield-wall appears in 6 winning runs campaign-wide -- but the fix is a RULES change in three files that move together and needs a full parity run. NOTE this was reported to the coordinator as the shield-wall upgrade makes the shield wall worse (0.28 -> 0.20 read as a downgrade); that reading is WRONG, the upgrade is a genuine improvement, and the real defect is the combination rule next to it.",
+      "kind": "bug",
+      "area": "engine",
+      "pri": "med",
+      "status": "open",
+      "why": "an upgrade the player pays 200 credits and 10 MW for is discarded wherever two fields overlap",
+      "opened": "2026-08-05",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-264",
+      "title": "The campaign grade is a step function of capacity with a 12 MW step, so any single-point capacity grade is partly quantisation noise. MEASURED in the BAL-04 Act I pass with a capacity grid at 4 MW resolution: anchor-03 grades ok s+b 6 at 92 MW, ok s+b 4 at 96, ok s+b 7 at 100, ok s+b 9 at 104, then FAILS at 108 and 112. anchor-07 grades ok s+b 9 at 116, ok s+b 5 at 120, then FAILS at 124. CAUSE: every grading policy is a greedy total preference order (_try_build), so the grade turns on whether the last 8-12 MW admits one more turret or one more relay, and 12 MW is 11 percent of an Act I bus. CONSEQUENCE FOR BAL-04: an acceptance criterion evaluated at a single capacity point measures the quantisation as much as the content, and a per-anchor capacity sweep will report an isolated optimum that no perturbation survives -- three of the four capacity closures found during the Act I pass died under a plus-or-minus 1 change to a single spawn entry. THE RULE THAT CAME OUT OF IT, and it is worth writing into sweep.py docs: judge a capacity by the WIDTH OF ITS PLATEAU, not by its cell. The shipped anchor-04 starting_funds 590 was chosen that way -- 584 to 596 is one verified plateau and 590 is its midpoint.",
+      "kind": "question",
+      "area": "design",
+      "pri": "med",
+      "status": "open",
+      "why": "BAL-04 re-grade will sweep capacity and will otherwise fit to single cells",
+      "opened": "2026-08-05",
+      "closed": null,
+      "note": ""
     }
   ],
-  "next_id": 261
+  "next_id": 265
 }
