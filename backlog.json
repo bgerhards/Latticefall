@@ -3407,7 +3407,19 @@
       "opened": "2026-08-11",
       "closed": null,
       "note": ""
+    },
+    {
+      "id": "LF-285",
+      "title": "LF-206 items (1) and (2) are CLOSED by #171/#172 -- the remaining engineering piece is a Windows export preset, and it is deliberately not done. WHY IT WAS DEFERRED, not forgotten: a Windows binary cannot be launched and played by a subprocess on the Linux box that builds it, so tools/export.py's --verify leg -- the whole reason that tool ends in a play rather than a file -- has nothing to run. 'It exports' would have been the entire evidence, which is exactly the standard LF-206 item (2) exists to reject. THE WORK IS SMALL AND THE VERIFICATION IS NOT. The preset itself is a dozen lines beside the two that exist, and the SAME 1.2 GB template set already covers it (tools/export.py TEMPLATE_MEMBERS currently extracts only web+linux; --all-templates takes the lot). What needs deciding is how a Windows build gets proved. Three options, in increasing honesty: (a) export only, assert the .exe's size and PE header, and say plainly in the release notes that nothing has run it; (b) drive it through WSL interop the way tools/toolpaths.py's resolve_windows_godot() already reaches the owner's Windows Godot -- the machinery to launch a Windows binary from this side EXISTS and is used by rules parity (windows), so this is the cheap real answer and should be costed first; (c) a windows-latest CI job, which is a second runner and a second cache of the same templates. Note the owner PLAYS the Windows build, so (a) is weaker here than it would be on most projects -- a broken Windows export is the one that reaches them personally. Do (b) unless it turns out the interop path cannot pass --shot/--facings back cleanly, and measure that before choosing (c).",
+      "kind": "feature",
+      "area": "build",
+      "pri": "med",
+      "status": "open",
+      "why": "",
+      "opened": "2026-08-11",
+      "closed": null,
+      "note": ""
     }
   ],
-  "next_id": 285
+  "next_id": 286
 }
