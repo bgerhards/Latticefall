@@ -1,0 +1,229 @@
+name: Release
+
+# LF-206. Build the web bundle on a tag, prove it plays, and push it to itch.io with butler.
+# PR #171 landed everything up to "a verified build exists in `build/`"; this is the step that
+# puts it somewhere a person can click.
+#
+# ## What the owner has to do before this can publish anything
+#
+# Three things, none of which an agent can do:
+#
+#   1. Create the game page on itch.io. Its **Kind of project must be set to HTML**, and
+#      "This file will be played in the browser" ticked on the uploaded build — butler cannot
+#      set either; they are page settings.
+#   2. Generate an API key at <https://itch.io/user/settings/api-keys> and add it as the
+#      repository secret **`BUTLER_API_KEY`**.
+#   3. Add a repository **variable** `ITCH_TARGET`, the `user/game` slug (e.g.
+#      `bgerhards/latticefall`).
+#
+# Until all three exist this workflow still runs, still builds, still verifies, and still
+# attaches the bundle to the run — it just says loudly that it did not publish. That is
+# deliberate: a release that silently did not publish reads exactly like one that did.
+#
+# ## Why this runs in the PRC-17 container and not on a bare runner
+#
+# Because the verification leg needs a real GPU-backed Godot frame. `tools/export.py --verify`
+# plays an anchor out of the packaged build and reads back the `FRAME`/`STATE` lines `main.gd`
+# prints, and GL Compatibility reads back nothing under a truly headless `--headless`
+# (decision 052). The tier-3 image already carries the three things that fixes: a native Linux
+# Godot build, `xvfb-run`, and a Mesa software-GL stack. A bare `ubuntu-latest` would export
+# fine and then be unable to prove the export works — which is the half that matters. LF-206
+# item (2): an export is the first context in which a missing or stale import is unfixable by
+# the player, and the symptom is a **hang**, not an error.
+#
+# The image is consumed at its stable `:tier3` tag rather than rebuilt here. `gate.yml`'s
+# `build-ci-image` job pushes that tag on every run, so it tracks `tools/ci/Dockerfile`
+# without this workflow owning a four-minute image build on the release path.
+#
+# ## LFS is not optional here, and it is the setting that fails silently
+#
+# `lfs: true`. The 698 LFS-tracked files are the sprite atlas pages, the audio and the fonts.
+# Without the smudge every one of them is a ~130-byte pointer file, and Godot will happily
+# import a pointer-file PNG into *some* texture and pack it. The bundle would build green and
+# be visually destroyed. `gate.yml`'s tier-1 job runs `lfs: false` on purpose and its header
+# comment names exactly when that stops being safe; this is that moment, so the smudge is
+# asserted below rather than assumed.
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Build and verify, but do not push to itch.io"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+  packages: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Build, verify, publish
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/${{ github.repository_owner }}/latticefall-ci:tier3
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    steps:
+      - name: Checkout (WITH LFS — see the header; a pointer-file build is green and broken)
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+          fetch-depth: 0
+
+      - name: Assert every LFS file actually smudged
+        # Cheap, and it is the assertion the header comment is about. A pointer file is
+        # ~130 bytes of text beginning `version https://git-lfs`; a real atlas page is
+        # megabytes of PNG. Checking the two pages the board cannot draw without proves the
+        # smudge ran at all, and it fails here rather than inside a bundle nobody opens.
+        run: |
+          set -eu
+          for f in assets/renders/atlas/albedo.png assets/renders/atlas/glow.png; do
+            if head -c 40 "$f" | grep -q 'version https://git-lfs'; then
+              echo "::error::$f is an LFS POINTER, not an image — the checkout did not smudge"
+              exit 1
+            fi
+            echo "ok  $f  $(stat -c%s "$f") bytes"
+          done
+
+      - name: Resolve the version this build calls itself
+        id: version
+        # A tag is the version; a manual run is `0.0.0-<short sha>`, which can never be
+        # mistaken for a release on the itch page. The tag is also checked against
+        # project.godot's `config/version`, because two hand-maintained copies of one number
+        # is the exact rot this repository keeps gate checks for elsewhere — and the copy
+        # that matters is the one baked into the build, not the one in the tag.
+        run: |
+          set -eu
+          declared="$(sed -n 's/^config\/version="\(.*\)"$/\1/p' project.godot)"
+          if [ "${GITHUB_REF_TYPE:-}" = "tag" ]; then
+            version="${GITHUB_REF_NAME#v}"
+            if [ "$version" != "$declared" ]; then
+              echo "::error::tag says '$version', project.godot's config/version says '$declared'"
+              exit 1
+            fi
+          else
+            version="0.0.0-$(echo "$GITHUB_SHA" | cut -c1-7)"
+          fi
+          echo "version=$version" >>"$GITHUB_OUTPUT"
+          echo "building $version (project.godot declares $declared)"
+
+      - name: Cache the export templates
+        # 1.2 GB to download, 225 MB extracted. Keyed on the engine version alone: the
+        # templates are a released artefact of that exact tag and never change under it.
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/share/godot/export_templates
+          key: godot-export-templates-4.7.1-stable
+
+      - name: Install the export templates if the cache missed
+        # --templates-only, not a bare --ensure-templates: the latter would go on to run a
+        # full 48 s export whose output this step throws away.
+        run: python -u tools/export.py --ensure-templates --templates-only
+
+      - name: Import project (the pack carries .godot/, so this is not optional here)
+        # Everywhere else in this repository `.godot/` is disposable build output that the
+        # editor rebuilds on demand. An export bakes it into the pack, so a fresh checkout
+        # with no cache would export a build whose global class registry is empty — and a
+        # missing `class_name` is a hang, not an error (CLAUDE.md).
+        run: |
+          set -eu
+          if ! "$LF_GODOT" --headless --path . --import >import.log 2>&1; then
+            echo "::error::project import failed — full log follows"
+            cat import.log
+            exit 1
+          fi
+          echo "import ok: $(wc -l <import.log) log lines"
+
+      - name: Export both presets and play the packaged build
+        run: python -u tools/export.py --json export.json
+
+      - name: Summarise what was built
+        if: always()
+        run: |
+          set -eu
+          python - <<'PY' >>"$GITHUB_STEP_SUMMARY"
+          import json, pathlib
+          f = pathlib.Path("export.json")
+          if not f.is_file():
+              print("No `export.json` — the export step did not get far enough to write one.")
+              raise SystemExit(0)
+          r = json.loads(f.read_text())
+          print("| preset | ok | size | seconds |")
+          print("|---|---|---|---|")
+          for k, v in r["presets"].items():
+              print(f"| {k} | {v['ok']} | {v.get('bytes', 0) / 1e6:.1f} MB | {v['seconds']} |")
+          v = r.get("verify") or {}
+          print(f"\n**verify** — {v.get('anchor')}: coverage {v.get('coverage')}, "
+                f"{v.get('distinct')} tones, frame {v.get('state_frame')} of {v.get('frames')}, "
+                f"{len(v.get('script_errors') or [])} script error(s)")
+          PY
+
+      - name: Upload the web bundle as a workflow artifact
+        # Belt and braces: even when the itch push is skipped or fails, the thing that was
+        # built and verified is downloadable from this run rather than lost.
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: latticefall-web-${{ steps.version.outputs.version }}
+          path: build/web
+          if-no-files-found: error
+
+      - name: Install butler
+        if: ${{ !inputs.dry_run }}
+        # Probed against the real binary rather than taken from a guide: this archive is
+        # v15.30.0 and carries `butler` plus two shared objects (`7z.so`, `libc7zip.so`) that
+        # must sit beside it, which is why the whole archive is extracted to one directory on
+        # PATH rather than just the one file.
+        run: |
+          set -eu
+          curl -sSL -o butler.zip \
+            "https://broth.itch.zone/butler/linux-amd64/LATEST/archive/default"
+          mkdir -p /usr/local/lib/butler
+          unzip -oq butler.zip -d /usr/local/lib/butler
+          chmod +x /usr/local/lib/butler/butler
+          ln -sf /usr/local/lib/butler/butler /usr/local/bin/butler
+          echo "LD_LIBRARY_PATH=/usr/local/lib/butler" >>"$GITHUB_ENV"
+          LD_LIBRARY_PATH=/usr/local/lib/butler butler -V
+
+      - name: Push to itch.io
+        if: ${{ !inputs.dry_run }}
+        env:
+          # butler reads this variable itself — verified against v15.30.0, which without it
+          # prints "Please set BUTLER_API_KEY to your API key" and, with a bad one, a clean
+          # `itch.io API error (403): /wharf/channels: invalid key`.
+          BUTLER_API_KEY: ${{ secrets.BUTLER_API_KEY }}
+          ITCH_TARGET: ${{ vars.ITCH_TARGET }}
+        run: |
+          set -eu
+          if [ -z "${BUTLER_API_KEY:-}" ] || [ -z "${ITCH_TARGET:-}" ]; then
+            echo "::warning::NOT PUBLISHED — the BUTLER_API_KEY secret and/or the ITCH_TARGET"
+            echo "::warning::variable are unset. See this workflow's header for the three"
+            echo "::warning::steps only the owner can take."
+            {
+              echo ""
+              echo "### Not published"
+              echo ""
+              echo "\`BUTLER_API_KEY\` and/or \`ITCH_TARGET\` are not configured, so this run"
+              echo "built and verified the bundle but uploaded nothing. It is attached to this"
+              echo "run as an artifact."
+            } >>"$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          butler push build/web "${ITCH_TARGET}:html5" \
+            --userversion "${{ steps.version.outputs.version }}" --if-changed
+          butler status "${ITCH_TARGET}"
+          {
+            echo ""
+            echo "### Published"
+            echo ""
+            echo "\`${ITCH_TARGET}:html5\` at version \`${{ steps.version.outputs.version }}\`"
+          } >>"$GITHUB_STEP_SUMMARY"

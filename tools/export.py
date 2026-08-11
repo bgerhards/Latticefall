@@ -297,6 +297,9 @@ def main() -> int:
                     help="with --ensure-templates, extract every platform, not just ours")
     ap.add_argument("--keep-archive", action="store_true",
                     help="with --ensure-templates, keep the .tpz in .cache/ afterwards")
+    ap.add_argument("--templates-only", action="store_true",
+                    help="install the templates and stop — for a CI cache-warming step, "
+                         "which otherwise pays 48 s for an export it throws away")
     ap.add_argument("--no-verify", action="store_true",
                     help="skip playing the packaged Linux build (it is the point; say why)")
     ap.add_argument("--anchor", default=VERIFY_ANCHOR)
@@ -304,8 +307,18 @@ def main() -> int:
     ap.add_argument("--json", metavar="PATH", help="write a machine-readable record here")
     args = ap.parse_args()
 
-    if args.ensure_templates:
+    if args.ensure_templates or args.templates_only:
         ensure_templates(all_platforms=args.all_templates, keep_archive=args.keep_archive)
+
+    if args.templates_only:
+        # Still assert, rather than trusting the extraction: a half-written template set
+        # looks exactly like a complete one from the outside, and the difference only
+        # surfaces minutes into an export.
+        if templates_installed():
+            print(f"ok    templates {GODOT_VERSION} at {templates_root()}")
+            return 0
+        print(f"FAIL  templates still not installed at {templates_root()}", file=sys.stderr)
+        return 2
 
     if not templates_installed():
         print(f"FAIL  export templates for {GODOT_VERSION} are not installed.\n"

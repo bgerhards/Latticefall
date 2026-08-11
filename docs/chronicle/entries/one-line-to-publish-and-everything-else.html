@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>One line publishes it; the other two hundred are what makes that line safe — Latticefall build journal</title>
+<meta name="description" content="The second half of LF-206. release.yml builds the web bundle on a tag, plays it, and pushes it to itch.io with butler — one command, butler push build/web user/game:html5 --userversion X. Everything around it exists because that one command will happily upload a broken bundle with total confidence, and because three of the things that make a bundle broken here are silent.">
+<link rel="stylesheet" href="../chronicle.css">
+</head>
+<body>
+
+<nav class="entry-nav top"><a class="back" href="../index.html">&larr; the journal</a></nav>
+<article>
+  <header class="entry-header">
+    <time datetime="2026-08-11">August 11, 2026 · 09:20</time>
+    <h1>One line publishes it; the other two hundred are what makes that line safe</h1>
+    <div class="chips"><span class="chip chip-epic">LF</span><span class="chip chip-epic">REL</span><span class="chip chip-decision">decision 098</span></div>
+    <p class="summary lede">The second half of <code>LF-206</code>. <code>release.yml</code> builds the web bundle on a tag, plays it, and pushes it to itch.io with <strong>butler</strong> — one command, <code>butler push build/web user/game:html5 --userversion X</code>. Everything around it exists because that one command will happily upload a broken bundle with total confidence, and because three of the things that make a bundle broken here are <strong>silent</strong>.</p>
+    
+  </header>
+  <div class="entry-body">
+    <p>The previous entry ended at <strong>a verified build exists in <code>build/</code></strong>. This is the step that puts it somewhere a person can click, and it is short: butler is itch's official CLI, it takes a directory and a <code>user/game:channel</code> target, and it reads its credential from <code>BUTLER_API_KEY</code>. That last claim was not taken from a guide — v15.30.0 was downloaded and asked.</p><figure class="listing"><div class="pre-wrap"><pre><code>$ butler status nobody/nothing
+Please set BUTLER_API_KEY to your API key, see https://itch.io/docs/butler/login.html
+No credentials and stdin is not a terminal - terminating.
+
+$ BUTLER_API_KEY=deadbeefnotreal butler status nobody/nothing
+listing channels: itch.io API error (403): /wharf/channels: invalid key</code></pre></div><figcaption>Two probes against the real binary. The first proves butler looks for the variable; the second proves it <strong>uses</strong> it, and fails cleanly rather than ambiguously when the key is wrong. This is the same discipline the Blender pipeline runs on — verify against the installed tool, never from memory.</figcaption></figure><p>The archive is also not one file. It carries <code>butler</code> plus <code>7z.so</code> and <code>libc7zip.so</code>, which have to sit beside it — which is why the workflow extracts the whole thing into one directory on <code>PATH</code> rather than pulling out the binary and wondering later why it cannot open a zip.</p><h3>Three ways to ship a broken bundle, all of them quiet</h3><p><strong>Git LFS.</strong> 698 files here are LFS-tracked — the two atlas pages the board actually draws from, all the audio, all four fonts. <code>actions/checkout</code> does not fetch LFS by default, and <code>gate.yml</code>'s tier-1 job deliberately runs <code>lfs: false</code> because tier 1 never reads a sprite byte. Under that setting every one of those files is a ~130-byte pointer, and <strong>Godot will import a pointer-file PNG into some texture and pack it without complaint</strong>. The bundle builds green and is visually destroyed. So the release job asserts the smudge actually happened, by looking at the first forty bytes of both atlas pages, before it does anything else.</p><p><strong>The import cache.</strong> Everywhere else in this repository <code>.godot/</code> is disposable build output the editor rebuilds on demand — there is a whole rule in <code>CLAUDE.md</code> about never rebuilding it while the owner is playing. At the export boundary that assumption <strong>inverts</strong>: the export bakes the cache into the pack, so a fresh CI checkout with no cache would export a build whose global class registry is empty. A missing <code>class_name</code> in this engine is a hang, not an error. The workflow imports first, and the tool's verification leg is a <strong>play</strong> rather than a launch for exactly this reason.</p><p><strong>The renderer.</strong> GL Compatibility reads back nothing under a truly headless <code>--headless</code> — decision 052, and the reason <code>tools/shot.py</code> exists at all. A bare <code>ubuntu-latest</code> runner could export this game perfectly and be structurally unable to prove the export works. So the release job runs inside the tier-3 container image that already carries a native Linux Godot, <code>xvfb-run</code> and a Mesa software-GL stack, consumed at its stable <code>:tier3</code> tag rather than rebuilt on the release path.</p><h3>What a run does when it cannot publish</h3><p>It publishes nothing, says so in a warning and in the run summary, and attaches the verified bundle to the run as an artifact. It does not fail. That distinction is deliberate and it is the only interesting design decision in the workflow: <strong>a release that silently did not publish reads exactly like one that did</strong>, and the three things it needs — an itch page whose project kind is set to HTML, an API key, and the <code>user/game</code> slug — are all the owner's to create and none of them can be done from here.</p><p>There is one more assertion worth naming. A tag build checks that the tag agrees with <code>project.godot</code>'s <code>config/version</code>, and fails if they differ. Two hand-maintained copies of one number is precisely the rot this repository keeps gate checks for elsewhere, and the copy that matters is the one baked into the build — not the one in the tag.</p><h3>Still not published</h3><p>Nothing has been uploaded, and that is not an oversight. The repository has <strong>no <code>LICENSE</code> file</strong>, and the music was generated under the owner's own subscription — public distribution, even free, even on itch, is a different question from personal use under most generators' terms. <code>LF-206</code> has said so since the day it was filed, and it is the one item in it that engineering cannot close. The machinery is now entirely in place and idle behind a secret that does not exist yet, which is the correct place for it to be waiting.</p>
+  </div>
+  
+</article>
+<nav class="entry-nav bottom">
+  <span><a class="back" href="../index.html">&larr; the journal</a></span> <span><a class="prev" href="the-first-build-a-stranger-could-run.html">&larr; The first build a stranger could run, and the 56 KB of internal notes that were inside it</a></span>
+</nav>
+
+</body>
+</html>

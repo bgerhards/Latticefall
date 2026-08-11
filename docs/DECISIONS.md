@@ -4779,3 +4779,76 @@ green is spent. `LF-243` (the grade table could not see a difficulty dissolve), 
 verbs never dispatched), `LF-246` (coverage over vestigial slots), `LF-247` (an accessibility
 audit over a 4 px playfield) and now this. **Ask what the check would still say if the thing it
 names were absent** — here, the answer was "exactly the same two numbers".
+
+---
+
+## 098 — The first public build is the web one, it publishes from a tag, and the thing that gates it is a play rather than a file
+
+**2026-08-11.** `LF-206`. Adds one gate check (`export presets`, tier 1) and one workflow
+(`release.yml`). Supersedes nothing; `LF-206`'s item (3), the licence and the music terms,
+is untouched and remains the owner's.
+
+**The question was narrow and the answer was not.** The owner asked what it would take to
+deploy to itch.io and whether there is an API for CI. There is — **butler**, itch's official
+CLI, and publishing is one line with a key in a repository secret. But this project had never
+built anything at all: no `export_presets.cfg`, nothing under `tools/` producing a file a
+person without Godot could open. The API was the easy tenth of it.
+
+**Decision: web (HTML5) is the first target, not Windows.** Three facts already in the
+repository decide this, and none of them is a preference. The renderer is `gl_compatibility`
+(`project.godot`), which is the only rendering method Godot supports on the web — Forward+ and
+Mobile are built around modern low-level graphics APIs that do not exist there. There are
+**zero** GDExtensions. And `scripts/` contains no `Thread`, `WorkerThreadPool`, `Mutex` or
+`Semaphore`, so the **single-threaded** web export works — which matters because a threaded
+Godot build needs `SharedArrayBuffer`, which needs `Cross-Origin-Opener-Policy` and
+`Cross-Origin-Embedder-Policy` headers, which needs control of the server. Single-threaded is
+a plain static upload, and is what Godot's own web documentation recommends for itch.io
+specifically. The practical argument outweighs all three anyway: **a web build is a URL**, and
+the bottleneck this project actually has is that the only person who has ever played this game
+wrote it.
+
+**Rejected: Windows first**, which `LF-206` item (1) named as the first task. It is what the
+owner plays, and it is the harder thing to verify — a Windows binary cannot be launched and
+played by a subprocess on the Linux box that builds it, so "it exports" would have been the
+whole of the evidence. Deferred rather than dropped; the same 1.2 GB template set covers it.
+
+**Rejected: Steam first.** A one-time per-title fee, bank and tax setup with real calendar
+lead time, store assets at fixed sizes, and `steamcmd`. None of it hard, all of it schedule.
+itch costs nothing, needs no approval, and exercises the identical export pipeline, so it is
+the forcing function for the pipeline regardless of where the game eventually sells.
+
+**Decision: the export tool's contract ends at a *verified* build, and verification is a
+play.** `tools/export.py` does not upload — a credential that can push to a storefront belongs
+in CI secrets, not in a tool any agent can run. What it does instead is copy the packaged
+Linux binary **outside the repository**, point `$XDG_DATA_HOME` somewhere disposable, play an
+anchor, and read back the `FRAME`/`STATE` lines. Running elsewhere is what proves the pack is
+self-contained rather than quietly reading `res://` off the tree it was built beside; the
+redirected data home is what keeps a verification run off the owner's real save, the `LF-175`
+trap, since this Godot build ignores `--user-data-dir` **silently**.
+
+**Why a play and not a file.** The import-cache assumption inverts at the export boundary.
+Everywhere else `.godot/` is disposable build output the editor rebuilds on demand; an export
+bakes it into the pack, so the export is the first context in which a missing or stale import
+is unfixable by the player — and this project's known failure there, a `class_name` absent
+from the global class cache, is a **hang**, not an error. A binary that starts is therefore not
+evidence of anything.
+
+**And the reason all of this needed a gate check: the failure had no symptom.** A `.json` file
+is not a Godot resource, so `export_filter="all_resources"` packs no `data/` whatsoever. The
+obvious fix, `include_filter="*.json"`, also matches `backlog.json` at the repository root, and
+shipped 56 KB of unreleased design argument and the owner's own play feedback inside the web
+bundle. Green export, green gate, every anchor loading. It was found by running `strings` over
+the pack out of curiosity, which nobody will do twice. `export presets` therefore asserts both
+directions — every `res://` literal `scripts/*.gd` opens survives the filters, **and** the
+include filter reaches nothing outside `data/` and `assets/` — plus every `[autoload]` script,
+because Godot 4.7.1 drops an autoload missing from the pack in **complete silence** (verified:
+`_mcp_game_helper` is genuinely absent and two anchors played without a word about it).
+
+**Rejected: running the export itself in the gate.** 48 s per preset plus a capture, against
+~230 ms for the static check, and the configuration is what goes wrong — not the exporter.
+The full build runs on a tag, where it belongs.
+
+**What is still the owner's, and it has not moved.** There is no `LICENSE` file, and the music
+was generated under the owner's own subscription; public distribution, even free, is a
+different question from personal use under most generators' terms. `LF-206` item (3) has said
+so since it was filed. It is the only thing between a verified build and a link.
