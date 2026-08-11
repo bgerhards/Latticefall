@@ -3371,7 +3371,43 @@
       "opened": "2026-08-05",
       "closed": null,
       "note": ""
+    },
+    {
+      "id": "LF-282",
+      "title": "LF-206 PR1 shipped the export pipeline and the web bundle is 90 MB, which is the number a browser player waits on. MEASURED at the commit that added export_presets.cfg: index.wasm 39.5 MB + index.pck 53.8 MB. Inside the pack, the two large tenants are assets/renders (22 MB, of which the two atlas pages are 9.1 MB and the other ~13 MB is 576 LOOSE per-sprite renders) and assets/audio/music (28 MB of Ogg). THE LOOSE RENDERS ARE PROBABLY DEAD WEIGHT BUT THIS WAS NOT VERIFIED AND MUST BE BEFORE THEY ARE CUT: assets/renders/sprites.json references BOTH the atlas pages AND all 576 loose PNGs, and scripts/sprites.gd load()s by path at three separate sites (lines ~117, ~163, ~188), so whether the loose files are a live fallback or vestigial is a question about that function's branches, not about the manifest. Read those three sites first; if they are a fallback, the honest fix is to make the fallback explicit rather than to delete its inputs and hope. SECOND AND CHEAPER: Godot's own web docs say itch.io does not gzip on the fly, which if true makes the 39.5 MB wasm a 39.5 MB download; that claim was READ, NOT MEASURED, and measuring it is one curl against a real itch page once PR2 has uploaded one. Do that before optimising anything, because if itch does serve compressed the whole question is much smaller.",
+      "kind": "chore",
+      "area": "build",
+      "pri": "med",
+      "status": "open",
+      "why": "",
+      "opened": "2026-08-11",
+      "closed": null,
+      "note": ""
+    },
+    {
+      "id": "LF-283",
+      "title": "An exported build silently drops the _mcp_game_helper autoload and Godot says NOTHING about it. RECORDED SO NOBODY RE-DERIVES IT. project.godot registers _mcp_game_helper=*res://addons/godot_ai/runtime/game_helper.gd, written there by the Godot AI editor plugin. export_presets.cfg excludes addons/* (an MCP bridge has no business in a player's build), so the script is genuinely absent from the pack -- VERIFIED by strings over index.pck: the only addons path that survives is plugin.cfg, pulled in as a project.godot reference. The packaged build was then played through anchor-01 and anchor-13 and logged ZERO autoload complaints, zero script errors, and rendered a correct board both times. So the behaviour is: Godot 4.7.1 drops an autoload whose script is missing from the pack, without an error, and the game runs. THIS IS FINE TODAY AND IS A TRAP TOMORROW. It is fine because game_helper.gd's own docstring says it no-ops when the debugger channel is inactive, which an exported release build always is -- so nothing is lost. It is a trap because the SAME silence would greet a real autoload that got excluded by a widened exclude_filter, and Content, Progress, Tuning, Display, Sprites, Audio, Recoveries and Ui are all real. The gate's export presets check (tier 1) asserts the res:// literals scripts/*.gd opens survive the filters, which is the adjacent guarantee but NOT this one -- it says nothing about the [autoload] block. THE WORK: extend check_export_presets to read project.godot's [autoload] paths and assert each one survives the filters too, with the deliberate exception of the addons/ MCP helper, declared by name so the exception is visible rather than implied.",
+      "kind": "risk",
+      "area": "build",
+      "pri": "med",
+      "status": "done",
+      "why": "",
+      "opened": "2026-08-11",
+      "closed": "2026-08-11",
+      "note": "closed at bac191d"
+    },
+    {
+      "id": "LF-284",
+      "title": "tools/hooks/guard.py denies a plain download of the Godot EXPORT TEMPLATES, because the release asset is named Godot_v4.7.1-stable_export_templates.tpz and the guard matches 'a Godot binary by its versioned filename'. Hit while closing LF-206: 'curl -o tpz.zip https://.../Godot_v4.7.1-stable_export_templates.tpz' is denied and needs LF_ALLOW_RAW_ENGINE=1, which is the escape hatch for a DELIBERATE ENGINE PROBE and means something quite different from 'fetching a build artefact'. The guard is right to be broad -- it exists because bypassing toolpaths.py skips Xvfb wrapping and WSL path translation, and the last bypass silently processed nothing -- so the fix is not to loosen the pattern. tools/export.py --ensure-templates now does this download in-process with urllib, which the guard does not see at all, so nothing is blocked in practice and this is a papercut for whoever next reaches for curl by hand. Narrowest real fix: exempt a URL ending in _export_templates.tpz, since a .tpz is not an executable and cannot be launched. Low value; recorded so the next person does not spend ten minutes deciding whether the denial means they are doing something wrong.",
+      "kind": "chore",
+      "area": "tooling",
+      "pri": "med",
+      "status": "open",
+      "why": "",
+      "opened": "2026-08-11",
+      "closed": null,
+      "note": ""
     }
   ],
-  "next_id": 282
+  "next_id": 285
 }
