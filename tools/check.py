@@ -39,11 +39,21 @@ opposite case — they live in `CHECKS`, so they cost nothing to assert — and 
 check below does exactly that on every tier-1 run: a stale count here is a red run, not a
 silent drift. See that check's own docstring for what it caught before it existed.
 
-- **tier 1 (pre-commit), 21 checks:** `python syntax`, `json parses`, `gdscript parses`,
+- **tier 1 (pre-commit), 22 checks:** `python syntax`, `json parses`, `gdscript parses`,
   `game data`, `wave density`, `dialog capacity`, `dialog figures`, `backlog rendered`,
-  `chronicle current`, `agent models`, `leases wired`, `issue traceability`, `banned terms`,
-  `tier counts`, `safe operations`, `rules autoloads`, `yaw hysteresis`, `asset coverage`,
-  `playfield width`, `grade verdict`, `grade criteria`. No Godot window opens.
+  `chronicle current`, `agent models`, `leases wired`, `export presets`,
+  `issue traceability`, `banned terms`, `tier counts`, `safe operations`,
+  `rules autoloads`, `yaw hysteresis`, `asset coverage`, `playfield width`,
+  `grade verdict`, `grade criteria`. No Godot window opens.
+
+  **`export presets` (LF-206) is the newest, and it is the cheapest check in this file
+  guarding the most expensive failure.** A `.json` file is not a Godot resource, so
+  `export_filter="all_resources"` packs every scene, script, texture and font — and nothing
+  whatsoever from `data/`. The build starts, and finds no anchors. One `include_filter`
+  line prevents it, in a file the Godot editor rewrites wholesale whenever its export dialog
+  is opened. The check reads the `res://` literals out of `scripts/*.gd` and runs them
+  through each preset's globs, so it asserts against what the source opens rather than
+  against a list someone has to remember to update.
 
   **`grade criteria` (LF-270/LF-278) is the newest, and it is `grade verdict`'s argument
   applied to a second instrument.** `tools/criteria.py` prints BAL-04's acceptance-criteria
@@ -87,7 +97,7 @@ silent drift. See that check's own docstring for what it caught before it existe
   both green throughout, because both audit **text** and a playfield is not a text item. Its
   mirror of the four geometry expressions is pinned verbatim against `scripts/ui_theme.gd`,
   so the mirror can only go stale loudly.
-- **tier 2 (pre-push), 30 checks:** tier 1 + `sim determinism`, `sprite atlas`,
+- **tier 2 (pre-push), 31 checks:** tier 1 + `sim determinism`, `sprite atlas`,
   `sprite coverage`, `music manifest`, `sfx determinism`, `sfx loudness` (PRC-18 — see
   `_run_loudness_check`'s own comment for why it is `sfx loudness` and not `music loudness`
   that landed here), `godot boots`, `terrain parsers agree`, `hooks configured`.
@@ -124,7 +134,7 @@ silent drift. See that check's own docstring for what it caught before it existe
   trustworthy, and `--budget` turns the figures above into assertions, so an instrument that
   can run backwards is the wrong one to be judging a 0.8% margin with. Only `started_at`
   stays on the wall clock, because a timestamp is not a duration.
-- **tier 3 (PR), 44 checks:** tier 2 + `facing harness` (moved here from tier 2, above) +
+- **tier 3 (PR), 45 checks:** tier 2 + `facing harness` (moved here from tier 2, above) +
   `anchor grades` (LF-224 — the deliberate replacement for the all-anchors-clean assertion
   `sim determinism` was serving by accident until PLC-04; ~62 s, and tier 3 rather than
   tier 2 because tier 2 is over budget and rather than tier 4 because the regression it
@@ -149,7 +159,7 @@ silent drift. See that check's own docstring for what it caught before it existe
   reasoning and for a larger hole** — six of the eight verbs `Sim._dispatch_one()` accepts
   are never scheduled by any shipped policy, and unlike the firing arc the *player* uses
   every one of them; see `check_verb_parity`'s own docstring.
-- **tier 4 (nightly/release), 47 checks — the default:** tier 3 + `music loudness` (see
+- **tier 4 (nightly/release), 48 checks — the default:** tier 3 + `music loudness` (see
   `_run_loudness_check`'s own comment for why it did not join `sfx loudness` at tier 3) +
   `rules parity` (grows with every policy/anchor) + `rules parity (windows)` (BAL-06 — the
   same runs again, against the Windows binary the owner actually plays rather than the Linux
@@ -210,6 +220,7 @@ neither flag changes what any other check does.
 from __future__ import annotations
 
 import argparse
+import fnmatch
 import functools
 import hashlib
 import json
@@ -1147,6 +1158,10 @@ LEASE_SITES: dict[str, str] = {
     "tools/autoloop_web.py": "autoloop-web",
     "sim/run.py": "sim-run",
     "tools/sweep.py": "sweep",
+    # LF-206. An export is a ~48 s Godot run per preset and its `--verify` leg is a real
+    # capture, so both halves are exactly the kind of process reap.py used to classify by
+    # command-line shape and kill out from under a sibling.
+    "tools/export.py": "export",
 }
 
 
@@ -1206,6 +1221,172 @@ def check_issue_traceability() -> Result:
     ## The tool prints its own one-line verdict; the gate shows it verbatim rather than
     ## re-summarising, so a "skip: no merge base" cannot be mistaken for a pass.
     return Result(OK, out.splitlines()[-1] if out else "no close declared")
+
+
+def check_export_presets() -> Result:
+    """`export_presets.cfg` still packs everything the shipped game opens at runtime.
+
+    LF-206. The trap this exists for is specific and silent: **a JSON file is not a Godot
+    resource.** `export_filter="all_resources"` packs scenes, scripts, imported textures,
+    fonts and audio — and nothing at all from `data/`, because `.json` has no importer. The
+    game would export cleanly, start cleanly, and then find no anchors, no towers and no
+    enemies. `include_filter="*.json"` is the one line standing between here and that, and
+    it is a line the Godot editor rewrites wholesale every time someone opens the export
+    dialog, which is precisely the kind of edit no human diff-reads.
+
+    So this asserts the filters against **what the source actually opens**, not against a
+    remembered list: every `res://…` literal in `scripts/*.gd` (13 of them, `FileAccess.open`
+    and `load()` alike) plus the directories `DirAccess.open()` walks, checked one by one
+    against each preset's include/exclude globs. A new `FileAccess.open("res://data/…")` in
+    a script is therefore covered the day it is written, with no edit here.
+
+    Deliberately static — no Godot, no export, ~20 ms. An export that proves the pack is
+    right costs 48 s per preset plus a capture, which belongs in `tools/export.py --verify`
+    and in the release workflow, not in a tier-1 gate that runs before every commit. What
+    this catches is the *configuration* going wrong, which is the failure with no symptom
+    until a stranger has the build.
+    """
+    cfg = ROOT / "export_presets.cfg"
+    if not cfg.is_file():
+        return Result(FAIL, "export_presets.cfg is missing — nothing can produce a build")
+    text = cfg.read_text()
+
+    # Godot writes one `[preset.N]` block per preset, `key="value"` inside it. Parsed with a
+    # regex rather than configparser: the file is INI-shaped but its values are Godot
+    # literals (`PackedStringArray()`, `Color(0, 0, 0, 1)`), which configparser is happy to
+    # read but which nothing here needs interpreted.
+    blocks = re.split(r"^\[preset\.(\d+)\]$", text, flags=re.M)[1:]
+    presets: dict[str, dict[str, str]] = {}
+    for i in range(0, len(blocks), 2):
+        body = blocks[i + 1]
+        fields = dict(re.findall(r'^(\w+)="([^"]*)"$', body, flags=re.M))
+        if "name" in fields:
+            presets[fields["name"]] = fields
+
+    # tools/export.py holds the same name->path mapping so it can find its own output; a
+    # drift between the two is a build written where nothing looks for it.
+    sys.path.insert(0, str(ROOT / "tools"))
+    import export as export_tool  # noqa: E402
+    wanted = {name: rel for name, rel in export_tool.PRESETS.values()}
+
+    problems: list[str] = []
+    for name, rel in wanted.items():
+        if name not in presets:
+            problems.append(f"tools/export.py wants a preset named {name!r}; the file has "
+                            f"{sorted(presets) or 'none'}")
+            continue
+        got = presets[name].get("export_path", "")
+        if got != str(rel):
+            problems.append(f"{name}: export_path is {got!r}, tools/export.py expects "
+                            f"{str(rel)!r}")
+
+    # Every res:// path the shipped scripts open by name, and every directory they list.
+    # scripts/test/ is excluded: those are `--script` harnesses for the parity checks and
+    # never run in a player's build.
+    literals: set[str] = set()
+    dirs: set[str] = set()
+    for gd in sorted((ROOT / "scripts").glob("*.gd")):
+        src = "\n".join(_strip_gd_comment(ln) for ln in gd.read_text().splitlines())
+        for m in re.finditer(r'DirAccess\.open\(\s*"res://([^"]+)"', src):
+            dirs.add(m.group(1))
+        for m in re.finditer(r'"res://([^"]+)"', src):
+            literals.add(m.group(1))
+    # A listed directory is only useful if its contents are packed, so stand in for it with
+    # the tracked files underneath — that is what the player's build has to be able to open.
+    for d in sorted(dirs):
+        literals.update(_tracked_under(d))
+    literals = {p for p in literals if "*" not in p and not p.endswith("/")}
+
+    def packed(path: str, inc: str, exc: str) -> bool:
+        """Godot applies exclude after include, so an exclusion always wins."""
+        for pat in [p.strip() for p in exc.split(",") if p.strip()]:
+            if fnmatch.fnmatch(path, pat):
+                return False
+        if path.endswith(".json"):
+            # The only non-resource extension this project loads by name. Anything else in
+            # `literals` (.gd, .tscn, .png, .ttf, .ogg) is a real resource and is packed by
+            # `export_filter="all_resources"` without an include rule.
+            return any(fnmatch.fnmatch(path, pat)
+                       for pat in [p.strip() for p in inc.split(",") if p.strip()])
+        return True
+
+    for name in wanted:
+        if name not in presets:
+            continue
+        inc = presets[name].get("include_filter", "")
+        exc = presets[name].get("exclude_filter", "")
+        dropped = sorted(p for p in literals if not packed(p, inc, exc))
+        if dropped:
+            problems.append(f"{name}: {len(dropped)} path(s) the game opens would not be "
+                            f"packed, e.g. {dropped[:3]}")
+
+    # The other direction, and it is not symmetric with the one above. An include rule wide
+    # enough to catch every runtime path is also wide enough to catch material that must
+    # never leave this repository: `include_filter="*.json"` — the obvious first spelling,
+    # and the one this preset shipped with for exactly one export — packed `backlog.json`
+    # into the web bundle, which is 56 KB of unreleased design discussion and owner feedback
+    # downloadable by anyone. Caught by reading `strings` off the pack, which is not a thing
+    # anybody will do twice. `data/` and `assets/` are the only trees a player's build has
+    # any business carrying.
+    tracked_json = _tracked_under("*.json")
+    for name in wanted:
+        if name not in presets:
+            continue
+        inc = presets[name].get("include_filter", "")
+        exc = presets[name].get("exclude_filter", "")
+        leaked = sorted(p for p in tracked_json
+                        if packed(p, inc, exc)
+                        and not p.startswith(("data/", "assets/")))
+        if leaked:
+            problems.append(f"{name}: include_filter reaches {len(leaked)} file(s) outside "
+                            f"data/ and assets/ — {leaked[:3]}")
+
+    # LF-283. The `res://` literals above are what the scripts open; the `[autoload]` block
+    # is what the engine opens before any script runs, and it fails differently: Godot 4.7.1
+    # drops an autoload whose script is missing from the pack **in silence** — no error, no
+    # warning, the game starts. Verified, not assumed: `addons/*` is excluded, so
+    # `_mcp_game_helper` is genuinely absent from the pack, and two anchors played out of the
+    # packaged build with zero complaints. That is harmless for an MCP bridge which no-ops in
+    # a release build anyway, and it is exactly why the same silence around `Content` or
+    # `Progress` would be so expensive. The MCP helper is the one declared exception, by name,
+    # so the exemption is visible here rather than implied by a filter somewhere else.
+    AUTOLOAD_NOT_SHIPPED = {"_mcp_game_helper"}
+    proj_text = (ROOT / "project.godot").read_text()
+    autoload_block = re.search(r"^\[autoload\]$(.*?)(?=^\[|\Z)", proj_text, re.M | re.S)
+    autoloads = dict(re.findall(r'^(\w+)="\*?res://([^"]+)"$', autoload_block.group(1),
+                                flags=re.M)) if autoload_block else {}
+    for name in wanted:
+        if name not in presets:
+            continue
+        inc = presets[name].get("include_filter", "")
+        exc = presets[name].get("exclude_filter", "")
+        gone = sorted(f"{k} ({v})" for k, v in autoloads.items()
+                      if k not in AUTOLOAD_NOT_SHIPPED and not packed(v, inc, exc))
+        if gone:
+            problems.append(f"{name}: {len(gone)} autoload(s) would not be packed, and the "
+                            f"engine drops those without a word — {gone[:3]}")
+
+    version = re.search(r'^config/version="([^"]*)"$', (ROOT / "project.godot").read_text(),
+                        flags=re.M)
+    if not version or not version.group(1).strip():
+        problems.append("project.godot has no application/config/version — butler's "
+                        "--userversion and the build's own version string both need one")
+
+    if problems:
+        return Result(FAIL, "; ".join(problems))
+    shipped = len(autoloads) - len(AUTOLOAD_NOT_SHIPPED & set(autoloads))
+    return Result(OK, f"{len(wanted)} presets, {len(literals)} runtime paths and "
+                      f"{shipped} autoloads packed, version {version.group(1)}")
+
+
+def _tracked_under(rel_dir: str) -> list[str]:
+    """Tracked files directly under `rel_dir`, repo-relative. `git ls-files`, never rglob —
+    same reason the rest of this file does it (CLAUDE.md): "tracked in this repository" is
+    the definition of the thing a packed build ships, and a denylist of scratch directories
+    rots."""
+    out = subprocess.run(["git", "ls-files", rel_dir], cwd=ROOT,
+                         capture_output=True, text=True).stdout
+    return [ln for ln in out.splitlines() if ln]
 
 
 def _strip_gd_comment(line: str) -> str:
@@ -2675,6 +2856,9 @@ CHECKS = [
     Check("chronicle current", 1, check_chronicle_current),
     Check("agent models",      1, check_agent_models),
     Check("leases wired",      1, check_leases_wired),
+    # LF-206. Static, ~20 ms, and it guards the one export setting whose failure has no
+    # symptom until a stranger has the build — see check_export_presets' own docstring.
+    Check("export presets",    1, check_export_presets),
     Check("issue traceability", 1, check_issue_traceability),
     Check("sim determinism",   2, check_sim),
     # LF-224. Sits next to `sim determinism` because the two were once one check by
