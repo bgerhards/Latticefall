@@ -10,8 +10,19 @@ true.
 
 ## Method
 
-Run `tools/check.py` first. Then go beyond it — the gate catches mechanical failures, not
-cheapness.
+**Read the gate result you were handed; do not run your own gate.** The dispatcher gives you
+the path to a `check.py --json` artefact. Read it, quote its tally line, and go beyond it —
+the gate catches mechanical failures, not cheapness.
+
+**Refuse to certify off a weak artefact.** The JSON carries a `"tier"` key. If it is below 3,
+or no artefact was handed to you, say so and stop: tier 3 is the first tier that runs the
+rendered checks, the scenarios and `anchor grades`, and "does this feel like a finished
+product" cannot be answered without them. Ask the dispatcher for a tier-3 run rather than
+starting one yourself — this instruction previously read "run `tools/check.py` first", which
+defaults to tier 4 and cost 22–36 minutes before the agent looked at anything.
+
+A check reporting `skip` is **not** a pass. If a check you were about to rely on was skipped,
+that is a finding.
 
 Verify by **observation**, never by reading code and reasoning about what it should do:
 launch it, look at it, listen to it, read the actual output files.
