@@ -19,8 +19,16 @@ re-asking, or re-litigating.
    headless Godot from the previous parity check holds a core at 100% indefinitely, and a
    background process the harness still tracks bills tokens when it eventually exits. If it
    finds anything, `--kill` it and **say so** — it means the last wrap did not hold.
-6. **Run the gate:** `.venv/bin/python tools/check.py`. If it fails on arrival, that is
-   the first thing to report — it means the last session left something broken.
+6. **Run the gate:** `.venv/bin/python tools/check.py --tier 2`. If it fails on arrival, that
+   is the first thing to report — it means the last session left something broken.
+
+   **Tier 2, not tier 4 and not tier 1.** This step carried no `--tier` until now, which meant
+   it silently ran tier 4 — 22–36 minutes at the top of every session, re-proving on arrival
+   what the previous wrap and CI both already proved. Tier 1 is the wrong cut in the other
+   direction: the arrival failure this project actually has is the blank level from a stale or
+   rebuilt `.godot/` import cache, which reads exactly like a code regression and has cost a
+   full diagnosis pass — and `godot boots` and `sprite atlas`, the two checks that would catch
+   it, are both tier 2.
 
 ## Then
 

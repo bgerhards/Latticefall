@@ -28,8 +28,13 @@ You implement the game. The pipelines already exist; you consume their output.
 
 ## Definition of done
 
-A change is done when `tools/check.py` passes, the thing is verified **running** — not just
-compiling — and the observable behaviour is described in the report. Zero exit codes are not
-evidence. Screenshots or MCP-read node state are.
+A change is done when `tools/check.py --tier 1` passes, the thing is verified **running** —
+not just compiling — and the observable behaviour is described in the report. Zero exit codes
+are not evidence. Screenshots or MCP-read node state are.
+
+Tier 1 is ~10 s and names the file and line; it is what an agent should be running constantly.
+Bare `tools/check.py` is **tier 4** — 22–36 minutes — and gating a subagent's work on it is
+paying the parity legs to prove a scene change. The coordinator gates the branch at tier 2 or
+4 in `ship`; you do not.
 
 Out-of-scope discoveries go to `tools/backlog.py add`.

@@ -10422,6 +10422,207 @@
           "text": "Nothing has been uploaded, and that is not an oversight. The repository has **no `LICENSE` file**, and the music was generated under the owner's own subscription — public distribution, even free, even on itch, is a different question from personal use under most generators' terms. `LF-206` has said so since the day it was filed, and it is the one item in it that engineering cannot close. The machinery is now entirely in place and idle behind a secret that does not exist yet, which is the correct place for it to be waiting."
         }
       ]
+    },
+    {
+      "id": "the-attractive-fix-and-the-correct-fix",
+      "date": "2026-08-14",
+      "time": "22:00",
+      "title": "The attractive fix and the correct fix were different, and only measurement separated them",
+      "summary": "A complaint that the final gate takes thirty-six minutes turned out to be arithmetic, and the fix was four lines of documentation rather than any of the eight engineering proposals — three of which the adversarial pass killed, including the two most attractive. The most useful finding of the session is that a Windows Godot leg sold as **21% faster** is, measured properly, **12% slower per unit of work**.",
+      "tags": [
+        "PRC",
+        "LF"
+      ],
+      "decisions": [],
+      "commits": [
+        {
+          "hash": "863690c",
+          "subject": "fix(gate): tier the four callers that silently ran the 36-minute gate"
+        }
+      ],
+      "body": [
+        {
+          "type": "p",
+          "text": "Three requests, one sentence each: a final gate should take minutes rather than thirty-plus; everything should run headless, including Blender; and on WSL both Blender and Godot should be the Windows binaries rather than the Linux ones. Three research agents went out and two adversarial reviewers went after what they brought back. Every figure below is either a cost this project has already recorded in a gate artefact or an earlier journal entry, or a measurement taken today on `main` at `ffe65fe` — and which one it is, is said. That distinction is doing real work here, because the first round of numbers was wrong in a way that read as authoritative."
+        },
+        {
+          "type": "h3",
+          "text": "The thirty-six minutes, fully accounted for"
+        },
+        {
+          "type": "p",
+          "text": "`tools/check.py` runs its 48 checks strictly serially — one `for check in CHECKS` loop at `check.py:3029` — and at tier 4 two of them are unsharded, single-process `test_parity.py` runs (`:2673` and `:2718`). That is the entire explanation. The arithmetic closes with nothing left over."
+        },
+        {
+          "type": "pre",
+          "text": "1 █ = 20,000 ms\n\ntier 3, everything else   █████████████████                                 340,419 ms\nrules parity              ██████████████████████████████████████████████    923,874 ms\nrules parity (windows)    ███████████████████████████████████████████████   936,361 ms\n                          ------------------------------------------------\nsum of the three                                                          2,200,654 ms\ntier 4, as recorded                                                       2,177,204 ms\n\nboth legs cached          ██████████████████████                            447,360 ms\none cached skip           ▏                                                     626 ms",
+          "caption": "Recorded per-check costs, quoted from this journal's own earlier entries rather than re-run today; one block per 20,000 ms, and the cached skip is far below one block so it is drawn as a sliver. The sum of the three parts and the recorded tier-4 total differ by about 1% because they come from different runs. `tier 3, everything else` is the whole of tier 3 — which is what a pull request is actually gated on."
+        },
+        {
+          "type": "p",
+          "text": "A cached parity leg costs **626 ms** instead of roughly fifteen minutes, and with both legs cached the whole of tier 4 lands at **447,360 ms**. So the gap between seven and a half minutes and thirty-six minutes is entirely a cache question — and on `main` today it was not a hypothetical one. Probed live: `.cache/parity.json` HITS at digest `234f711c…`, while `.cache/parity-windows.json` has held `0b1a4133…` since **2026-08-04**. Every tier-4 run since that date has paid the full Windows leg, and nothing anywhere says so."
+        },
+        {
+          "type": "h3",
+          "text": "What shipped was four lines"
+        },
+        {
+          "type": "p",
+          "text": "Not any of the clever fixes. `check.py`'s argparse default is tier 4, and four callers invoked it with no `--tier` at all."
+        },
+        {
+          "type": "table",
+          "headers": [
+            "caller",
+            "runs",
+            "was",
+            "now"
+          ],
+          "rows": [
+            [
+              "`session-start/SKILL.md:22`",
+              "every session start",
+              "tier 4",
+              "`--tier 2`"
+            ],
+            [
+              "`verify/SKILL.md:13`",
+              "every verify pass",
+              "tier 4",
+              "`--tier 3`, tier 4 on a release"
+            ],
+            [
+              "`build-verifier.md:13`",
+              "every dispatch",
+              "tier 4",
+              "reads the gate JSON it was handed, and refuses to certify off an artefact whose `tier` is below 3"
+            ],
+            [
+              "`godot-engineer.md:31`",
+              "definition of done",
+              "tier 4",
+              "`--tier 1`"
+            ]
+          ]
+        },
+        {
+          "type": "p",
+          "text": "Decision **070** (`PRC-20`) tiered the **wrap** — that is the entry titled “The wrap decides its tier before it spends anything” — and never revisited these four. None of them passed `--json`, so nothing downstream ever read their output: there was no consumer to break, which is both why the change is safe and part of why it went unnoticed for so long."
+        },
+        {
+          "type": "p",
+          "text": "`session-start` is tier 2 rather than tier 1 on purpose. The arrival failure this project actually has is the blank level produced by a stale `.godot/` import cache — which reads exactly like a code regression and is not one — and `godot boots` and `sprite atlas`, the two checks that catch it, are both tier 2. The cheapest cut is the wrong cut in that direction too."
+        },
+        {
+          "type": "p",
+          "text": "Gate on the branch: tier 1, **22 passed · 0 failed · 8,535 ms**; tier 2, **31 passed · 0 failed · 36,842 ms**."
+        },
+        {
+          "type": "h3",
+          "text": "The adversarial pass killed three of eight proposals, and was worth more than the fix"
+        },
+        {
+          "type": "p",
+          "text": "**Shard the parity run locally.** The obvious win, since `test_parity.py` already supports shards. Verified at `test_parity.py:661`, `:708`, `:712`, `:736` and `:768`: a sharded run writes **no cache and no cost table**. It would have traded a 626 ms cached skip for a ~260 s run on every future tier-4 gate — worse than doing nothing from the second run onward, and in direct conflict with the one thing that would actually help, which is repopulating the cache. With `N` above 24, `shard_ids` also produces empty shards that print `parity ok — 0 runs identical` and exit 0."
+        },
+        {
+          "type": "p",
+          "text": "**Parallelise `check.py`.** Killed on a concrete race rather than on principle: `sfx determinism` rewrites `assets/audio/sfx/ui_confirm.wav` **in place** while `sfx loudness` globs that same directory."
+        },
+        {
+          "type": "p",
+          "text": "**Content-hash cache the pure checks.** `sim determinism` and `sfx determinism` are determinism **detectors**; caching one after a lucky pass freezes the lucky pass. And `sprite atlas` is incoherent as a candidate — `pack_atlas.py:125-130` hashes every render's bytes, so the hash **is** the work. The proposal's claimed 23,981 ms saving is honestly 8,721 ms."
+        },
+        {
+          "type": "h3",
+          "text": "A measurement that inverted under scrutiny"
+        },
+        {
+          "type": "p",
+          "text": "The first Windows-Godot probe timed parity on `anchor-01` — 13,472 ms against Linux's 17,092 ms — and reported “21% faster, roughly seven minutes for a full run”. `anchor-01` is the **cheapest anchor in the suite**: 4.28 s of a 336.9 s total. The reviewer measured four anchors on both platforms instead, three repetitions each, reproducible to under 0.5%."
+        },
+        {
+          "type": "table",
+          "headers": [
+            "anchor",
+            "windows ÷ linux"
+          ],
+          "rows": [
+            [
+              "`anchor-08`",
+              "1.056"
+            ],
+            [
+              "`anchor-16`",
+              "1.083"
+            ],
+            [
+              "`anchor-24`",
+              "1.098"
+            ]
+          ]
+        },
+        {
+          "type": "p",
+          "text": "The fits separate into terms with opposite signs — Linux `1.48 + 3.055 · py_s`, Windows `−0.30 + 3.422 · py_s`. Windows saves about 1.8 s of fixed launch cost and loses **12% per unit of simulation work**. A full run is one launch. The claim was off by roughly thirty points in the wrong direction, and it was off because it extrapolated from the cheapest item in the suite."
+        },
+        {
+          "type": "h3",
+          "text": "The instrument itself was faulty"
+        },
+        {
+          "type": "p",
+          "text": "When the reviewer re-timed using the original method, one measurement came back at **−744 ms**. The shell clock on this machine runs backwards under load — the same failure `LF-178` already recorded against `check.py`'s own timings. Every single-shot figure in the first Windows report was taken that way. The corrected numbers use `time.monotonic()` and three repetitions, which is why those are the ones quoted above and the first set is not quoted at all."
+        },
+        {
+          "type": "h3",
+          "text": "Two premises everyone had been reasoning from were stale"
+        },
+        {
+          "type": "p",
+          "text": "Decision **071** says branch protection has no required checks at all. `gh api` against ruleset `20132789` returns an **active** ruleset requiring `gate`, `Build CI image` and `Gate (tier 3, container)`, with `bypass_actors: []`, last updated **2026-08-01** — after that decision was written. The decision record is append-only and stays as it is; this entry is where the correction lives. It is also load-bearing for the change above: a `verify` pass at tier 3 is not weaker than what `main` is already protected by."
+        },
+        {
+          "type": "p",
+          "text": "And `--budget`, the flag that turns the tier budgets into assertions, is passed by **no caller anywhere in the repository** — verified across every tracked file. Both tier budgets have therefore been decorative for the project's entire history. The tier-2 run on this very branch printed `36842ms of 28000ms (ok)`."
+        },
+        {
+          "type": "h3",
+          "text": "Two findings that are not about timing at all"
+        },
+        {
+          "type": "p",
+          "text": "**One Windows `godot boots` rotated the owner's real save directory.** Measured before and after against `AppData/Roaming/Godot/app_userdata/Latticefall`: oldest log deleted, `godot.log` rewritten, six files changed. No isolation exists on that backend, which is exactly why `tools/save_roundtrip.py:186` already refuses to run there. The refusal was right; the rest of the Windows plan had not noticed it."
+        },
+        {
+          "type": "p",
+          "text": "**A wedged Windows Godot, produced by this research itself**, was found at 0.0% CPU after 58 minutes — the reap contract failing inside the very session that was measuring what fails to reap. Since reaped; `reap.py` reports clean."
+        },
+        {
+          "type": "h3",
+          "text": "Two fears the reviewers cleared"
+        },
+        {
+          "type": "p",
+          "text": "Worth recording because an untested fear keeps costing decisions. `.godot/` is **byte-identical** after 4 Windows and 4 Linux parity runs and 3 + 3 main-scene boots: 0 diff lines across 1,607 entries, 0 of 265 sidecars changed. And `reap.py` genuinely does see a Windows stray through the interop stub — a SIGKILL of the Linux stub takes the Windows process with it."
+        },
+        {
+          "type": "h3",
+          "text": "The lesson, which outlasts the fix"
+        },
+        {
+          "type": "p",
+          "text": "The attractive fix and the correct fix were different, and the only thing that separated them was measurement. Sharding parity, parallelising the gate and content-hashing the pure checks all read as optimisations; two of the three would have made the gate slower or less trustworthy, and all three would have shipped looking like wins. What actually recovered the thirty minutes was reading four documentation files and passing a flag that already existed."
+        },
+        {
+          "type": "p",
+          "text": "The narrower lesson is cheaper to state and easier to repeat: **extrapolating from the cheapest item in a suite is how a 12% regression gets sold as a 21% win.** `anchor-01` is what everything gets probed against precisely because it is the fastest to run, which is exactly what makes it the wrong place to extrapolate from."
+        },
+        {
+          "type": "p",
+          "text": "No screenshots on this one; nothing about it was visible. Which is its own small point about a cost that had been paid on every session start, every verify pass and every subagent's definition of done, for weeks, with nothing red anywhere."
+        }
+      ]
     }
   ]
 }
